@@ -86,7 +86,12 @@ BEGIN
   -- a cap/pause/permit/balance, or reaches a provider. A verified owner / KNOWN
   -- non-free plan sends false and keeps the auto behaviour below. An existing
   -- AUTO row (e.g. a since-downgraded account) does NOT satisfy the requirement.
-  IF p_require_manual_budget AND (a.scope IS NULL OR a.provenance <> 'manual') THEN
+  -- Existing DataForSEO backlink dispatchers also use this generic expense
+  -- ledger. Their seven-argument calls retain the prior budget/permit gate;
+  -- the new manual-grant policy is for AI, not that non-AI provider. The
+  -- provider is fixed by trusted server/SQL callers; this RPC is service-only.
+  IF p_require_manual_budget AND p_provider <> 'dataforseo'
+     AND (a.scope IS NULL OR a.provenance <> 'manual') THEN
     RETURN QUERY SELECT false,'manual_budget_required',v_period; RETURN;
   END IF;
 

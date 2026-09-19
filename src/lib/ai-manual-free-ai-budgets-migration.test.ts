@@ -110,6 +110,22 @@ afterAll(async () => {
 });
 
 describe("manual-budget requirement for free/uncertain accounts", () => {
+  it("preserves legacy non-AI DataForSEO admission without weakening AI or missing-budget gates", async () => {
+    await seedManualGlobal();
+    await reserve(paid, 500_000, false, [PAID_ACCOUNT, GLOBAL]);
+    const legacy = (who: string, provider: string) =>
+      db.query<Row>(
+        "SELECT * FROM public.reserve_ai_expense($1,$2,$3,$4,'backlinks-live','backlink_details',100)",
+        [randomUUID(), who, job, provider],
+      );
+    expect((await legacy(paid, "dataforseo")).rows[0].reason).toBe("reserved");
+    expect((await legacy(paid, "openai")).rows[0].reason).toBe("manual_budget_required");
+    const missing = randomUUID();
+    expect((await legacy(missing, "dataforseo")).rows[0].reason).toBe("budget_unconfigured");
+    expect(await scope(`user:${missing}`)).toBeUndefined();
+    expect(await scope(`user:${paid}`)).toMatchObject({ held: 500_100, provenance: "auto" });
+  });
+
   it("denies many distinct free accounts, creating NO account row, request or held cost", async () => {
     await seedManualGlobal();
     for (let i = 0; i < 12; i++) {
