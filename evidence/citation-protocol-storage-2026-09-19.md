@@ -90,13 +90,28 @@ all conversation files.
   is restored so no test is contaminated. PGlite is single-connection and does not prove
   multi-connection concurrency; none is claimed.
 
+## Review round 3 (context-less correction must not vanish a capture)
+
+- The Answer panel's Correct action submits `supersedesId` with no captureContext via legacy intake;
+  superseding a capture-bound row, the active-leaf resolver excluded the original and skipped the
+  context-less successor, so the observation vanished from resolved counts. Fixed at two boundaries:
+  (1) `resolveStoredCaptures` now only lets a record supersede another when it is itself a resolvable
+  capture (captureContext parses), so a context-less or malformed successor never marks its
+  capture-bound predecessor superseded — the capture stays counted; (2) `importAnswerEvidence` refuses
+  a context-less correction whose predecessor is capture-bound
+  (`evidence_capture_correction_requires_context`) — an actionable refusal, not silent loss —
+  while legacy-of-legacy corrections still work. No released function redefined (`…10210000`
+  untouched); history, slot identity, panel authorization, normal capture chains and the duplicate-slot
+  guard preserved. Tests: legacy-intake/`readResolvedCaptures` roundtrip (refusal + capture still
+  resolved + legacy-of-legacy works) and resolver unit cases (context-less and malformed successors).
+
 ## Checks (status: UNRUN — prepared for Codex)
 
-Prior stages: 143 (tsc failing) → 146 → 148/147-PASS-1-FAIL (corrected); after the active
-correction-leaf delta Codex verified 150 focused tests PASS with types PASS. This round adds the
-missing-`workspace_meta` fail-closed guard in `save_citation_capture` and its SQL regression. That
-150/PASS is a PRIOR STAGE and does not carry over — every check below, including the new fail-closed
-regression, is UNRUN and re-run by Codex.
+Prior stages: 143 (tsc failing) → 146 → 148/147-PASS-1-FAIL (corrected) → 150, and most recently a
+reported 170 focused and 6081 full PASS. This round adds the context-less-correction vanish fix
+(resolver + legacy-intake refusal) with its tests. That 170/6081 PASS is a PRIOR STAGE and does not
+carry over — every check below, including the new legacy-intake roundtrip and resolver cases, is
+UNRUN and re-run by Codex.
 
 | Check | Purpose | Status |
 | --- | --- | --- |

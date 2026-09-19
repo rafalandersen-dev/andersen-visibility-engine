@@ -152,6 +152,30 @@ capture is collected, and the one migration (`…170000`) remains unapplied.
   inspection and single-transaction SQL; PGlite is single-connection and does **not** prove
   multi-connection concurrency, so no such proof is fabricated.
 
+### Review round 3 — a context-less correction must not vanish a capture
+
+The Answer panel's Correct action submits `supersedesId` with **no** `captureContext` through legacy
+intake, and legacy intake permits any same-prompt predecessor. When that superseded a capture-bound
+row, the active-leaf resolver excluded the original (now superseded) and skipped the context-less
+successor (unresolvable) — so a valid observation **vanished** from the resolved counts. Fixed
+coherently at both boundaries:
+
+- **Resolver (`resolveStoredCaptures`).** A record now only supersedes another in the resolved graph
+  if it is itself a *resolvable capture* (its `captureContext` parses). A context-less or malformed
+  successor therefore never marks its capture-bound predecessor superseded, so the capture stays the
+  active leaf and remains counted. Genuine capture correction chains (every link carries a
+  captureContext) and the duplicate-slot guard are unchanged; history is preserved.
+- **Legacy intake (`importAnswerEvidence`).** A legacy (context-less) submission with `supersedesId`
+  is refused when its predecessor is capture-bound (`evidence_capture_correction_requires_context`) —
+  an actionable error instead of silent loss; correcting a capture belongs on the panel-aware capture
+  path (with a captureContext). A legacy correction of a legacy (context-less) row is unchanged.
+
+No released function is redefined: the guard is in source (`importAnswerEvidence`) and the resolver,
+and the immutable `…10210000` legacy RPC is untouched; the resolver keeps any already-stored such row
+from vanishing a capture regardless. Tests: a real legacy-intake/`readResolvedCaptures` roundtrip
+(refusal + capture still resolved + legacy-of-legacy still works), and resolver unit cases for a
+context-less and a malformed successor.
+
 ## Files
 
 | File | Change |
@@ -192,11 +216,12 @@ and idempotency are covered by the new migration tests.
 
 ## Checks to run (UNRUN here — Codex executes)
 
-Status honesty: earlier stages progressed 143 (tsc failing) → 146 → 148/147-PASS-1-FAIL (corrected);
-after the active correction-leaf delta Codex verified 150 focused tests PASS with types PASS. This
-round adds the missing-`workspace_meta` fail-closed guard in `save_citation_capture` and its SQL
-regression. **That 150/PASS is a prior stage and does not carry over** — every check below, including
-the new fail-closed regression, is UNRUN in this worktree and must be re-executed by Codex.
+Status honesty: successive stages ran 143 (tsc failing) → 146 → 148/147-PASS-1-FAIL (corrected) →
+150, and most recently a reported 170 focused and 6081 full PASS. This round adds the
+context-less-correction vanish fix (resolver + legacy-intake refusal) with its tests. **That
+170/6081 PASS is a prior stage and does not carry over** — every check below, including the new
+legacy-intake roundtrip and resolver cases, is UNRUN in this worktree and must be re-executed by
+Codex.
 
 - `npx vitest run src/lib/citation-protocol.test.ts`
 - `npx vitest run src/lib/citation-protocol.functions.test.ts`

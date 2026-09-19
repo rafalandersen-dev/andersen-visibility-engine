@@ -86,6 +86,17 @@ export async function importAnswerEvidence(
     (p) => p.id === input.promptId && p.revision === input.promptRevision,
   );
   if (!prompt) throw Error("evidence_prompt_missing");
+  // A legacy (context-less) intake must not "correct" a capture-bound observation. The Answer panel's
+  // Correct action submits `supersedesId` with no captureContext; if that superseded a capture, the
+  // citation resolver would drop the capture (superseded original excluded, context-less successor
+  // unresolvable) — a silent loss. Refuse it with an actionable error; a correction of a capture
+  // belongs on the panel-aware capture path (carrying a captureContext). A legacy correction of a
+  // legacy (context-less) row stays allowed.
+  if (input.supersedesId !== null) {
+    const predecessor = state.answers.find((a) => a.id === input.supersedesId);
+    if (predecessor && predecessor.input.captureContext !== undefined)
+      throw Error("evidence_capture_correction_requires_context");
+  }
   // A write must satisfy the same derived-data contract as subsequent reads.
   const document = evidenceRowSchema
     .omit({ id: true, createdAt: true, hash: true })

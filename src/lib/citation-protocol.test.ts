@@ -331,6 +331,41 @@ describe("citation protocol pure contract", () => {
     // Two distinct slots, no duplicate-slot throw (pre-fix, a/b/c would all resolve to round 1).
     expect(counts).toMatchObject({ recorded: 2, outcomes: { complete: 2 } });
   });
+  it("keeps a valid capture in resolved counts when a context-less or malformed successor supersedes it", () => {
+    const cap = {
+      id: "cap",
+      status: "complete" as const,
+      promptId: uuid(101),
+      promptRevision: 1,
+      captureContext: context(),
+      supersedesId: null,
+    };
+    // A legacy Answer-panel "Correct" supersedes the capture but carries no captureContext; and a
+    // separate successor whose captureContext is malformed. Neither is a resolvable capture, so
+    // neither may erase the capture-bound observation from the resolved counts (the pre-fix bug:
+    // original excluded as superseded, successor skipped as unresolvable → the observation vanished).
+    const legacySuccessor = {
+      id: "leg",
+      status: "complete" as const,
+      promptId: uuid(101),
+      promptRevision: 1,
+      captureContext: undefined,
+      supersedesId: "cap",
+    };
+    const malformedSuccessor = {
+      id: "bad",
+      status: "complete" as const,
+      promptId: uuid(101),
+      promptRevision: 1,
+      captureContext: { not: "a valid capture context" },
+      supersedesId: "cap",
+    };
+    for (const successor of [legacySuccessor, malformedSuccessor]) {
+      const resolved = resolveStoredCaptures([cap, successor], [discoveryPanel()], []);
+      expect(resolved.map((r) => r.answerId)).toEqual(["cap"]);
+      expect(resolved[0]).toMatchObject({ outcome: "complete", panelResolved: true });
+    }
+  });
 });
 
 describe("citation protocol server, no provider or URL calls", () => {

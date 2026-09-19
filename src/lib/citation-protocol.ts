@@ -148,23 +148,33 @@ export interface ResolvedCapture {
  * the read never trusts a value baked into the capture. Brand runs are the trusted approved set
  * from storage, exactly as `protocolDeviations`/`slotOutcome` expect.
  *
- * Only the active leaf of each correction chain is resolved: a record that another supplied record
- * supersedes (an original or an intermediate correction) is raw history and is skipped here, so a
- * valid correction re-describing the same observation never yields two records for one slot (which
- * would double-count or trip `panelCounts`' duplicate-slot guard). This mirrors `evidenceCohorts`'
- * supersession convention and handles correction-of-correction chains transitively. Nothing is
- * deleted; the superseded rows remain readable through `readAnswerEvidence`.
+ * Only the active leaf of each correction chain is resolved: a capture that another *resolvable
+ * capture* supersedes (an original or an intermediate correction) is raw history and is skipped here,
+ * so a valid correction re-describing the same observation never yields two records for one slot
+ * (which would double-count or trip `panelCounts`' duplicate-slot guard). A context-less or malformed
+ * successor is NOT a resolvable capture and so cannot supersede a capture away — see the note in the
+ * body. This mirrors `evidenceCohorts`' supersession convention and handles correction-of-correction
+ * chains transitively. Nothing is deleted; the superseded rows remain readable via `readAnswerEvidence`.
  */
 export function resolveStoredCaptures(
   answers: StoredCaptureAnswer[],
   panels: PanelProtocol[],
   brandRuns: BrandRun[],
 ): ResolvedCapture[] {
-  const superseded = new Set(answers.map((a) => a.supersedesId).filter((id): id is string => !!id));
+  // A record only supersedes another in the resolved graph if it is itself a resolvable capture (its
+  // captureContext parses). So a context-less or malformed successor — e.g. a legacy Answer-panel
+  // "Correct" that submits supersedesId with no captureContext — never marks its capture-bound
+  // predecessor superseded; otherwise a valid observation would vanish from the resolved counts (the
+  // original excluded as superseded, the successor skipped below as unresolvable). Superseded records
+  // that ARE resolvable captures stay raw history but are not re-counted (active-leaf only).
+  const superseded = new Set<string>();
+  for (const a of answers)
+    if (a.supersedesId && captureContextSchema.safeParse(a.captureContext).success)
+      superseded.add(a.supersedesId);
   const out: ResolvedCapture[] = [];
   for (const answer of answers) {
     if (answer.captureContext === undefined || answer.captureContext === null) continue;
-    // Skip superseded records: resolve only the active leaf of each correction chain.
+    // Skip superseded captures: resolve only the active leaf of each capture correction chain.
     if (superseded.has(answer.id)) continue;
     const parsed = captureContextSchema.safeParse(answer.captureContext);
     if (!parsed.success) continue;

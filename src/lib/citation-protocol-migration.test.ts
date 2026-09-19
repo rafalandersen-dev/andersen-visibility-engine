@@ -1,7 +1,11 @@
 import { PGlite } from "@electric-sql/pglite";
 import { readFileSync } from "node:fs";
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
-import { saveEvidencePrompt, readAnswerEvidence } from "./answer-evidence.server";
+import {
+  saveEvidencePrompt,
+  readAnswerEvidence,
+  importAnswerEvidence,
+} from "./answer-evidence.server";
 import {
   approveBrandRun,
   importManualCapture,
@@ -449,6 +453,58 @@ describe("CI-2 manual capture resolution and binding", () => {
       })),
     );
     expect(counts).toMatchObject({ recorded: 1, outcomes: { complete: 1 } });
+  });
+  it("refuses a legacy context-less correction of a capture-bound row and keeps the capture resolved, while legacy-of-legacy corrections still work", async () => {
+    const capId = await importManualCapture(scope, discoveryCapture(), rpc);
+    // The Answer panel's Correct action submits supersedesId with NO captureContext through legacy
+    // intake. Against the capture-bound row it must be refused with an actionable error, never stored
+    // (which would orphan the capture from resolved counts).
+    const legacyCorrection = {
+      ...answerBase,
+      promptId: discoveryPromptId,
+      promptRevision: 1,
+      capturedAt: "2026-09-08T10:00:00Z",
+      rawAnswer: "legacy correction of a capture-bound row",
+      supersedesId: capId,
+    };
+    await expect(importAnswerEvidence(scope, legacyCorrection, rpc)).rejects.toThrow(
+      /evidence_capture_correction_requires_context/,
+    );
+    // The capture is untouched and still resolves as one active observation (no vanish).
+    expect((await readAnswerEvidence(scope, rpc)).answers).toHaveLength(1);
+    expect((await readResolvedCaptures(scope, rpc)).captures.map((c) => c.answerId)).toEqual([
+      capId,
+    ]);
+    // A legacy correction of a LEGACY (context-less) row still works, unchanged.
+    const legacyOriginal = await importAnswerEvidence(
+      scope,
+      {
+        ...answerBase,
+        promptId: discoveryPromptId,
+        promptRevision: 1,
+        capturedAt: "2026-09-08T10:00:00Z",
+        rawAnswer: "legacy original",
+      },
+      rpc,
+    );
+    const legacyFix = await importAnswerEvidence(
+      scope,
+      {
+        ...answerBase,
+        promptId: discoveryPromptId,
+        promptRevision: 1,
+        capturedAt: "2026-09-08T10:00:00Z",
+        rawAnswer: "legacy corrected",
+        supersedesId: legacyOriginal,
+      },
+      rpc,
+    );
+    expect(legacyFix).toBeTypeOf("string");
+    expect(legacyFix).not.toBe(legacyOriginal);
+    // The capture-bound observation is still the only resolved capture; legacy rows never resolve.
+    expect((await readResolvedCaptures(scope, rpc)).captures.map((c) => c.answerId)).toEqual([
+      capId,
+    ]);
   });
   it("refuses a capture collected before the panel version's approval and accepts one at or after it", async () => {
     const preApprovalTime = {
