@@ -10,7 +10,7 @@ import {
   advanceConversationTurn,
   assertConversationExecution,
   claimConversationTurn,
-  readConversation,
+  readConversationForExecution,
 } from "./milo-conversation.server";
 import {
   specialistMemory,
@@ -36,7 +36,9 @@ type Target = z.infer<typeof conversationTurnTarget>;
 type ModelInput = { context: NativeExpenseContext; prompt: string; maxOutputTokens: number };
 export interface SpecialistExecutorDeps {
   claim: typeof claimConversationTurn;
-  read: typeof readConversation;
+  // Executor-only, preview-lease-free continuity read (see
+  // readConversationForExecution). Browser reads keep the admitted budget.
+  read: typeof readConversationForExecution;
   assert: typeof assertConversationExecution;
   advance: typeof advanceConversationTurn;
   tool: typeof runSpecialistTool;
@@ -51,7 +53,7 @@ async function nativeModel({ context, prompt, maxOutputTokens }: ModelInput) {
 }
 const production: SpecialistExecutorDeps = {
   claim: claimConversationTurn,
-  read: readConversation,
+  read: readConversationForExecution,
   assert: assertConversationExecution,
   advance: advanceConversationTurn,
   tool: runSpecialistTool,
