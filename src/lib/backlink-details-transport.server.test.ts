@@ -51,7 +51,7 @@ it("sends one exact detail scope to the fixed endpoint and preserves supplier co
     "https://api.dataforseo.com/v3/backlinks/backlinks/live",
     expect.objectContaining({
       method: "POST",
-      redirect: "error",
+      redirect: "manual",
       body: JSON.stringify([backlinkDetailPayload(scope)]),
     }),
   );
@@ -149,4 +149,21 @@ it("rejects blank credentials before any transport", async () => {
     ),
   ).rejects.toThrow("backlink_details_unconfigured");
   expect(request).not.toHaveBeenCalled();
+});
+
+it("refuses a provider redirect without following its Location", async () => {
+  const cancel = vi.fn();
+  const request = vi.fn<typeof fetch>().mockResolvedValue(
+    new Response(new ReadableStream({ cancel }), {
+      status: 302,
+      headers: { location: "https://evil.test/steal", "content-type": "application/json" },
+    }),
+  );
+  await expect(
+    fetchBacklinkDetails(scope, credentials, new AbortController().signal, request),
+  ).rejects.toThrow("backlink_details_unavailable");
+  // Exactly one dispatch — the redirect target is never fetched.
+  expect(request).toHaveBeenCalledTimes(1);
+  expect(request.mock.calls[0][1]).toMatchObject({ redirect: "manual" });
+  expect(cancel).toHaveBeenCalledTimes(1);
 });

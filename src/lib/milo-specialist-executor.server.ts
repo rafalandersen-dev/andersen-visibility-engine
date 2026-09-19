@@ -72,6 +72,7 @@ function failure(error: unknown): { state: "failed" | "unknown"; code: Conversat
       "permit_required",
       "permit_invalid",
       "unpriced_provider",
+      "manual_budget_required",
     ].includes(error.reason)
   )
     return { state: "failed", code: "budget_unavailable" };
@@ -127,6 +128,20 @@ export async function runConversationSpecialists(
     turn = next;
     return next;
   };
+  // The owning business account pays for conversational AI, never a collaborator's
+  // personal plan (owner decisions 2026-09-14 in product/DECISIONS.md; Milestones
+  // 100/101 in CLAUDE_CONTINUATION_PROGRESS_2026_09_13.md: pooled per-account AI,
+  // the owning account pays for team access). This supersedes the earlier
+  // "initiating actor pays" note in product/CONVERSATIONAL_WORKSPACE_2026_09_13.md.
+  // `target.ownerId` is authoritative because the durable claim above bound this
+  // actor to this exact owner/project/turn under a fresh membership check and the
+  // verified stored-turn continuity; it is never a browser-trusted owner. Only the
+  // payer scope moves to the owner: authority stays actor-scoped — the claim,
+  // private-conversation reads (deps.read with `actor`) and the `assertLive`
+  // membership/claim recheck run before every dispatch, so a revoked collaborator
+  // cannot start a later paid step on the owner's budget. Mirrors the owner-account
+  // billing already used by the consented provider-check tools.
+  const payerId = target.ownerId;
   const ask = async (
     role: SpecialistRole,
     code: "analysing" | "responding",
@@ -140,7 +155,7 @@ export async function runConversationSpecialists(
     return wait(() =>
       deps.model({
         context: {
-          userId: actor,
+          userId: payerId,
           operation: code === "analysing" ? "miloConversationRoute" : "miloSpecialistReply",
           attempt: { requestId: operationId, jobId: target.turnId },
           signal: controller.signal,

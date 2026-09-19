@@ -4,9 +4,15 @@
 
 **Status:** Canonical decision log
 
-**Last updated:** 2026-09-14
+**Last updated:** 2026-09-19
 
 **Product Lead:** Rafal Andersen
+
+## 2026-09-19 — USD50 platform budget and manual grants for free AI
+
+Owner confirmed **USD50 per month for all Milo at launch**, then selected: **“AI na darmowych kontach dopiero po ręcznym przyznaniu budżetu.”** Native AI on free or uncertain accounts therefore requires an explicitly granted manual account budget. There is no automatic free-account allowance or shared USD5 free pool. Known paid plans and the verified owner retain their existing account admission, always bounded by the shared platform cap. This decision supersedes the older USD200/default-free-pool proposals; it does not authorize purchases or activate paid Stripe checkout.
+
+The owner replaced the OpenAI key through the service settings. The key itself is never stored in this decision log. PR140 released the manual-grant and USD50 controls; PR141 released complete article retention. The continuation candidate must retain both releases. Team conversational AI uses the validated owning business account as payer, consistent with the 14 September pooled-account decision; the initiating member remains the authority for private history and membership checks.
 
 ## 2026-09-14 (later) — Seat pricing approved; paid chat monitoring undecided; review items started
 
@@ -294,7 +300,6 @@ Review this strategy after the first meaningful paid cohorts, or earlier if
 customer evidence demonstrates that the selected ICP, live-AI methodology or
 core action/proof loop is materially wrong.
 
-
 ## 2026-09-06/07 — Premium rebuild and complete launch scope
 
 **Status:** User-selected direction; selected implementation merged, remaining work planned
@@ -338,7 +343,6 @@ The agent is a product direction; “Milo” with a stylized, visibly AI face is
 `ROADMAP.md` is the current execution order, `STRATEGY_2026_2027.md` supplies strategic rationale, and `CURRENT_STATE.md` separates merged source, historical verification and runtime unknowns. The R00–R24 register preserves omissions and dependencies. Old July P0–P3 IDs remain technical cross-references, not today's prioritization.
 
 The next technical outcome is the exact-head/environment-evidence packet, followed by bounded cost/reliability work. Read-only issue #43 discovery is already authorized; do not repeatedly request that approval. This documentation does not close #43, merge unrelated PRs, set prices, send messages or authorize a new Worker environment release.
-
 
 ## 2026-09-08 — Remove Lovable AI generation
 

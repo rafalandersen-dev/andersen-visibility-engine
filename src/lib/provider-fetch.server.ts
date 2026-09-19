@@ -1,6 +1,7 @@
 /**
- * Server-only fetch policy for DIRECT provider calls (native OpenAI text and
- * image). SERVER ONLY — never import from client code.
+ * Server-only fetch policy for credentialed provider calls (native OpenAI text
+ * and image plus other server transports). SERVER ONLY — never import from
+ * client code.
  *
  * Credentials must never be replayed to a redirect target. We cannot use
  * `redirect: "error"`: the Cloudflare Workers runtime (workerd) rejects it with
@@ -21,34 +22,49 @@
 const REDIRECT_STATUSES: ReadonlySet<number> = new Set([301, 302, 303, 307, 308]);
 
 /** A provider responded with a redirect. Named so it is never mistaken for a
- * normal HTTP outcome; carries no `Location`, body, header or credential. */
+ * normal HTTP outcome; carries no `Location`, body, header or credential. The
+ * wording is provider-neutral because the policy is shared across transports. */
 export class ProviderRedirectError extends Error {
   constructor() {
-    super("The AI provider attempted an unsupported redirect; the request was not followed.");
+    super("The provider attempted an unsupported redirect; the request was not followed.");
     this.name = "ProviderRedirectError";
   }
 }
 
 /**
- * `fetch` for direct provider transport. Forces `redirect: "manual"` (workerd-
- * safe) and refuses any redirect response without following `Location`.
+ * Wrap a `fetch` implementation (the global one or a caller-injected transport)
+ * with the shared redirect refusal. Forces `redirect: "manual"` (workerd-safe)
+ * set LAST so the caller's `init` can never override the policy, and refuses any
+ * redirect response without following `Location`. The single-attempt/no-retry,
+ * timeout and accounting gates remain the caller's responsibility — this only
+ * adds the redirect boundary around whatever `base` is given.
  */
-export const directProviderFetch: typeof fetch = async (input, init) => {
-  // redirect is set LAST so a caller's init can never override the policy.
-  const response = await fetch(input, { ...init, redirect: "manual" });
-  if (
-    response.type === "opaqueredirect" ||
-    response.redirected ||
-    REDIRECT_STATUSES.has(response.status)
-  ) {
-    // Discard the body so the connection/stream is released. Never read or
-    // expose Location; never issue a second (credentialed) request to it.
-    try {
-      await response.body?.cancel();
-    } catch {
-      /* body already discarded or unreadable */
+export function manualRedirectFetch(base: typeof fetch): typeof fetch {
+  return async (input, init) => {
+    // redirect is set LAST so a caller's init can never override the policy.
+    const response = await base(input, { ...init, redirect: "manual" });
+    if (
+      response.type === "opaqueredirect" ||
+      response.redirected ||
+      REDIRECT_STATUSES.has(response.status)
+    ) {
+      // Discard the body so the connection/stream is released. Never read or
+      // expose Location; never issue a second (credentialed) request to it.
+      try {
+        await response.body?.cancel();
+      } catch {
+        /* body already discarded or unreadable */
+      }
+      throw new ProviderRedirectError();
     }
-    throw new ProviderRedirectError();
-  }
-  return response;
-};
+    return response;
+  };
+}
+
+/**
+ * `fetch` for direct provider transport. Resolves the global `fetch` at call
+ * time (so runtime/test stubs apply) and refuses any redirect response.
+ */
+export const directProviderFetch: typeof fetch = manualRedirectFetch((input, init) =>
+  fetch(input, init),
+);

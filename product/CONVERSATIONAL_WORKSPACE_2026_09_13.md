@@ -12,12 +12,12 @@ Local credential-presence inspection found no `OPENAI_API_KEY` in this worktree 
 
 ## Findings from source inspection
 
-* There is no chat/conversation route, conversation persistence or generic conversational executor in the inspected source and migrations. Searches for conversation IDs/history, `useChat` and `streamText` found no implementation. `app.specialists.tsx` is a project team/status page; it reads weekly evidence and knowledge and links to other screens. It is not conversational delegation.
-* `specialist-team.ts` defines nine roles, but durable stage evidence covers research/content/image. Existing weekly execution, retained results and cancellation should be reused for those actions.
-* `ai-provider-expense.server.ts` already provides single-attempt native generation with monetary reserves and supplied attempt/job IDs. `ai-text-bounds.server.ts` bounds bytes, tokens and elapsed time and disables automatic retries. Conversation orchestration must reuse these controls, with additional usage admission; persona instructions are never authority.
-* Authenticated functions derive the actor from verified claims. Team reads authorize current owner/project/member under a database lock and deliberately project safe fields. An owner workspace can contain legacy publishing secrets, integration settings and private knowledge: do not serialize or feed the full workspace into chat, and do not convert a collaborator into the owner when invoking tools.
-* Several useful functions, including weekly preparation and project knowledge, are owner-scoped. A collaborator cannot call them by substituting the owner's ID. Start from existing safe shared-project/draft projections; add each broader capability only with its own authorization and test evidence.
-* Existing team request admission bounds heavy reads. Persisted chat also needs independent write/active-turn limits, exact request identity, late-result checks, cancellation and visible uncertainty. A refreshed browser must read retained work rather than dispatch a model again.
+- There is no chat/conversation route, conversation persistence or generic conversational executor in the inspected source and migrations. Searches for conversation IDs/history, `useChat` and `streamText` found no implementation. `app.specialists.tsx` is a project team/status page; it reads weekly evidence and knowledge and links to other screens. It is not conversational delegation.
+- `specialist-team.ts` defines nine roles, but durable stage evidence covers research/content/image. Existing weekly execution, retained results and cancellation should be reused for those actions.
+- `ai-provider-expense.server.ts` already provides single-attempt native generation with monetary reserves and supplied attempt/job IDs. `ai-text-bounds.server.ts` bounds bytes, tokens and elapsed time and disables automatic retries. Conversation orchestration must reuse these controls, with additional usage admission; persona instructions are never authority.
+- Authenticated functions derive the actor from verified claims. Team reads authorize current owner/project/member under a database lock and deliberately project safe fields. An owner workspace can contain legacy publishing secrets, integration settings and private knowledge: do not serialize or feed the full workspace into chat, and do not convert a collaborator into the owner when invoking tools.
+- Several useful functions, including weekly preparation and project knowledge, are owner-scoped. A collaborator cannot call them by substituting the owner's ID. Start from existing safe shared-project/draft projections; add each broader capability only with its own authorization and test evidence.
+- Existing team request admission bounds heavy reads. Persisted chat also needs independent write/active-turn limits, exact request identity, late-result checks, cancellation and visible uncertainty. A refreshed browser must read retained work rather than dispatch a model again.
 
 ## Implementation order and exit evidence
 
@@ -29,20 +29,20 @@ Local credential-presence inspection found no `OPENAI_API_KEY` in this worktree 
 
 ## Remaining full-plan work — preserve alongside chat
 
-| Scope | Next completion evidence |
-| --- | --- |
-| R00/R24 | Fresh candidate audit, review, target migration ledger, runtime identity, public-audit containment and rollback |
-| R01–R03 | Complete chat and remaining premium/setup/brand journeys across devices; preserve existing delivered knowledge/refresh foundations |
-| R04–R06 | D07 role/approval choices; real solo and team/mixed flows; logged-out weekly work, notifications, failure/uncertain recovery |
-| R07–R09 | Actual specialist tools, MCP regression, secure provider setup, measured chat/generation costs, bounded usage and packages |
-| R10–R12 | At least three trustworthy observed-AI surfaces and methodology; source/citation analytics; verified versus unknown server-log bot evidence |
+| Scope       | Next completion evidence                                                                                                                                            |
+| ----------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| R00/R24     | Fresh candidate audit, review, target migration ledger, runtime identity, public-audit containment and rollback                                                     |
+| R01–R03     | Complete chat and remaining premium/setup/brand journeys across devices; preserve existing delivered knowledge/refresh foundations                                  |
+| R04–R06     | D07 role/approval choices; real solo and team/mixed flows; logged-out weekly work, notifications, failure/uncertain recovery                                        |
+| R07–R09     | Actual specialist tools, MCP regression, secure provider setup, measured chat/generation costs, bounded usage and packages                                          |
+| R10–R12     | At least three trustworthy observed-AI surfaces and methodology; source/citation analytics; verified versus unknown server-log bot evidence                         |
 | R13/R16/R17 | Actual Google/technical/local/global acceptance and content→publication→later measurement; existing released features must not be rebuilt from old roadmap statuses |
-| R14/R15 | Supplier/private contract, ongoing monitoring and independently verified placements; explicit outreach/order scope and measured expense |
-| R18 | Actual generated text/images, reference fidelity and WordPress/Shopify/custom destination parity and retained output |
-| R19 | Concrete D06 Slack timing/first workflow and exact consumer-client compatibility matrix |
-| R20 | Write GA/LV/LT/MT/RO; reconcile source claims before staged-language activation; fluent/full-page/mobile/accessibility acceptance for all 24 |
-| R21 | D01/D08 package/subscriber evidence, configured Stripe sandbox lifecycle, policy/tax/refund alignment before paid launch |
-| R22/R23 | Real setup/product recordings, 3–5 assisted testers, one solo and one team/mixed journey, support/recovery, quality and spend evidence |
+| R14/R15     | Supplier/private contract, ongoing monitoring and independently verified placements; explicit outreach/order scope and measured expense                             |
+| R18         | Actual generated text/images, reference fidelity and WordPress/Shopify/custom destination parity and retained output                                                |
+| R19         | Concrete D06 Slack timing/first workflow and exact consumer-client compatibility matrix                                                                             |
+| R20         | Write GA/LV/LT/MT/RO; reconcile source claims before staged-language activation; fluent/full-page/mobile/accessibility acceptance for all 24                        |
+| R21         | D01/D08 package/subscriber evidence, configured Stripe sandbox lifecycle, policy/tax/refund alignment before paid launch                                            |
+| R22/R23     | Real setup/product recordings, 3–5 assisted testers, one solo and one team/mixed journey, support/recovery, quality and spend evidence                              |
 
 D01–D08 remain visible in the scope register; broad execution authorization does not answer those product decisions. Stripe's earlier deferral is not evidence of configuration. Public paid launch remains unverified until the required acceptance is real.
 
@@ -66,16 +66,16 @@ This storage checkpoint is superseded by the executor checkpoint below. Both can
 
 Five authenticated POST functions now send, read, list, cancel and resume persisted conversation turns. The authenticated actor comes from verified session context. Submission saves the task before the executor acquires its durable claim; a duplicate running, terminal or unknown request only returns recorded state. Resuming cannot replace the original task, project, actor or generation choice. There is no public claim/advance/evidence-authoring endpoint.
 
-The native executor runs one lead routing request and at most two distinct specialist replies, using a strict server-owned registry and sequential tool dispatch. It saves operation identities before every model/tool call, real tool results before specialist replies, and handoff plus responses in the original conversation. The initiating actor's account pays conversational usage and passes existing account/global expense admission. Model selection and pricing remain the existing verified provider contract; no alternate provider, retry or browser-selected model was introduced. A trusted cancellation signal and final SQL authority check now propagate through monetary admission immediately before native text dispatch, including existing content generation. A cancelled, expired or membership-revised claim cannot dispatch a later paid step or overwrite cancellation with a successful result.
+The native executor runs one lead routing request and at most two distinct specialist replies, using a strict server-owned registry and sequential tool dispatch. It saves operation identities before every model/tool call, real tool results before specialist replies, and handoff plus responses in the original conversation. The initiating actor's account pays conversational usage and passes existing account/global expense admission. **[Superseded 2026-09-19 — this actor-pays billing scope is no longer current.** The later owner-approved 14 September decisions (`product/DECISIONS.md` 2026-09-14; `CLAUDE_CONTINUATION_PROGRESS_2026_09_13.md` Milestones 100/101) established that the owning business account pays for team access with pooled per-account AI. Native conversational routing and specialist replies now bill the validated `target.ownerId` — consistent with the consented provider-check/evidence tools — while membership, the durable claim, private-conversation reads and the pre-dispatch authority recheck remain actor-scoped. Under the 2026-09-19 manual-free AI gate, actor-scoped billing would have let a collaborator's free personal account block an owner's funded workspace. This paragraph is retained as history, not current behaviour.]** Model selection and pricing remain the existing verified provider contract; no alternate provider, retry or browser-selected model was introduced. A trusted cancellation signal and final SQL authority check now propagate through monetary admission immediately before native text dispatch, including existing content generation. A cancelled, expired or membership-revised claim cannot dispatch a later paid step or overwrite cancellation with a successful result.
 
 The unapplied conversation migration now has a five-minute claim lease, a service-only final execution-check RPC and an immutable per-turn `allowDraftGeneration` flag (default false). Only the project owner may set that flag; it is not a delegated spending or publication policy. The executor has a 250-second total deadline, each native call retains existing request/time/output limits, and late results cannot continue later steps. Unknown work is never automatically claimed again. Earlier saved receipts survive a later response failure. Cancellation cannot prove that an already-sent provider request was free or never completed; a retained article remains recoverable through the existing generation archive.
 
 Implemented tool evidence:
 
-* Project brief: fresh safe shared-project projection and bounded saved draft IDs; owners also see bounded current opportunity IDs.
-* Draft read and structural SEO review: current authorized saved content/version, text/heading/meta counts and explicit partial-content limits. No live crawl, ranking, index or publication-approval claim.
-* Project knowledge, weekly readiness and latest saved audit: owner-only readers, selected relevant fields, accepted-source limits and historical/missing-evidence distinctions. No scheduling or approval mutation.
-* One retained content generation: owner/content specialist only, with the saved per-turn generation flag, an existing live opportunity from the exact project, existing generation allowance, monetary reserve and durable result archive. The response links a generation receipt; editor import and publication remain separate required actions. Creating a new opportunity from a new topic is not yet supported in chat.
+- Project brief: fresh safe shared-project projection and bounded saved draft IDs; owners also see bounded current opportunity IDs.
+- Draft read and structural SEO review: current authorized saved content/version, text/heading/meta counts and explicit partial-content limits. No live crawl, ranking, index or publication-approval claim.
+- Project knowledge, weekly readiness and latest saved audit: owner-only readers, selected relevant fields, accepted-source limits and historical/missing-evidence distinctions. No scheduling or approval mutation.
+- One retained content generation: owner/content specialist only, with the saved per-turn generation flag, an existing live opportunity from the exact project, existing generation allowance, monetary reserve and durable result archive. The response links a generation receipt; editor import and publication remain separate required actions. Creating a new opportunity from a new topic is not yet supported in chat.
 
 Owner workspace data is never forwarded wholesale to a model. Collaborators use existing safe team projections and cannot read owner-only knowledge, audit, weekly state or generate by replacing the owner ID. The model cannot expand the tool schema, approve, publish, send outreach, place orders or change permissions. The current task is preserved exactly. Prior conversation text and receipt references are bounded with explicit omitted/shortened indicators; source and history text do not grant authority.
 
@@ -83,20 +83,19 @@ Focused executor verification passed 103 tests across seven files, including rea
 
 Final integration evidence (same final code, before documentation-only changes):
 
-| Check | Result | Local evidence |
-| --- | --- | --- |
-| Full application tests, two workers | 5,319 pass; 346 files; 124.71 seconds | `/tmp/milo-chat-executor-full-final.log` |
-| Previous full run before final receipt-memory refinement | 5,318 pass; 346 files; 147.84 seconds | `/tmp/milo-chat-executor-full.log` |
-| Production build, after final full run completed | Pass | `/tmp/milo-chat-executor-build-final.log` |
-| TypeScript | Pass | `/tmp/milo-chat-executor-types-final2.log` |
-| New/changed conversation, specialist and expense-file lint | Pass | `/tmp/milo-chat-executor-lint-final2.log` |
-| Existing `ai.functions.ts` lint comparison | 16 inherited findings versus 17 at committed baseline; no new finding | `/tmp/milo-chat-executor-core-lint-{baseline,final}.json` |
-| Whitespace and changed-line formatting | Pass | `git diff --check`; `/tmp/milo-chat-executor-format-final.log` |
+| Check                                                      | Result                                                                | Local evidence                                                 |
+| ---------------------------------------------------------- | --------------------------------------------------------------------- | -------------------------------------------------------------- |
+| Full application tests, two workers                        | 5,319 pass; 346 files; 124.71 seconds                                 | `/tmp/milo-chat-executor-full-final.log`                       |
+| Previous full run before final receipt-memory refinement   | 5,318 pass; 346 files; 147.84 seconds                                 | `/tmp/milo-chat-executor-full.log`                             |
+| Production build, after final full run completed           | Pass                                                                  | `/tmp/milo-chat-executor-build-final.log`                      |
+| TypeScript                                                 | Pass                                                                  | `/tmp/milo-chat-executor-types-final2.log`                     |
+| New/changed conversation, specialist and expense-file lint | Pass                                                                  | `/tmp/milo-chat-executor-lint-final2.log`                      |
+| Existing `ai.functions.ts` lint comparison                 | 16 inherited findings versus 17 at committed baseline; no new finding | `/tmp/milo-chat-executor-core-lint-{baseline,final}.json`      |
+| Whitespace and changed-line formatting                     | Pass                                                                  | `git diff --check`; `/tmp/milo-chat-executor-format-final.log` |
 
 The inherited full-run membership timeout remains valid historical evidence, followed by its isolated pass and now two full-suite passes. The membership test, its large-history inserts and its timeout are unchanged. Resource contention was not separately reproduced or established as a root cause. The local document-worker checks still emit optional-canvas/polyfill warnings; the build emits existing bundle warnings. These do not turn the passing local test/build runs into browser, provider, target-migration or production acceptance. Both candidate migrations remain unapplied; the recorded PR135 security-review hold remains open and was not retried unchanged.
 
 Next action recorded at the backend checkpoint (superseded below): build the primary conversation screen and navigation with actor/owner/project-keyed state, own/shared client selection, named roles and portraits, persisted history, recovery/cancellation and authorized result destinations. Use the existing central language catalogs, retain their source-fingerprint/complete-key checks, and author new copy for all four runtime plus fifteen currently complete staged catalogs without claiming staged-language activation. Add functional browser tests for switching projects, a revoked/failed refresh, reload, repeated submission, mobile/keyboard operation and the specialist handoff. Then complete execution breadth, pending background dispatch, conversation export/deletion and real-use/release acceptance. No user-facing chat route is exposed by the backend checkpoint; it is not the completed main chat requirement.
-
 
 ## Third implementation checkpoint — primary conversational UI
 
@@ -120,20 +119,18 @@ These are real React components/routes and central translations with synthetic u
 
 Final integration evidence for the UI checkpoint:
 
-| Check | Result | Local evidence |
-| --- | --- | --- |
-| Full application tests, two workers | 5,357 pass; 348 files; 66.51 seconds | `/tmp/milo-chat-ui-full-final.log` |
-| Production build, sequentially after the full run | Pass; existing chunk and inline-dynamic-import warnings | `/tmp/milo-chat-ui-build-final.log` |
-| TypeScript after final route/context edits | Pass | `/tmp/milo-chat-ui-types-final3.log` |
-| Changed/new TypeScript lint | Pass, all 54 changed/new TypeScript files; generated route tree excluded | `/tmp/milo-chat-ui-lint-final.log` |
-| Actual browser components/routes | Eight conversation groups × four active locales; four full-route groups × four active locales; three generation groups | `scripts/milo-conversation-browser/README.md` and browser tool results in this task |
-| Formatting and whitespace | Pass, 62 changed/new code files; generated route tree excluded | `/tmp/milo-chat-ui-format-final.log`; `git diff --check` |
+| Check                                             | Result                                                                                                                 | Local evidence                                                                      |
+| ------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------- |
+| Full application tests, two workers               | 5,357 pass; 348 files; 66.51 seconds                                                                                   | `/tmp/milo-chat-ui-full-final.log`                                                  |
+| Production build, sequentially after the full run | Pass; existing chunk and inline-dynamic-import warnings                                                                | `/tmp/milo-chat-ui-build-final.log`                                                 |
+| TypeScript after final route/context edits        | Pass                                                                                                                   | `/tmp/milo-chat-ui-types-final3.log`                                                |
+| Changed/new TypeScript lint                       | Pass, all 54 changed/new TypeScript files; generated route tree excluded                                               | `/tmp/milo-chat-ui-lint-final.log`                                                  |
+| Actual browser components/routes                  | Eight conversation groups × four active locales; four full-route groups × four active locales; three generation groups | `scripts/milo-conversation-browser/README.md` and browser tool results in this task |
+| Formatting and whitespace                         | Pass, 62 changed/new code files; generated route tree excluded                                                         | `/tmp/milo-chat-ui-format-final.log`; `git diff --check`                            |
 
 The previously recorded optional document-renderer canvas/polyfill warnings remain in the full test log; they do not establish document visual acceptance. The full run includes the new four UI-boundary tests, nineteen new conversation-copy tests and fifteen additional staged-source cases. No test assertion or timeout was weakened. Read-only PR135 inspection after the UI build again found the same open head and usage-limit security-review comment, with no later completed security review. No review-consuming request was submitted. No deployment has occurred. Both candidate migrations remain unapplied and the recorded required security-review hold remains unresolved; no unchanged review-consuming retry occurred. The existing full R00–R24/D01–D08 scope and owner release authorization remain active.
 
-
 Next work: verify the real authenticated layout and multi-tab conversation behavior; complete execution breadth, exact-version approvals, persistent recovery while logged out, export/deletion and the other open full-plan scopes. Prepare a reviewable release packet only with the required review and actual target prerequisites. Existing provider/account authorization is preserved; measured chat costs and production credentials must be verified without inventing funding. Continue independently where product decisions or external acceptance do not block work.
-
 
 ## Fourth implementation checkpoint — session continuity and multi-tab verification
 
@@ -153,15 +150,15 @@ PGlite serializes its local connection. These are observed browser/SQL state tra
 
 Final verification of this session follow-up:
 
-| Check | Result | Local evidence |
-| --- | --- | --- |
-| Full application suite, two workers | 5,371 tests pass in 349 files; 79.69 seconds | `/tmp/milo-session-full-final.log` |
-| Production build after full suite completed | Pass | `/tmp/milo-session-build-final.log` |
-| TypeScript | Pass | `/tmp/milo-session-final-types.log` |
-| All five changed/new TypeScript files | No lint errors; one inherited `auth.tsx` Fast Refresh warning | `/tmp/milo-session-lint-final.log` |
-| Committed `auth.tsx` baseline comparison | Same Fast Refresh warning plus one formatting error; current formatting error resolved | `/tmp/milo-session-auth-lint-baseline.log` |
-| Changed code formatting and whitespace | Pass, 12 code files | `/tmp/milo-session-format-final.log`; `git diff --check` |
-| Browser fixture coverage | Six auth/layout/store groups × EN/PL; nine conversation groups × EN/PL; observed two-tab SQL workflow above | Browser results in this task; `scripts/milo-conversation-browser/README.md` |
+| Check                                       | Result                                                                                                      | Local evidence                                                              |
+| ------------------------------------------- | ----------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------- |
+| Full application suite, two workers         | 5,371 tests pass in 349 files; 79.69 seconds                                                                | `/tmp/milo-session-full-final.log`                                          |
+| Production build after full suite completed | Pass                                                                                                        | `/tmp/milo-session-build-final.log`                                         |
+| TypeScript                                  | Pass                                                                                                        | `/tmp/milo-session-final-types.log`                                         |
+| All five changed/new TypeScript files       | No lint errors; one inherited `auth.tsx` Fast Refresh warning                                               | `/tmp/milo-session-lint-final.log`                                          |
+| Committed `auth.tsx` baseline comparison    | Same Fast Refresh warning plus one formatting error; current formatting error resolved                      | `/tmp/milo-session-auth-lint-baseline.log`                                  |
+| Changed code formatting and whitespace      | Pass, 12 code files                                                                                         | `/tmp/milo-session-format-final.log`; `git diff --check`                    |
+| Browser fixture coverage                    | Six auth/layout/store groups × EN/PL; nine conversation groups × EN/PL; observed two-tab SQL workflow above | Browser results in this task; `scripts/milo-conversation-browser/README.md` |
 
 Existing optional document-canvas/polyfill and build bundle warnings remain separate limitations, not failing-test suppression. No current test assertion or timeout was weakened. Language counts stay 3,819 in four active and fifteen complete inactive catalogs; the remaining five languages and full product fluency acceptance stay open. Both migrations remain unapplied and the recorded required security review remains unresolved. Continue the next implementation work on conversation continuity outside an open tab, export/deletion and execution/approval breadth, alongside the full roadmap and release prerequisites. Do not treat local fixture acceptance as completion of real-use or commercial launch acceptance.
 
@@ -232,7 +229,6 @@ Final full suite after the atomic receipt and stable-card changes: **5,444 tests
 Read-only release inspection still finds PR135 open at `3ce139cceefa90f71e9a42a7d92549ad557122ea`, security-review usage-limit comment `5644046082` unchanged since 12 September, and only completed code review. No review-consuming retry/reset/PR, merge of held candidates, deployment, migration application or real provider call occurred. Remote main is now `27417bc8f4e8a7be7d3edb7371221a5d9e906da4`, one documentation-only commit beyond this candidate's previous main ancestor `ba9bcaf`; it was normally merged as `d1edb82`, preserving both chronological progress entries in a documentation conflict. This is not evidence of a new production runtime. Last recorded production remains PR134 pending a fresh release-time runtime check.
 
 The release prerequisite list now contains **four unapplied candidate migrations**, in order: `20260912040000`, `20260913120000`, `20260913160000`, `20260913180000`. Retain the fifth checkpoint's review, exact target/ledger, private dispatch activation and once-only deployment procedure; apply only genuinely missing migrations after their existing team-edit/knowledge/publication prerequisites. The proposal table and functions need no new cron or provider secret. Verify exact apply/receipt atomicity and competing live sessions on the actual target before enabling production chat. Preserve stored proposal/history evidence on rollback; an older runtime that cannot parse new proposal events is not a compatible chat rollback, and must not be used to claim preserved chat access. Broader draft-body/other specialist actions, export/deletion, final D01–D08 choices, real solo/team/provider use, all-language acceptance and the full R00–R24 delivery/release/launch criteria remain open. The goal remains active.
-
 
 ## Eighth implementation checkpoint — complete conversation export and erasure
 

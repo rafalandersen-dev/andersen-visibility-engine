@@ -89,7 +89,7 @@ describe("Google indexed-version evidence", () => {
     expect(request).toHaveBeenCalledWith(
       "https://searchconsole.googleapis.com/v1/urlInspection/index:inspect",
       expect.objectContaining({
-        redirect: "error",
+        redirect: "manual",
         method: "POST",
         body: JSON.stringify({
           inspectionUrl: context.url,
@@ -140,6 +140,22 @@ describe("Google indexed-version evidence", () => {
       ).rejects.toThrow("google_inspection_unavailable");
     },
   );
+  it("refuses a provider redirect without following its Location", async () => {
+    const cancel = vi.fn();
+    const request = vi.fn<typeof fetch>().mockResolvedValue(
+      new Response(new ReadableStream({ cancel }), {
+        status: 302,
+        headers: { location: "https://evil.test/steal", "content-type": "application/json" },
+      }),
+    );
+    await expect(
+      fetchGoogleIndex("test-token", context.property, context.url, request),
+    ).rejects.toThrow("google_inspection_unavailable");
+    // Exactly one dispatch — the redirect target is never fetched.
+    expect(request).toHaveBeenCalledTimes(1);
+    expect(request.mock.calls[0][1]).toMatchObject({ redirect: "manual" });
+    expect(cancel).toHaveBeenCalledTimes(1);
+  });
 });
 
 it("bounds shared serialized URL evidence after Unicode expansion", () => {
