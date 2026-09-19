@@ -2,6 +2,7 @@ import * as React from "react";
 import { render } from "react-email";
 import { sendLovableEmail } from "@lovable.dev/email-js";
 import { createServerFn } from "@tanstack/react-start";
+import { getRequestIP } from "@tanstack/react-start/server";
 import { createClient } from "@supabase/supabase-js";
 import { z } from "zod";
 import { SignupEmail } from "./email-templates/signup";
@@ -166,7 +167,14 @@ export const signupWithBrandedEmailFn = createServerFn({ method: "POST" })
     // because that administrative call can create an unconfirmed account.
     getEmailApiKey();
     const email = data.email.trim().toLowerCase();
-    await admitAuthEmail(supabase, email, process.env.SUPABASE_SERVICE_ROLE_KEY!);
+    // Bind admission to the trusted-edge client IP resolved by the runtime, never
+    // a client-supplied x-forwarded-for header.
+    await admitAuthEmail(supabase, {
+      email,
+      source: getRequestIP({ xForwardedFor: false }),
+      action: "signup",
+      secret: process.env.SUPABASE_SERVICE_ROLE_KEY!,
+    });
     const { data: linkData, error } = await supabase.auth.admin.generateLink({
       type: "signup",
       email,
@@ -209,7 +217,14 @@ export const requestPasswordResetWithBrandedEmailFn = createServerFn({ method: "
     // Do not issue a new recovery link when delivery is known to be unavailable.
     getEmailApiKey();
     const email = data.email.trim().toLowerCase();
-    await admitAuthEmail(supabase, email, process.env.SUPABASE_SERVICE_ROLE_KEY!);
+    // Recovery admission uses the same runtime source with a separate per-action
+    // quota so signup abuse from a source cannot exhaust its recovery capacity.
+    await admitAuthEmail(supabase, {
+      email,
+      source: getRequestIP({ xForwardedFor: false }),
+      action: "recovery",
+      secret: process.env.SUPABASE_SERVICE_ROLE_KEY!,
+    });
     const { data: linkData, error } = await supabase.auth.admin.generateLink({
       type: "recovery",
       email,
