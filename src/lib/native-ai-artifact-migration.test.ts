@@ -445,7 +445,7 @@ describe("raw native-report artifact staging SQL with real server round trips", 
       readNativeArtifacts({ ownerId: user, projectId: "missing" }, rpc),
     ).rejects.toThrow();
   });
-  it("enforces the per-project artifact cap and frees quota on deletion", async () => {
+  it("refuses a new scope at capacity with the deterministic capacity code, stays idempotent at capacity, and frees quota on deletion", async () => {
     const a = await stage(metadata, base64);
     // Fill to the 20-artifact bound with distinct-scope synthetic rows.
     await db.query(
@@ -453,7 +453,15 @@ describe("raw native-report artifact staging SQL with real server round trips", 
       [user, JSON.stringify(metadata)],
     );
     expect(await count()).toBe(20);
-    await expect(stage({ ...metadata, aggregation: "unknown" }, base64)).rejects.toThrow();
+    // A NEW scope is refused with the exact allowlisted capacity code the owner resolves by deleting,
+    // surfaced through the server wrapper — not collapsed to the generic unavailable code.
+    await expect(stage({ ...metadata, aggregation: "unknown" }, base64)).rejects.toThrow(
+      "native_artifact_capacity",
+    );
+    // An idempotent re-stage of an already-present artifact still returns it at capacity: same scope +
+    // same bytes short-circuits before the cap check, so no race-unsafe client precheck is needed.
+    expect((await stage(metadata, base64)).id).toBe(a.id);
+    expect(await count()).toBe(20);
     // Explicit deletion frees quota so a new scope can be staged again.
     await removeNativeArtifact(scope, a.id, rpc);
     expect(await count()).toBe(19);
@@ -641,5 +649,102 @@ describe("base64 decoded-byte boundary and canonical trailing-bit padding", () =
     expect(nativeArtifactBase64Schema.safeParse("AAB=").success).toBe(false);
     // A canonical short body passes through the schema byte-for-byte — owner bytes are never rewritten.
     expect(nativeArtifactBase64Schema.parse("Qg==")).toBe("Qg==");
+  });
+});
+describe("server wrapper surfaces only allowlisted capacity codes, else the generic code with no raw leak", () => {
+  const okInput = { metadata, base64 };
+  const failing =
+    (message: string): KnowledgeRpc =>
+    async () => ({ data: null, error: { message } });
+  it("passes each allowlisted capacity code through verbatim so the owner can resolve it by deleting", async () => {
+    for (const code of ["native_artifact_capacity", "native_artifact_byte_capacity"])
+      await expect(stageNativeArtifact(scope, okInput, failing(code))).rejects.toThrow(
+        new RegExp("^" + code + "$"),
+      );
+  });
+  it("collapses every other DB, auth, network or missing-row error to the generic code, leaking no raw text", async () => {
+    for (const raw of [
+      "invalid_native_artifact",
+      "native_artifact_too_large",
+      "permission denied for function save_ai_native_report_artifact",
+      "connection terminated unexpectedly",
+      'duplicate key value violates unique constraint "ai_native_report_artifacts_pkey"',
+    ])
+      await expect(stageNativeArtifact(scope, okInput, failing(raw))).rejects.toThrow(
+        /^native_artifact_unavailable$/,
+      );
+  });
+});
+describe("DB free-text bounds count UTF-16 code units, matching Zod and the read-back parse", () => {
+  // Each astral (supplementary) character is one Postgres code point but two JS/Zod UTF-16 units, so a
+  // value in-bounds by code points can still exceed the Zod cap by units. `rawSave` bypasses the client
+  // schema to probe the DB boundary directly — exactly the path a direct service RPC would take, which
+  // previously persisted a poison row that then broke the whole project's strict list/get parse.
+  const emoji = (n: number) => "😀".repeat(n); // U+1F600: 1 code point, 2 UTF-16 units
+  const cases = [
+    {
+      field: "filter value <=200",
+      at: { ...metadata, filters: { k: emoji(100) } },
+      over: { ...metadata, filters: { k: emoji(101) } },
+    },
+    {
+      field: "filter key <=64",
+      at: { ...metadata, filters: { [emoji(32)]: "v" } },
+      over: { ...metadata, filters: { [emoji(33)]: "v" } },
+    },
+    {
+      field: "declaredProperty <=500",
+      at: { ...metadata, declaredProperty: emoji(250) },
+      over: { ...metadata, declaredProperty: emoji(251) },
+    },
+    {
+      field: "filename <=255",
+      at: { ...metadata, filename: emoji(127) },
+      over: { ...metadata, filename: emoji(128) },
+    },
+    {
+      field: "Bing timezone 1..64",
+      at: { ...metadata, period: { ...metadata.period, timezone: emoji(32) } },
+      over: { ...metadata, period: { ...metadata.period, timezone: emoji(33) } },
+    },
+    {
+      field: "mixed BMP+astral filter value <=200",
+      at: { ...metadata, filters: { k: cjk(100) + emoji(50) } },
+      over: { ...metadata, filters: { k: cjk(100) + emoji(51) } },
+    },
+  ];
+  it.each(cases)(
+    "bounds $field by UTF-16 units at the DB, refusing one unit over with no poison row and staying list-readable at the cap",
+    async ({ at, over }) => {
+      // One UTF-16 unit over the cap is refused directly by the DB; no off-contract poison row persists.
+      await expect(rawSave(over)).rejects.toThrow(/invalid_native_artifact/);
+      expect(await count()).toBe(0);
+      // Exactly at the cap is accepted and stored, and the list stays readable through the strict Zod
+      // parse (which also counts UTF-16 units) — proving a DB-accepted value can never break the read.
+      await rawSave(at);
+      const listed = await readNativeArtifacts(scope, rpc);
+      expect(listed.artifacts).toHaveLength(1);
+    },
+  );
+  it("keeps the nullable Bing branches (null timezone, null filename) working after the length swap", async () => {
+    const bingNulls = {
+      ...metadata,
+      period: { ...metadata.period, timezone: null },
+      filename: null,
+    };
+    await rawSave(bingNulls);
+    const listed = await readNativeArtifacts(scope, rpc);
+    expect(listed.artifacts).toHaveLength(1);
+    expect(listed.artifacts[0].metadata.filename).toBeNull();
+    expect(listed.artifacts[0].metadata.period.timezone).toBeNull();
+  });
+  it("round-trips an at-cap astral filter value through the full client+DB path and refuses one unit over before the RPC", async () => {
+    const staged = await stage({ ...metadata, filters: { k: emoji(100) } }, base64); // 200 units, at cap
+    expect(staged.status).toBe("pending_parser");
+    const detail = await getNativeArtifact(scope, staged.id, rpc);
+    expect(detail.metadata.filters.k).toBe(emoji(100));
+    // The client schema and the DB agree on the same UTF-16 boundary: one unit over is refused before RPC.
+    await expect(stage({ ...metadata, filters: { k: emoji(101) } }, base64)).rejects.toThrow();
+    expect(await count()).toBe(1);
   });
 });

@@ -8,6 +8,25 @@ import {
 } from "./native-ai-artifact";
 import type { KnowledgeRpc } from "./project-knowledge.server";
 const scope = z.object({ ownerId: z.string().uuid(), projectId: evidenceProjectId }).strict();
+// The database raises this small, fixed allowlist of capacity codes — the project's 20-artifact count
+// cap and its 40 MiB raw-byte quota — when a save is refused for a reason the owner can resolve
+// deterministically by deleting an existing artifact. Only these exact tokens are surfaced verbatim so
+// the endpoints can offer that guidance; EVERY other failure (validation, auth, a missing row, a raw
+// database error, network, or the timeout below) collapses to the generic code, so no raw database
+// error text ever escapes and unknown/auth/network failures stay opaque.
+const SURFACED_ARTIFACT_ERRORS = new Set([
+  "native_artifact_capacity",
+  "native_artifact_byte_capacity",
+]);
+function surfacedArtifactError(error: unknown): string {
+  const message =
+    typeof error === "object" && error !== null && "message" in error
+      ? (error as { message?: unknown }).message
+      : undefined;
+  return typeof message === "string" && SURFACED_ARTIFACT_ERRORS.has(message)
+    ? message
+    : "native_artifact_unavailable";
+}
 // Same timeout/RPC shape as answer-evidence.server; the browser never reaches these SECURITY DEFINER
 // functions (REVOKE ALL), so scope key and metadata arrive only from this trusted server path.
 async function call(name: string, args: Record<string, unknown>, injected?: KnowledgeRpc) {
@@ -25,7 +44,7 @@ async function call(name: string, args: Record<string, unknown>, injected?: Know
         timer = setTimeout(() => reject(Error("native_artifact_unavailable")), 10000);
       }),
     ]);
-    if (r.error) throw Error("native_artifact_unavailable");
+    if (r.error) throw Error(surfacedArtifactError(r.error));
     return r.data;
   } finally {
     clearTimeout(timer);

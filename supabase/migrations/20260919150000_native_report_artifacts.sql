@@ -41,6 +41,24 @@ CREATE TABLE public.ai_native_report_artifacts (
 ALTER TABLE public.ai_native_report_artifacts ENABLE ROW LEVEL SECURITY;
 REVOKE ALL ON public.ai_native_report_artifacts FROM PUBLIC,anon,authenticated,service_role;
 
+-- UTF-16 code-unit length, matching JS String.length — the exact semantics Zod's `.min`/`.max` and
+-- every strict read/list parse use to bound these free-text fields. Postgres char_length counts
+-- Unicode CODE POINTS, but a supplementary (astral, > U+FFFF) character is one code point yet TWO
+-- UTF-16 units, so a value in-bounds by code points can be over the Zod cap by units. Without this a
+-- direct RPC could persist such a value (e.g. 150 emoji in a <=200 filter value: 150 code points but
+-- JS length 300) that then fails the whole project's strict read/list parse. An astral character is
+-- exactly a 4-byte UTF-8 code point, so units = code points + (count of 4-byte code points); this is
+-- byte-exact and needs no regex \\U class. char_length('')=0 keeps the empty string at 0 units, so the
+-- existing 1..N lower bounds still reject an empty key/property. Internal-only: EXECUTE is revoked from
+-- every client role and the SECURITY DEFINER callers reach it as the function owner; search_path is
+-- pinned empty, and it exposes no new caller-facing capability.
+CREATE FUNCTION public.native_artifact_utf16_length(s text) RETURNS integer
+LANGUAGE sql IMMUTABLE PARALLEL SAFE SET search_path='' AS $$
+  SELECT char_length(s)
+    + (SELECT count(*) FROM regexp_split_to_table(s,'') ch WHERE octet_length(ch)=4)::int
+$$;
+REVOKE ALL ON FUNCTION public.native_artifact_utf16_length(text) FROM PUBLIC,anon,authenticated,service_role;
+
 CREATE FUNCTION public.save_ai_native_report_artifact(p_user uuid,p_project text,p_metadata jsonb,p_base64 text)
 RETURNS jsonb LANGUAGE plpgsql SECURITY DEFINER SET search_path='' AS $$
 DECLARE
@@ -83,7 +101,7 @@ BEGIN
      OR jsonb_typeof(p_metadata->'aggregation')<>'string' OR p_metadata->>'aggregation' NOT IN ('property','page','query','unknown')
      OR jsonb_typeof(p_metadata->'capturedAt')<>'string'
      OR NOT (jsonb_typeof(p_metadata->'filename')='null'
-             OR jsonb_typeof(p_metadata->'filename')='string' AND char_length(p_metadata->>'filename')<=255)
+             OR jsonb_typeof(p_metadata->'filename')='string' AND public.native_artifact_utf16_length(p_metadata->>'filename')<=255)
      OR NOT (period ?& ARRAY['start','end','timezone'])
      OR EXISTS(SELECT 1 FROM jsonb_object_keys(period) k WHERE k <> ALL(ARRAY['start','end','timezone']))
      OR NOT (market ?& ARRAY['country','exposed'])
@@ -94,7 +112,7 @@ BEGIN
   -- declaredProperty: trimmed 1..500; scheme+authority are canonically lowercased while the path,
   -- query and fragment stay case-significant, so `/Shop` and `/shop` are distinct scope identities.
   prop := regexp_replace(p_metadata->>'declaredProperty','^[[:space:]]+|[[:space:]]+$','','g');
-  IF char_length(prop) NOT BETWEEN 1 AND 500 THEN RAISE EXCEPTION 'invalid_native_artifact' USING ERRCODE='22023'; END IF;
+  IF public.native_artifact_utf16_length(prop) NOT BETWEEN 1 AND 500 THEN RAISE EXCEPTION 'invalid_native_artifact' USING ERRCODE='22023'; END IF;
   grp := regexp_match(prop,'^([A-Za-z][A-Za-z0-9+.-]*://)([^/?#]*)(.*)$');
   norm := CASE WHEN grp IS NULL THEN prop ELSE lower(grp[1])||lower(grp[2])||grp[3] END;
   -- period: real ordered Gregorian dates in strict YYYY-MM-DD form; a wrong day boundary would
@@ -104,7 +122,7 @@ BEGIN
   IF jsonb_typeof(period->'start')<>'string' OR period->>'start' !~ '^\d{4}-\d{2}-\d{2}$'
      OR jsonb_typeof(period->'end')<>'string' OR period->>'end' !~ '^\d{4}-\d{2}-\d{2}$'
      OR NOT (jsonb_typeof(period->'timezone')='null'
-             OR jsonb_typeof(period->'timezone')='string' AND char_length(period->>'timezone') BETWEEN 1 AND 64) THEN
+             OR jsonb_typeof(period->'timezone')='string' AND public.native_artifact_utf16_length(period->>'timezone') BETWEEN 1 AND 64) THEN
     RAISE EXCEPTION 'invalid_native_artifact' USING ERRCODE='22023';
   END IF;
   BEGIN d_start := (period->>'start')::date; d_end := (period->>'end')::date;
@@ -124,7 +142,7 @@ BEGIN
   END IF;
   -- filters: a flat map of bounded string keys (1..64) and string values (<=200); order is irrelevant.
   IF EXISTS(SELECT 1 FROM jsonb_each(filters) f
-       WHERE jsonb_typeof(f.value)<>'string' OR char_length(f.key) NOT BETWEEN 1 AND 64 OR char_length(f.value #>> '{}')>200) THEN
+       WHERE jsonb_typeof(f.value)<>'string' OR public.native_artifact_utf16_length(f.key) NOT BETWEEN 1 AND 64 OR public.native_artifact_utf16_length(f.value #>> '{}')>200) THEN
     RAISE EXCEPTION 'invalid_native_artifact' USING ERRCODE='22023';
   END IF;
   -- capturedAt: an actual offset-aware ISO-8601 download timestamp from 2020-01-01 through now.

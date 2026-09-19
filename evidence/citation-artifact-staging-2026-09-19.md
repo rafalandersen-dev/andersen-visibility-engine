@@ -191,3 +191,63 @@ budget and every scope/security boundary are unchanged.
 After explicit owner authorization for scoped Claude file tools, the author applied this correction with zero permission denials. Independent delta review confirms exact decoded-byte arithmetic and canonical trailing-bit checks preserve the 2 MiB cap without decoding or changing raw input.
 
 **25 focused tests/2 files PASS**, **6063 full-suite tests/379 files PASS** (97.38 s); TypeScript, scoped ESLint, whitespace and production build PASS. Logs `/tmp/milo-artifact-decoded-{focused,types,full,build}-20260919.log`. Codex integration exception: Prettier corrected one line wrap in the authored migration test after lint identified it; no application behavior authored by Codex. No SQL applied or real upload accepted in production.
+
+## PR144 review correction — capacity-code passthrough + UTF-16 free-text bounds (findings 4054786664, 4054786666), 19 September
+
+Code review 21:23:39 raised two P2 findings against HEAD `06b497d1`; the security review at
+21:23:01 (comment 5745398466) was clean. Codex inspected the server `call()` wrapper (line 28) and
+the SQL `char_length` filter guard (line 127) and confirmed both. Source/tests/docs only; **no cap
+raise, no shared native `.ts` helper rewrite, no parser/UI/P2/chat/inventory change**.
+
+- **Finding 4054786664 — generic wrapper swallowed the deterministic capacity refusal.**
+  `src/lib/native-ai-artifact.server.ts` collapsed *every* RPC error to `native_artifact_unavailable`,
+  so an owner who hit the per-project cap got an opaque "unavailable" instead of the actionable capacity
+  signal. The `call()` wrapper now surfaces exactly the DB's allowlisted capacity codes —
+  `native_artifact_capacity` (20-artifact count cap) and `native_artifact_byte_capacity` (40 MiB raw-byte
+  quota), both resolvable by deleting an artifact — verbatim, while **every** other failure (validation,
+  auth, a missing row, any raw database error, network, or the client-side timeout) still collapses to the
+  generic code. Only those two exact tokens pass an allowlist `Set` membership check on the error message,
+  so no raw database text escapes and unknown/auth/network failures stay opaque. No client-side count
+  precheck was added (race-unsafe); the deterministic refusal comes from the DB's transactional check, and
+  a same-scope+same-bytes re-stage still short-circuits to the existing row *before* the cap check.
+- **Finding 4054786666 — DB counted code points where Zod counts UTF-16 units.** The SQL bounded every
+  free-text metadata field with `char_length` (Unicode code points), but Zod and every strict read/list
+  parse bound by UTF-16 code units, and a supplementary (astral, > U+FFFF) character is one code point yet
+  two units. A direct service RPC could therefore persist e.g. a 150-emoji filter value (150 code points
+  ≤ 200, but JS length 300) that then failed the whole project's strict list/get parse. The candidate
+  migration `20260919150000_native_report_artifacts.sql` (still **UNAPPLIED**, edited in place) gains an
+  internal `public.native_artifact_utf16_length(text)` — `IMMUTABLE`, `search_path=''`, EXECUTE revoked
+  from PUBLIC/anon/authenticated/service_role and reached only by the SECURITY DEFINER callers as owner —
+  computing `char_length + (count of 4-byte UTF-8 code points)`, i.e. UTF-16 units, with `char_length('')=0`
+  preserving the existing 1..N lower bounds. It replaces `char_length` in the bounds for **every** bounded
+  free-text field: `declaredProperty` (500), filter keys (64) / values (200), `filename` (255) and
+  `timezone` (64). The 8 KB UTF-8 metadata cap, raw bytes, null/date/base64/scope-history rules and the
+  nullable timezone/country/filename branches are all unchanged, and no TypeScript length contract moved.
+
+New/updated regressions in `native-ai-artifact-migration.test.ts` (existing artifact test file):
+
+- the capacity test now asserts the exact `native_artifact_capacity` code is surfaced at the real
+  20-artifact cap, that an idempotent same-scope+same-bytes re-stage still succeeds at capacity, and that
+  deletion frees quota;
+- a wrapper-mapping test (injected RPC stubs) confirms both allowlisted capacity codes pass through
+  verbatim while `invalid_native_artifact`, `native_artifact_too_large`, a `permission denied` string, a
+  network drop and a unique-violation string all collapse to exactly `native_artifact_unavailable` (raw
+  text never leaked);
+- a data-driven real-SQL test drives astral boundaries via `rawSave` for filter value/key,
+  `declaredProperty`, `filename`, Bing `timezone` and a mixed BMP+astral value: one UTF-16 unit over the
+  cap is refused with no poison row, exactly at the cap is accepted and the list stays readable through the
+  strict Zod parse; plus null-timezone/null-filename Bing acceptance and a full client+DB round-trip of an
+  at-cap astral filter value with the over-cap value refused before the RPC. The existing ASCII/CJK
+  metadata-byte and base64 decoded-cap regressions are untouched (BMP CJK has no astral chars, so its
+  UTF-16 length equals its code-point count and those bounds are unchanged).
+
+These new checks and a re-run of the full suite / types / build are **NOT RUN in this worktree** (Codex
+executes the prepared checks). The prior stage recorded **6063 tests / 379 files** (the base64
+decoded-byte correction, run by Codex above); that figure is the **prior stage only** and is **not
+re-asserted** for this change — results for these regressions are pending Codex's run. No SQL applied, no
+upload UI enabled, no live artifact acceptance claimed; the USD50-global / manual-free budget and every
+scope/security boundary are unchanged.
+
+### Codex verification of capacity and Unicode correction — 19 September 2026
+
+Independent delta review confirmed the exact capacity-code allowlist and closed internal SQL helper align stored text with the existing UTF-16 schema bounds. **35 focused tests/2 files PASS** (1.31 s), **6073 full-suite tests/379 files PASS** (62.12 s); TypeScript, scoped ESLint, whitespace and production build PASS. Logs: `/tmp/milo-artifact-unicode-{focused,types,lint,full,build}-20260919.log`. Boundary fixtures cover accepted and rejected astral/mixed values; some exceed by two UTF-16 units, and the filename accepted fixture is 254 units against a 255-unit cap (the earlier “one unit / exactly at cap” prose is not literal for every fixture). No live upload or parser acceptance is claimed; the candidate migration remains unapplied. Claude authored application/SQL/tests; Codex ran checks and recorded this evidence.
