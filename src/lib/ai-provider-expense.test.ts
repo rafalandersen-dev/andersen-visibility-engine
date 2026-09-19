@@ -405,66 +405,72 @@ describe("native provider money admission", () => {
   });
 });
 
-describe("shared free-pool classification is server-derived", () => {
-  // The reserve RPC's p_use_free_pool is set ONLY from the trusted plan/owner
-  // reads in defaultCaps; a caller field can never influence it. Pool exemption
-  // is granted solely to a verified owner or a KNOWN non-free effective plan.
-  async function poolFlag() {
+describe("manual-budget requirement is server-derived", () => {
+  // The reserve RPC's p_require_manual_budget is set ONLY from the trusted
+  // plan/owner reads in defaultCaps; a caller field can never influence it. The
+  // requirement is waived (false) solely for a verified owner or a KNOWN
+  // non-free effective plan; every free or uncertain account requires a manual
+  // budget (owner decision 2026-09-19).
+  async function manualFlag() {
     await generateBudgetedText(context, "private source", 3000);
-    return mocks.rpc.mock.calls[0][1].p_use_free_pool;
+    return mocks.rpc.mock.calls[0][1].p_require_manual_budget;
   }
 
-  it("exempts a KNOWN paid plan from the pool", async () => {
+  it("waives the requirement for a KNOWN paid plan", async () => {
     mocks.entitledPlan.mockResolvedValue({ ok: true, planId: "pro" });
-    expect(await poolFlag()).toBe(false);
+    expect(await manualFlag()).toBe(false);
   });
 
-  it("exempts a verified owner even on the free plan", async () => {
+  it("waives the requirement for a verified owner even on the free plan", async () => {
     mocks.entitledPlan.mockResolvedValue({ ok: true, planId: "freePreview" });
     mocks.rolesRead.mockResolvedValue({ data: { role: "owner" }, error: null });
-    expect(await poolFlag()).toBe(false);
+    expect(await manualFlag()).toBe(false);
   });
 
-  it("charges a KNOWN free account to the shared pool", async () => {
+  it("requires a manual budget for a KNOWN free account (and sends no auto cap)", async () => {
     mocks.entitledPlan.mockResolvedValue({ ok: true, planId: "freePreview" });
     mocks.rolesRead.mockResolvedValue({ data: null, error: null });
-    expect(await poolFlag()).toBe(true);
+    await generateBudgetedText(context, "private source", 3000);
+    expect(mocks.rpc.mock.calls[0][1]).toMatchObject({
+      p_require_manual_budget: true,
+      p_account_cap: null,
+    });
   });
 
-  it("conservatively uses the pool when the plan lookup is uncertain", async () => {
+  it("requires a manual budget when the plan lookup is uncertain", async () => {
     mocks.entitledPlan.mockResolvedValue({ ok: false });
     mocks.rolesRead.mockResolvedValue({ data: null, error: null });
-    expect(await poolFlag()).toBe(true);
+    expect(await manualFlag()).toBe(true);
   });
 
-  it("conservatively uses the pool when the owner role read fails on a free plan", async () => {
+  it("requires a manual budget when the owner role read fails on a free plan", async () => {
     mocks.entitledPlan.mockResolvedValue({ ok: true, planId: "freePreview" });
     mocks.rolesRead.mockResolvedValue({ data: null, error: { message: "role read boom" } });
-    expect(await poolFlag()).toBe(true);
+    expect(await manualFlag()).toBe(true);
   });
 
-  it("still exempts a KNOWN paid plan even when the owner role read fails", async () => {
-    // A paid plan alone bypasses the pool; the account cap is null (owner
-    // uncertain), but the shared-cap classification is independent of it.
+  it("still waives the requirement for a KNOWN paid plan even when the owner role read fails", async () => {
+    // A paid plan alone waives the requirement; the account cap is null (owner
+    // uncertain), but the classification is independent of it.
     mocks.entitledPlan.mockResolvedValue({ ok: true, planId: "pro" });
     mocks.rolesRead.mockResolvedValue({ data: null, error: { message: "role read boom" } });
     await generateBudgetedText(context, "private source", 3000);
     expect(mocks.rpc.mock.calls[0][1]).toMatchObject({
-      p_use_free_pool: false,
+      p_require_manual_budget: false,
       p_account_cap: null,
       p_global_cap: DEFAULT_GLOBAL_MONTHLY_CAP_MICROUSD,
     });
   });
 
-  it("cannot be forced pool-exempt by a caller-supplied field", async () => {
+  it("cannot be forced to waive the requirement by a caller-supplied field", async () => {
     mocks.entitledPlan.mockResolvedValue({ ok: true, planId: "freePreview" });
     mocks.rolesRead.mockResolvedValue({ data: null, error: null });
     await generateBudgetedText(
-      { ...context, usesFreePool: false, isOwner: true } as typeof context,
+      { ...context, requiresManualBudget: false, isOwner: true } as typeof context,
       "private source",
       3000,
     );
-    expect(mocks.rpc.mock.calls[0][1].p_use_free_pool).toBe(true);
+    expect(mocks.rpc.mock.calls[0][1].p_require_manual_budget).toBe(true);
   });
 });
 

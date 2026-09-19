@@ -114,17 +114,18 @@ async function boundedPlanLookup<T>(work: PromiseLike<T>): Promise<T> {
  * query error/throw yields an UNKNOWN cap (null) rather than silently demoting an
  * owner to the ordinary ceiling.
  *
- * `usesFreePool` is the server-derived classification for the SHARED free-account
- * circuit breaker. It bypasses the pool ONLY for a verified owner or a KNOWN
- * non-free effective plan; every uncertain role/plan (including a lookup failure)
- * conservatively uses the pool. It is derived here from the same trusted
- * server-side reads and is never accepted from a caller field. */
-async function defaultCaps(
-  userId: string,
-): Promise<{
+ * `requiresManualBudget` is the server-derived classification for the owner
+ * decision (2026-09-19) that free accounts get native AI only after an operator
+ * manually grants them a budget. It is false ONLY for a verified owner or a
+ * KNOWN non-free effective plan; every uncertain role/plan (including a lookup
+ * failure) conservatively requires a manual budget. A restricted account also
+ * sends NO account cap (null): it must never auto-provision, so the RPC refuses
+ * before creating a row. It is derived here from the same trusted server-side
+ * reads and is never accepted from a caller field. */
+async function defaultCaps(userId: string): Promise<{
   accountCapMicrousd: number | null;
   globalCapMicrousd: number;
-  usesFreePool: boolean;
+  requiresManualBudget: boolean;
 }> {
   // Resolve the deterministic platform cap first: an invalid AI_GLOBAL_MONTHLY_CAP_USD
   // is a hard configuration error and must stop the attempt before any RPC.
@@ -135,11 +136,17 @@ async function defaultCaps(
   );
   const verifiedOwner = owner.ok && owner.isOwner;
   const knownPaid = plan.ok && plan.planId !== "freePreview";
+  const requiresManualBudget = !(verifiedOwner || knownPaid);
   return {
+    // A restricted (manual-budget) account gets no auto cap. An owner/paid
+    // account gets its plan cap only when BOTH plan and role are known; an
+    // uncertain read stays null so a paid/owner account is never frozen to Free.
     accountCapMicrousd:
-      plan.ok && owner.ok ? planAccountCapMicrousd(plan.planId, owner.isOwner) : null,
+      !requiresManualBudget && plan.ok && owner.ok
+        ? planAccountCapMicrousd(plan.planId, owner.isOwner)
+        : null,
     globalCapMicrousd,
-    usesFreePool: !(verifiedOwner || knownPaid),
+    requiresManualBudget,
   };
 }
 
@@ -157,7 +164,11 @@ function request(
   context: NativeExpenseContext,
   model: string,
   ceilingMicrousd: number,
-  caps: { accountCapMicrousd: number | null; globalCapMicrousd: number; usesFreePool: boolean },
+  caps: {
+    accountCapMicrousd: number | null;
+    globalCapMicrousd: number;
+    requiresManualBudget: boolean;
+  },
 ): ExpenseRequest {
   // Created once per server invocation, reused throughout reservation and
   // reconciliation. No provider retry occurs inside an attempt. A user retry
@@ -175,8 +186,8 @@ function request(
       accountCapMicrousd: caps.accountCapMicrousd,
       globalCapMicrousd: caps.globalCapMicrousd,
     },
-    // Server-derived pool classification; never sourced from a caller field.
-    usesFreePool: caps.usesFreePool,
+    // Server-derived manual-budget requirement; never sourced from a caller field.
+    requiresManualBudget: caps.requiresManualBudget,
   };
 }
 
