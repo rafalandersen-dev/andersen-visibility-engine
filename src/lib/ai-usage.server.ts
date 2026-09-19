@@ -349,8 +349,17 @@ async function resolvePlan(userId: string): Promise<PlanId> {
   }
 }
 
-/** Owner role, from the table the client cannot write. Never trusts a caller. */
-async function resolveOwner(userId: string): Promise<boolean> {
+/**
+ * Owner role read that PRESERVES lookup uncertainty. The role comes only from
+ * server-owned public.user_roles, keyed by the authenticated server `userId` —
+ * never a caller/workspace-supplied flag. A successfully-read absent row is a
+ * KNOWN non-owner (`{ ok: true, isOwner: false }`); a query error or thrown
+ * exception is `{ ok: false }`. Callers that must not silently lower an owner to
+ * a non-owner allowance (e.g. the native account cap) branch on `ok`.
+ */
+export type OwnerResult = { ok: true; isOwner: boolean } | { ok: false };
+
+export async function resolveOwnerResult(userId: string): Promise<OwnerResult> {
   try {
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     const admin = supabaseAdmin as unknown as {
@@ -370,14 +379,23 @@ async function resolveOwner(userId: string): Promise<boolean> {
         };
       };
     };
-    const { data } = await admin
+    const { data, error } = await admin
       .from("user_roles")
       .select("role")
       .eq("user_id", userId)
       .eq("role", "owner")
       .maybeSingle();
-    return Boolean(data);
+    if (error) return { ok: false };
+    return { ok: true, isOwner: Boolean(data) };
   } catch {
-    return false;
+    return { ok: false };
   }
+}
+
+/** Owner role, from the table the client cannot write. Never trusts a caller.
+ * Fail-closed for usage quotas: an uncertain read resolves to the non-owner
+ * (lower) ceiling, so a transient failure can never raise a quota. */
+async function resolveOwner(userId: string): Promise<boolean> {
+  const result = await resolveOwnerResult(userId);
+  return result.ok ? result.isOwner : false;
 }

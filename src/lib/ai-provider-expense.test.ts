@@ -1,11 +1,31 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { generateBudgetedImage, generateBudgetedText } from "./ai-provider-expense.server";
+import {
+  AI_ENTITLEMENT_LOOKUP_TIMEOUT_MS,
+  DEFAULT_GLOBAL_MONTHLY_CAP_MICROUSD,
+  NATIVE_IMAGE_RESERVE_MICROUSD,
+  NATIVE_TEXT_RESERVE_MICROUSD,
+  generateBudgetedImage,
+  generateBudgetedText,
+  planAccountCapMicrousd,
+} from "./ai-provider-expense.server";
+import { PLAN_IDS, PLAN_LIMITS } from "./billing";
+import { OWNER_MULTIPLIER } from "./ai-usage.server";
 import { DEFAULT_MODEL_ID } from "./ai-router";
 import { AI_TEXT_TIMEOUT_MS } from "./ai-text-bounds.server";
 import { withGenerationUsage } from "./generation-usage.server";
 
-const mocks = vi.hoisted(() => ({ rpc: vi.fn(), fetch: vi.fn() }));
-vi.mock("./entitlements.server", () => ({ resolveEntitledPlan: async () => "pro" }));
+const mocks = vi.hoisted(() => ({
+  rpc: vi.fn(),
+  fetch: vi.fn(),
+  entitledPlan: vi.fn(),
+  // The server-owned user_roles read behind resolveOwnerResult. Default is a
+  // successful "no owner row" (a KNOWN non-owner); tests override per case.
+  rolesRead: vi.fn(),
+}));
+vi.mock("./entitlements.server", () => ({
+  resolveEntitledPlan: async () => "pro",
+  resolveEntitledPlanResult: mocks.entitledPlan,
+}));
 vi.mock("@/integrations/supabase/client.server", () => ({
   supabaseAdmin: {
     rpc: mocks.rpc,
@@ -13,7 +33,7 @@ vi.mock("@/integrations/supabase/client.server", () => ({
       const q = {
         select: () => q,
         eq: () => q,
-        maybeSingle: async () => ({ data: null, error: null }),
+        maybeSingle: () => mocks.rolesRead(),
       };
       return q;
     },
@@ -48,6 +68,8 @@ beforeEach(() => {
     name === "reserve_ai_expense" ? reserved : unknown,
   );
   mocks.fetch.mockImplementation(async () => completion());
+  mocks.entitledPlan.mockResolvedValue({ ok: true, planId: "pro" });
+  mocks.rolesRead.mockResolvedValue({ data: null, error: null });
   vi.spyOn(console, "error").mockImplementation(() => {});
 });
 afterEach(() => {
@@ -186,6 +208,96 @@ describe("native provider money admission", () => {
       expect(mocks.fetch).not.toHaveBeenCalled();
     });
   }
+
+  it("supplies plan-derived account and the USD50 platform cap by default with every reservation", async () => {
+    // The owner-approved platform cap is USD50 (50,000,000 microUSD) with no env.
+    expect(DEFAULT_GLOBAL_MONTHLY_CAP_MICROUSD).toBe(50_000_000);
+    await generateBudgetedText(context, "private source", 3000);
+    expect(mocks.rpc.mock.calls[0][1]).toMatchObject({
+      p_account_cap: planAccountCapMicrousd("pro"),
+      p_global_cap: 50_000_000,
+    });
+    // The account cap is exactly the plan's own allowances at the fixed reserves,
+    // counting every text bucket (incl. AI credits and audits) + image bucket.
+    expect(planAccountCapMicrousd("freePreview")).toBe(32_000_000);
+    expect(planAccountCapMicrousd("pro")).toBe(2_317_000_000);
+
+    // The env override is preserved (a value distinct from the default proves it).
+    vi.stubEnv("AI_GLOBAL_MONTHLY_CAP_USD", "200");
+    mocks.rpc.mockClear();
+    await generateBudgetedText(context, "private source", 3000);
+    expect(mocks.rpc.mock.calls[0][1]).toMatchObject({ p_global_cap: 200_000_000 });
+
+    vi.stubEnv("AI_GLOBAL_MONTHLY_CAP_USD", "lots");
+    mocks.rpc.mockClear();
+    mocks.fetch.mockClear();
+    await expect(generateBudgetedText(context, "private source", 3000)).rejects.toMatchObject({
+      reason: "global_cap_invalid",
+    });
+    expect(mocks.rpc).not.toHaveBeenCalled();
+    expect(mocks.fetch).not.toHaveBeenCalled();
+  });
+
+  it("never lowers an account to Free on a transient entitlement lookup failure", async () => {
+    // An uncertain plan supplies NO account cap: reserve neither creates nor
+    // lowers the account row, so a paid account is never frozen to Free.
+    mocks.entitledPlan.mockResolvedValue({ ok: false });
+    await generateBudgetedText(context, "private source", 3000);
+    expect(mocks.rpc.mock.calls[0][1]).toMatchObject({
+      p_account_cap: null,
+      p_global_cap: DEFAULT_GLOBAL_MONTHLY_CAP_MICROUSD,
+    });
+  });
+
+  it("raises the account cap by OWNER_MULTIPLIER for a trusted owner", async () => {
+    // A server-owned user_roles row (role=owner) for the authenticated user.
+    mocks.rolesRead.mockResolvedValue({ data: { role: "owner" }, error: null });
+    await generateBudgetedText(context, "private source", 3000);
+    expect(mocks.rpc.mock.calls[0][1]).toMatchObject({
+      p_account_cap: planAccountCapMicrousd("pro", true),
+      p_global_cap: DEFAULT_GLOBAL_MONTHLY_CAP_MICROUSD,
+    });
+    // The owner cap is exactly the ordinary cap times the shared multiplier,
+    // consistent with capFor's interactive-quota ceiling in ai-usage.server.
+    expect(planAccountCapMicrousd("pro", true)).toBe(
+      planAccountCapMicrousd("pro") * OWNER_MULTIPLIER,
+    );
+  });
+
+  it("supplies the ordinary account cap for a known non-owner (no roles row)", async () => {
+    // The default seam already returns a successful absent row = KNOWN non-owner.
+    await generateBudgetedText(context, "private source", 3000);
+    expect(mocks.rpc.mock.calls[0][1]).toMatchObject({
+      p_account_cap: planAccountCapMicrousd("pro", false),
+    });
+    expect(planAccountCapMicrousd("pro", false)).toBe(planAccountCapMicrousd("pro"));
+  });
+
+  it("gives an UNKNOWN account cap (null) when the owner role read fails", async () => {
+    // A role query error must not silently demote a possible owner to the
+    // ordinary ceiling: the cap is unknown (null), even though the plan is known.
+    mocks.rolesRead.mockResolvedValue({ data: null, error: { message: "role read boom" } });
+    await generateBudgetedText(context, "private source", 3000);
+    expect(mocks.rpc.mock.calls[0][1]).toMatchObject({
+      p_account_cap: null,
+      p_global_cap: DEFAULT_GLOBAL_MONTHLY_CAP_MICROUSD,
+    });
+  });
+
+  it("cannot be spoofed into an owner cap by caller-supplied context fields", async () => {
+    // The public API shape (NativeExpenseContext) carries no owner flag; owner
+    // status resolves only from user_roles. Any extra caller-set field is inert.
+    mocks.rolesRead.mockResolvedValue({ data: null, error: null });
+    await generateBudgetedText(
+      { ...context, isOwner: true, isOwnerOverride: true } as typeof context,
+      "private source",
+      3000,
+    );
+    expect(mocks.rpc.mock.calls[0][1]).toMatchObject({
+      p_account_cap: planAccountCapMicrousd("pro", false),
+    });
+    expect(mocks.rpc.mock.calls[0][1].p_account_cap).not.toBe(planAccountCapMicrousd("pro", true));
+  });
 
   it("reserves once under the server user and preserves actual raw text counters", async () => {
     expect(await generateBudgetedText(context, "private source", 3000)).toBe('{"ok":true}');
@@ -333,5 +445,211 @@ describe("native provider money admission", () => {
     await expect(generateBudgetedImage(context, "x".repeat(8193))).rejects.toThrow("too long");
     expect(mocks.rpc).not.toHaveBeenCalled();
     expect(mocks.fetch).not.toHaveBeenCalled();
+  });
+});
+
+describe("manual-budget requirement is server-derived", () => {
+  // The reserve RPC's p_require_manual_budget is set ONLY from the trusted
+  // plan/owner reads in defaultCaps; a caller field can never influence it. The
+  // requirement is waived (false) solely for a verified owner or a KNOWN
+  // non-free effective plan; every free or uncertain account requires a manual
+  // budget (owner decision 2026-09-19).
+  async function manualFlag() {
+    await generateBudgetedText(context, "private source", 3000);
+    return mocks.rpc.mock.calls[0][1].p_require_manual_budget;
+  }
+
+  it("waives the requirement for a KNOWN paid plan", async () => {
+    mocks.entitledPlan.mockResolvedValue({ ok: true, planId: "pro" });
+    expect(await manualFlag()).toBe(false);
+  });
+
+  it("waives the requirement for a verified owner even on the free plan", async () => {
+    mocks.entitledPlan.mockResolvedValue({ ok: true, planId: "freePreview" });
+    mocks.rolesRead.mockResolvedValue({ data: { role: "owner" }, error: null });
+    expect(await manualFlag()).toBe(false);
+  });
+
+  it("requires a manual budget for a KNOWN free account (and sends no auto cap)", async () => {
+    mocks.entitledPlan.mockResolvedValue({ ok: true, planId: "freePreview" });
+    mocks.rolesRead.mockResolvedValue({ data: null, error: null });
+    await generateBudgetedText(context, "private source", 3000);
+    expect(mocks.rpc.mock.calls[0][1]).toMatchObject({
+      p_require_manual_budget: true,
+      p_account_cap: null,
+    });
+  });
+
+  it("requires a manual budget when the plan lookup is uncertain", async () => {
+    mocks.entitledPlan.mockResolvedValue({ ok: false });
+    mocks.rolesRead.mockResolvedValue({ data: null, error: null });
+    expect(await manualFlag()).toBe(true);
+  });
+
+  it("requires a manual budget when the owner role read fails on a free plan", async () => {
+    mocks.entitledPlan.mockResolvedValue({ ok: true, planId: "freePreview" });
+    mocks.rolesRead.mockResolvedValue({ data: null, error: { message: "role read boom" } });
+    expect(await manualFlag()).toBe(true);
+  });
+
+  it("still waives the requirement for a KNOWN paid plan even when the owner role read fails", async () => {
+    // A paid plan alone waives the requirement; the account cap is null (owner
+    // uncertain), but the classification is independent of it.
+    mocks.entitledPlan.mockResolvedValue({ ok: true, planId: "pro" });
+    mocks.rolesRead.mockResolvedValue({ data: null, error: { message: "role read boom" } });
+    await generateBudgetedText(context, "private source", 3000);
+    expect(mocks.rpc.mock.calls[0][1]).toMatchObject({
+      p_require_manual_budget: false,
+      p_account_cap: null,
+      p_global_cap: DEFAULT_GLOBAL_MONTHLY_CAP_MICROUSD,
+    });
+  });
+
+  it("cannot be forced to waive the requirement by a caller-supplied field", async () => {
+    mocks.entitledPlan.mockResolvedValue({ ok: true, planId: "freePreview" });
+    mocks.rolesRead.mockResolvedValue({ data: null, error: null });
+    await generateBudgetedText(
+      { ...context, requiresManualBudget: false, isOwner: true } as typeof context,
+      "private source",
+      3000,
+    );
+    expect(mocks.rpc.mock.calls[0][1].p_require_manual_budget).toBe(true);
+  });
+});
+
+describe("a stalled entitlement lookup cannot hang a native attempt", () => {
+  for (const kind of ["text", "image"] as const) {
+    const run = () =>
+      kind === "text"
+        ? generateBudgetedText(context, "private source", 3000)
+        : generateBudgetedImage(context, "private image prompt");
+    it(`${kind} stops before reserving money or provider work`, async () => {
+      vi.useFakeTimers();
+      // A Supabase entitlement read that never resolves must not hang the attempt.
+      mocks.entitledPlan.mockImplementation(() => new Promise(() => {}));
+      const assertion = expect(run()).rejects.toMatchObject({ reason: "entitlement_timeout" });
+      await vi.advanceTimersByTimeAsync(AI_ENTITLEMENT_LOOKUP_TIMEOUT_MS + 1);
+      await assertion;
+      expect(mocks.rpc).not.toHaveBeenCalled();
+      expect(mocks.fetch).not.toHaveBeenCalled();
+    });
+  }
+
+  it("a stalled owner-role read also stops before reserving money or provider work", async () => {
+    vi.useFakeTimers();
+    // The entitlement resolves fast, but the user_roles read never settles: the
+    // two lookups share one deadline, so the attempt still fails closed.
+    mocks.entitledPlan.mockResolvedValue({ ok: true, planId: "pro" });
+    mocks.rolesRead.mockImplementation(() => new Promise(() => {}));
+    const assertion = expect(
+      generateBudgetedText(context, "private source", 3000),
+    ).rejects.toMatchObject({ reason: "entitlement_timeout" });
+    await vi.advanceTimersByTimeAsync(AI_ENTITLEMENT_LOOKUP_TIMEOUT_MS + 1);
+    await assertion;
+    expect(mocks.rpc).not.toHaveBeenCalled();
+    expect(mocks.fetch).not.toHaveBeenCalled();
+  });
+
+  it("rolls back the generation usage claim when the lookup stalls", async () => {
+    vi.useFakeTimers();
+    const rpc = mocks.rpc.getMockImplementation()!;
+    mocks.rpc.mockImplementation(async (name, p) => {
+      if (name === "claim_generation_usage")
+        return {
+          data: [
+            { used: 1, cap: p.p_cap, allowed: true, receipt_id: p.p_id, claim_status: "reserved" },
+          ],
+          error: null,
+        };
+      if (name === "settle_generation_usage")
+        return { data: [{ receipt_id: p.p_id, state: p.p_outcome }], error: null };
+      return rpc(name, p);
+    });
+    mocks.entitledPlan.mockImplementation(() => new Promise(() => {}));
+    const assertion = expect(
+      withGenerationUsage(
+        { ...context, bucket: "contentGeneration", operation: "generateContentCore" },
+        async (attempt) =>
+          generateBudgetedText(
+            { ...context, operation: "generateContentCore", attempt },
+            "private source",
+            3000,
+          ),
+      ),
+    ).rejects.toMatchObject({ reason: "entitlement_timeout" });
+    await vi.advanceTimersByTimeAsync(AI_ENTITLEMENT_LOOKUP_TIMEOUT_MS + 1);
+    await assertion;
+    // The claim is released and no reservation or provider call ever happened.
+    expect(mocks.rpc.mock.calls.map((c) => c[0])).toEqual([
+      "claim_generation_usage",
+      "settle_generation_usage",
+    ]);
+    expect(mocks.rpc.mock.calls.at(-1)![1].p_outcome).toBe("released");
+    expect(mocks.fetch).not.toHaveBeenCalled();
+  });
+
+  it("clears the deadline when the lookup resolves fast, leaving no pending timer", async () => {
+    vi.useFakeTimers();
+    mocks.entitledPlan.mockResolvedValue({ ok: true, planId: "pro" });
+    expect(await generateBudgetedText(context, "private source", 3000)).toBe('{"ok":true}');
+    // Every deadline (entitlement, reservation, provider) is cleared on success.
+    expect(vi.getTimerCount()).toBe(0);
+    expect(mocks.fetch).toHaveBeenCalledOnce();
+  });
+});
+
+describe("planAccountCapMicrousd — counts every generateBudgetedText bucket", () => {
+  // Buckets whose handlers spend a native text reserve. AI credits and audits
+  // were previously omitted (PR140 P1), understating every plan's cap.
+  const TEXT_BUCKETS = [
+    "monthlyContentGenerations",
+    "monthlyImproveDrafts",
+    "monthlyMiloScores",
+    "monthlyAuthorityGenerations",
+    "monthlyAiCredits",
+    "monthlyAudits",
+  ] as const;
+
+  it.each(PLAN_IDS)("equals every text allowance + image allowance for %s", (plan) => {
+    const l = PLAN_LIMITS[plan];
+    const textUnits = TEXT_BUCKETS.reduce((sum, bucket) => sum + l[bucket], 0);
+    const expected =
+      textUnits * NATIVE_TEXT_RESERVE_MICROUSD +
+      l.monthlyImageGenerations * NATIVE_IMAGE_RESERVE_MICROUSD;
+    expect(planAccountCapMicrousd(plan)).toBe(expected);
+  });
+
+  it("includes the AI-credits and audits buckets (regression: they were dropped)", () => {
+    for (const plan of PLAN_IDS) {
+      const l = PLAN_LIMITS[plan];
+      // The pre-fix formula omitted AI credits and audits.
+      const buggy =
+        (l.monthlyContentGenerations +
+          l.monthlyImproveDrafts +
+          l.monthlyMiloScores +
+          l.monthlyAuthorityGenerations) *
+          NATIVE_TEXT_RESERVE_MICROUSD +
+        l.monthlyImageGenerations * NATIVE_IMAGE_RESERVE_MICROUSD;
+      const missingUnits = l.monthlyAiCredits + l.monthlyAudits;
+      expect(missingUnits).toBeGreaterThan(0);
+      // The real cap must exceed the buggy one by exactly the two buckets' cost.
+      expect(planAccountCapMicrousd(plan) - buggy).toBe(
+        missingUnits * NATIVE_TEXT_RESERVE_MICROUSD,
+      );
+    }
+  });
+
+  it("is non-decreasing across the plan tiers", () => {
+    const caps = PLAN_IDS.map((plan) => planAccountCapMicrousd(plan));
+    for (let i = 1; i < caps.length; i++) expect(caps[i]).toBeGreaterThanOrEqual(caps[i - 1]);
+  });
+
+  it("applies OWNER_MULTIPLIER purely and defaults to the ordinary cap", () => {
+    for (const plan of PLAN_IDS) {
+      expect(planAccountCapMicrousd(plan)).toBe(planAccountCapMicrousd(plan, false));
+      expect(planAccountCapMicrousd(plan, true)).toBe(
+        planAccountCapMicrousd(plan) * OWNER_MULTIPLIER,
+      );
+    }
   });
 });
