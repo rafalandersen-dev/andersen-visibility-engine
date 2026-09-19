@@ -171,7 +171,28 @@ const rowSchema = z
     cells: z.record(z.string().min(1).max(64), nativeCellSchema),
   })
   .strict();
-export const nativeReportSnapshotSchema = z
+/**
+ * GSC dates its reports in Pacific Time (spec §3.1, [G1]); a `gsc_generative_ai_search` snapshot
+ * must carry exactly `GSC_REPORT_TIMEZONE`, never an assumed, foreign or missing one — a wrong day
+ * boundary would silently mis-scope every date-dimension row. Bing's export timezone is unknown
+ * until a genuine export is observed, so a `bing_ai_performance` snapshot is not forced to any
+ * value here: its timezone is preserved as declared (including null) and never guessed.
+ */
+function enforceReportTimezone(
+  snapshot: { source: NativeReportSource; period: { timezone: string | null } },
+  ctx: z.RefinementCtx,
+) {
+  if (
+    snapshot.source === "gsc_generative_ai_search" &&
+    snapshot.period.timezone !== GSC_REPORT_TIMEZONE
+  )
+    ctx.addIssue({
+      code: "custom",
+      path: ["period", "timezone"],
+      message: `A ${snapshot.source} report is dated in ${GSC_REPORT_TIMEZONE}; a different or missing timezone is not this source's contract and is never assumed`,
+    });
+}
+const nativeReportSnapshotObject = z
   .object({
     source: z.enum(NATIVE_REPORT_SOURCES),
     /** Declared by the owner at import; never verified against the publisher. */
@@ -211,13 +232,18 @@ export const nativeReportSnapshotSchema = z
     supersedesSnapshotId: z.string().uuid().nullable(),
   })
   .strict();
+export const nativeReportSnapshotSchema =
+  nativeReportSnapshotObject.superRefine(enforceReportTimezone);
 export type NativeReportSnapshot = z.infer<typeof nativeReportSnapshotSchema>;
 /** What an import request may carry. Reviewer identity, verification flags and snapshot
  * identity come from the authenticated server, never from the file or the browser (CI11-T35). */
-export const nativeReportImportInputSchema = nativeReportSnapshotSchema
+export const nativeReportImportInputSchema = nativeReportSnapshotObject
   .omit({ importedAt: true, parserVersion: true, provenance: true, supersedesSnapshotId: true })
   .strict()
   .superRefine((input, ctx) => {
+    // The source-specific timezone contract holds at the import boundary too, so a forged GSC
+    // snapshot cannot enter with an assumed or missing timezone.
+    enforceReportTimezone(input, ctx);
     for (const [index, row] of input.rows.entries())
       for (const [metric, cell] of Object.entries(row.cells))
         if (cell.review)

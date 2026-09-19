@@ -68,6 +68,18 @@ export const panelProtocolSchema = z
     questionLanguage: text(40),
     surface: surfaceSchema,
     session: sessionProtocolSchema,
+    /** The approved collection location the methodology fixes (§5.2). `country`/`city` are the
+     * pinned collection country/city, or null when the methodology pins none; `devicePermission`
+     * is the expected device-location state; `vpn` is the pinned VPN/proxy state, or null when
+     * unpinned. A capture is compared against these; unknown is never invented into a location. */
+    collection: z
+      .object({
+        country: text(80).nullable(),
+        city: text(120).nullable(),
+        devicePermission: z.enum(["granted", "denied", "unknown"]),
+        vpn: z.boolean().nullable(),
+      })
+      .strict(),
     questions: z.array(panelQuestionSchema).min(1).max(MAX_PANEL_QUESTIONS),
     /** Weekly rounds for a discovery panel; a brand panel is never scheduled here. */
     rounds: z.number().int().min(0).max(12),
@@ -235,6 +247,22 @@ export function protocolDeviations(panel: PanelProtocol, context: CaptureContext
   if (context.surface.modelLabel !== panel.surface.modelLabel) out.push("model_label_differs");
   if (context.surface.webSearchEvidenced !== panel.surface.webSearchEvidenced)
     out.push("web_search_evidence_differs");
+  // The approved methodology also fixes the collection location (§5.2): the collection country and
+  // city, whether device location was shared, and whether a VPN/proxy was used. A known change — a
+  // different collection country or city, a device-location permission change, or a VPN toggled
+  // from the locked state — is a different collection context, not this baseline. `null` in the
+  // methodology pins no value for that field; `null`/`unknown` on a capture means the value was not
+  // recorded and is never invented into a known location, so a capture that is unknown where the
+  // methodology pins a definite value cannot be confirmed comparable and breaks (as with the model
+  // label and web-search evidence above). `inQuestion` is part of the question, not the collection
+  // context, and is governed by the question text, so it is not compared here.
+  if (context.location.collectionCountry !== panel.collection.country)
+    out.push("collection_country_differs");
+  if (context.location.collectionCity !== panel.collection.city)
+    out.push("collection_city_differs");
+  if (context.location.devicePermission !== panel.collection.devicePermission)
+    out.push("device_location_differs");
+  if (context.location.vpn !== panel.collection.vpn) out.push("vpn_differs");
   if (context.language.prompt !== panel.questionLanguage) out.push("prompt_language_differs");
   if (context.brandRunId !== null && panel.kind !== "brand") out.push("brand_run_on_discovery");
   if (context.brandRunId === null && panel.kind === "brand") out.push("brand_capture_without_run");
@@ -249,18 +277,25 @@ export function slotOutcome(
   context: CaptureContext | null,
 ): SlotOutcome {
   if (!answer || !context) return "missed";
-  if (protocolDeviations(panel, context).length) return "protocol_deviant";
-  // The answer record must be the panel slot's exact versioned question. Status alone is not
-  // enough: an answer that references a different prompt id or revision than the slot's approved
-  // question is a different question or version, not this slot's baseline. (The slot's presence
-  // in the panel and its question text are already checked by protocolDeviations.)
+  // A genuine failure or truncation is a quality outcome in its own right and must never be masked
+  // as a mere `protocol_deviant` slot: reporting a failed/truncated attempt as only a methodology
+  // deviation would under-report the failure. Surface it as itself. It is never an eligible
+  // `complete` capture, so preserving it cannot inflate any eligible denominator or comparable
+  // pair, and the methodology deviations remain separately visible through `protocolDeviations`.
+  if (answer.status === "failed" || answer.status === "truncated") return answer.status;
+  // The answer now claims `complete`. It is this slot's comparable baseline only when the
+  // methodology matches AND the answer is bound to the slot's exact versioned question: status
+  // alone is not enough, and an answer that references a different prompt id or revision — or that
+  // was captured under any protocol deviation — is a different question/version or a different
+  // methodology, so it is a protocol deviation and is never promoted to an eligible `complete`
+  // capture. (The slot's presence in the panel and its question text are already checked by
+  // protocolDeviations.)
   const question = panel.questions.find((q) => q.id === context.slot.questionId);
-  if (
-    !question ||
-    answer.promptId !== question.promptId ||
-    answer.promptRevision !== question.promptRevision
-  )
-    return "protocol_deviant";
+  const boundToSlot =
+    !!question &&
+    answer.promptId === question.promptId &&
+    answer.promptRevision === question.promptRevision;
+  if (protocolDeviations(panel, context).length > 0 || !boundToSlot) return "protocol_deviant";
   return answer.status;
 }
 export interface ReviewedCapture {
@@ -372,8 +407,11 @@ function panelClientKey(scope: {
 /**
  * Comparable baseline/follow-up pairs for the fourth-round re-test (§5.3, CI11-T38). A pair
  * needs the same question complete, reviewed and citation-complete in two distinct rounds, a
- * valid baseline-before-follow-up chronology, and the follow-up captured after two *distinct*
- * destination-verified improvements. Missing pairs are listed with a reason, never filled.
+ * valid baseline-before-follow-up chronology, and two *distinct* destination-verified changes
+ * verified strictly before that follow-up. The gate is measured per follow-up ("two distinct
+ * changes verified before this follow-up"), not as the maximum verification time over all
+ * records, so recording a later third improvement cannot retroactively invalidate an
+ * already-comparable historical pair. Missing pairs are listed with a reason, never filled.
  *
  * Evidence is bound to this exact panel and client, not asserted: each improvement's
  * `findingIds` and `baselineCaptureIds` must resolve to actual finding and capture records that
@@ -470,10 +508,18 @@ export function comparablePairs(
       continue;
     bound.push(imp);
   }
-  const gate =
-    countDistinctSubstantiveChanges(bound) >= 2
-      ? Math.max(...bound.map((imp) => Date.parse(imp.verification!.verifiedAt)))
-      : null;
+  const totalDistinctChanges = countDistinctSubstantiveChanges(bound);
+  // The number of DISTINCT substantive changes verified strictly before a given instant. A
+  // comparable follow-up needs two such changes to precede it; counting distinctly (task, or
+  // destination + approved version) stops a clone or a repeated verification from meeting the gate.
+  // Measuring "verified before THIS follow-up" — rather than the maximum verification time over all
+  // records — keeps an already-comparable historical pair stable: recording a later, third
+  // improvement afterwards cannot retroactively invalidate it, and an unrelated or duplicate record
+  // never lets the follow-up meet the gate.
+  const distinctChangesVerifiedBefore = (instant: number) =>
+    countDistinctSubstantiveChanges(
+      bound.filter((imp) => Date.parse(imp.verification!.verifiedAt) < instant),
+    );
   const sameRound = rounds.baseline === rounds.followUp;
   const pairs: Array<{ questionId: string; baseline: ReviewedCapture; followUp: ReviewedCapture }> =
     [];
@@ -503,7 +549,8 @@ export function comparablePairs(
       missing.push({ questionId: q.id, reason: "follow_up_not_eligible" });
       continue;
     }
-    if (gate === null) {
+    // No follow-up can ever prove a re-test without at least two distinct verified changes at all.
+    if (totalDistinctChanges < 2) {
       missing.push({ questionId: q.id, reason: "two_verified_improvements_required" });
       continue;
     }
@@ -519,7 +566,10 @@ export function comparablePairs(
       missing.push({ questionId: q.id, reason: "follow_up_not_after_baseline" });
       continue;
     }
-    if (followUpAt <= gate) {
+    // Two DISTINCT changes must be verified strictly before THIS follow-up. A later third
+    // improvement recorded after the follow-up does not move this line and cannot retroactively
+    // invalidate a historical pair; duplicates and clones collapse and never meet the gate.
+    if (distinctChangesVerifiedBefore(followUpAt) < 2) {
       missing.push({ questionId: q.id, reason: "follow_up_before_both_improvements" });
       continue;
     }

@@ -172,6 +172,46 @@ describe("native semantics preserved (CI11-T07, T08, T09)", () => {
       }),
     ).toThrow();
   });
+  it("enforces the GSC report timezone and never guesses Bing's (4053596309)", () => {
+    // GSC is dated in Pacific Time; the correct source timezone parses.
+    expect(() => nativeReportSnapshotSchema.parse(base())).not.toThrow();
+    expect(GSC_REPORT_TIMEZONE).toBe("America/Los_Angeles");
+    // A missing (null) or a foreign/guessed timezone on a GSC snapshot is rejected: a wrong day
+    // boundary would silently mis-scope every date-dimension row.
+    expect(() =>
+      nativeReportSnapshotSchema.parse({ ...base(), period: { ...base().period, timezone: null } }),
+    ).toThrow(/dated in America\/Los_Angeles/);
+    expect(() =>
+      nativeReportSnapshotSchema.parse({
+        ...base(),
+        period: { ...base().period, timezone: "Europe/Stockholm" },
+      }),
+    ).toThrow(/dated in America\/Los_Angeles/);
+    // The same source-timezone contract holds at the import boundary.
+    const { importedAt, parserVersion, provenance, supersedesSnapshotId, ...input } = base();
+    void importedAt;
+    void parserVersion;
+    void provenance;
+    void supersedesSnapshotId;
+    expect(() => nativeReportImportInputSchema.parse(input)).not.toThrow();
+    expect(() =>
+      nativeReportImportInputSchema.parse({
+        ...input,
+        period: { ...input.period, timezone: null },
+      }),
+    ).toThrow(/dated in America\/Los_Angeles/);
+    // Bing's export timezone is unknown until observed: a null Bing timezone is accepted, not
+    // forced to GSC's, and a Bing-declared timezone is likewise preserved, never overridden.
+    const bing = {
+      ...base(),
+      source: "bing_ai_performance" as const,
+      period: { start: "2026-08-01", end: "2026-08-31", timezone: null },
+    };
+    expect(() => nativeReportSnapshotSchema.parse(bing)).not.toThrow();
+    expect(() =>
+      nativeReportSnapshotSchema.parse({ ...bing, period: { ...bing.period, timezone: "UTC" } }),
+    ).not.toThrow();
+  });
 });
 describe("availability, versioning and safety (CI11-T10, T11, T12, T35)", () => {
   it("reports unknown rather than zero when cells are unknown or the report is incomplete", () => {

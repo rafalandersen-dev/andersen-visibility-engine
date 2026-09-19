@@ -65,6 +65,9 @@ const panel = (): PanelProtocol => ({
     extraInstruction: null,
     priorMessages: 0,
   },
+  // The locked collection location matches the clean capture context() below: Sweden, no pinned
+  // city, device location denied, no VPN. A capture that diverges on any of these is a deviation.
+  collection: { country: "Sweden", city: null, devicePermission: "denied", vpn: false },
   questions: Array.from({ length: 10 }, (_, i) => question(i + 1)),
   rounds: 4,
   status: "locked",
@@ -332,6 +335,61 @@ describe("session protocol deviations and slot outcomes (CI11-T15, T16, T31)", (
     expect(sessionOf({ signedIn: "unknown" })).toContain("signed_in_differs");
     // The clean fixture still deviates in none of these ways.
     expect(protocolDeviations(p, context(1, 1))).toEqual([]);
+  });
+  it("binds the collection location to the approved methodology and breaks on a known change (4053596302)", () => {
+    const p = panel();
+    const locOf = (over: Partial<CaptureContext["location"]>) =>
+      protocolDeviations(p, context(1, 1, { location: { ...context(1, 1).location, ...over } }));
+    // The clean capture matches the locked collection location (Sweden, no city, device denied,
+    // no VPN) and deviates in none of the location dimensions.
+    expect(protocolDeviations(p, context(1, 1))).toEqual([]);
+    // A known collection-country change is a different collection context, not this baseline.
+    expect(locOf({ collectionCountry: "Norway" })).toContain("collection_country_differs");
+    // Unknown (null) where the methodology pins a definite country is never invented into a match.
+    expect(locOf({ collectionCountry: null })).toContain("collection_country_differs");
+    // A city recorded where the methodology pins none is a change; unpinned means "not recorded".
+    expect(locOf({ collectionCity: "Malmö" })).toContain("collection_city_differs");
+    // A device-location permission change breaks; unknown never satisfies the locked "denied".
+    expect(locOf({ devicePermission: "granted" })).toContain("device_location_differs");
+    expect(locOf({ devicePermission: "unknown" })).toContain("device_location_differs");
+    // A VPN toggled from the locked "off" state — or unknown where a definite state is pinned —
+    // is a collection-context change.
+    expect(locOf({ vpn: true })).toContain("vpn_differs");
+    expect(locOf({ vpn: null })).toContain("vpn_differs");
+    // The location in the question is part of the question, not the collection context: changing
+    // it alone raises no collection deviation here.
+    expect(locOf({ inQuestion: "Malmö" })).toEqual([]);
+    // A complete answer collected under a changed location is a protocol-deviant slot, never an
+    // eligible complete capture.
+    expect(
+      slotOutcome(
+        p,
+        answerFor(1),
+        context(1, 1, { location: { ...context(1, 1).location, vpn: true } }),
+      ),
+    ).toBe("protocol_deviant");
+  });
+  it("preserves an actual failure or truncation instead of masking it as protocol_deviant (4053596298)", () => {
+    const p = panel();
+    const deviant = context(1, 1, { session: { ...context(1, 1).session, freshSession: false } });
+    // A failed attempt collected under a deviant protocol is still reported as failed — the
+    // quality outcome is not under-reported as a mere methodology deviation.
+    expect(slotOutcome(p, answerFor(1, "failed"), deviant)).toBe("failed");
+    // A truncated attempt bound to the wrong prompt is still reported as truncated, not hidden.
+    expect(
+      slotOutcome(p, { ...answerFor(1, "truncated"), promptId: uuid(999) }, context(1, 1)),
+    ).toBe("truncated");
+    expect(slotOutcome(p, { ...answerFor(1, "failed"), promptRevision: 2 }, context(1, 1))).toBe(
+      "failed",
+    );
+    // A COMPLETE answer under a deviant protocol, or bound to the wrong prompt, must NOT become
+    // eligible: it stays protocol_deviant (no hiding of the methodology deviation as a success).
+    expect(slotOutcome(p, answerFor(1), deviant)).toBe("protocol_deviant");
+    expect(slotOutcome(p, { ...answerFor(1), promptId: uuid(999) }, context(1, 1))).toBe(
+      "protocol_deviant",
+    );
+    // A clean complete answer is still complete.
+    expect(slotOutcome(p, answerFor(1), context(1, 1))).toBe("complete");
   });
 });
 const fixtureClient = { name: "FIXTURE client", market: "Sweden — Malmö/Limhamn" };
@@ -711,6 +769,75 @@ describe("descriptive counts and comparable pairs (CI11-T19, T20, T21, T38)", ()
     // With 90's baseline the round-1 capture (2026-09-14), it is verified after its baseline.
     const kept = comparablePairs(p, evidence(captureUuid("SY-D01", 1)), rounds);
     expect(kept.comparable).toBe(true);
+  });
+  it("keeps a historical pair stable and needs two distinct changes verified before the follow-up (4053596307)", () => {
+    const p = panel();
+    const rounds = { baseline: 1, followUp: 4 };
+    const caps = [captured("SY-D01", 1), captured("SY-D01", 4, { ownCitation: true })];
+    // Follow-up (SY-D01 round 4) is 2026-10-05; two distinct changes verified 09-28 and 10-01 both
+    // precede it, so the pair is comparable.
+    const twoChanges = [
+      verifiedImprovement(90, "2026-09-28T10:00:00Z"),
+      secondChange(91, "2026-10-01T10:00:00Z"),
+    ];
+    const before = comparablePairs(
+      p,
+      { captures: caps, findings: scopedFindings, improvements: twoChanges },
+      rounds,
+    );
+    expect(before.comparable).toBe(true);
+    // A THIRD, genuinely distinct change verified AFTER the follow-up (2026-10-10) must not push a
+    // max-of-all-verifications gate past the follow-up and invalidate the historical pair.
+    const third = verifiedImprovement(92, "2026-10-10T10:00:00Z", {
+      taskId: uuid(83),
+      approvedVersion: "v3",
+      destination: { kind: "configuration", reference: "config://example/third" },
+      findingIds: [uuid(61)],
+    });
+    const after = comparablePairs(
+      p,
+      { captures: caps, findings: scopedFindings, improvements: [...twoChanges, third] },
+      rounds,
+    );
+    expect(after.comparable).toBe(true);
+    expect(after.pairs.map((x) => x.questionId)).toEqual(["SY-D01"]);
+    // If only ONE distinct change is verified before the follow-up (the second is verified after
+    // it), the pair is not yet comparable — two distinct changes must precede each follow-up.
+    const oneBefore = comparablePairs(
+      p,
+      {
+        captures: caps,
+        findings: scopedFindings,
+        improvements: [
+          verifiedImprovement(90, "2026-09-28T10:00:00Z"),
+          secondChange(91, "2026-10-08T10:00:00Z"),
+        ],
+      },
+      rounds,
+    );
+    expect(oneBefore.comparable).toBe(false);
+    expect(oneBefore.missing.find((m) => m.questionId === "SY-D01")?.reason).toBe(
+      "follow_up_before_both_improvements",
+    );
+    // Two verified COPIES of one change before the follow-up plus a distinct change after are not
+    // two distinct changes before the follow-up: duplicates and clones never meet the gate.
+    const clonesBefore = comparablePairs(
+      p,
+      {
+        captures: caps,
+        findings: scopedFindings,
+        improvements: [
+          verifiedImprovement(90, "2026-09-26T10:00:00Z"),
+          verifiedImprovement(93, "2026-09-28T10:00:00Z"),
+          secondChange(91, "2026-10-08T10:00:00Z"),
+        ],
+      },
+      rounds,
+    );
+    expect(clonesBefore.comparable).toBe(false);
+    expect(clonesBefore.missing.find((m) => m.questionId === "SY-D01")?.reason).toBe(
+      "follow_up_before_both_improvements",
+    );
   });
   it("rejects evidence bound to another panel or client, missing records and duplicate aliases", () => {
     const p = panel();
@@ -1102,5 +1229,68 @@ describe("verified improvements (CI11-T36)", () => {
         improvement({ baselineCaptureIds: [], verification: liveVerification }),
       ),
     ).toBe(false);
+  });
+  it("counts substantive changes by canonical destination identity, not the verbatim reference (4053596293)", () => {
+    const verified = (id: number, over: Partial<Improvement>) =>
+      improvementSchema.parse(
+        improvement({
+          improvementId: uuid(id),
+          verification: {
+            method: "owner_inspection",
+            receipt: "Owner inspected the live page",
+            verifiedAt: "2026-09-26T10:00:00Z",
+            reviewer: owner,
+          },
+          ...over,
+        }),
+      );
+    const publicUrl = (reference: string) => ({ kind: "public_url" as const, reference });
+    // Two different tasks pointing at the SAME page (differing only by host case, the default port
+    // and a fragment) at the same approved version are ONE substantive change, not two.
+    const sameByCase = [
+      verified(200, { taskId: uuid(90), destination: publicUrl("https://example.test/page") }),
+      verified(201, {
+        taskId: uuid(91),
+        destination: publicUrl("HTTPS://EXAMPLE.TEST:443/page#section"),
+      }),
+    ];
+    expect(verifiedImprovementCount(sameByCase)).toBe(1);
+    // A distinct path (case-sensitive) or a distinct query is a different destination: two changes.
+    expect(
+      verifiedImprovementCount([
+        verified(202, { taskId: uuid(90), destination: publicUrl("https://example.test/page") }),
+        verified(203, { taskId: uuid(91), destination: publicUrl("https://example.test/Page") }),
+      ]),
+    ).toBe(2);
+    expect(
+      verifiedImprovementCount([
+        verified(204, { taskId: uuid(90), destination: publicUrl("https://example.test/page") }),
+        verified(205, {
+          taskId: uuid(91),
+          destination: publicUrl("https://example.test/page?ref=ai"),
+        }),
+      ]),
+    ).toBe(2);
+    // Non-URL destination kinds are opaque contract identifiers compared exactly: a case
+    // difference in a listing is NOT folded, so these stay two distinct changes.
+    expect(
+      verifiedImprovementCount([
+        verified(206, {
+          taskId: uuid(90),
+          destination: { kind: "listing", reference: "listing://Example/Synergy" },
+        }),
+        verified(207, {
+          taskId: uuid(91),
+          destination: { kind: "listing", reference: "listing://example/synergy" },
+        }),
+      ]),
+    ).toBe(2);
+    // An invalid public URL fails closed rather than silently colliding or counting.
+    expect(() =>
+      verifiedImprovementCount([verified(208, { destination: publicUrl("not-a-url") })]),
+    ).toThrow(/not a valid URL/);
+    expect(() =>
+      verifiedImprovementCount([verified(209, { destination: publicUrl("ftp://example.test/x") })]),
+    ).toThrow(/http\(s\) URL/);
   });
 });

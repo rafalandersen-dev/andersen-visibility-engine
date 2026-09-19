@@ -277,17 +277,49 @@ export function isVerifiedImprovement(i: Improvement) {
   );
 }
 /**
+ * Canonical identity of an improvement's destination, so two records that point at the *same*
+ * change are keyed identically regardless of cosmetic reference differences. A `public_url` is
+ * reduced to standard URL resource identity: the scheme and host are case-folded and the default
+ * port is dropped (both done by the URL parser), and the fragment — which never reaches the
+ * server — is discarded, while the path and query stay exact so a meaningful path/query
+ * difference is preserved (spec §8, "do not silently collapse meaningful query/path
+ * differences"). A reference that is not a valid http(s) URL fails closed: it throws rather than
+ * silently colliding with, or masquerading as distinct from, another destination. Other
+ * destination kinds (`listing`, `configuration`) are opaque contract identifiers compared exactly,
+ * never URL-folded.
+ */
+function canonicalDestinationReference(destination: Improvement["destination"]): string {
+  if (destination.kind !== "public_url") return destination.reference;
+  let url: URL;
+  try {
+    url = new URL(destination.reference);
+  } catch {
+    throw new Error(
+      `substantiveChangeKeys: a public_url destination is not a valid URL: ${destination.reference}`,
+    );
+  }
+  if (url.protocol !== "https:" && url.protocol !== "http:")
+    throw new Error(
+      `substantiveChangeKeys: a public_url destination must be an http(s) URL: ${destination.reference}`,
+    );
+  // host is the already-lower-cased hostname plus a non-default port only; pathname and search
+  // keep their exact (case-sensitive) text; the fragment is deliberately excluded.
+  return `${url.protocol}//${url.host}${url.pathname}${url.search}`;
+}
+/**
  * Domain keys that identify the *substantive* change an improvement records, independent of its
  * surrogate `improvementId`. Two records are the same change when they share the task, or share
- * the destination together with the approved version. Counting by these keys stops a clone with
- * a fresh UUID (same task, or same destination/version) from posing as a second change.
+ * the destination together with the approved version. The destination is compared by its
+ * canonical identity (URL identity for a `public_url`, exact reference otherwise), so a clone with
+ * a fresh UUID — or one that only re-cases the host, adds the default port or a fragment — cannot
+ * pose as a second change. An invalid public URL fails closed via `canonicalDestinationReference`.
  */
 export function substantiveChangeKeys(i: Improvement): { taskKey: string; destinationKey: string } {
   return {
     taskKey: `task:${i.taskId}`,
     destinationKey: `dest:${JSON.stringify([
       i.destination.kind,
-      i.destination.reference,
+      canonicalDestinationReference(i.destination),
       i.change.approvedVersion,
     ])}`,
   };
