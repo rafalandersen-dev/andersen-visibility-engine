@@ -6,6 +6,8 @@
 
 ---
 
+> Integration note (Codex, 19 September): the audit below is the research-start snapshot. PR136 subsequently passed review, its eight migrations were installed and source52261464 deployed; the first live conversation failed before a model reservation, so dispatch is held off pending repair. See AGENTS_AND_CITATION_IMPLEMENTATION_PLAN_2026_09_19.md and the production release evidence for current status. Do not use the historical table as current release proof.
+
 ## 1. Audit
 
 Grounded in this worktree, [CURRENT_STATE.md](CURRENT_STATE.md), [DECISIONS.md](DECISIONS.md), [continuation review](../evidence/continuation-integration-review-2026-09-19.md) and `evidence/`. Production is `209c335` (PR140/141). The conversational executor is **prepared on PR136 (head `5e9baf`), not production**; the **8** Sep-13/14 chat/team migrations are absent from the prod journal (continuation review §9).

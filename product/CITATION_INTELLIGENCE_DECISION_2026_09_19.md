@@ -5,6 +5,8 @@
 **Date / sources checked:** 19 September 2026.
 **Status:** research and design — **not** production acceptance, provider approval, a launch-scope change, or authority to spend. Accepted **D03 v1** (14 Sep 2026, `product/CITATION_INTELLIGENCE_SPEC.md`) remains the launch boundary; public paid launch stays **NO-GO**. The **USD 50/month** global AI-spend ceiling (an AI cap, **not** a total vendor budget) and the manual-budget-for-free-accounts prerequisite are preserved. The existing spec requirement/risk register **R00–R24 remains in force in full**; nothing here supersedes or drops it.
 
+> Integration note (Codex, 19 September): the five original corrections below passed local integration tests but the next independent code review raised five additional edge cases (destination identity, failed/truncated outcomes, location methodology, historical retest timing, GSC timezone). These are assigned to Claude; PR137 remains held. Competitor page silence and unlinked third-party study figures are not accepted as proof of feature absence or market advantage. The combined implementation plan governs decisions.
+
 ## 0. Release blockers I must not touch
 
 Five data-integrity corrections owned by the separate Claude in `/tmp/milo-citation-review-20260919` are the PR137 release blockers: **native claimed-value/raw consistency (4053415299)**, **answer prompt-version binding (4053415302)**, **model/search methodology (4053415303)**, **baseline-evidence requirement (4053415305)**, and the **panel/client/substantive-change gate (4053415306)**. I do not fix, replace or duplicate their code; §7 states the invariant each recommendation must not break. Research does not close their gate.
