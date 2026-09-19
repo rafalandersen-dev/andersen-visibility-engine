@@ -83,22 +83,18 @@ export async function beginConversationTurn(
     throw new Error("Conversation response could not be confirmed.");
   return result;
 }
-export async function readConversation(
-  actorId: string,
-  raw: z.input<typeof conversationRead>,
-  rpc: TeamReadRpc = projectTeamRpc,
+/** Shared, validated continuity page read. The browser and executor entry points
+ * differ only in whether the storage call is admitted through the browser
+ * preview-lease budget; every response invariant (scope, page ordinals, turn
+ * count, page linkage, unique turns) is enforced identically here. No
+ * caller-supplied flag selects the budget — the two exported entry points do. */
+async function readConversationPage(
+  actor: string,
+  input: z.infer<typeof conversationRead>,
+  rpc: TeamReadRpc,
 ) {
-  const actor = actorSchema.parse(actorId),
-    input = conversationRead.parse(raw);
   const result = conversationPage.parse(
-    await teamCall(
-      "read_milo_conversation",
-      {
-        ...args(actor, input),
-        p_after: input.after,
-      },
-      admittedReadRpc(actor, rpc),
-    ),
+    await teamCall("read_milo_conversation", { ...args(actor, input), p_after: input.after }, rpc),
   );
   scoped(actor, input, result);
   if (
@@ -112,6 +108,35 @@ export async function readConversation(
   )
     throw new Error("Conversation history could not be confirmed.");
   return result;
+}
+export async function readConversation(
+  actorId: string,
+  raw: z.input<typeof conversationRead>,
+  rpc: TeamReadRpc = projectTeamRpc,
+) {
+  const actor = actorSchema.parse(actorId),
+    input = conversationRead.parse(raw);
+  // Browser-facing continuity read: still bounded by the per-actor/owner preview
+  // budget so a rendered live view cannot exceed its lease allocation.
+  return readConversationPage(actor, input, admittedReadRpc(actor, rpc));
+}
+/** Private executor-only continuity read. Identical parsing and response
+ * validation to the browser `readConversation`, but it does NOT draw on the
+ * browser preview-lease budget (`admittedReadRpc`). Like the executor's
+ * claim/execution-check/advance RPCs, it runs under the durable claim, and the
+ * `read_milo_conversation` RPC reauthorizes the actor's account, membership
+ * revision and owner/project/conversation scope on every call, so this read must
+ * not be starved by a signed-in owner's live polling of the same actor/owner
+ * budget. Do not expose this from a browser server function: browser reads keep
+ * `readConversation`. */
+export async function readConversationForExecution(
+  actorId: string,
+  raw: z.input<typeof conversationRead>,
+  rpc: TeamReadRpc = projectTeamRpc,
+) {
+  const actor = actorSchema.parse(actorId),
+    input = conversationRead.parse(raw);
+  return readConversationPage(actor, input, rpc);
 }
 export async function listConversations(
   actorId: string,
@@ -179,7 +204,15 @@ export async function resumeConversationTurn(
 }
 
 /** Private executor-only entry. Do not expose the returned attempt token in
- * server functions or UI; a lost claim response never authorizes a new claim. */
+ * server functions or UI; a lost claim response never authorizes a new claim.
+ * The executor's own claim/execution-check/advance RPCs deliberately bypass the
+ * browser preview-lease budget (`admittedReadRpc`): they are private, service-role
+ * calls that re-authorize the actor's membership, account and durable claim inside
+ * storage, and are already bounded by the dispatch enqueue and running-turn
+ * capacity gates. Sharing the preview budget let a signed-in owner watching the
+ * turn's live progress (repeated conversation export polls) starve the executor's
+ * own checkpoint writes: a transient `team_preview_capacity` refusal at the
+ * analysing checkpoint aborted a running turn as `execution_unknown`. */
 export async function claimConversationTurn(
   actorId: string,
   raw: Target,
@@ -194,13 +227,7 @@ export async function claimConversationTurn(
       turn: conversationTurn,
     })
     .strict()
-    .parse(
-      await teamCall(
-        "claim_milo_conversation_turn",
-        args(actor, input),
-        admittedReadRpc(actor, rpc),
-      ),
-    );
+    .parse(await teamCall("claim_milo_conversation_turn", args(actor, input), rpc));
   sameTurn(input.turnId, result.turn);
   if (
     result.acquired !== (result.attemptId !== null) ||
@@ -225,11 +252,14 @@ export async function assertConversationExecution(
 ) {
   const actor = actorSchema.parse(actorId),
     input = conversationTurnTarget.parse(raw);
+  // Executor-only recheck: bypass the browser preview-lease budget (see
+  // claimConversationTurn). Full membership/claim/lease authority is enforced by
+  // the RPC itself, so this last-moment gate cannot be starved by a live viewer.
   z.literal(true).parse(
     await teamCall(
       "check_milo_conversation_execution",
       { ...args(actor, input), p_attempt: z.string().uuid().parse(attemptId) },
-      admittedReadRpc(actor, rpc),
+      rpc,
     ),
   );
 }
@@ -244,6 +274,9 @@ export async function advanceConversationTurn(
     change = progress.parse(update);
   if (change.expected + change.events.length > 24)
     throw new Error("Conversation event limit reached.");
+  // Executor-only checkpoint write: bypass the browser preview-lease budget (see
+  // claimConversationTurn). The RPC re-authorizes membership and the durable claim
+  // atomically, so a live viewer's export polls can never starve a saved event.
   const result = sameTurn(
     input.turnId,
     conversationTurn.parse(
@@ -256,7 +289,7 @@ export async function advanceConversationTurn(
           p_events: change.events,
           p_state: change.state,
         },
-        admittedReadRpc(actor, rpc),
+        rpc,
       ),
     ),
   );
