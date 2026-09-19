@@ -193,17 +193,19 @@ export const nativeArtifactBase64Schema = z
     `Decoded artifact exceeds the ${MAX_NATIVE_REPORT_BYTES}-byte cap`,
   );
 /**
- * DB-compatible `capturedAt` grammar, mirroring the save RPC's regex in
- * 20260919150000_native_report_artifacts.sql: a required `HH:MM:SS` (hour 00-23, minute/second 00-59),
- * an optional `.fraction`, and a terminating uppercase `Z` or a colon offset `[+-]HH:MM`. The shared
- * reader schema's `.datetime({ offset: true })` is deliberately looser — it accepts an omitted seconds
- * field (`12:00Z`) and a colon-less offset (`+0200`) — so a valid-looking value could clear the public
- * schema and then fail the RPC with a generic `native_artifact_unavailable`. Staging input applies this
- * stricter grammar up front so the boundary matches the database; the database rule is unchanged and is
- * never loosened, and the string is never coerced.
+ * DB-compatible `capturedAt` grammar for the staging boundary: a required `HH:MM:SS` (hour 00-23,
+ * minute/second 00-59), an optional `.fraction`, and a terminating uppercase `Z` or a colon offset whose
+ * displacement is within PostgreSQL's accepted range — hour `00..15`, minute `00..59`, both signs. The
+ * shared reader schema's `.datetime({ offset: true })` is deliberately looser: it accepts an omitted
+ * seconds field (`12:00Z`), a colon-less offset (`+0200`), and an out-of-range offset such as `+16:00` or
+ * invalid offset-minute values; PostgreSQL rejects invalid displacements at the cast (22009). Bounding the
+ * offset here refuses those before the RPC instead of failing it with a generic
+ * `native_artifact_unavailable`; the database rule is unchanged and never loosened (the DB still rejects
+ * an out-of-range displacement via the cast), read-back stays on the looser shared schema, and the string
+ * is never coerced or normalized.
  */
 export const NATIVE_ARTIFACT_CAPTURED_AT_RE =
-  /^\d{4}-\d{2}-\d{2}T([01]\d|2[0-3]):[0-5]\d:[0-5]\d(\.\d+)?(Z|[+-]\d{2}:\d{2})$/;
+  /^\d{4}-\d{2}-\d{2}T([01]\d|2[0-3]):[0-5]\d:[0-5]\d(\.\d+)?(Z|[+-](0\d|1[0-5]):[0-5]\d)$/;
 /**
  * Staging metadata: the shared owner-declared schema plus the DB-compatible `capturedAt` grammar applied
  * only at the write boundary. The shared `nativeArtifactMetadataSchema` is reused verbatim for read-back

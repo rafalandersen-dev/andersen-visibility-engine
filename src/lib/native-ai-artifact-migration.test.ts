@@ -927,3 +927,61 @@ describe("server wrapper normalizes thrown/rejected rpc failures without leaking
     }
   });
 });
+describe("staging input bounds the capturedAt offset to PostgreSQL's ±15:59 displacement range", () => {
+  // Finding 4055076298: the reader Zod / Date.parse tolerate an offset like +16:00 (and unrestricted
+  // minute digits), but PostgreSQL rejects any displacement outside ±15:59 at the cast (SQLSTATE 22009).
+  // The stage grammar now bounds the offset to hour 00..15 / minute 00..59 (both signs) so those values
+  // are refused before the RPC; the shared reader schema and the DB cast are unchanged.
+  const stageRejected = [
+    "2026-08-29T12:00:00+16:00", // hour 16 — one past the max positive displacement
+    "2026-08-29T12:00:00-16:00", // hour 16 — one past the max negative displacement
+    "2026-08-29T12:00:00+01:60", // minute 60 — out of range
+    "2026-08-29T12:00:00+15:60", // minute 60 at the boundary hour
+  ];
+  const accepted = [
+    "2026-08-29T12:00:00+15:59", // maximum positive displacement PostgreSQL accepts
+    "2026-08-29T12:00:00-15:59", // maximum negative displacement
+    "2026-08-29T12:00:00+00:00",
+    "2026-08-29T12:00:00-05:30",
+    "2026-08-29T12:00:00Z",
+    "2020-01-01T00:00:00Z", // lower instant boundary still accepted (date semantics unchanged)
+  ];
+  it.each(stageRejected)(
+    "refuses %s at the stage input before any RPC (offset outside PostgreSQL's ±15:59)",
+    async (capturedAt) => {
+      const parsed = nativeArtifactStageInputSchema.safeParse({
+        metadata: { ...metadata, capturedAt },
+        base64,
+      });
+      expect(parsed.success).toBe(false);
+      if (!parsed.success)
+        expect(parsed.error.issues.some((i) => i.path.join(".") === "metadata.capturedAt")).toBe(
+          true,
+        );
+      // End to end through the server path: rejected before the RPC, so no row is created.
+      await expect(stage({ ...metadata, capturedAt }, base64)).rejects.toThrow();
+      expect(await count()).toBe(0);
+    },
+  );
+  it("keeps the shared reader schema permissive for +16:00 / -16:00 so read-back stays compatible", () => {
+    // The reader (used for read-back) still accepts the out-of-range offset; only the write boundary is
+    // stricter, so this tightening never rejects an already-stored value.
+    for (const capturedAt of ["2026-08-29T12:00:00+16:00", "2026-08-29T12:00:00-16:00"])
+      expect(nativeArtifactMetadataSchema.safeParse({ ...metadata, capturedAt }).success).toBe(
+        true,
+      );
+  });
+  it.each(accepted)(
+    "accepts boundary/normal offset %s at the stage input and round-trips it through real SQL verbatim",
+    async (capturedAt) => {
+      expect(
+        nativeArtifactStageInputSchema.safeParse({ metadata: { ...metadata, capturedAt }, base64 })
+          .success,
+      ).toBe(true);
+      const staged = await stage({ ...metadata, capturedAt }, base64);
+      expect(staged.status).toBe("pending_parser");
+      // Stored and read back verbatim — no silent normalization of the offset.
+      expect((await getNativeArtifact(scope, staged.id, rpc)).metadata.capturedAt).toBe(capturedAt);
+    },
+  );
+});

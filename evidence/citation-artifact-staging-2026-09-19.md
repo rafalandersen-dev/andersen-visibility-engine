@@ -396,3 +396,45 @@ claimed; the USD50-global / manual-free budget and every scope/security boundary
 ### Codex RPC-error correction verification — 20 September 2026
 
 Reviewed the completed wrapper delta: no ambiguous-write retry; only mapped returned capacity errors survive, other thrown/rejected values become generic.60 focused tests/2 files PASS(1.38s), full6141 tests/381 files PASS(42.51s), types/scoped lint/whitespace/production build PASS. Logs `/tmp/milo-artifact-rpc-{focused,types,lint,full,build}-20260920.log`. No SQL, provider call, deployment or live artifact acceptance. Claude authored source/tests; Codex corrected an unsupported evidence assurance and recorded executed checks.
+
+## PR144 review correction — bound the staging capturedAt offset to PostgreSQL's displacement range (finding 4055076298), 20 September
+
+Codex independently confirmed against exact head `648e5395`: the stage-input `capturedAt` grammar
+(`NATIVE_ARTIFACT_CAPTURED_AT_RE`) permitted the offset `[+-]\d{2}:\d{2}`, which accepts `+16:00` and
+unrestricted minute digits (`+01:60`). The reader Zod / `Date.parse` also tolerate `+16`, but PostgreSQL
+rejects any UTC displacement outside ±15:59 — Codex's actual PGlite casts: `+15:59` accepted, `+16:00`
+and `+01:60` rejected with SQLSTATE 22009. So a valid-looking out-of-range offset cleared the public
+schema and then failed the RPC with a generic `native_artifact_unavailable`. Client-boundary UX only; the
+DB always rejected the value at the cast.
+
+Fix (`src/lib/native-ai-artifact.ts` only; **no SQL change** — the DB already rejects an out-of-range
+displacement via the cast, so its regex/released paths are untouched; no coercion or normalization):
+
+- `NATIVE_ARTIFACT_CAPTURED_AT_RE`'s offset alternative is now `[+-](0\d|1[0-5]):[0-5]\d` — hour `00..15`,
+  minute `00..59`, both signs — matching PostgreSQL's accepted ±15:59 range while the already-required
+  `HH:MM:SS`, colon and uppercase `Z`/`T` are preserved. Only the staging boundary tightens; the shared
+  `nativeArtifactMetadataSchema` used for read-back keeps `.datetime({ offset: true })`, so an
+  already-stored value (always ≤ ±15:59 by the cast) stays readable, and the finite `Date.parse` /
+  2020..now instant-range semantics in the shared superRefine are unchanged.
+
+New regressions in `native-ai-artifact-migration.test.ts` (existing artifact test file), table-driven:
+
+- four out-of-range offsets — `+16:00`, `-16:00`, `+01:60`, `+15:60` — each refused by
+  `nativeArtifactStageInputSchema` (a `metadata.capturedAt` issue path) AND by `stage(...)` before any RPC
+  (no row created);
+- the shared reader schema still accepts `+16:00` / `-16:00` (read-back compatibility preserved, so the
+  write-only tightening never rejects a stored value);
+- boundary and normal offsets — `+15:59`, `-15:59`, `+00:00`, `-05:30`, `Z`, and the lower instant bound
+  `2020-01-01T00:00:00Z` — accepted at the stage input and round-tripped through real SQL, stored and read
+  back verbatim (no silent normalization; lower date-boundary semantics unchanged).
+
+These new checks and a re-run of the full suite / types / build are **NOT RUN in this worktree** (Codex
+executes the prepared checks). The prior stage recorded **60 focused / 2 files** and **6141 tests / 381
+files** (the thrown/rejected-error normalization, run by Codex above); that figure is the **prior stage
+only** and is **not re-asserted** for this change — results for these new regressions are pending Codex's
+run. No SQL applied, no upload UI enabled, no live artifact acceptance claimed; the USD50-global /
+manual-free budget and every scope/security boundary are unchanged.
+
+### Codex offset-boundary verification — 20 September 2026
+
+71 focused tests/2 files PASS(1.40s), full6152 tests/381 files PASS(43.29s), types/scoped lint/whitespace/production build PASS. Logs `/tmp/milo-artifact-offset-{focused,types,lint,full,build}-20260920.log`. Codex exception: one test formatting wrap and comment clarification; source behavior Claude-authored. No SQL change, migration application, deployment or live acceptance.
