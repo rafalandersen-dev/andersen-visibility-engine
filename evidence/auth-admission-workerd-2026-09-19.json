@@ -1,0 +1,27 @@
+{
+  "verifiedAt": "2026-09-19T14:55:38.632903+00:00",
+  "scope": "Independent local workerd fixtures; no outbound email/database/provider calls and no production acceptance claim",
+  "before": {
+    "accepted": 120,
+    "unrelatedRecoveryAccepted": false,
+    "actualEmailOrDatabaseCalls": 0
+  },
+  "final": {
+    "burstAccepted": 3,
+    "hourlyAccepted": 20,
+    "otherSourceAccepted": true,
+    "sameSourceRecoveryAccepted": true,
+    "missingSourceAccepted": false,
+    "ipv6RotationsAccepted": 3,
+    "actualEmailOrDatabaseCalls": 0
+  },
+  "recipientPoisoningScenario": "Final other-source request targets burst120@example.invalid, a recipient attempted by the already blocked source. It remains available.",
+  "sourceAttribution": {
+    "source": "192.0.2.7"
+  },
+  "sourceAttributionScope": "Real TanStack requestHandler/getRequestIP(false) with injected synthetic server req.ip and conflicting untrusted forwarded headers; not a live edge request.",
+  "sourceSha256": {
+    "src/lib/auth-email-admission.server.ts": "030e52bd8330fe8d5d326d99a82add9198f0ae356cd72ba5126a907c1e1f721f",
+    "src/lib/auth-email.functions.ts": "7ea7d451a0d268258eaca306f1150e484f79a674853d8de2877dac911b307480"
+  }
+}
