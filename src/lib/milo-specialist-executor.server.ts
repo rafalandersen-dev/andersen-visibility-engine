@@ -131,7 +131,37 @@ export async function runConversationSpecialists(
 ) {
   const actor = z.string().uuid().parse(actorId),
     target = conversationTurnTarget.parse(raw);
-  const claimed = await deps.claim(actor, target);
+  // A thrown claim is the ONE failure that happens before any execution stage is
+  // entered, so it was previously the sole failure path with no diagnostic (the
+  // `unknown` stage exists precisely for it). Record a best-effort, service-only
+  // receipt at that pre-entry `unknown` stage, then RE-THROW the original error
+  // unchanged. This is deliberately UNLIKE the in-run catch below: a thrown claim
+  // leaves both turn ownership AND the authoritative turn state UNCONFIRMED, so
+  // nothing is advanced, no model/tool runs, and the claim is never retried; the
+  // receipt is a correlation-only note that a claim-time fault occurred, never a
+  // record that any turn outcome was written — the fixed `unknown`/`execution_unknown`
+  // outcome states exactly that unconfirmed condition (never a "failed"/confirmed
+  // hold). The write is inert: a diagnostic failure is swallowed and can never mask
+  // the claim error. `actor`/`target` are parsed ABOVE, so invalid raw input throws
+  // first and records nothing. A normal unacquired claim (an existing running/
+  // completed/unknown turn) is NOT a failure: it returns unchanged with no receipt.
+  let claimed: Awaited<ReturnType<typeof deps.claim>>;
+  try {
+    claimed = await deps.claim(actor, target);
+  } catch (error) {
+    if (deps.diagnostic) {
+      try {
+        await deps.diagnostic({
+          turnId: target.turnId,
+          diagnosis: classifyConversationFailure(error, "unknown"),
+          outcome: { state: "unknown", code: "execution_unknown" },
+        });
+      } catch {
+        // Diagnostics are inert to the outcome and never mask the claim failure.
+      }
+    }
+    throw error;
+  }
   if (!claimed.acquired || !claimed.attemptId) return claimed.turn;
   const claimId = claimed.attemptId,
     controller = new AbortController();

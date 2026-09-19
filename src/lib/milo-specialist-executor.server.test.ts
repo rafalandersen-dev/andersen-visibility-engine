@@ -633,4 +633,123 @@ describe("real bounded specialist conversation execution", () => {
     });
     expect(input.outcome).toEqual({ state: "unknown", code: "execution_unknown" });
   });
+
+  describe("a claim-time fault records a pre-entry unknown-stage receipt, advances nothing and re-throws", () => {
+    // The durable claim runs BEFORE any execution stage, so a thrown claim was the one
+    // failure with no diagnostic. It now records a best-effort receipt at the pre-entry
+    // `unknown` stage and RE-THROWS the original error unchanged: claim ownership and
+    // the turn's authoritative state are UNCONFIRMED, so no outcome is advanced, no
+    // model/tool runs, and the claim is never retried.
+    const assertInert = (h: ReturnType<typeof harness>) => {
+      expect(h.claim).toHaveBeenCalledTimes(1); // never re-claimed
+      expect(h.read).not.toHaveBeenCalled();
+      expect(h.advance).not.toHaveBeenCalled();
+      expect(h.tool).not.toHaveBeenCalled();
+      expect(h.model).not.toHaveBeenCalled();
+    };
+    it("records stage unknown + SQLSTATE 55P03 for a real typed NOWAIT claim refusal, then re-throws", async () => {
+      const h = harness();
+      h.claim.mockRejectedValue(new TeamAdmissionBusyError());
+      await expect(runConversationSpecialists(actor, target, h.deps)).rejects.toBeInstanceOf(
+        TeamAdmissionBusyError,
+      );
+      assertInert(h);
+      expect(h.diagnostic).toHaveBeenCalledTimes(1);
+      const input = h.diagnostic.mock.calls[0][0] as ConversationDiagnosticInput;
+      expect(input.turnId).toBe(turnId);
+      expect(input.operationId).toBeUndefined(); // no stage/operation was ever entered
+      expect(input.diagnosis).toMatchObject({
+        stage: "unknown",
+        errorClass: "unknown",
+        nameCategory: "other",
+        httpStatus: null,
+        sqlState: "55P03",
+      });
+      // The claim's DB outcome is unconfirmed: an unknown correlation-only receipt,
+      // never a "failed"/confirmed turn state that was actually written.
+      expect(input.outcome).toEqual({ state: "unknown", code: "execution_unknown" });
+    });
+    it("records stage unknown with no SQLSTATE for a lost-response/transport claim failure", async () => {
+      const h = harness();
+      h.claim.mockRejectedValue(new Error("socket hang up"));
+      await expect(runConversationSpecialists(actor, target, h.deps)).rejects.toThrow(
+        "socket hang up",
+      );
+      assertInert(h);
+      const input = h.diagnostic.mock.calls[0][0] as ConversationDiagnosticInput;
+      expect(input.diagnosis).toMatchObject({
+        stage: "unknown",
+        errorClass: "unknown",
+        sqlState: null,
+      });
+      expect(input.operationId).toBeUndefined();
+      expect(input.outcome).toEqual({ state: "unknown", code: "execution_unknown" });
+    });
+    it("fails closed on a hostile thrown claim value, recording a safe receipt and re-throwing that exact value", async () => {
+      // A value whose getPrototypeOf trap and getters throw would break a bare
+      // `instanceof`. classifyConversationFailure is guarded, so the receipt is still
+      // a safe unknown / no-SQLSTATE diagnosis and the diagnostic write never throws;
+      // the ORIGINAL hostile value is re-thrown unchanged.
+      const hostile = new Proxy(
+        {},
+        {
+          getPrototypeOf() {
+            throw new Error("synthetic proto");
+          },
+          get() {
+            throw new Error("hostile getter");
+          },
+        },
+      );
+      const h = harness();
+      h.claim.mockImplementation(async () => {
+        throw hostile;
+      });
+      let thrown: unknown;
+      try {
+        await runConversationSpecialists(actor, target, h.deps);
+      } catch (error) {
+        thrown = error;
+      }
+      expect(thrown).toBe(hostile);
+      assertInert(h);
+      expect(h.diagnostic).toHaveBeenCalledTimes(1);
+      const input = h.diagnostic.mock.calls[0][0] as ConversationDiagnosticInput;
+      expect(input.turnId).toBe(turnId);
+      expect(input.diagnosis).toMatchObject({
+        stage: "unknown",
+        errorClass: "unknown",
+        sqlState: null,
+      });
+      expect(input.outcome).toEqual({ state: "unknown", code: "execution_unknown" });
+    });
+    it("never lets a failing claim-time diagnostic mask the original claim error", async () => {
+      const h = harness();
+      h.claim.mockRejectedValue(new TeamAdmissionBusyError());
+      h.diagnostic.mockRejectedValue(new Error("diagnostic sink down"));
+      // The re-thrown error is the ORIGINAL claim failure, not the diagnostic's; a
+      // failing receipt is swallowed and never retried.
+      await expect(runConversationSpecialists(actor, target, h.deps)).rejects.toBeInstanceOf(
+        TeamAdmissionBusyError,
+      );
+      assertInert(h);
+      expect(h.diagnostic).toHaveBeenCalledTimes(1);
+    });
+    it("returns an unacquired existing turn unchanged with no receipt and no re-claim", async () => {
+      for (const state of ["running", "completed", "unknown"] as const) {
+        const h = harness();
+        h.claim.mockResolvedValue({
+          acquired: false,
+          attemptId: null as unknown as string,
+          turn: { ...initial, state },
+        });
+        const result = await runConversationSpecialists(actor, target, h.deps);
+        expect(result.state).toBe(state);
+        // A normal unacquired claim is NOT a failure: no diagnostic receipt, no
+        // outcome advance, no dispatch, and the claim is not retried.
+        expect(h.diagnostic).not.toHaveBeenCalled();
+        assertInert(h);
+      }
+    });
+  });
 });

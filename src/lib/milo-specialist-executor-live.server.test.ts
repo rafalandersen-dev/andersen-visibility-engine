@@ -407,4 +407,74 @@ describe("the live conversation executor is never bounded by the browser preview
     });
     expect(diag.rows[0].operation_id).toEqual(expect.any(String));
   }, 20000);
+
+  it("writes a service-only diagnostic receipt for a claim-time NOWAIT refusal at the pre-entry unknown stage, leaving the turn untouched", async () => {
+    const { conversationId, turnId } = await seedTurn(
+      owner,
+      "Jaka jest różnica między wersją roboczą a opublikowanym artykułem?",
+    );
+    const target = { ownerId: owner, projectId: "p", conversationId, turnId };
+    // A NOWAIT lock refusal on the durable claim ITSELF is the pre-entry boundary: it
+    // happens before any execution stage, so claim ownership and the turn's
+    // authoritative state stay UNCONFIRMED. The claim-time diagnostic still records a
+    // real service-only receipt through the same RPC at the `unknown` stage, then the
+    // original error is re-thrown — no outcome is advanced and nothing is dispatched.
+    const advance = vi.fn();
+    const model = vi.fn(async () => {
+      throw new Error("model must not run on a claim-time fault");
+    });
+    const tool = vi.fn(async () => {
+      throw new Error("tool must not run on a claim-time fault");
+    });
+    await expect(
+      runConversationSpecialists(owner, target, {
+        claim: async () => {
+          throw new TeamAdmissionBusyError();
+        },
+        read: (who: string, input: never) => readConversationForExecution(who, input, rpc),
+        assert: (who: string, input: never, attempt: string) =>
+          assertConversationExecution(who, input, attempt, rpc),
+        advance,
+        tool,
+        model,
+        diagnostic: (input: ConversationDiagnosticInput) =>
+          recordConversationDiagnostic(input, rpc),
+      } as never),
+    ).rejects.toBeInstanceOf(TeamAdmissionBusyError);
+    // Ownership was never confirmed: no outcome advance and no dispatch.
+    expect(advance).not.toHaveBeenCalled();
+    expect(model).not.toHaveBeenCalled();
+    expect(tool).not.toHaveBeenCalled();
+    // The turn is untouched — still pending with no stored events.
+    const turnRow = await db.query<{ state: string }>(
+      "SELECT state FROM milo_conversation_turns WHERE turn_id=$1",
+      [turnId],
+    );
+    expect(turnRow.rows[0].state).toBe("pending");
+    // A real receipt pinpoints the pre-entry stage (`unknown`) and the 55P03 class,
+    // correlated to the turn with a NULL operation id (no stage/operation was entered).
+    const diag = await db.query<{
+      turn_id: string;
+      operation_id: string | null;
+      stage: string;
+      outcome: string;
+      outcome_code: string;
+      error_class: string;
+      name_category: string;
+      http_status: number | null;
+      sql_state: string | null;
+    }>("SELECT * FROM public.milo_conversation_diagnostics WHERE turn_id=$1", [turnId]);
+    expect(diag.rows).toHaveLength(1);
+    expect(diag.rows[0]).toMatchObject({
+      turn_id: turnId,
+      operation_id: null,
+      stage: "unknown",
+      outcome: "unknown",
+      outcome_code: "execution_unknown",
+      error_class: "unknown",
+      name_category: "other",
+      http_status: null,
+      sql_state: "55P03",
+    });
+  }, 20000);
 });

@@ -557,3 +557,96 @@ Changed-path tests **52/52 in 4 files** pass. Integrated full suite **6063/6063 
 Codex integration exceptions: formatted three diagnostic TypeScript files; reconciled the migration-chain inventory to distinguish eight already-applied conversation migrations from the new diagnostic candidate and added both new service-only RPC grant checks. Preserved the unknown-migration guard. Corrected retention commentary/evidence to acknowledge bounded-batch backlog: the daily sweep is not a hard 31-day maximum. No application or SQL behavior changed by these exceptions.
 
 No migration applied or production deployment performed for this packet. Production remains at `26b938c3`, with the last conversation acceptance failed and dispatch disabled. The packet adds safe failure-stage receipts; it does not establish a root cause or successful production conversation. Old unknown turns must not be replayed.
+
+## Correction round 2 — claim-time faults now record the pre-entry `unknown` receipt (19 September, later; base HEAD `6fe50a92`)
+
+An external PR145 review (finding `4054093474`, security review clean) found a real
+gap in the packet above: the durable `const claimed = await deps.claim(...)` ran
+BEFORE the `stage`/`stageOperation` tracker and the `try`/`catch`, so a thrown claim
+was the ONE failure path that recorded no diagnostic — even though the stage enum and
+its comments advertise `unknown` as exactly "a claim-time fault, which never reaches a
+stage." A pre-entry claim throw therefore propagated with no receipt. Codex inspected
+the same lines and confirmed. This round closes only that gap; no other behaviour,
+migration, dispatch, admission, lock, retry or user-facing surface is changed, and the
+`failure()` classifier, the in-run catch and the P1/P2/candidate migration chain are
+untouched.
+
+### Fix (bounded, executor-only)
+
+- `src/lib/milo-specialist-executor.server.ts` — the claim is wrapped in a `try`/`catch`
+  placed AFTER the existing `z.string().uuid().parse(actorId)` / `conversationTurnTarget.parse(raw)`
+  validation, so invalid raw input still throws first and writes no diagnostic. On a
+  claim throw the catch records ONE best-effort, service-only receipt via the existing
+  `deps.diagnostic` (`recordConversationDiagnostic`) at the pre-entry `unknown` stage
+  (`classifyConversationFailure(error, "unknown")`), with no operation id, then
+  RE-THROWS the original error unchanged.
+- Distinction documented in place: this is deliberately UNLIKE the in-run catch. A
+  thrown claim leaves both turn ownership AND the authoritative turn state
+  UNCONFIRMED, so — unlike the in-run catch — it advances NO outcome, runs NO
+  model/tool and NEVER retries/re-claims. The receipt is a correlation-only note that
+  a claim-time fault occurred; its fixed `unknown`/`execution_unknown` outcome states
+  that unconfirmed condition and never a `failed`/confirmed hold, so the receipt never
+  falsely implies an authoritative turn state was written. The write is inert: a
+  failing diagnostic is swallowed and can never mask the original claim error. A
+  normal unacquired claim (an existing running/completed/unknown turn) is NOT a
+  failure — it returns unchanged with no receipt, as before.
+- No enum, table, RPC, grant, retention or framework change was needed: `unknown` is
+  already an allowed stage, the writer is already first-receipt-per-turn
+  (`ON CONFLICT (turn_id) DO NOTHING`), a missing turn is already a silent no-op, and
+  the 30-day retention/grants are unchanged.
+
+### Regressions added (this round)
+
+- `src/lib/milo-specialist-executor.server.test.ts` — a new group proves a claim-time
+  fault records a pre-entry `unknown`-stage receipt, advances nothing and re-throws:
+  (1) a real typed `TeamAdmissionBusyError` records `stage=unknown`, `sqlState=55P03`,
+  `outcome=unknown`/`execution_unknown`, `operationId` undefined, and re-throws;
+  (2) a lost-response/transport `Error` records `stage=unknown` with `sqlState=null`;
+  (3) a hostile thrown value (throwing `getPrototypeOf` + getters) fails closed to a
+  safe `unknown`/no-SQLSTATE receipt and re-throws that exact value without the
+  diagnostic throwing; (4) a failing claim-time diagnostic never masks the original
+  claim error (the `TeamAdmissionBusyError` is re-thrown, receipt attempted once);
+  (5) an unacquired existing turn (running/completed/unknown) returns unchanged with
+  NO receipt. Every case asserts zero `advance`/`tool`/`model`/`read` calls and that
+  `claim` is called exactly once (never re-claimed).
+- `src/lib/milo-specialist-executor-live.server.test.ts` — end-to-end against the real
+  conversation RPCs plus the applied candidate migration: a claim-time NOWAIT refusal
+  writes a real service-only receipt (`stage=unknown`, `sql_state=55P03`,
+  `outcome=unknown`, `outcome_code=execution_unknown`, `operation_id` NULL) inspectable
+  via a plain service-role read and correlated to the turn, while the turn stays
+  `pending` with no advance or dispatch.
+
+### Check status (this round — UNRUN; Codex runs validation)
+
+Every check below is **UNRUN** in this round: no shell/test/build/type command was
+executed here (Read/Edit/Write/Glob/Grep only; auto-memory disabled). The prior
+"52 focused / 6063 full / types / build PASS" result is the PREVIOUS stage's and does
+**not** apply to these new changes. Base HEAD is `6fe50a92`; no SQL applied, no PR
+opened, no deploy, no provider/DB/network/git action. USD50-global and manual-free AI
+controls and every scope/security boundary are preserved.
+
+Prepared checks (approved `node_modules/.bin/...` executables, individually):
+
+- New/changed behaviour:
+  `node_modules/.bin/vitest run src/lib/milo-specialist-executor.server.test.ts src/lib/milo-specialist-executor-live.server.test.ts`
+- Unchanged behaviour must hold:
+  `node_modules/.bin/vitest run src/lib/milo-conversation-diagnostics.server.test.ts src/lib/milo-conversation-diagnostics-migration.test.ts src/lib/milo-conversation.server.test.ts`
+- `node_modules/.bin/tsc --noEmit`
+- `node_modules/.bin/eslint src/lib/milo-specialist-executor.server.ts src/lib/milo-specialist-executor.server.test.ts src/lib/milo-specialist-executor-live.server.test.ts`
+- `node_modules/.bin/prettier --check` on the three changed files above
+- Full suite `node_modules/.bin/vitest run` and production `node_modules/.bin/vite build`
+
+### Files (this round)
+
+- `src/lib/milo-specialist-executor.server.ts` — claim wrapped in a validated,
+  best-effort pre-entry `unknown`-stage diagnostic that re-throws; no outcome advance.
+- `src/lib/milo-specialist-executor.server.test.ts` — five claim-time regressions.
+- `src/lib/milo-specialist-executor-live.server.test.ts` — real claim-time receipt
+  write with the turn left pending.
+- `evidence/conversation-live-repair-2026-09-19.md` — this correction round.
+
+## Codex verification after claim-boundary correction — 19 September 2026
+
+Owner explicitly authorized scoped Claude Read/Edit/Write/Glob/Grep; the resumed author completed the correction with zero permission denials. Reviewed the delta: input validation precedes the guarded claim; claim failure records unknown best-effort then rethrows the original value without advance, tool, model, read or reclaim.
+
+**58 focused tests/4 files PASS**, **6069 full-suite tests/379 files PASS** (110.53 s), TypeScript/scoped ESLint/Prettier/whitespace and production build PASS. Logs `/tmp/milo-diagnostic-claim-{focused,types,full,build}-20260919.log`. Previous UNRUN statements apply only to the author's pre-verification handoff. No additional Codex source edits for this correction. No SQL applied, deployment or production conversation test yet; production remains unverified for this change.
