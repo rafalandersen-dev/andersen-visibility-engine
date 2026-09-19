@@ -37,6 +37,7 @@ import type { Project, ServiceItem, Opportunity } from "./types";
 import { claimAiUsage, type UsageBucket } from "./ai-usage.server";
 import { withGenerationUsage } from "./generation-usage.server";
 import { contentRecoveryTarget, retainContentGeneration } from "./generation-result.server";
+import { CONTENT_BODY_MAX_CHARS } from "./generation-result";
 
 const MODEL = DEFAULT_MODEL_ID;
 
@@ -2157,6 +2158,12 @@ ${sharedRules}`,
 // generateContentAsset (landing brief / article draft)
 // ============================================================
 
+const contentBody = z.preprocess((value) => {
+  if (typeof value === "string") return value.trim();
+  if (typeof value === "number" || typeof value === "boolean") return String(value);
+  return "";
+}, z.string().min(1).max(CONTENT_BODY_MAX_CHARS));
+
 const ContentAssetSchema = z.object({
   metaTitle: cleanString(70),
   metaDescription: cleanString(170),
@@ -2164,7 +2171,7 @@ const ContentAssetSchema = z.object({
   outline: z.array(cleanString(140)),
   faq: z.array(z.object({ q: cleanString(140), a: cleanString(400) })),
   cta: cleanString(60),
-  markdown: cleanString(8000),
+  markdown: contentBody,
   internalLinks: z.array(cleanString(80)).default([]),
   schemaSuggestions: z.array(cleanString(40)).default([]),
   editorNotes: z
