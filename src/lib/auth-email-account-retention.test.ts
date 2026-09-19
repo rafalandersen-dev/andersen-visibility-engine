@@ -11,6 +11,7 @@ const h = vi.hoisted(() => ({
   tokens: vi.fn(),
   insertToken: vi.fn(),
   admit: vi.fn(),
+  requestIp: vi.fn(),
 }));
 
 vi.mock("@tanstack/react-start", () => ({
@@ -42,6 +43,7 @@ vi.mock("@supabase/supabase-js", () => ({
     },
   }),
 }));
+vi.mock("@tanstack/react-start/server", () => ({ getRequestIP: h.requestIp }));
 vi.mock("./auth-email-admission.server", () => ({ admitAuthEmail: h.admit }));
 vi.mock("@lovable.dev/email-js", () => ({ sendLovableEmail: h.send }));
 vi.mock("react-email", () => ({ render: h.render }));
@@ -84,6 +86,7 @@ beforeEach(() => {
   h.render.mockResolvedValue("Test email body");
   h.log.mockResolvedValue({ error: null });
   h.tokens.mockResolvedValue({ data: { token: "test-only-unsubscribe-placeholder" }, error: null });
+  h.requestIp.mockReturnValue("203.0.113.10");
 });
 afterEach(() => {
   vi.restoreAllMocks();
@@ -346,3 +349,26 @@ it.each([signupWithBrandedEmailFn, requestPasswordResetWithBrandedEmailFn])(
     expect(h.tokens).not.toHaveBeenCalled();
   },
 );
+
+describe("admission is bound to the trusted runtime source and its action", () => {
+  const reset = { email: signup.email, redirectTo: "https://app.example.invalid/reset-password" };
+  it.each([
+    ["signup", signupWithBrandedEmailFn, "signup", signup],
+    ["recovery", requestPasswordResetWithBrandedEmailFn, "recovery", reset],
+  ] as const)(
+    "%s supplies the runtime IP and action and ignores client-supplied forwarding fields",
+    async (_name, fn, action, data) => {
+      h.requestIp.mockReturnValue("198.51.100.23");
+      // A spoofed forwarded-for style field in the request body must not reach admission.
+      await expect(
+        call(fn, { ...data, ip: "10.0.0.1", "x-forwarded-for": "10.0.0.1" }),
+      ).resolves.toEqual({ ok: true });
+      // The runtime resolver is asked for the trusted address only, never the header.
+      expect(h.requestIp).toHaveBeenCalledWith({ xForwardedFor: false });
+      expect(h.admit).toHaveBeenCalledOnce();
+      const [, request] = h.admit.mock.calls[0];
+      expect(request).toMatchObject({ email: signup.email, source: "198.51.100.23", action });
+      expect(JSON.stringify(h.admit.mock.calls)).not.toContain("10.0.0.1");
+    },
+  );
+});
