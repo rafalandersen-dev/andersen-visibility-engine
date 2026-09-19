@@ -4,6 +4,7 @@
  */
 
 import { MAX_IMAGE_BYTES } from "./image-storage";
+import { directProviderFetch } from "./provider-fetch.server";
 
 const OPENAI_IMAGES_URL = "https://api.openai.com/v1/images/generations";
 export const IMAGE_GENERATION_TIMEOUT_MS = 120_000;
@@ -66,9 +67,10 @@ async function imageResponse(url: string, init: RequestInit, signal?: AbortSigna
     }, IMAGE_GENERATION_TIMEOUT_MS);
   });
   const read = async () => {
-    const response = await fetch(url, {
+    // directProviderFetch enforces redirect:"manual" and refuses any redirect
+    // response without following Location (workerd rejects redirect:"error").
+    const response = await directProviderFetch(url, {
       ...init,
-      redirect: "error",
       signal: signal ? AbortSignal.any([controller.signal, signal]) : controller.signal,
     });
     reader = response.body?.getReader();

@@ -3,6 +3,7 @@ import {
   normalizeBacklinkMonitoring,
   type BacklinkMonitoringScope,
 } from "./backlink-monitoring";
+import { manualRedirectFetch } from "./provider-fetch.server";
 const ENDPOINT = "https://api.dataforseo.com/v3/backlinks/timeseries_new_lost_summary/live";
 /** Internal transport only. The caller must first acquire durable dispatch and
  * supplier expense admission. No routes or automatic analysis call this module. */
@@ -25,9 +26,8 @@ export async function fetchBacklinkMonitoring(
   signal.addEventListener("abort", abort, { once: true });
   const timeout = setTimeout(abort, 15000);
   try {
-    const response = await request(ENDPOINT, {
+    const response = await manualRedirectFetch(request)(ENDPOINT, {
       method: "POST",
-      redirect: "error",
       signal: controller.signal,
       headers: {
         Authorization: `Basic ${Buffer.from(`${credentials.login}:${credentials.password}`).toString("base64")}`,

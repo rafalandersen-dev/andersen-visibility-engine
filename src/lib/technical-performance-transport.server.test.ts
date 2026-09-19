@@ -17,7 +17,7 @@ describe("bounded performance provider transport", () => {
     expect(new URL(endpoint).pathname).toBe("/v1/records:queryRecord");
     expect(init).toMatchObject({
       method: "POST",
-      redirect: "error",
+      redirect: "manual",
       signal: expect.any(AbortSignal),
     });
     expect(JSON.parse(init.body)).toEqual({
@@ -70,7 +70,7 @@ describe("bounded performance provider transport", () => {
     expect(endpoint.searchParams.get("url")).toBe(url);
     expect(endpoint.searchParams.get("strategy")).toBe("mobile");
     expect(endpoint.searchParams.get("category")).toBe("performance");
-    expect(request.mock.calls[0][1]).toMatchObject({ method: "GET", redirect: "error" });
+    expect(request.mock.calls[0][1]).toMatchObject({ method: "GET", redirect: "manual" });
     expect(result).toMatchObject({ evidenceKind: "lab", performanceScore: null });
   });
   it("records verified missing CrUX data without retrying or converting it to zero", async () => {
@@ -150,5 +150,21 @@ describe("bounded performance provider transport", () => {
       "performance_configuration",
     );
     expect(request).not.toHaveBeenCalled();
+  });
+  it("refuses a provider redirect without following its Location", async () => {
+    const cancel = vi.fn();
+    const request = vi.fn().mockResolvedValue(
+      new Response(new ReadableStream({ cancel }), {
+        status: 302,
+        headers: { location: "https://evil.test/steal", "content-type": "application/json" },
+      }),
+    );
+    await expect(fetchTechnicalPerformance(query, "fixture-key", request)).rejects.toThrow(
+      "performance_unavailable",
+    );
+    // Exactly one dispatch — the redirect target is never fetched.
+    expect(request).toHaveBeenCalledTimes(1);
+    expect(request.mock.calls[0][1]).toMatchObject({ redirect: "manual" });
+    expect(cancel).toHaveBeenCalledTimes(1);
   });
 });

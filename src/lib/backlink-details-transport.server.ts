@@ -8,6 +8,7 @@ import {
   normalizeBacklinkPage,
   type BacklinkContinuation,
 } from "./backlink-pagination";
+import { manualRedirectFetch } from "./provider-fetch.server";
 const ENDPOINT = "https://api.dataforseo.com/v3/backlinks/backlinks/live";
 /** Internal transport only. The caller must first acquire durable dispatch and
  * supplier expense admission. No routes or automatic analysis call this module. */
@@ -57,9 +58,8 @@ async function requestDetails<T>(
   signal.addEventListener("abort", abort, { once: true });
   const timeout = setTimeout(abort, 15000);
   try {
-    const response = await request(ENDPOINT, {
+    const response = await manualRedirectFetch(request)(ENDPOINT, {
       method: "POST",
-      redirect: "error",
       signal: controller.signal,
       headers: {
         Authorization: `Basic ${Buffer.from(`${login}:${password}`).toString("base64")}`,

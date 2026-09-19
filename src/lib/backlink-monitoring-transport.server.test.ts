@@ -48,7 +48,7 @@ it("sends one exact daily scope to the fixed endpoint and preserves supplier cos
     "https://api.dataforseo.com/v3/backlinks/timeseries_new_lost_summary/live",
     expect.objectContaining({
       method: "POST",
-      redirect: "error",
+      redirect: "manual",
       body: JSON.stringify([backlinkMonitoringPayload(scope)]),
     }),
   );
@@ -132,5 +132,21 @@ it("cancels a stalled response body and withholds a late result", async () => {
   await Promise.resolve();
   controller.abort();
   await expect(pending).rejects.toThrow("backlink_monitoring_unavailable");
+  expect(cancel).toHaveBeenCalledTimes(1);
+});
+it("refuses a provider redirect without following its Location", async () => {
+  const cancel = vi.fn();
+  const request = vi.fn<typeof fetch>().mockResolvedValue(
+    new Response(new ReadableStream({ cancel }), {
+      status: 302,
+      headers: { location: "https://evil.test/steal", "content-type": "application/json" },
+    }),
+  );
+  await expect(
+    fetchBacklinkMonitoring(scope, credentials, new AbortController().signal, request),
+  ).rejects.toThrow("backlink_monitoring_unavailable");
+  // Exactly one dispatch — the redirect target is never fetched.
+  expect(request).toHaveBeenCalledTimes(1);
+  expect(request.mock.calls[0][1]).toMatchObject({ redirect: "manual" });
   expect(cancel).toHaveBeenCalledTimes(1);
 });

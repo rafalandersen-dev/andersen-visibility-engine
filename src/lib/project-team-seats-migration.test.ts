@@ -124,7 +124,7 @@ describe("team seat allowances", () => {
     await invite(2, "two@example.test", "editor", [2, 0]);
     expect(await seats()).toEqual({ working: 2, viewer: 0 });
   });
-  it("needs a free seat to promote a viewer but not to move between working roles", async () => {
+  it("needs a free seat to promote a viewer or demote the last working role, but not to move between working roles", async () => {
     await invite(1, "member@example.test", "viewer", [2, 1]);
     await db.query("SELECT public.accept_project_team_invitation($1,$2,'p',$3)", [
       actor,
@@ -147,8 +147,132 @@ describe("team seat allowances", () => {
     expect((await change(1, "editor")).rows[0].revision).toBe("2");
     expect(await seats()).toEqual({ working: 3, viewer: 0 });
     expect((await change(2, "reviewer", [2, 1])).rows[0].revision).toBe("3");
-    expect((await change(3, "viewer", [2, 0])).rows[0].revision).toBe("4");
+    // Demoting the member's last working role to viewer needs a viewer seat: with zero
+    // viewer seats it is refused. Previously the pre-update working classification skipped
+    // this check, so the successful demotion could leave the viewer count above its cap.
+    await expect(change(3, "viewer", [2, 0])).rejects.toThrow(/team_seat_limit/);
+    expect(await seats()).toEqual({ working: 3, viewer: 0 });
+    // One free viewer seat lets the same demotion through and moves the person's seat.
+    expect((await change(3, "viewer", [2, 1])).rows[0].revision).toBe("4");
     expect(await seats()).toEqual({ working: 2, viewer: 1 });
+  });
+  it("refuses demoting the last working role when the viewer allowance is already full", async () => {
+    await invite(1, "member@example.test", "editor", [5, 1]);
+    await db.query("SELECT public.accept_project_team_invitation($1,$2,'p',$3)", [
+      actor,
+      owner,
+      id(1),
+    ]);
+    await invite(2, "look@example.test", "viewer", [5, 1]);
+    expect(await seats()).toEqual({ working: 2, viewer: 1 });
+    // The lone viewer seat is taken, so demoting the working member would need a second.
+    await expect(
+      db.query("SELECT public.change_project_team_member($1,$1,'p',$2,1,'viewer',false,5,1)", [
+        owner,
+        actor,
+      ]),
+    ).rejects.toThrow(/team_seat_limit/);
+    expect(await seats()).toEqual({ working: 2, viewer: 1 });
+  });
+  it("adds no viewer seat when a demoted member still holds a working role on another project", async () => {
+    await invite(1, "member@example.test", "editor", [5, 0]);
+    await db.query("SELECT public.accept_project_team_invitation($1,$2,'p',$3)", [
+      actor,
+      owner,
+      id(1),
+    ]);
+    await invite(2, "member@example.test", "editor", [5, 0], "q");
+    await db.query("SELECT public.accept_project_team_invitation($1,$2,'q',$3)", [
+      actor,
+      owner,
+      id(2),
+    ]);
+    expect(await seats()).toEqual({ working: 2, viewer: 0 });
+    // Dropping the 'p' role to viewer leaves the member working via 'q'; even with no
+    // viewer allowance the change succeeds and creates no viewer seat.
+    expect(
+      (
+        await db.query<{ revision: string }>(
+          "SELECT public.change_project_team_member($1,$1,'p',$2,1,'viewer',false,5,0)::text revision",
+          [owner, actor],
+        )
+      ).rows[0].revision,
+    ).toBe("2");
+    expect(await seats()).toEqual({ working: 2, viewer: 0 });
+  });
+  it("adds no viewer seat when a demoted member still has a pending working invitation elsewhere", async () => {
+    await invite(1, "member@example.test", "editor", [5, 0]);
+    await db.query("SELECT public.accept_project_team_invitation($1,$2,'p',$3)", [
+      actor,
+      owner,
+      id(1),
+    ]);
+    await invite(2, "member@example.test", "reviewer", [5, 0], "q");
+    expect(await seats()).toEqual({ working: 2, viewer: 0 });
+    // A working invitation still pending on 'q' keeps the member a working person, so the
+    // demotion on 'p' consumes no viewer seat even at a zero viewer allowance.
+    expect(
+      (
+        await db.query<{ revision: string }>(
+          "SELECT public.change_project_team_member($1,$1,'p',$2,1,'viewer',false,5,0)::text revision",
+          [owner, actor],
+        )
+      ).rows[0].revision,
+    ).toBe("2");
+    expect(await seats()).toEqual({ working: 2, viewer: 0 });
+  });
+  it("removes access unconditionally, ignoring seat allowances even when over the limit", async () => {
+    await invite(1, "member@example.test", "editor");
+    await db.query("SELECT public.accept_project_team_invitation($1,$2,'p',$3)", [
+      actor,
+      owner,
+      id(1),
+    ]);
+    await invite(2, "look@example.test", "viewer");
+    expect(await seats()).toEqual({ working: 2, viewer: 1 });
+    // Removal never consults the allowance: the tightest limits cannot block it. It frees
+    // the working seat and leaves the untouched viewer invitation in place.
+    expect(
+      (
+        await db.query<{ revision: string }>(
+          "SELECT public.change_project_team_member($1,$1,'p',$2,1,NULL::text,true,1,0)::text revision",
+          [owner, actor],
+        )
+      ).rows[0].revision,
+    ).toBe("2");
+    expect(await seats()).toEqual({ working: 1, viewer: 1 });
+  });
+  it("keeps the owner-only authorization and optimistic revision guard under the seat check", async () => {
+    await invite(1, "member@example.test", "editor", [5, 5]);
+    await db.query("SELECT public.accept_project_team_invitation($1,$2,'p',$3)", [
+      actor,
+      owner,
+      id(1),
+    ]);
+    // A non-owner actor is refused before any seat evaluation.
+    await expect(
+      db.query("SELECT public.change_project_team_member($1,$2,'p',$1,1,'reviewer',false,5,5)", [
+        actor,
+        owner,
+      ]),
+    ).rejects.toThrow(/team_membership_unavailable/);
+    // A stale expected revision still loses to the optimistic-lock guard; the seat check
+    // is skipped when the expected row is absent so it cannot mask the conflict.
+    await expect(
+      db.query("SELECT public.change_project_team_member($1,$1,'p',$2,99,'reviewer',false,5,5)", [
+        owner,
+        actor,
+      ]),
+    ).rejects.toThrow(/team_membership_changed/);
+    // The valid owner change still succeeds and advances the revision by one.
+    expect(
+      (
+        await db.query<{ revision: string }>(
+          "SELECT public.change_project_team_member($1,$1,'p',$2,1,'reviewer',false,5,5)::text revision",
+          [owner, actor],
+        )
+      ).rows[0].revision,
+    ).toBe("2");
   });
   it("rejects malformed limits and keeps the seat functions service-only", async () => {
     await expect(invite(1, "one@example.test", "editor", [0, 1])).rejects.toThrow(

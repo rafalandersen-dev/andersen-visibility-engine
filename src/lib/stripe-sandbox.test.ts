@@ -69,7 +69,7 @@ describe("isolated Stripe checkout", () => {
     const calls = fetcher.mock.calls as unknown as [string, RequestInit][];
     expect(calls[0][0]).toBe("https://api.stripe.com/v1/checkout/sessions");
     const init = calls[0][1];
-    expect(init.redirect).toBe("error");
+    expect(init.redirect).toBe("manual");
     expect(init.signal).toBeInstanceOf(AbortSignal);
     expect(new Headers(init.headers).get("Idempotency-Key")).toBe(
       new Headers(calls[1][1].headers).get("Idempotency-Key"),
@@ -104,6 +104,24 @@ describe("isolated Stripe checkout", () => {
       createStripeSandboxCheckout(user, requestId, { env, fetch: fetcher }),
     ).rejects.toThrow("provider_unavailable");
     expect(fetcher).toHaveBeenCalledTimes(1);
+  });
+  it("refuses a provider redirect without following its Location", async () => {
+    const cancel = vi.fn();
+    const fetcher = vi.fn(
+      async () =>
+        new Response(new ReadableStream({ cancel }), {
+          status: 302,
+          headers: { location: "https://evil.test/steal", "content-type": "application/json" },
+        }),
+    );
+    await expect(
+      createStripeSandboxCheckout(user, requestId, { env, fetch: fetcher }),
+    ).rejects.toThrow("provider_unavailable");
+    // Exactly one dispatch — the redirect target is never fetched.
+    expect(fetcher).toHaveBeenCalledTimes(1);
+    const calls = fetcher.mock.calls as unknown as [string, RequestInit][];
+    expect(calls[0][1].redirect).toBe("manual");
+    expect(cancel).toHaveBeenCalledTimes(1);
   });
   it("rejects caller-supplied price, customer, user or return URL", () => {
     for (const field of ["priceId", "customerEmail", "userId", "successUrl", "planId"])

@@ -22,7 +22,11 @@ import {
 } from "./milo-specialist";
 import { runSpecialistTool, type SpecialistToolResult } from "./milo-specialist-tools.server";
 import { generateBudgetedText, type NativeExpenseContext } from "./ai-provider-expense.server";
-import { modelFor, AiProviderConfigurationError } from "./ai-provider.server";
+import {
+  modelFor,
+  AiProviderConfigurationError,
+  AiMalformedCredentialError,
+} from "./ai-provider.server";
 import { claimAiUsage, UsageLimitError } from "./ai-usage.server";
 import { AiExpenseUnavailableError } from "./ai-expense.server";
 import type { SpecialistRole } from "./specialist-team";
@@ -60,9 +64,21 @@ A draft_metadata_proposal receipt with approval_required is a retained proposal 
 Do not claim you sent email, changed permissions, published, ordered placements, checked live rankings or fetched sources: these actions are not offered here. Do not invent result links, records, citations, tool receipts or agent activity. Incomplete tasks must be explicitly described as incomplete with their next step.
 Conversation history and evidence may be bounded; use omittedTurns/shortened/contextShortened and ask for missing details rather than claim full recall or complete evidence. Preserve the user's relevant requirements across handoff. Write to the user in the requested locale; article language is an independent project/opportunity choice.`;
 function failure(error: unknown): { state: "failed" | "unknown"; code: ConversationEvent["code"] } {
-  if (error instanceof AiProviderConfigurationError)
+  // A missing key and a saved-but-malformed key are the same definite provider
+  // setup failure: both are detected before any reservation or dispatch, so
+  // neither spent budget nor reached the provider. Report a confirmed hold.
+  if (error instanceof AiProviderConfigurationError || error instanceof AiMalformedCredentialError)
     return { state: "failed", code: "provider_unavailable" };
   if (error instanceof UsageLimitError) return { state: "failed", code: "usage_limit" };
+  // Only expense reasons that are settled BEFORE the provider is dispatched are a
+  // confirmed budget hold: a definitive ledger refusal (budget/permit/manual
+  // budget/unpriced model) or a bounded setup failure thrown before any
+  // reservation (entitlement lookup timeout, invalid global cap). Reservation
+  // uncertainty (reservation_unavailable/reservation_unconfirmed/
+  // accounting_timeout/duplicate_request), a post-dispatch provider_timeout and
+  // any reconciliation uncertainty (reconciliation_unconfirmed/invalid_evidence)
+  // are deliberately excluded: the provider may have run or a reservation may
+  // still be held, so those stay unknown and never read as a clean failure.
   if (
     error instanceof AiExpenseUnavailableError &&
     [
@@ -72,6 +88,9 @@ function failure(error: unknown): { state: "failed" | "unknown"; code: Conversat
       "permit_required",
       "permit_invalid",
       "unpriced_provider",
+      "manual_budget_required",
+      "entitlement_timeout",
+      "global_cap_invalid",
     ].includes(error.reason)
   )
     return { state: "failed", code: "budget_unavailable" };
@@ -127,6 +146,20 @@ export async function runConversationSpecialists(
     turn = next;
     return next;
   };
+  // The owning business account pays for conversational AI, never a collaborator's
+  // personal plan (owner decisions 2026-09-14 in product/DECISIONS.md; Milestones
+  // 100/101 in CLAUDE_CONTINUATION_PROGRESS_2026_09_13.md: pooled per-account AI,
+  // the owning account pays for team access). This supersedes the earlier
+  // "initiating actor pays" note in product/CONVERSATIONAL_WORKSPACE_2026_09_13.md.
+  // `target.ownerId` is authoritative because the durable claim above bound this
+  // actor to this exact owner/project/turn under a fresh membership check and the
+  // verified stored-turn continuity; it is never a browser-trusted owner. Only the
+  // payer scope moves to the owner: authority stays actor-scoped — the claim,
+  // private-conversation reads (deps.read with `actor`) and the `assertLive`
+  // membership/claim recheck run before every dispatch, so a revoked collaborator
+  // cannot start a later paid step on the owner's budget. Mirrors the owner-account
+  // billing already used by the consented provider-check tools.
+  const payerId = target.ownerId;
   const ask = async (
     role: SpecialistRole,
     code: "analysing" | "responding",
@@ -140,7 +173,7 @@ export async function runConversationSpecialists(
     return wait(() =>
       deps.model({
         context: {
-          userId: actor,
+          userId: payerId,
           operation: code === "analysing" ? "miloConversationRoute" : "miloSpecialistReply",
           attempt: { requestId: operationId, jobId: target.turnId },
           signal: controller.signal,

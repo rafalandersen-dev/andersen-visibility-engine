@@ -6,7 +6,8 @@ import {
 } from "./milo-specialist-executor.server";
 import { conversationTurn, type ConversationTurn } from "./milo-conversation";
 import { specialistMemory, specialistPlan, serializeSpecialistContext } from "./milo-specialist";
-import { AiProviderConfigurationError } from "./ai-provider.server";
+import { AiProviderConfigurationError, AiMalformedCredentialError } from "./ai-provider.server";
+import { AiExpenseUnavailableError } from "./ai-expense.server";
 const actor = "00000000-0000-4000-8000-000000000001",
   ownerId = "00000000-0000-4000-8000-000000000002",
   conversationId = "00000000-0000-4000-8000-000000000003",
@@ -41,8 +42,12 @@ const plan = {
 function harness() {
   let stored = structuredClone(initial);
   const history: ConversationTurn[] = [];
-  const claim = vi.fn(async () => ({ acquired: true, attemptId, turn: structuredClone(stored) }));
-  const read = vi.fn(async () => ({
+  const claim = vi.fn(async (_actor: string) => ({
+    acquired: true,
+    attemptId,
+    turn: structuredClone(stored),
+  }));
+  const read = vi.fn(async (_actor: string) => ({
     ...target,
     actorId: actor,
     title: "SEO",
@@ -51,7 +56,7 @@ function harness() {
     nextAfter: stored.ordinal,
     hasMore: false,
   }));
-  const assert = vi.fn(async () => {
+  const assert = vi.fn(async (_actor: string) => {
     if (stored.state !== "running") throw new Error("revoked or cancelled");
   });
   const advance = vi.fn(async (_actor, _target, update) => {
@@ -115,10 +120,12 @@ describe("real bounded specialist conversation execution", () => {
       result.events.filter((event) => event.kind === "assistant").map((event) => event.role),
     ).toEqual(["seo", "content"]);
     expect(h.model.mock.calls[2][0].prompt).toContain("Zapisany artykuł ma dwie sekcje");
+    // The owning business account pays for every routing and reply request
+    // (owner decision 2026-09-14; Milestones 100/101), even though actor !== owner.
     expect(
       h.model.mock.calls.every(
         ([input]) =>
-          input.context.userId === actor &&
+          input.context.userId === ownerId &&
           input.context.attempt.jobId === turnId &&
           input.prompt.includes('"locale":"pl"'),
       ),
@@ -129,6 +136,8 @@ describe("real bounded specialist conversation execution", () => {
       expect(
         result.events.some((event) => event.operationId === id && event.kind === "status"),
       ).toBe(true);
+    // Authority stays actor-scoped: tools, private-conversation reads and every
+    // claim/membership recheck are called with the collaborator, never the owner.
     expect(
       h.tool.mock.calls.every(
         ([, context]) =>
@@ -137,6 +146,10 @@ describe("real bounded specialist conversation execution", () => {
           context.target.projectId === "p",
       ),
     ).toBe(true);
+    expect(h.claim.mock.calls.every(([a]) => a === actor)).toBe(true);
+    expect(h.read.mock.calls.every(([a]) => a === actor)).toBe(true);
+    expect(h.assert.mock.calls.every(([a]) => a === actor)).toBe(true);
+    expect(h.advance.mock.calls.every(([a]) => a === actor)).toBe(true);
     expect(JSON.stringify(result)).not.toContain(attemptId);
   });
   it("does not re-enter tools/models when the saved claim is already running, completed or unknown", async () => {
@@ -260,6 +273,109 @@ describe("real bounded specialist conversation execution", () => {
     expect(result.state).toBe("failed");
     expect(result.events.at(-1)?.code).toBe("provider_unavailable");
     expect(result.events.filter((event) => event.kind === "assistant")).toHaveLength(0);
+  });
+  it("treats a manual free-budget refusal as a budget hold without any further tool or model attempt", async () => {
+    const h = harness();
+    h.model.mockRejectedValue(new AiExpenseUnavailableError("manual_budget_required"));
+    const result = await runConversationSpecialists(actor, target, h.deps);
+    expect(result.state).toBe("failed");
+    const last = result.events.at(-1);
+    expect(last?.code).toBe("budget_unavailable");
+    expect(last?.state).toBe("unavailable");
+    expect(result.events.filter((event) => event.kind === "assistant")).toHaveLength(0);
+    // The refusal is a known failure before provider dispatch: no follow-on model
+    // call and no tool beyond the single project brief taken before planning.
+    expect(h.model).toHaveBeenCalledOnce();
+    expect(h.tool.mock.calls.map(([input]) => input.name)).toEqual(["project_brief"]);
+  });
+  it("treats a malformed saved key as a provider hold, exactly like a missing configuration", async () => {
+    const h = harness();
+    h.model.mockRejectedValue(new AiMalformedCredentialError());
+    const result = await runConversationSpecialists(actor, target, h.deps);
+    expect(result.state).toBe("failed");
+    const last = result.events.at(-1);
+    expect(last?.code).toBe("provider_unavailable");
+    expect(last?.state).toBe("unavailable");
+    expect(result.events.filter((event) => event.kind === "assistant")).toHaveLength(0);
+    // Detected before any reservation or dispatch, so it stops the turn with no
+    // fabricated reply and no work beyond the single planning brief.
+    expect(h.model).toHaveBeenCalledOnce();
+    expect(h.tool.mock.calls.map(([input]) => input.name)).toEqual(["project_brief"]);
+  });
+  it.each(["entitlement_timeout", "global_cap_invalid"])(
+    "treats the pre-dispatch expense setup failure %s as a budget hold that stops later steps",
+    async (reason) => {
+      const h = harness();
+      h.model.mockRejectedValue(new AiExpenseUnavailableError(reason));
+      const result = await runConversationSpecialists(actor, target, h.deps);
+      expect(result.state).toBe("failed");
+      const last = result.events.at(-1);
+      expect(last?.code).toBe("budget_unavailable");
+      expect(last?.state).toBe("unavailable");
+      expect(result.events.filter((event) => event.kind === "assistant")).toHaveLength(0);
+      // A setup failure raised before reservation is a confirmed hold: the planning
+      // model call fails and no specialist reply or later tool is ever dispatched.
+      expect(h.model).toHaveBeenCalledOnce();
+      expect(h.tool.mock.calls.map(([input]) => input.name)).toEqual(["project_brief"]);
+    },
+  );
+  it.each(["provider_timeout", "reconciliation_unconfirmed", "reservation_unavailable"])(
+    "keeps the uncertain provider or reconciliation failure %s unknown rather than a confirmed hold",
+    async (reason) => {
+      const h = harness();
+      h.model.mockRejectedValue(new AiExpenseUnavailableError(reason));
+      const result = await runConversationSpecialists(actor, target, h.deps);
+      // The provider may have run or a reservation may still be held: the outcome
+      // is unknown, never a clean failure, and no reply is invented.
+      expect(result.state).toBe("unknown");
+      const last = result.events.at(-1);
+      expect(last?.code).toBe("execution_unknown");
+      expect(last?.state).toBe("unknown");
+      expect(result.events.filter((event) => event.kind === "assistant")).toHaveLength(0);
+    },
+  );
+  it("stops any later paid dispatch on the owner's budget when the actor's membership is revoked mid-turn", async () => {
+    const h = harness();
+    // Routing and its project brief run, then the collaborator is removed. The
+    // membership/claim recheck before the first specialist step fails, so no
+    // later reply is dispatched and nothing further is charged to the owner.
+    h.assert.mockImplementation(async () => {
+      if (h.stored.events.some((event) => event.kind === "handoff"))
+        throw new Error("membership revoked");
+    });
+    const result = await runConversationSpecialists(actor, target, h.deps);
+    expect(result.state).toBe("unknown");
+    expect(result.events.some((event) => event.kind === "assistant")).toBe(false);
+    // Only the routing model call happened; the paid specialist reply never ran.
+    expect(h.model).toHaveBeenCalledOnce();
+    expect(h.model.mock.calls[0][0].context.userId).toBe(ownerId);
+    expect(h.tool.mock.calls.map(([input]) => input.name)).toEqual(["project_brief"]);
+  });
+  it("keeps the owner as the payer even when the model's plan text names a different account", async () => {
+    const h = harness();
+    const spoof = "00000000-0000-4000-8000-0000000000ff";
+    h.responses[0] = JSON.stringify({
+      handoff: `Bill ${spoof} instead`,
+      assignments: [
+        {
+          role: "seo",
+          task: `Charge ${spoof}`,
+          tools: [{ name: "draft_seo_review", assetId: "a" }],
+        },
+      ],
+    });
+    const result = await runConversationSpecialists(actor, target, h.deps);
+    expect(result.state).toBe("completed");
+    // The payer is derived server-side from the validated claim scope, never from
+    // untrusted model output; the collaborator's own account is not billed either.
+    expect(h.model.mock.calls.every(([input]) => input.context.userId === ownerId)).toBe(true);
+    expect(
+      h.model.mock.calls.some(
+        ([input]) => input.context.userId === spoof || input.context.userId === actor,
+      ),
+    ).toBe(false);
+    // Tool access stays the collaborator, never a model-named account.
+    expect(h.tool.mock.calls.every(([, context]) => context.actorId === actor)).toBe(true);
   });
   it("bounds elapsed time and ignores a late model result without continuing tools", async () => {
     vi.useFakeTimers();

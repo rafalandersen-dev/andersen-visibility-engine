@@ -24,6 +24,22 @@ const released = [
   "20260911090000_project_team_notification_outbox.sql",
   "20260911100000_project_team_invitation_delivery.sql",
 ];
+// The internal AI expense ledger the two 19 September migrations extend. These
+// predate the candidate cutoff and are part of the released chain; they are
+// listed here only so the combined-chain fixture builds the real dependency
+// order (budgets/requests, then permits) before the released expense overloads.
+const expensePrerequisites = [
+  "20260907140000_ai_expense_reservations.sql",
+  "20260908210000_restricted_ai_expense_permits.sql",
+];
+// Reviewed and applied to production on 19 September (independent of the eight
+// unapplied chat/team candidates below). They sort after the cutoff, so they are
+// enumerated explicitly and subtracted from the unapplied set — an unexpected
+// future migration is never silently folded into either group.
+const releasedAfterCutoff = [
+  "20260919120000_ai_expense_default_budgets.sql",
+  "20260919130000_manual_free_ai_budgets.sql",
+];
 const candidates = [
   "20260912040000_knowledge_review_batch_time.sql",
   "20260913120000_milo_conversations.sql",
@@ -62,7 +78,10 @@ beforeAll(async () => {
     CREATE FUNCTION cron.schedule(jobname text,schedule text,command text) RETURNS bigint LANGUAGE sql AS $$
       INSERT INTO cron.job(jobname,schedule,command) VALUES($1,$2,$3) RETURNING jobid $$;
     CREATE FUNCTION cron.alter_job(job_id bigint,active boolean) RETURNS void LANGUAGE sql AS $$ UPDATE cron.job SET active=$2 WHERE jobid=$1 $$;`);
-  for (const file of [...released, ...candidates])
+  // Real production apply order: expense base + permits, the released chain, the
+  // two released expense overloads (19 September), then the unapplied candidates
+  // on top. Released expense SQL is executed verbatim, not restated here.
+  for (const file of [...expensePrerequisites, ...released, ...releasedAfterCutoff, ...candidates])
     await db.exec(readFileSync(`supabase/migrations/${file}`, "utf8"));
 }, 60000);
 afterAll(async () => {
@@ -73,7 +92,13 @@ describe("candidate migration chain", () => {
     const files = readdirSync("supabase/migrations")
       .filter((file) => file.slice(0, 14) > "20260912030000" && file.endsWith(".sql"))
       .sort();
-    expect(files).toEqual(candidates);
+    // The two 19 September expense migrations also sort after the cutoff but are
+    // already released; subtract exactly those known suffixes. Any other file
+    // after the cutoff stays in `unapplied` and fails below, so a future
+    // migration is surfaced rather than silently treated as released.
+    expect(files.filter((file) => releasedAfterCutoff.includes(file))).toEqual(releasedAfterCutoff);
+    const unapplied = files.filter((file) => !releasedAfterCutoff.includes(file));
+    expect(unapplied).toEqual(candidates);
   });
   it.each([
     "list_my_milo_conversations(uuid,timestamptz,uuid)",
@@ -91,7 +116,7 @@ describe("candidate migration chain", () => {
   it.each([
     "milo_conversation_turn_view(public.milo_conversation_turns)",
     "assert_milo_conversation_access(uuid,uuid,text)",
-    "assert_project_team_seat(uuid,text,text,integer,integer)",
+    "assert_project_team_seat(uuid,text,text,text,integer,integer)",
   ])("%s is reachable only from definer functions", async (fn) => {
     for (const role of ["anon", "authenticated", "service_role", "public"])
       expect(await allowed(role, fn)).toBe(false);
