@@ -151,13 +151,47 @@ export type NativeArtifactMetadata = z.infer<typeof nativeArtifactMetadataSchema
 export function nativeArtifactScopeKey(m: NativeArtifactMetadata): string {
   return nativeSnapshotScopeKey(m);
 }
-/** Strict base64: the encoded body is length-bounded and format-checked before it is ever decoded. */
+/**
+ * Decoded byte length of a well-formed base64 body, from its length and trailing padding alone — pure
+ * O(1) arithmetic, no decode and no large allocation. Each 4-char quad is 3 bytes, less one byte per
+ * trailing `=`. The encoded-length ceiling cannot bound the decoded size on its own: 2 MiB (encoded
+ * with one `=`) and 2 MiB + 1 (encoded with no padding) share the *identical* MAX_NATIVE_ARTIFACT_BASE64
+ * length, so a length-only gate lets the oversize body through to fail on the DB's opaque size error.
+ * This recovers the true byte count so the real cap is enforced at the input boundary instead.
+ */
+export const nativeArtifactBase64ByteLength = (v: string): number =>
+  (v.length / 4) * 3 - (v.endsWith("==") ? 2 : v.endsWith("=") ? 1 : 0);
+/**
+ * Strict base64, every check applied to the encoded string *before* it is ever decoded: a cheap
+ * encoded-length ceiling, the base64 alphabet, a multiple-of-four length, canonical trailing-bit
+ * padding, and the exact decoded-byte cap. Canonical padding means the bits a `=` replaces are zero,
+ * as PostgreSQL's `decode(...,'base64')` canonical round-trip requires — one `=` leaves 2 dead low
+ * bits, so the final data char's alphabet index is a multiple of 4 (`[AEIMQUYcgkosw048]`); `==` leaves
+ * 4 dead bits, so it is a multiple of 16 (`[AQgw]`). This refuses a non-canonical alias such as `Qh==`
+ * (whose canonical form is `Qg==`) at the boundary exactly as the DB does. The decoded-byte refine
+ * holds the real MAX_NATIVE_REPORT_BYTES cap where the encoded-length ceiling cannot, since 2 MiB and
+ * 2 MiB + 1 encode to the same length. Nothing here decodes or rewrites the owner's bytes, and the DB
+ * independently re-enforces every one of these guards on the decoded payload.
+ */
 export const nativeArtifactBase64Schema = z
   .string()
   .min(1)
   .max(MAX_NATIVE_ARTIFACT_BASE64)
   .regex(/^[A-Za-z0-9+/]+={0,2}$/, "Strict base64 without whitespace")
-  .refine((v) => v.length % 4 === 0, "Base64 length must be a multiple of 4");
+  .refine((v) => v.length % 4 === 0, "Base64 length must be a multiple of 4")
+  .refine(
+    (v) =>
+      v.endsWith("==")
+        ? /[AQgw]==$/.test(v)
+        : v.endsWith("=")
+          ? /[AEIMQUYcgkosw048]=$/.test(v)
+          : true,
+    "Base64 padding bits must be canonical (zero), matching the database decode",
+  )
+  .refine(
+    (v) => nativeArtifactBase64ByteLength(v) <= MAX_NATIVE_REPORT_BYTES,
+    `Decoded artifact exceeds the ${MAX_NATIVE_REPORT_BYTES}-byte cap`,
+  );
 export const nativeArtifactStageInputSchema = z
   .object({ metadata: nativeArtifactMetadataSchema, base64: nativeArtifactBase64Schema })
   .strict();

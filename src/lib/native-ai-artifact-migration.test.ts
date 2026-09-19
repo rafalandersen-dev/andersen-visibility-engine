@@ -9,11 +9,15 @@ import {
   stageNativeArtifact,
 } from "./native-ai-artifact.server";
 import {
+  MAX_NATIVE_ARTIFACT_BASE64,
   MAX_NATIVE_ARTIFACT_METADATA_BYTES,
+  nativeArtifactBase64ByteLength,
+  nativeArtifactBase64Schema,
   nativeArtifactMetadataJsonbBytes,
   nativeArtifactMetadataSchema,
   nativeArtifactScopeKey,
 } from "./native-ai-artifact";
+import { MAX_NATIVE_REPORT_BYTES } from "./native-ai-report";
 import type { KnowledgeRpc } from "./project-knowledge.server";
 let db: PGlite;
 const user = "00000000-0000-4000-8000-000000000001",
@@ -582,5 +586,60 @@ describe("aggregate declared-metadata byte cap aligned with the real database js
       );
     }
     expect(await count()).toBe(samples.length); // four distinct declared scopes, none collapsed
+  });
+});
+describe("base64 decoded-byte boundary and canonical trailing-bit padding", () => {
+  // Three bodies whose decoded sizes straddle the 2 MiB cap by one byte, built as zero-filled buffers so
+  // the encoding is deterministic. The finding: 2 MiB - 1 (two `=`), 2 MiB (one `=`) and 2 MiB + 1 (no
+  // padding) all encode to the SAME MAX_NATIVE_ARTIFACT_BASE64-length string, so the encoded-length
+  // ceiling alone cannot separate in-cap from oversize — only the pre-decode padding arithmetic can.
+  const oneUnder = Buffer.alloc(MAX_NATIVE_REPORT_BYTES - 1).toString("base64");
+  const atCap = Buffer.alloc(MAX_NATIVE_REPORT_BYTES).toString("base64");
+  const overByOne = Buffer.alloc(MAX_NATIVE_REPORT_BYTES + 1).toString("base64");
+  it("bounds the decoded byte count where the identical encoded length cannot (padding 2/1/0)", () => {
+    // All three share the exact maximum encoded length: a length-only gate would accept every one.
+    for (const v of [oneUnder, atCap, overByOne]) expect(v.length).toBe(MAX_NATIVE_ARTIFACT_BASE64);
+    // They differ only in trailing padding — two, one and zero `=` — which is what the byte count turns on.
+    expect(oneUnder.endsWith("==")).toBe(true);
+    expect(atCap.endsWith("=") && !atCap.endsWith("==")).toBe(true);
+    expect(overByOne.endsWith("=")).toBe(false);
+    // The pre-decode arithmetic recovers the true decoded size for each padding case.
+    expect(nativeArtifactBase64ByteLength(oneUnder)).toBe(MAX_NATIVE_REPORT_BYTES - 1);
+    expect(nativeArtifactBase64ByteLength(atCap)).toBe(MAX_NATIVE_REPORT_BYTES);
+    expect(nativeArtifactBase64ByteLength(overByOne)).toBe(MAX_NATIVE_REPORT_BYTES + 1);
+    // The schema accepts exactly the in-cap bodies and refuses the +1 of identical encoded length.
+    expect(nativeArtifactBase64Schema.safeParse(oneUnder).success).toBe(true);
+    expect(nativeArtifactBase64Schema.safeParse(atCap).success).toBe(true);
+    expect(nativeArtifactBase64Schema.safeParse(overByOne).success).toBe(false);
+  });
+  it("accepts a 2 MiB body end-to-end but refuses 2 MiB+1 before any RPC, while the DB still refuses oversize", async () => {
+    // Exactly 2 MiB stages and round-trips to the exact bytes through real SQL.
+    const okStaged = await stage(metadata, atCap);
+    expect(okStaged.byteLength).toBe(MAX_NATIVE_REPORT_BYTES);
+    const detail = await getNativeArtifact(scope, okStaged.id, rpc);
+    const roundTrip = Buffer.from(detail.base64, "base64");
+    expect(roundTrip.equals(Buffer.alloc(MAX_NATIVE_REPORT_BYTES))).toBe(true);
+    expect(detail.base64.length).toBe(MAX_NATIVE_ARTIFACT_BASE64);
+    expect(await count()).toBe(1);
+    // 2 MiB + 1 — identical encoded length — is refused at the client boundary BEFORE the RPC: no new row.
+    await expect(stage(metadata, overByOne)).rejects.toThrow();
+    expect(await count()).toBe(1);
+    // The database independently still refuses the same oversize decoded body (rawSave bypasses the client
+    // schema), so the input boundary mirrors a real DB rejection rather than an invented undersized limit.
+    await expect(rawSave(metadata, overByOne)).rejects.toThrow();
+    expect(await count()).toBe(1);
+  });
+  it("mirrors the DB's canonical trailing-bit padding for short bodies", () => {
+    // With `==` the two dead bits must be zero: canonical `Qg==` (byte 0x42) is accepted; the alias `Qh==`
+    // decodes to the same byte but is refused at the boundary exactly as the DB's canonical round-trip
+    // refuses it (see the strict-base64 DB probe above).
+    expect(nativeArtifactBase64Schema.safeParse("Qg==").success).toBe(true);
+    expect(nativeArtifactBase64Schema.safeParse("Qh==").success).toBe(false);
+    // With one `=` the final data char carries two dead bits: canonical `AAA=` (two zero bytes) is
+    // accepted, its non-canonical alias `AAB=` refused.
+    expect(nativeArtifactBase64Schema.safeParse("AAA=").success).toBe(true);
+    expect(nativeArtifactBase64Schema.safeParse("AAB=").success).toBe(false);
+    // A canonical short body passes through the schema byte-for-byte — owner bytes are never rewritten.
+    expect(nativeArtifactBase64Schema.parse("Qg==")).toBe("Qg==");
   });
 });

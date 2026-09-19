@@ -139,3 +139,55 @@ this correction adds three real-SQL regressions whose results are pending Codex'
 ### Codex validation of PR144 metadata-byte correction — 2026-09-19
 
 The three new real-SQL regressions pass. Focused artifact tests: **22/22 in 2 files**; full suite: **6060/6060 in 379 files**, 47.05 s. TypeScript, scoped ESLint, whitespace check and production build pass. Logs: `/tmp/milo-artifact-byte-{focused,types,full,build}-20260919.log`. These supersede the preceding correction's UNRUN status, without changing the historical prior-stage results. Exact UTF-8 accounting was compared against PGlite jsonb text for multibyte, ASCII, escape-heavy and separator-heavy metadata. No SQL applied, no upload UI enabled, no live artifact acceptance claimed.
+
+## PR144 review correction — base64 decoded-byte boundary (finding 4054080563), 19 September
+
+External review 5256813193 raised one finding (4054080563) against `nativeArtifactBase64Schema`
+at HEAD `5896b55b`. `MAX_NATIVE_ARTIFACT_BASE64` (2 796 204) caps only the *encoded* length, and the
+canonical base64 of 2 097 153 decoded bytes (2 MiB + 1, no padding) is the **same length** as
+2 097 152 bytes (2 MiB, one `=`) — so the public schema accepted a one-byte-oversize body that the SQL
+byte bound then refused with the generic `native_artifact_unavailable` size error. Codex inspected the
+schema and save/stage path and confirmed the arithmetic gap; the DB byte cap already protected storage,
+so this is an input-boundary alignment fix, not a data-safety hole (no forged attribution, no cap raise).
+
+Correction (source/tests/docs only; **no SQL/migration change**, the 1–2 MiB DB byte bound is unchanged
+and stays authoritative):
+
+- `src/lib/native-ai-artifact.ts` — added `nativeArtifactBase64ByteLength`, an O(1) pre-decode
+  projection of the decoded byte count from the string length and trailing padding (no decode, no large
+  allocation), and a `nativeArtifactBase64Schema` refine that enforces the real `MAX_NATIVE_REPORT_BYTES`
+  cap on that count — catching the 2 MiB + 1 body whose encoded length equals the 2 MiB body's. The
+  unchanged 2 MiB limit, the `.max()` encoded-length ceiling, the strict alphabet regex and the
+  multiple-of-four refine are all preserved. A second refine mirrors the DB's **canonical trailing-bit
+  padding**: one `=` requires the final data char's alphabet index to be a multiple of 4
+  (`[AEIMQUYcgkosw048]`), `==` a multiple of 16 (`[AQgw]`), refusing a non-canonical alias such as `Qh==`
+  (canonical `Qg==`) at the boundary as the DB's canonical round-trip already does. Nothing decodes or
+  rewrites owner bytes; the DB re-enforces every guard.
+- No parser, no new metric/endpoint/UI, and no relaxation of any prior null/date/metadata-byte/auth/
+  history-marker/scope/cap guard. The P2 panel/session protocol, chat/candidate-chain files and the SQL
+  are untouched.
+
+New regressions added to `native-ai-artifact-migration.test.ts` (existing artifact test file):
+
+- `2 MiB - 1` / `2 MiB` / `2 MiB + 1` zero-filled bodies confirmed to share the identical
+  `MAX_NATIVE_ARTIFACT_BASE64` encoded length while carrying two / one / zero `=`; the pre-decode
+  arithmetic recovers each true byte count, and the schema accepts the two in-cap bodies and rejects the
+  `+1`;
+- exactly 2 MiB stages and round-trips to the exact bytes through real SQL, whereas `2 MiB + 1` of the
+  identical encoded length is refused at the client boundary **before any RPC** (no row created) and the
+  DB itself still refuses that oversize body via `rawSave` — the boundary mirrors a real DB rejection;
+- short canonical/non-canonical padding pairs (`Qg==` vs `Qh==`, `AAA=` vs `AAB=`) accepted/refused at the
+  schema, and a canonical short body passes through byte-for-byte.
+
+These new checks and a re-run of the full suite / types / build are **NOT RUN in this worktree** (Codex
+executes the prepared checks). The **6060 tests / 379 files**, type-check, scoped ESLint, whitespace and
+production-build passes recorded above were the **prior stage only** (the metadata-byte correction) and
+are **not re-asserted** for this base64 change; results for these regressions are pending Codex's run. No
+SQL applied, no upload UI enabled, no live artifact acceptance claimed; the USD50-global / manual-free
+budget and every scope/security boundary are unchanged.
+
+### Codex verification of decoded-byte correction — 19 September 2026
+
+After explicit owner authorization for scoped Claude file tools, the author applied this correction with zero permission denials. Independent delta review confirms exact decoded-byte arithmetic and canonical trailing-bit checks preserve the 2 MiB cap without decoding or changing raw input.
+
+**25 focused tests/2 files PASS**, **6063 full-suite tests/379 files PASS** (97.38 s); TypeScript, scoped ESLint, whitespace and production build PASS. Logs `/tmp/milo-artifact-decoded-{focused,types,full,build}-20260919.log`. Codex integration exception: Prettier corrected one line wrap in the authored migration test after lint identified it; no application behavior authored by Codex. No SQL applied or real upload accepted in production.
