@@ -748,3 +748,74 @@ describe("DB free-text bounds count UTF-16 code units, matching Zod and the read
     expect(await count()).toBe(1);
   });
 });
+describe("capturedAt DB validation matches the Zod datetime({offset:true}) reader, preventing rollover poison", () => {
+  // Finding 4054871438: PG's ::timestamptz cast rolls a 24:00:00 hour over to the next midnight (and is
+  // lenient about 60 min/sec, case and spacing), so the old `\d{2}:\d{2}:\d{2}` regex stored an original
+  // string that the read-back Zod `.datetime({offset:true})` then rejects — poisoning the whole project
+  // list. The DB now bounds the time components to the reader's ranges, while the ::timestamptz cast still
+  // enforces the real calendar and the 2020..now instant and the original string is stored verbatim.
+  const bad = [
+    "2026-08-29T24:00:00Z", // hour 24: PG rolls to next midnight; the reader rejects it (the finding)
+    "2026-08-29T23:60:00Z", // minute 60
+    "2026-08-29T23:59:60Z", // second 60 (leap-second style)
+    "2026-08-29t12:00:00Z", // lowercase t
+    "2026-08-29T12:00:00z", // lowercase z
+    "2026-08-29 12:00:00Z", // space instead of T
+    "2026-08-29T12:00:00", // missing zone
+  ];
+  const good = [
+    "2026-08-29T00:00:00Z", // canonical midnight (the form 24:00:00 would have aliased)
+    "2026-08-29T23:59:59Z", // maximum in-day time
+    "2026-08-29T12:34:56.789Z", // fractional seconds
+    "2026-08-29T12:00:00+02:00", // positive offset
+    "2026-08-29T12:00:00-05:30", // negative offset
+    "2024-02-29T12:00:00Z", // real leap day
+    "2020-01-01T00:00:00Z", // inclusive lower instant bound
+  ];
+  it.each(bad)(
+    "refuses %s at the DB with no poison row, in agreement with the reader, leaving the list readable",
+    async (capturedAt) => {
+      // The read-back schema rejects it too, so the DB boundary and the reader now agree.
+      expect(nativeArtifactMetadataSchema.safeParse({ ...metadata, capturedAt }).success).toBe(
+        false,
+      );
+      // The DB refuses it directly (rawSave bypasses the client schema); no off-contract row persists.
+      await expect(rawSave({ ...metadata, capturedAt })).rejects.toThrow(/invalid_native_artifact/);
+      expect(await count()).toBe(0);
+      // A valid stage + list still works afterward — no poisoned row was left behind.
+      const ok = await stage(metadata, base64);
+      expect((await readNativeArtifacts(scope, rpc)).artifacts.map((r) => r.id)).toEqual([ok.id]);
+    },
+  );
+  it.each(good)(
+    "accepts %s at the DB, stores it verbatim, and the stored value parses the reader schema",
+    async (capturedAt) => {
+      // Every DB-accepted value is also reader-valid, so it can never break the project's list/get parse.
+      expect(nativeArtifactMetadataSchema.safeParse({ ...metadata, capturedAt }).success).toBe(
+        true,
+      );
+      await rawSave({ ...metadata, capturedAt });
+      const listed = await readNativeArtifacts(scope, rpc);
+      expect(listed.artifacts).toHaveLength(1);
+      // Preserved verbatim (no coercion) and readable through the strict reader schema.
+      expect(listed.artifacts[0].metadata.capturedAt).toBe(capturedAt);
+    },
+  );
+  it("rejects an omitted-seconds capturedAt at the DB even though the reader accepts it (stricter write, no poison)", async () => {
+    // The reader's `.datetime({offset:true})` permits an omitted seconds field, but the DB deliberately
+    // requires HH:MM:SS. This is a WRITE-only tightening — the DB refuses a value the reader would accept,
+    // so it can never persist an unreadable row — and is NOT a both-reject parity case; the reader
+    // acceptance is asserted explicitly here rather than claimed as a mutual rejection.
+    const secondsOmitted = "2026-08-29T12:00Z";
+    expect(
+      nativeArtifactMetadataSchema.safeParse({ ...metadata, capturedAt: secondsOmitted }).success,
+    ).toBe(true);
+    await expect(rawSave({ ...metadata, capturedAt: secondsOmitted })).rejects.toThrow(
+      /invalid_native_artifact/,
+    );
+    expect(await count()).toBe(0);
+    // Nothing was persisted, so a valid stage + list still works afterward.
+    const ok = await stage(metadata, base64);
+    expect((await readNativeArtifacts(scope, rpc)).artifacts.map((r) => r.id)).toEqual([ok.id]);
+  });
+});

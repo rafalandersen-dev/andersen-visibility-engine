@@ -145,8 +145,15 @@ BEGIN
        WHERE jsonb_typeof(f.value)<>'string' OR public.native_artifact_utf16_length(f.key) NOT BETWEEN 1 AND 64 OR public.native_artifact_utf16_length(f.value #>> '{}')>200) THEN
     RAISE EXCEPTION 'invalid_native_artifact' USING ERRCODE='22023';
   END IF;
-  -- capturedAt: an actual offset-aware ISO-8601 download timestamp from 2020-01-01 through now.
-  IF p_metadata->>'capturedAt' !~ '^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(\.\d+)?(Z|[+-]\d{2}:\d{2})$' THEN
+  -- capturedAt: an actual offset-aware ISO-8601 download timestamp from 2020-01-01 through now. The time
+  -- components are bounded to the SAME ranges the read-back Zod `.datetime({offset:true})` enforces —
+  -- hour 00-23, minute/second 00-59, uppercase T and Z, an offset with its colon — because PG's
+  -- ::timestamptz cast is lenient (it rolls 24:00:00 over to the next midnight, and tolerates 60/case/
+  -- spacing) and would otherwise store an original string the reader then rejects, poisoning the list.
+  -- The ::timestamptz cast below still enforces the real calendar and the 2020..now instant, and the
+  -- original valid string is stored verbatim (no coercion); a stricter offset than the reader only
+  -- refuses writes, it never persists a value the reader cannot read.
+  IF p_metadata->>'capturedAt' !~ '^\d{4}-\d{2}-\d{2}T([01]\d|2[0-3]):[0-5]\d:[0-5]\d(\.\d+)?(Z|[+-]\d{2}:\d{2})$' THEN
     RAISE EXCEPTION 'invalid_native_artifact' USING ERRCODE='22023';
   END IF;
   BEGIN

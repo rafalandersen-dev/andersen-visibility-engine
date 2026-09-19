@@ -251,3 +251,59 @@ scope/security boundary are unchanged.
 ### Codex verification of capacity and Unicode correction — 19 September 2026
 
 Independent delta review confirmed the exact capacity-code allowlist and closed internal SQL helper align stored text with the existing UTF-16 schema bounds. **35 focused tests/2 files PASS** (1.31 s), **6073 full-suite tests/379 files PASS** (62.12 s); TypeScript, scoped ESLint, whitespace and production build PASS. Logs: `/tmp/milo-artifact-unicode-{focused,types,lint,full,build}-20260919.log`. Boundary fixtures cover accepted and rejected astral/mixed values; some exceed by two UTF-16 units, and the filename accepted fixture is 254 units against a 255-unit cap (the earlier “one unit / exactly at cap” prose is not literal for every fixture). No live upload or parser acceptance is claimed; the candidate migration remains unapplied. Claude authored application/SQL/tests; Codex ran checks and recorded this evidence.
+
+## PR144 review correction — capturedAt persistence/reader parity (finding 4054871438), 19 September
+
+New-code review raised one P2 finding (4054871438) against HEAD `f150622a`; the security review
+(comment 5745551780) was clean. Independently reproduced with actual PGlite + Zod: the string
+`2026-08-29T24:00:00Z` **casts successfully** in PostgreSQL (`::timestamptz` rolls hour `24` over to the
+next midnight, `2026-08-30T00:00:00Z`), but the read-back Zod `z.string().datetime({offset:true})`
+**rejects** hour `24`. The candidate save RPC's `capturedAt` regex used `\d{2}:\d{2}:\d{2}`, which admits
+`24` (and `60` minutes/seconds), and then stores the ORIGINAL string verbatim — so a direct service RPC
+could persist an off-contract `capturedAt` that fails the strict list/get parse for the whole project.
+The DB always cast to a real instant; the gap is persistence/reader parity, not attribution or a cap.
+
+Fix (candidate migration `20260919150000_native_report_artifacts.sql` only, still **UNAPPLIED**; no
+public-schema/cap change, no coercion):
+
+- The `capturedAt` regex now bounds the time components to exactly the reader's ranges — hour
+  `([01]\d|2[0-3])`, minute and second `[0-5]\d`, an optional `(\.\d+)?` fraction, and a terminating
+  uppercase `Z` or `[+-]\d{2}:\d{2}` offset — closing the whole rollover/leap-second class (hour 24,
+  minute 60, second 60) while retaining the existing rejection of lowercase-`t`/`z` and space-separator forms.
+  The `::timestamptz` cast still enforces the real calendar (e.g. `2026-02-30` raises and is refused) and
+  the `2020-01-01..now` instant, and the original valid string is stored verbatim. The offset stays
+  colon-required, which is stricter than the reader's optional-colon form: that only refuses writes, it
+  never persists a value the reader cannot read, so it introduces no poison.
+
+New regressions in `native-ai-artifact-migration.test.ts` (existing artifact test file), table-driven,
+real SQL via `rawSave` (which bypasses the client schema, the exact direct-RPC path):
+
+- seven rejected `capturedAt` strings — hour `24` (the finding), minute `60`, second `60`, lowercase `t`,
+  lowercase `z`, a space separator and a missing zone — each asserted rejected by BOTH the reader schema
+  (`safeParse` false) and the DB (`invalid_native_artifact`), with no row persisted and a valid stage +
+  list still readable afterward;
+- one write-only tightening — an omitted-seconds `capturedAt` (`2026-08-29T12:00Z`) that the reader
+  **accepts** (`safeParse` true) but the DB refuses because it requires `HH:MM:SS`. It is asserted as a
+  reader-accept / DB-reject case, **not** a mutual rejection: refusing it at write never persists an
+  unreadable row, so it introduces no poison. (The earlier both-reject categorization of this one string
+  was the sole focused-run failure and is corrected here; the DB regex is unchanged.)
+- seven accepted boundary strings — canonical midnight, the maximum in-day time `23:59:59Z`, a fractional
+  second, positive and negative offsets, a real leap day `2024-02-29`, and the inclusive lower instant
+  bound `2020-01-01T00:00:00Z` — each asserted reader-valid, accepted by the DB, stored **verbatim**, and
+  readable back through the strict schema. These fixtures verify reader compatibility for the tested accepted values; they do not prove
+  equivalence for every possible timestamp.
+
+Codex's first focused run of this packet was **49 PASS / 1 FAIL / 2 files** (not a complete pass): the
+single failure was the omitted-seconds fixture, mis-categorized as a mutual rejection when the reader in
+fact accepts it. TypeScript passed; lint reported only two Prettier-format items on the new test lines
+(780 / 793), which Codex formats after this edit. This narrow test/docs recategorization fixes that one
+failure without changing the SQL or public schema; the corrected checks and a re-run of the full suite /
+types / build are **NOT RUN in this worktree** (Codex executes them), so no complete pass is claimed. The
+capacity + UTF-16 stage — **35 focused / 2 files** and **6073 / 379 files** (run by Codex above) — is the
+**prior stage only** and is **not re-asserted** for this change. No SQL applied, no upload UI enabled, no
+live artifact acceptance claimed; the USD50-global / manual-free budget and every scope/security boundary
+are unchanged.
+
+### Codex timestamp correction verification — 20 September 2026
+
+Corrected test categorization passes: 50 focused tests/2 files (1.34 s), 6088 full-suite tests/379 files (46.51 s), types, scoped lint and build. Logs `/tmp/milo-artifact-time-final-{focused,types,lint}-20260919.log` and `/tmp/milo-artifact-time-{full,build}-20260919.log`. Codex integration exception: test-only Prettier formatting and evidence wording correction to avoid claiming universal timestamp equivalence. Candidate remains unapplied; no live artifact acceptance.
