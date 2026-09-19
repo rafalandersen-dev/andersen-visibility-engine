@@ -110,7 +110,7 @@ describe("candidate migration chain", () => {
     expect(unapplied).toEqual(candidates);
   });
   it.each([
-    "record_milo_conversation_diagnostic(uuid,uuid,text,text,text,text,text,integer,text)",
+    "record_milo_conversation_diagnostic(uuid,uuid,text,text,text,text,text,integer,text,text)",
     "prune_milo_conversation_diagnostics(timestamptz,integer)",
     "list_my_milo_conversations(uuid,timestamptz,uuid)",
     "begin_milo_conversation_turn(uuid,uuid,text,uuid,uuid,text,text,boolean,boolean)",

@@ -393,6 +393,7 @@ describe("the live conversation executor is never bounded by the browser preview
       name_category: string;
       http_status: number | null;
       sql_state: string | null;
+      provenance: string;
     }>("SELECT * FROM public.milo_conversation_diagnostics WHERE turn_id=$1", [turnId]);
     expect(diag.rows).toHaveLength(1);
     expect(diag.rows[0]).toMatchObject({
@@ -404,6 +405,7 @@ describe("the live conversation executor is never bounded by the browser preview
       name_category: "other",
       http_status: null,
       sql_state: "55P03",
+      provenance: "terminal",
     });
     expect(diag.rows[0].operation_id).toEqual(expect.any(String));
   }, 20000);
@@ -463,6 +465,7 @@ describe("the live conversation executor is never bounded by the browser preview
       name_category: string;
       http_status: number | null;
       sql_state: string | null;
+      provenance: string;
     }>("SELECT * FROM public.milo_conversation_diagnostics WHERE turn_id=$1", [turnId]);
     expect(diag.rows).toHaveLength(1);
     expect(diag.rows[0]).toMatchObject({
@@ -474,6 +477,94 @@ describe("the live conversation executor is never bounded by the browser preview
       error_class: "unknown",
       name_category: "other",
       http_status: null,
+      sql_state: "55P03",
+      provenance: "preliminary",
+    });
+  }, 20000);
+
+  it("replaces an earlier claim-time preliminary receipt when a re-dispatch fails during acquired execution", async () => {
+    const { conversationId, turnId } = await seedTurn(
+      owner,
+      "Jaka jest różnica między wersją roboczą a opublikowanym artykułem?",
+    );
+    const target = { ownerId: owner, projectId: "p", conversationId, turnId };
+    // First dispatch: the claim throws, so a PRELIMINARY claim-time receipt is written
+    // and the turn is never acquired — it stays pending for the ~1-minute re-dispatch.
+    const firstAdvance = vi.fn();
+    const firstModel = vi.fn(async () => {
+      throw new Error("model must not run on a claim-time fault");
+    });
+    await expect(
+      runConversationSpecialists(owner, target, {
+        claim: async () => {
+          throw new TeamAdmissionBusyError();
+        },
+        read: (who: string, input: never) => readConversationForExecution(who, input, rpc),
+        assert: (who: string, input: never, attempt: string) =>
+          assertConversationExecution(who, input, attempt, rpc),
+        advance: firstAdvance,
+        tool: (input: never, context: never) => runSpecialistTool(input, context, toolDeps),
+        model: firstModel,
+        diagnostic: (input: ConversationDiagnosticInput) =>
+          recordConversationDiagnostic(input, rpc),
+      } as never),
+    ).rejects.toBeInstanceOf(TeamAdmissionBusyError);
+    expect(firstAdvance).not.toHaveBeenCalled();
+    expect(firstModel).not.toHaveBeenCalled();
+    const preliminary = await db.query<{
+      stage: string;
+      provenance: string;
+      sql_state: string | null;
+    }>(
+      "SELECT stage,provenance,sql_state FROM public.milo_conversation_diagnostics WHERE turn_id=$1",
+      [turnId],
+    );
+    expect(preliminary.rows).toEqual([
+      { stage: "unknown", provenance: "preliminary", sql_state: "55P03" },
+    ]);
+
+    // Re-dispatch: the real claim now ACQUIRES the still-pending turn, but the first
+    // checkpoint advance (brief_start) is refused, so an acquired-execution TERMINAL
+    // receipt is written and UPGRADES the preliminary one in place — the exact evidence
+    // the old first-receipt-wins (DO NOTHING) writer would have lost to the claim receipt.
+    let firstBriefAdvance = true;
+    const turn = await runConversationSpecialists(owner, target, {
+      claim: (who: string, input: never) => claimConversationTurn(who, input, rpc),
+      read: (who: string, input: never) => readConversationForExecution(who, input, rpc),
+      assert: (who: string, input: never, attempt: string) =>
+        assertConversationExecution(who, input, attempt, rpc),
+      advance: async (who: string, input: never, change: never) => {
+        if (firstBriefAdvance) {
+          firstBriefAdvance = false;
+          throw new TeamAdmissionBusyError();
+        }
+        return advanceConversationTurn(who, input, change, rpc);
+      },
+      tool: (input: never, context: never) => runSpecialistTool(input, context, toolDeps),
+      model: async () => {
+        throw new Error("model must not run before the brief");
+      },
+      diagnostic: (input: ConversationDiagnosticInput) => recordConversationDiagnostic(input, rpc),
+    } as never);
+    expect(turn.state).toBe("unknown");
+    // Still exactly one row per turn, now holding the terminal acquired-execution
+    // evidence (WHERE the retry stopped: brief_start / 55P03), not the claim receipt.
+    const terminal = await db.query<{
+      stage: string;
+      provenance: string;
+      outcome: string;
+      outcome_code: string;
+      sql_state: string | null;
+    }>(
+      "SELECT stage,provenance,outcome,outcome_code,sql_state FROM public.milo_conversation_diagnostics WHERE turn_id=$1",
+      [turnId],
+    );
+    expect(terminal.rows).toHaveLength(1);
+    expect(terminal.rows[0]).toMatchObject({
+      stage: "brief_start",
+      provenance: "terminal",
+      outcome: "unknown",
+      outcome_code: "execution_unknown",
       sql_state: "55P03",
     });
   }, 20000);

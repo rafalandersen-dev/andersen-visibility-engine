@@ -711,6 +711,109 @@ Prepared checks (approved `node_modules/.bin/...` executables, individually):
   regressions.
 - `evidence/conversation-live-repair-2026-09-19.md` — this correction round.
 
+## Correction round 4 — provenance so a preliminary claim receipt never blocks the terminal evidence (19 September, later; base HEAD `2d983af`)
+
+External PR145 review (finding `4054833948`, security review clean, independently
+confirmed) found a real semantic bug introduced by round 2: the pre-claim
+(`preliminary`) receipt is written with `turn_id` UNIQUE and the writer was
+first-receipt-wins (`ON CONFLICT DO NOTHING`). So a claim-time fault RESERVED the
+turn's single row forever — but that turn is still `pending` and the dispatcher
+re-tries it after ~1 minute; a LATER acquired-execution failure's terminal diagnostic
+was then silently DROPPED, losing the real evidence. This round fixes that with bounded
+provenance while keeping one row per turn.
+
+### Fix (diagnostics writer + explicit provenance; no behaviour/privacy change)
+
+- Explicit provenance bit instead of inference. Because a claim-time fault and an
+  in-run failure can BOTH surface as `unknown`/`execution_unknown`, provenance is an
+  explicit enum input (`preliminary` | `terminal`), never inferred from the ambiguous
+  outcome. `src/lib/milo-conversation-diagnostics.server.ts` adds
+  `ConversationDiagnosticProvenance` and a required `provenance` on
+  `ConversationDiagnosticInput`, and forwards it as `p_provenance` to the writer.
+- First-TERMINAL-wins upsert. `supabase/migrations/20260919160000_milo_conversation_diagnostics.sql`
+  (candidate, still UNAPPLIED — edited in place) adds a `provenance text NOT NULL
+  CHECK(provenance IN ('preliminary','terminal'))` column and replaces
+  `ON CONFLICT DO NOTHING` with a conditional `DO UPDATE … WHERE
+  milo_conversation_diagnostics.provenance='preliminary' AND EXCLUDED.provenance='terminal'`.
+  Net effect, one row/turn preserved: a `terminal` receipt UPGRADES an earlier
+  `preliminary` in place; a delayed `preliminary` never overwrites a `terminal`; a
+  duplicate `terminal` keeps the first (its stage/SQLSTATE/time); a repeated
+  `preliminary` keeps the first. The writer arg list grew 9→10, so its REVOKE/GRANT
+  signatures were updated; grants/RLS, the 30-day prune + active daily cron, the
+  missing-turn no-op, and CHECK allowlists are otherwise unchanged.
+- Producers. `src/lib/milo-specialist-executor.server.ts` tags the claim-time receipt
+  `provenance: "preliminary"` (acquisition unconfirmed; may be re-dispatched if still pending) and the
+  in-run catch `provenance: "terminal"` (acquired-execution outcome). No billing,
+  prompt, provider, no-replay or claim-retry behaviour changes; diagnostics stay
+  best-effort/inert; conversation dispatch control stays OFF.
+- Privacy unchanged: provenance is a fixed enum bit, never a raw message; the receipt
+  still stores only opaque correlation ids, fixed enums and the allowlisted SQLSTATE.
+
+Note: the writer's grant signature changed 9→10 args, so two things outside this
+packet's scope go stale and are left for Codex (no P1/P2/inventory edits here, per the
+working agreement and prior rounds where Codex owns the candidate chain):
+  (1) a generated/guarded copy of this SQL outside the worktree, which Codex
+      regenerates; and
+  (2) `src/lib/milo-candidate-chain-migration.test.ts:113`, which pins
+      `record_milo_conversation_diagnostic(uuid,uuid,text,text,text,text,text,integer,text)`
+      and must become `...,integer,text,text)` (the added `p_provenance text`).
+Only the candidate migration in `supabase/migrations/` is edited in this packet.
+
+### Regressions (this round)
+
+- `src/lib/milo-conversation-diagnostics-migration.test.ts` (realSQL) — new provenance
+  transitions: preliminary→terminal UPGRADES in place; terminal→late-preliminary is
+  ignored; terminal→terminal keeps the first (first-terminal-wins). The `record` helper
+  passes `p_provenance` (defaults to `terminal`), the column set now includes
+  `provenance`, and the existing null/invalid-enum/privacy(service-only
+  grants)/cascade/retention/bounded-prune/cron proofs are retained.
+- `src/lib/milo-conversation-diagnostics.server.test.ts` — the recorder forwards
+  `p_provenance` (asserted for both `terminal` and `preliminary`) and the sent-args key
+  set/order includes it; still only correlation ids + fixed enums.
+- `src/lib/milo-specialist-executor.server.test.ts` — the claim-time producers assert
+  `provenance: "preliminary"`; the in-run producers (pre-brief NOWAIT and the nested
+  proposal model) assert `provenance: "terminal"`.
+- `src/lib/milo-specialist-executor-live.server.test.ts` — end-to-end against the real
+  RPC + applied candidate migration: a claim-time preliminary receipt is written, then
+  a re-dispatch that acquires the turn and fails at `brief_start` writes a terminal
+  receipt that REPLACES it — one row/turn, now the terminal `brief_start`/`55P03`
+  evidence (the exact loss the finding describes). The existing pre-brief NOWAIT and
+  claim-time live assertions now also assert `provenance`.
+
+### Check status (this round — UNRUN; Codex runs validation)
+
+Every check below is **UNRUN**: no shell/test/build/type command was executed here
+(Read/Edit/Write/Glob/Grep only, scoped worktree; auto-memory off). Prior focused/full
+counts belong to earlier stages and do **not** apply. Base HEAD is `2d983af`; no SQL
+applied, no PR, no deploy, and no git/network/provider/DB action. USD50-global and
+manual-free AI controls and every scope/security boundary are preserved. Scope is
+diagnostics + executor + their tests + evidence only; no P1/P2/inventory edits. The
+writer signature changed, so the diagnostics/migration/executor/live suites all need a
+re-run.
+
+Prepared checks (approved `node_modules/.bin/...` executables, individually):
+
+- New/changed behaviour:
+  `node_modules/.bin/vitest run src/lib/milo-conversation-diagnostics-migration.test.ts src/lib/milo-conversation-diagnostics.server.test.ts src/lib/milo-specialist-executor.server.test.ts src/lib/milo-specialist-executor-live.server.test.ts`
+- `node_modules/.bin/tsc --noEmit`
+- `node_modules/.bin/eslint src/lib/milo-conversation-diagnostics.server.ts src/lib/milo-conversation-diagnostics.server.test.ts src/lib/milo-conversation-diagnostics-migration.test.ts src/lib/milo-specialist-executor.server.ts src/lib/milo-specialist-executor.server.test.ts src/lib/milo-specialist-executor-live.server.test.ts`
+- `node_modules/.bin/prettier --check` on the changed source/test files and the migration
+- Full suite `node_modules/.bin/vitest run` and production `node_modules/.bin/vite build`
+
+### Files (this round)
+
+- `supabase/migrations/20260919160000_milo_conversation_diagnostics.sql` — provenance
+  column + first-terminal-wins conditional upsert + updated writer signature/grants.
+- `src/lib/milo-conversation-diagnostics.server.ts` — provenance type/input + forwarded
+  `p_provenance`; updated docs.
+- `src/lib/milo-specialist-executor.server.ts` — preliminary (claim-time) vs terminal
+  (in-run) provenance on the two producers.
+- `src/lib/milo-conversation-diagnostics-migration.test.ts`,
+  `src/lib/milo-conversation-diagnostics.server.test.ts`,
+  `src/lib/milo-specialist-executor.server.test.ts`,
+  `src/lib/milo-specialist-executor-live.server.test.ts` — provenance regressions.
+- `evidence/conversation-live-repair-2026-09-19.md` — this correction round.
+
 ## Codex verification after claim-boundary correction — 19 September 2026
 
 Owner explicitly authorized scoped Claude Read/Edit/Write/Glob/Grep; the resumed author completed the correction with zero permission denials. Reviewed the delta: input validation precedes the guarded claim; claim failure records unknown best-effort then rethrows the original value without advance, tool, model, read or reclaim.
@@ -724,3 +827,9 @@ The nested proposal callback now uses one explicit request/status/diagnostic ope
 **62 focused tests/4 files PASS**, **6073 full-suite tests/379 files PASS** (55.82 s), TypeScript, scoped lint, whitespace and production build PASS. Logs `/tmp/milo-diagnostic-nested-{focused,types,full,build}-20260919.log`. Codex integration exception: one Prettier-only wrap in the new unit test, no application behavior changed. Author's UNRUN entry above is superseded by these executed checks for this stage.
 
 No new migration applied, deployment or production turn; this remains diagnostics awaiting reviewed release and actual acceptance.
+
+### Codex verification of preliminary/terminal correction — 19 September 2026
+
+**82 focused tests/5 files PASS** (including the candidate-chain grants, 1.90 s); **6077 full-suite tests/379 files PASS** (44.53 s). Types, scoped lint, whitespace and production build PASS. Logs `/tmp/milo-diagnostic-terminal-{focused,types,lint,full,build}-20260919.log`. Independent delta inspection confirmed the conditional upsert only upgrades preliminary to terminal and preserves terminal receipts against late or duplicate writes. Codex integration exceptions: updated the pinned service-only writer signature in the candidate-chain test to ten arguments, and corrected comments/docs to say claim acquisition is unconfirmed, rather than assuming a thrown response proves the database never acquired the claim. No application behavior authored by Codex.
+
+Guarded apply SQL was regenerated from the candidate (prepared only, NOT applied), SHA256 `8c6b0fe18acade983067372d2aa6c3a7d17097dcaa13d191b3d687f2642f5441`. Verify again against the final reviewed revision before any application. Production remains unchanged; no diagnostic/live-success claim.

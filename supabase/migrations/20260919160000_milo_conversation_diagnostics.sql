@@ -18,9 +18,15 @@
 --     nothing, RLS enabled with no policy).
 --   * Writes go only through the SECURITY DEFINER writer below; service_role has
 --     no direct INSERT/UPDATE/DELETE on the table.
---   * At most ONE receipt per turn: `turn_id` is UNIQUE and the writer is
---     first-receipt-wins (`ON CONFLICT DO NOTHING`), so a concurrent or repeated
---     write can never overwrite the original failure's stage/time.
+--   * At most ONE receipt per turn (`turn_id` is UNIQUE). The writer is
+--     first-TERMINAL-wins with an explicit `provenance` bit: a `preliminary`
+--     claim-time receipt (acquisition is unconfirmed; if still pending, the
+--     turn may be re-dispatched) reserves the row only provisionally; a later
+--     `terminal` acquired-execution receipt UPGRADES it in place, and once a `terminal`
+--     receipt exists nothing overwrites it (a delayed `preliminary` write is ignored,
+--     and a duplicate `terminal` keeps the first's stage/SQLSTATE/time). So a
+--     re-dispatched turn's real failure evidence is never lost to, nor overwritten by,
+--     a provisional claim receipt.
 --   * Erasing a conversation/turn cascades (FK ON DELETE CASCADE), so a user erase
 --     removes its diagnostics immediately.
 --   * Ordinary retention is bounded to 30 days: a receipt older than 30 days is
@@ -50,6 +56,11 @@ CREATE TABLE public.milo_conversation_diagnostics (
     'RangeError','AbortError','TimeoutError','other','none')),
   http_status integer CHECK(http_status IS NULL OR (http_status BETWEEN 400 AND 599)),
   sql_state text CHECK(sql_state IS NULL OR sql_state IN ('55P03','40001','40P01','57014')),
+  -- Provenance of the receipt: `preliminary` is a pre-acquisition claim-time fault (the
+  -- pending turn may still be re-dispatched); `terminal` is an acquired-execution
+  -- outcome. The writer upgrades preliminary->terminal but never the reverse and keeps
+  -- the first terminal, so one row/turn holds the best available failure evidence.
+  provenance text NOT NULL CHECK(provenance IN ('preliminary','terminal')),
   created_at timestamptz NOT NULL DEFAULT clock_timestamp()
 );
 -- `turn_id` is already UNIQUE (its implicit index serves per-turn inspection). The
@@ -64,21 +75,31 @@ GRANT SELECT ON public.milo_conversation_diagnostics TO service_role;
 -- Bounded, service-only writer. Stores nothing beyond the constrained inputs; the
 -- table CHECKs are the backstop for the fixed enums/allowlists. A missing turn is a
 -- silent no-op: diagnostics never raise a new error path back to the executor.
--- First-receipt-wins: a turn that already has a receipt keeps its ORIGINAL stage,
--- SQLSTATE and time, so a duplicate or racing write is idempotent, never a rewrite.
+-- First-TERMINAL-wins with provenance: the conditional upsert updates an existing row
+-- ONLY when it is `preliminary` and the incoming receipt is `terminal` (a provisional
+-- claim receipt upgraded by the real acquired-execution outcome). Every other conflict
+-- is a no-op — a delayed `preliminary` never overwrites a `terminal`, a second
+-- `terminal` keeps the first (its stage/SQLSTATE/time), and a repeated `preliminary`
+-- keeps the first — so a re-dispatched turn's real failure evidence is never lost to a
+-- provisional claim receipt. Still exactly one row per turn.
 CREATE FUNCTION public.record_milo_conversation_diagnostic(
   p_turn uuid,p_operation uuid,p_stage text,p_outcome text,p_outcome_code text,
-  p_error_class text,p_name_category text,p_http_status integer,p_sql_state text)
+  p_error_class text,p_name_category text,p_http_status integer,p_sql_state text,p_provenance text)
 RETURNS void LANGUAGE plpgsql SECURITY DEFINER SET search_path='' AS $$
 BEGIN
   IF p_turn IS NULL OR NOT EXISTS(SELECT 1 FROM public.milo_conversation_turns WHERE turn_id=p_turn) THEN RETURN; END IF;
   INSERT INTO public.milo_conversation_diagnostics(
-    turn_id,operation_id,stage,outcome,outcome_code,error_class,name_category,http_status,sql_state)
-  VALUES(p_turn,p_operation,p_stage,p_outcome,p_outcome_code,p_error_class,p_name_category,p_http_status,p_sql_state)
-  ON CONFLICT (turn_id) DO NOTHING;
+    turn_id,operation_id,stage,outcome,outcome_code,error_class,name_category,http_status,sql_state,provenance)
+  VALUES(p_turn,p_operation,p_stage,p_outcome,p_outcome_code,p_error_class,p_name_category,p_http_status,p_sql_state,p_provenance)
+  ON CONFLICT (turn_id) DO UPDATE SET
+    operation_id=EXCLUDED.operation_id,stage=EXCLUDED.stage,outcome=EXCLUDED.outcome,
+    outcome_code=EXCLUDED.outcome_code,error_class=EXCLUDED.error_class,name_category=EXCLUDED.name_category,
+    http_status=EXCLUDED.http_status,sql_state=EXCLUDED.sql_state,provenance=EXCLUDED.provenance,
+    created_at=clock_timestamp()
+  WHERE public.milo_conversation_diagnostics.provenance='preliminary' AND EXCLUDED.provenance='terminal';
 END; $$;
-REVOKE ALL ON FUNCTION public.record_milo_conversation_diagnostic(uuid,uuid,text,text,text,text,text,integer,text) FROM PUBLIC,anon,authenticated;
-GRANT EXECUTE ON FUNCTION public.record_milo_conversation_diagnostic(uuid,uuid,text,text,text,text,text,integer,text) TO service_role;
+REVOKE ALL ON FUNCTION public.record_milo_conversation_diagnostic(uuid,uuid,text,text,text,text,text,integer,text,text) FROM PUBLIC,anon,authenticated;
+GRANT EXECUTE ON FUNCTION public.record_milo_conversation_diagnostic(uuid,uuid,text,text,text,text,text,integer,text,text) TO service_role;
 
 -- Service-only retention prune. Erase cascades handle user deletion; this bounds
 -- ordinary retention to 30 days. A single call removes at most `p_limit` of the

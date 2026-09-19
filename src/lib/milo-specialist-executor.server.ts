@@ -155,6 +155,10 @@ export async function runConversationSpecialists(
           turnId: target.turnId,
           diagnosis: classifyConversationFailure(error, "unknown"),
           outcome: { state: "unknown", code: "execution_unknown" },
+          // PRELIMINARY: acquisition is unconfirmed; if still pending, a later
+          // re-dispatch that fails during an acquired execution writes a `terminal`
+          // receipt that UPGRADES this provisional one — this must never block it.
+          provenance: "preliminary",
         });
       } catch {
         // Diagnostics are inert to the outcome and never mask the claim failure.
@@ -493,6 +497,10 @@ ${serializeSpecialistContext({ ...baseContext, task: assignment.task, projectEvi
           operationId: stageOperation,
           diagnosis,
           outcome: status,
+          // TERMINAL: this is an acquired-execution outcome, so it UPGRADES any earlier
+          // preliminary claim-time receipt for this turn and, once written, is never
+          // overwritten by a later preliminary or duplicate terminal write.
+          provenance: "terminal",
         });
       } catch {
         // Diagnostics are inert to the outcome.

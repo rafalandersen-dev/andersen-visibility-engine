@@ -529,6 +529,9 @@ describe("real bounded specialist conversation execution", () => {
       sqlState: "55P03",
     });
     expect(input.outcome).toEqual({ state: "unknown", code: "execution_unknown" });
+    // In-run (acquired-execution) failures are TERMINAL: they own the turn's receipt
+    // and upgrade any earlier preliminary claim receipt for the same turn.
+    expect(input.provenance).toBe("terminal");
   });
   it("pinpoints an initial liveness refusal at assert_live with no operation id", async () => {
     const h = harness();
@@ -668,6 +671,9 @@ describe("real bounded specialist conversation execution", () => {
       // The claim's DB outcome is unconfirmed: an unknown correlation-only receipt,
       // never a "failed"/confirmed turn state that was actually written.
       expect(input.outcome).toEqual({ state: "unknown", code: "execution_unknown" });
+      // Claim-time faults are PRELIMINARY: the pending turn may be re-dispatched, so a
+      // later terminal acquired-execution receipt can replace this provisional one.
+      expect(input.provenance).toBe("preliminary");
     });
     it("records stage unknown with no SQLSTATE for a lost-response/transport claim failure", async () => {
       const h = harness();
@@ -833,6 +839,8 @@ describe("real bounded specialist conversation execution", () => {
       expect(input.diagnosis.stage).toBe("reply_model");
       expect(input.operationId).toBe(nestedOp);
       expect(input.operationId).not.toBe(outerToolOp(h));
+      // The nested proposal ran inside an acquired execution, so the receipt is TERMINAL.
+      expect(input.provenance).toBe("terminal");
       // The raw nested provider error is never logged into the receipt or the turn.
       expect(JSON.stringify(result)).not.toContain("nested provider body");
     });

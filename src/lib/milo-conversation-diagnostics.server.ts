@@ -19,8 +19,11 @@
  *
  * It is best-effort and inert to control flow: a diagnostic write NEVER throws out
  * of the executor, is NEVER retried, and NEVER changes or suppresses the turn's
- * user-facing outcome. It does not model success; there is at most one receipt per
- * failed turn. This is deliberately NOT a general observability platform.
+ * user-facing outcome. It does not model success; there is at most one ROW per turn,
+ * first-terminal-wins with an explicit provenance bit — a preliminary claim-time
+ * receipt is upgraded in place by a later terminal acquired-execution receipt, and a
+ * terminal receipt is never overwritten. This is deliberately NOT a general
+ * observability platform.
  */
 import { z } from "zod";
 import { projectTeamRpc } from "./project-team-membership.server";
@@ -72,6 +75,16 @@ export interface ConversationFailureOutcome {
   state: "failed" | "unknown";
   code: ConversationFailureCode;
 }
+
+/** Where a receipt came from. `preliminary` is a pre-acquisition claim-time fault: the
+ * claim acquisition is unconfirmed; if still pending it may be re-dispatched, so the receipt is
+ * provisional. `terminal` is an acquired-execution outcome. The writer keeps one row
+ * per turn and lets a `terminal` upgrade a `preliminary` (never the reverse), so a
+ * retry's real failure is never lost to a provisional claim receipt. Because a
+ * claim-time fault and an in-run failure can BOTH surface as `unknown`/
+ * `execution_unknown`, provenance is an explicit input, never inferred from the
+ * outcome. */
+export type ConversationDiagnosticProvenance = "preliminary" | "terminal";
 
 export interface ConversationFailureDiagnosis {
   stage: ConversationStage;
@@ -138,6 +151,9 @@ export interface ConversationDiagnosticInput {
   operationId?: string;
   diagnosis: ConversationFailureDiagnosis;
   outcome: ConversationFailureOutcome;
+  /** Explicit claim-time (`preliminary`) vs acquired-execution (`terminal`)
+   * provenance. Drives the writer's first-terminal-wins upsert; see the type. */
+  provenance: ConversationDiagnosticProvenance;
 }
 
 /** Best-effort service-only write of a single failure receipt. Calls the
@@ -147,7 +163,8 @@ export interface ConversationDiagnosticInput {
  * leave the turn outcome untouched. It NEVER retries. Correlation ids are
  * uuid-validated before they leave the process; the fixed enum fields come only
  * from `classifyConversationFailure`/`failure()` and are enforced again by the
- * table's CHECK constraints. */
+ * table's CHECK constraints. The `provenance` bit (preliminary claim-time vs terminal
+ * acquired-execution) drives the writer's first-terminal-wins upsert. */
 export async function recordConversationDiagnostic(
   input: ConversationDiagnosticInput,
   rpc: TeamReadRpc = projectTeamRpc,
@@ -166,6 +183,7 @@ export async function recordConversationDiagnostic(
       p_name_category: input.diagnosis.nameCategory,
       p_http_status: input.diagnosis.httpStatus,
       p_sql_state: input.diagnosis.sqlState,
+      p_provenance: input.provenance,
     });
   } catch {
     // Diagnostics are inert: a recording failure must never affect the turn

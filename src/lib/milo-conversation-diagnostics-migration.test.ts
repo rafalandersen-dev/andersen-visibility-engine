@@ -84,9 +84,10 @@ const record = (
     nameCategory: string;
     httpStatus: number | null;
     sqlState: string | null;
+    provenance: string;
   }> = {},
 ) =>
-  db.query("SELECT public.record_milo_conversation_diagnostic($1,$2,$3,$4,$5,$6,$7,$8,$9)", [
+  db.query("SELECT public.record_milo_conversation_diagnostic($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)", [
     overrides.turn ?? turnId,
     overrides.operation === undefined ? null : overrides.operation,
     overrides.stage ?? "brief_start",
@@ -96,6 +97,9 @@ const record = (
     overrides.nameCategory ?? "other",
     overrides.httpStatus === undefined ? null : overrides.httpStatus,
     overrides.sqlState === undefined ? "55P03" : overrides.sqlState,
+    // Default to a terminal (acquired-execution) receipt, so the existing single-row
+    // proofs are terminal->terminal first-wins; provenance transitions are covered below.
+    overrides.provenance ?? "terminal",
   ]);
 const rows = async () =>
   (
@@ -142,6 +146,7 @@ describe("service-only Milo conversation diagnostics receipts", () => {
         "operation_id",
         "outcome",
         "outcome_code",
+        "provenance",
         "sql_state",
         "stage",
         "turn_id",
@@ -160,6 +165,7 @@ describe("service-only Milo conversation diagnostics receipts", () => {
     await expect(record({ nameCategory: "SecretName" })).rejects.toThrow();
     await expect(record({ httpStatus: 200 })).rejects.toThrow();
     await expect(record({ sqlState: "99999" })).rejects.toThrow();
+    await expect(record({ provenance: "guessed" })).rejects.toThrow();
     expect(await rows()).toHaveLength(0);
   });
   it("accepts a null SQLSTATE and null operation for non-lock, turn-level failures", async () => {
@@ -174,9 +180,9 @@ describe("service-only Milo conversation diagnostics receipts", () => {
         [turnId],
       )
     ).rows[0].created_at;
-    // A second write for the SAME turn with a DIFFERENT payload is ignored, so a
-    // duplicate or racing write can never overwrite the original failure's
-    // stage/SQLSTATE/outcome/time (first-receipt-wins idempotency).
+    // Both writes are terminal (the helper default), so the second terminal write for
+    // the SAME turn is ignored: a duplicate or racing terminal can never overwrite the
+    // first terminal's stage/SQLSTATE/outcome/time (first-terminal-wins idempotency).
     await record({
       stage: "assert_live",
       sqlState: null,
@@ -198,6 +204,76 @@ describe("service-only Milo conversation diagnostics receipts", () => {
       sql_state: "55P03",
       outcome: "unknown",
     });
+    expect(stored.rows[0].created_at).toEqual(original);
+  });
+  it("upgrades a preliminary claim receipt to a later terminal acquired-execution receipt", async () => {
+    // A pre-claim (preliminary) receipt reserves the turn's single row, but the turn is
+    // still pending and may be re-dispatched; a later terminal (acquired-execution)
+    // failure MUST replace it in place so the real evidence is never lost.
+    await record({ stage: "unknown", sqlState: "55P03", provenance: "preliminary" });
+    await record({
+      stage: "reply_model",
+      sqlState: null,
+      outcome: "failed",
+      outcomeCode: "provider_unavailable",
+      provenance: "terminal",
+    });
+    const stored = await db.query<{
+      stage: string;
+      sql_state: string | null;
+      outcome: string;
+      provenance: string;
+    }>(
+      "SELECT stage,sql_state,outcome,provenance FROM public.milo_conversation_diagnostics WHERE turn_id=$1",
+      [turnId],
+    );
+    expect(stored.rows).toHaveLength(1);
+    expect(stored.rows[0]).toMatchObject({
+      stage: "reply_model",
+      sql_state: null,
+      outcome: "failed",
+      provenance: "terminal",
+    });
+  });
+  it("never lets a delayed preliminary claim receipt overwrite an existing terminal receipt", async () => {
+    await record({
+      stage: "reply_model",
+      sqlState: null,
+      outcome: "failed",
+      outcomeCode: "provider_unavailable",
+      provenance: "terminal",
+    });
+    // A late claim-time (preliminary) write for the same turn — e.g. a retry that fails
+    // at claim after the terminal outcome was already recorded — is ignored.
+    await record({ stage: "unknown", sqlState: "55P03", provenance: "preliminary" });
+    const stored = await db.query<{ stage: string; provenance: string }>(
+      "SELECT stage,provenance FROM public.milo_conversation_diagnostics WHERE turn_id=$1",
+      [turnId],
+    );
+    expect(stored.rows).toHaveLength(1);
+    expect(stored.rows[0]).toMatchObject({ stage: "reply_model", provenance: "terminal" });
+  });
+  it("keeps the first terminal receipt when a second terminal write arrives (first-terminal-wins)", async () => {
+    await record({ stage: "reply_model", sqlState: null, provenance: "terminal" });
+    const original = (
+      await db.query<{ created_at: string }>(
+        "SELECT created_at FROM public.milo_conversation_diagnostics WHERE turn_id=$1",
+        [turnId],
+      )
+    ).rows[0].created_at;
+    await record({
+      stage: "tool_dispatch",
+      sqlState: "55P03",
+      outcome: "failed",
+      outcomeCode: "budget_unavailable",
+      provenance: "terminal",
+    });
+    const stored = await db.query<{ stage: string; sql_state: string | null; created_at: string }>(
+      "SELECT stage,sql_state,created_at FROM public.milo_conversation_diagnostics WHERE turn_id=$1",
+      [turnId],
+    );
+    expect(stored.rows).toHaveLength(1);
+    expect(stored.rows[0]).toMatchObject({ stage: "reply_model", sql_state: null });
     expect(stored.rows[0].created_at).toEqual(original);
   });
   it("cascades diagnostics on turn erase and prunes only receipts past the 30-day window", async () => {

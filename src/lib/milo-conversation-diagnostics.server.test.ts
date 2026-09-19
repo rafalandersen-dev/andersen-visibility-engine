@@ -120,6 +120,7 @@ describe("best-effort, inert diagnostic recording", () => {
           sqlState: "55P03",
         },
         outcome: { state: "unknown", code: "execution_unknown" },
+        provenance: "terminal",
       },
       rpc,
     );
@@ -135,8 +136,10 @@ describe("best-effort, inert diagnostic recording", () => {
       p_name_category: "other",
       p_http_status: null,
       p_sql_state: "55P03",
+      p_provenance: "terminal",
     });
-    // No prompt/body/message/token/credential field is ever sent.
+    // No prompt/body/message/token/credential field is ever sent; provenance is a
+    // fixed enum bit, not content.
     expect(Object.keys(calls[0].args)).toEqual([
       "p_turn",
       "p_operation",
@@ -147,6 +150,7 @@ describe("best-effort, inert diagnostic recording", () => {
       "p_name_category",
       "p_http_status",
       "p_sql_state",
+      "p_provenance",
     ]);
   });
   it("passes a null operation when none is known", async () => {
@@ -164,10 +168,13 @@ describe("best-effort, inert diagnostic recording", () => {
           sqlState: null,
         },
         outcome: { state: "unknown", code: "execution_unknown" },
+        provenance: "preliminary",
       },
       rpc,
     );
     expect(rpc.mock.calls[0][1].p_operation).toBeNull();
+    // The explicit provenance bit is forwarded verbatim (here a claim-time receipt).
+    expect(rpc.mock.calls[0][1].p_provenance).toBe("preliminary");
   });
   it("swallows an RPC error object without throwing and never retries", async () => {
     const rpc = vi.fn<TeamReadRpc>(async () => ({ data: null, error: { code: "42883" } }));
@@ -184,6 +191,7 @@ describe("best-effort, inert diagnostic recording", () => {
             sqlState: "55P03",
           },
           outcome: { state: "unknown", code: "execution_unknown" },
+          provenance: "terminal",
         },
         rpc,
       ),
@@ -207,6 +215,7 @@ describe("best-effort, inert diagnostic recording", () => {
             sqlState: null,
           },
           outcome: { state: "unknown", code: "execution_unknown" },
+          provenance: "terminal",
         },
         rpc,
       ),
@@ -226,6 +235,7 @@ describe("best-effort, inert diagnostic recording", () => {
           sqlState: "55P03",
         },
         outcome: { state: "unknown", code: "execution_unknown" },
+        provenance: "terminal",
       },
       rpc,
     );
