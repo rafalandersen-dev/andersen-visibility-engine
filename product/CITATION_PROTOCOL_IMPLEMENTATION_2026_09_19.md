@@ -176,6 +176,35 @@ from vanishing a capture regardless. Tests: a real legacy-intake/`readResolvedCa
 (refusal + capture still resolved + legacy-of-legacy still works), and resolver unit cases for a
 context-less and a malformed successor.
 
+### Review round 4 — one observation per slot, and the consumer-only v1 boundary
+
+- **Duplicate slot (hash-only dedup) → unreportable (fixed).** Two *independent* captures for the same
+  panel version / question / round passed hash-only dedup (different answer text → different hash), and
+  `resolveStoredCaptures` forwarded both to `panelCounts`, whose duplicate-slot guard threw and made the
+  whole report unreportable. Fixed at two boundaries:
+  - **Write (`save_citation_capture`).** A NEW original (no `supersedesId`) must be the only live
+    original for its exact slot (panel version, brand run, question, round); a distinct second original
+    is refused (`citation_slot_occupied`). Identical re-imports still dedupe (hash lookup precedes this
+    guard) and same-observation corrections still attach to the chain (they set `supersedesId`, so they
+    do not occupy a new slot). Per spec §§5.2/6 attempts semantics, one scheduled observation per slot;
+    a retry is a correction of that slot, not a second original. **Atomicity/concurrency:** the check
+    and insert run under the account's `workspace_meta` row held `FOR UPDATE` (required-present) from
+    the top of the function, so two concurrent originals for one slot serialize and cannot both pass.
+  - **Read (`resolveStoredCaptures`).** Defence for any already-stored duplicate: if two active-leaf
+    captures still resolve to one slot, the slot is collapsed to a single explicitly-invalid entry
+    (`protocol_deviant`, deviation `duplicate_slot`) and the extras are excluded from the counted set
+    (raw rows remain in storage). The report stays reportable and a duplicate is never silently
+    promoted to a measurement success.
+- **Consumer-only v1 boundary (spec §§2, 5.2).** An API surface is not a consumer substitute, yet
+  panels/captures admitted `surface.mode: "api"`. Now refused across the stack: `panelDraftSchema` /
+  `lockedPanelSchema` (draft + lock validation), `parseManualCaptureInput` (capture input), and the
+  candidate SQL (`save_citation_panel_draft`, `lock_citation_panel` → `citation_panel_not_consumer`;
+  `save_citation_capture` → `citation_non_consumer_surface`). `resolveStoredCaptures` additionally
+  demotes any already-stored API capture to `protocol_deviant` with `non_consumer_surface`, so historical
+  invalid data can never read as a complete consumer measurement. Consumer web/search surfaces are
+  unchanged, and the general answer-evidence stack still records API answers as ordinary non-panel
+  evidence. Tests cover API refusal (schema, input, SQL) and the valid consumer path.
+
 ## Files
 
 | File | Change |
@@ -217,11 +246,10 @@ and idempotency are covered by the new migration tests.
 ## Checks to run (UNRUN here — Codex executes)
 
 Status honesty: successive stages ran 143 (tsc failing) → 146 → 148/147-PASS-1-FAIL (corrected) →
-150, and most recently a reported 170 focused and 6081 full PASS. This round adds the
-context-less-correction vanish fix (resolver + legacy-intake refusal) with its tests. **That
-170/6081 PASS is a prior stage and does not carry over** — every check below, including the new
-legacy-intake roundtrip and resolver cases, is UNRUN in this worktree and must be re-executed by
-Codex.
+150 → a reported 170 focused / 6081 full PASS. This round adds the one-observation-per-slot guard
+(write + resolver collapse) and the consumer-only v1 boundary, with their tests. **That 170/6081 PASS
+is a prior stage and does not carry over** — every check below, including the new slot-uniqueness,
+resolver-collapse and API-refusal cases, is UNRUN in this worktree and must be re-executed by Codex.
 
 - `npx vitest run src/lib/citation-protocol.test.ts`
 - `npx vitest run src/lib/citation-protocol.functions.test.ts`

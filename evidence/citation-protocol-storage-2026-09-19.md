@@ -105,13 +105,39 @@ all conversation files.
   guard preserved. Tests: legacy-intake/`readResolvedCaptures` roundtrip (refusal + capture still
   resolved + legacy-of-legacy works) and resolver unit cases (context-less and malformed successors).
 
+## Review round 4 (one observation per slot; consumer-only v1 boundary)
+
+- Duplicate slot → unreportable (fixed): two independent captures for one panel version/question/round
+  passed hash-only dedup and `resolveStoredCaptures` forwarded both to `panelCounts`, whose duplicate-
+  slot guard threw. Write: `save_citation_capture` now refuses a DISTINCT new original for an occupied
+  slot (`citation_slot_occupied`) — identical re-imports still dedupe (hash lookup first) and
+  same-observation corrections still attach (they set supersedesId); one scheduled observation per slot
+  (spec §§5.2/6). Atomicity: the check+insert run under the account's `workspace_meta` row held FOR
+  UPDATE (required-present), so two concurrent originals for one slot serialize and cannot both pass.
+  Read: `resolveStoredCaptures` collapses any already-stored same-slot duplicates to ONE explicitly-
+  invalid entry (`protocol_deviant` + `duplicate_slot`), excluding extras from counts (raw kept), so the
+  report is reportable and never a silent success. Tests: SQL slot-occupancy (second original refused,
+  identical dedupes, correction allowed), a resolver-to-`panelCounts` roundtrip over a directly-inserted
+  duplicate (collapses to one invalid slot, recorded 1), plus a resolver unit case.
+- Consumer-only v1 boundary (spec §§2, 5.2): an API surface is not a consumer substitute. Refused in
+  `panelDraftSchema`/`lockedPanelSchema`, `parseManualCaptureInput`, and candidate SQL
+  (`save_citation_panel_draft`/`lock_citation_panel` → `citation_panel_not_consumer`;
+  `save_citation_capture` → `citation_non_consumer_surface`); `resolveStoredCaptures` demotes any
+  already-stored API capture to `protocol_deviant` + `non_consumer_surface`. Consumer web/search and the
+  general answer-evidence stack (which still records API answers as non-panel evidence) are unchanged.
+  Tests: API refusal at schema/input/SQL and the valid consumer path. No released migration changed.
+
 ## Checks (status: UNRUN — prepared for Codex)
 
-Prior stages: 143 (tsc failing) → 146 → 148/147-PASS-1-FAIL (corrected) → 150, and most recently a
-reported 170 focused and 6081 full PASS. This round adds the context-less-correction vanish fix
-(resolver + legacy-intake refusal) with its tests. That 170/6081 PASS is a PRIOR STAGE and does not
-carry over — every check below, including the new legacy-intake roundtrip and resolver cases, is
-UNRUN and re-run by Codex.
+Prior stages: 143 (tsc failing) → 146 → 148/147-PASS-1-FAIL (corrected) → 150 → 170/6081. The slot +
+consumer-only delta then ran 98 focused at 97 PASS / 1 FAIL with types PASS: the sole failure was a
+fixture defect — the missing-`workspace_meta` regression's final "second observation" reused `first`'s
+occupied brand slot (round 1), which the new one-per-slot guard correctly refuses. Fixed here (fixture
+only): that intended second observation is now a distinct authorized slot (round 2, run rounds 2), for
+the direct-SQL-while-missing attempt, the public-wrapper attempt, and the restored-success path — so
+the missing-meta guard is proven to reject a would-be-valid observation before any insert, with no
+weaker slot/budget/auth guard. All prior PASS counts are a PRIOR STAGE and do not carry over — every
+check below is UNRUN and re-run by Codex.
 
 | Check | Purpose | Status |
 | --- | --- | --- |
@@ -154,3 +180,7 @@ Independent review confirmed that only active correction leaves reach counts whi
 ### Codex legacy-correction and current-main integration verification — 20 September 2026
 
 Legacy-correction delta:153 focused tests/8 files PASS(1.70s), types PASS. Normal merge of released diagnostic main b441a9e7 resolved only the candidate-chain inventory:160000 now released,170000 remains candidate, both grant matrices retained. Post-integration62 focused tests/3 files PASS(1.61s), types/scoped lint/whitespace PASS, full6126 tests/382 files PASS(43.69s), build PASS. Logs `/tmp/milo-p2-integrated-{focused,types,lint,full,build}-20260920.log`. Codex exceptions limited to test formatting and migration-inventory merge resolution. No candidate SQL applied or collection performed.
+
+## Codex slot/consumer-boundary verification — 20 September 2026
+
+Reviewed atomic occupied-slot rejection after dedup under the required account lock, correction-chain preservation, historical duplicate deviation and consumer-only validation. Confirmed fixture repair uses an authorized distinct round2 with unchanged no-insert assertion.98 focused tests/5 files PASS(1.74s), full6133 tests/382 files PASS(43.93s), types/scoped lint/whitespace/build PASS. Logs `/tmp/milo-p2-slot-final-{focused,types,lint,full,build}-20260920.log`. Codex integration exception: Prettier on three changed TypeScript files. No applied SQL, production observation, owner approval or consumer automation. Candidate170000 remains unapplied.

@@ -57,6 +57,10 @@ BEGIN
     OR jsonb_typeof(p_document->'questions')<>'array' THEN
     RAISE EXCEPTION 'invalid_citation_panel';
   END IF;
+  -- v1 is consumer-only (spec §§2, 5.2): a panel whose one surface is an API surface is out of the
+  -- v1 boundary. The client schema (panelDraftSchema) refuses it before the RPC; this fails closed
+  -- at the DB boundary too so a direct call cannot store a non-consumer panel.
+  IF p_document->'surface'->>'mode'='api' THEN RAISE EXCEPTION 'citation_panel_not_consumer'; END IF;
   IF EXISTS (
     SELECT 1 FROM jsonb_array_elements(p_document->'questions') AS t(q)
     WHERE NOT EXISTS (
@@ -86,6 +90,9 @@ BEGIN
   IF current_version<>p_expected THEN RAISE EXCEPTION 'citation_panel_changed'; END IF;
   SELECT document INTO draft FROM public.citation_panels WHERE user_id=p_user AND project_id=p_project AND panel_id=p_panel AND version=p_expected;
   IF draft IS NULL OR draft->>'status'<>'draft' THEN RAISE EXCEPTION 'citation_panel_not_draft'; END IF;
+  -- v1 consumer-only boundary (spec §§2, 5.2): never lock an API-surface panel, even if a pre-guard
+  -- draft carried one.
+  IF draft->'surface'->>'mode'='api' THEN RAISE EXCEPTION 'citation_panel_not_consumer'; END IF;
   IF draft->>'kind'='discovery' AND (draft->>'rounds')::integer<1 THEN RAISE EXCEPTION 'citation_panel_rounds_required'; END IF;
   IF EXISTS (
     SELECT 1 FROM jsonb_array_elements(draft->'questions') AS t(q)
@@ -173,6 +180,10 @@ BEGIN
   -- within the record is rejected. The free-text surface label is not equated to the service here.
   IF p_document->'input'->>'mode' IS DISTINCT FROM ctx->'surface'->>'mode' THEN RAISE EXCEPTION 'citation_capture_mode_conflict'; END IF;
   IF p_document->'input'->>'modelVersion' IS DISTINCT FROM ctx->'surface'->>'modelLabel' THEN RAISE EXCEPTION 'citation_capture_model_conflict'; END IF;
+  -- v1 is consumer-only (spec §§2, 5.2): an API capture is not a consumer substitute. Refuse it so a
+  -- non-consumer surface can never be stored as a v1 consumer observation (the read resolver also
+  -- flags any pre-existing one). The general answer path still accepts API answers as non-panel evidence.
+  IF ctx->'surface'->>'mode'='api' THEN RAISE EXCEPTION 'citation_non_consumer_surface'; END IF;
   prompt := (p_document->'input'->>'promptId')::uuid; rev := (p_document->'input'->>'promptRevision')::integer;
   replaced := (p_document->'input'->>'supersedesId')::uuid;
   SELECT jsonb_build_object('id',id,'revision',revision,'createdAt',created_at,'data',data) INTO saved
@@ -246,6 +257,27 @@ BEGIN
       OR pred_ctx->'surface' IS DISTINCT FROM ctx->'surface' THEN
       RAISE EXCEPTION 'citation_correction_identity_mismatch';
     END IF;
+  END IF;
+  -- One scheduled observation per slot (spec §§5.2/6 attempts semantics): a NEW original (no
+  -- supersedes) must be the only live original for its exact slot — panel version, brand run,
+  -- question and round. An identical re-import already returned above via hash dedup, and a
+  -- same-observation correction (supersedes set) re-describes the existing chain rather than taking a
+  -- new slot; but a DISTINCT new capture for an already-occupied slot is refused, so two independent
+  -- imports for one slot can never both be stored and later trip panelCounts' duplicate-slot guard
+  -- (which would make the whole report unreportable). Atomicity: the account's workspace_meta row is
+  -- held FOR UPDATE (required-present) from the top of this function, so this check and the insert are
+  -- serialized with every other capture for the account and two concurrent originals cannot both pass.
+  -- A superseded original keeps supersedes_id null, so it still occupies its slot (raw history kept).
+  IF replaced IS NULL AND EXISTS (
+    SELECT 1 FROM public.ai_answer_evidence
+    WHERE user_id=p_user AND project_id=p_project AND supersedes_id IS NULL
+      AND document->'input'->'captureContext'->>'panelId'=ctx->>'panelId'
+      AND document->'input'->'captureContext'->>'panelVersion'=ctx->>'panelVersion'
+      AND document->'input'->'captureContext'->'slot'->>'questionId'=ctx->'slot'->>'questionId'
+      AND document->'input'->'captureContext'->'slot'->>'round'=ctx->'slot'->>'round'
+      AND document->'input'->'captureContext'->>'brandRunId' IS NOT DISTINCT FROM ctx->>'brandRunId'
+  ) THEN
+    RAISE EXCEPTION 'citation_slot_occupied';
   END IF;
   -- A genuinely NEW brand observation (no supersedes) consumes the run's observation budget, checked
   -- here (after dedup) so a re-imported identical capture is never re-charged. Live observations are

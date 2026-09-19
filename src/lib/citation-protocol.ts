@@ -37,6 +37,19 @@ export const MAX_BRAND_RUNS = 20;
 
 /** A draft panel is unapproved: status `draft`, no approval receipt. Owner review happens on the
  * draft; the server, not the client, mints the approval when the draft is locked. */
+// v1 Citation Intelligence measures CONSUMER surfaces only; an API surface is not a consumer
+// substitute (spec §§2, 5.2). A panel (draft or locked) whose one surface is `api` is out of the v1
+// boundary and refused. Consumer web and consumer search surfaces remain in scope. The general
+// answer-evidence stack is unchanged — it still records API answers as ordinary (non-panel) evidence.
+function assertConsumerV1Panel(panel: PanelProtocol, ctx: z.RefinementCtx) {
+  if (panel.surface.mode === "api")
+    ctx.addIssue({
+      code: "custom",
+      path: ["surface", "mode"],
+      message: "v1 citation panels are consumer-only; an API surface is not a consumer substitute",
+    });
+}
+
 export const panelDraftSchema = panelProtocolSchema.superRefine((panel, ctx) => {
   if (panel.status !== "draft")
     ctx.addIssue({
@@ -50,6 +63,7 @@ export const panelDraftSchema = panelProtocolSchema.superRefine((panel, ctx) => 
       path: ["approval"],
       message: "A draft carries no approval; the server mints it at lock",
     });
+  assertConsumerV1Panel(panel, ctx);
 });
 
 /** A locked panel version: owner-approved, immutable, with a server-minted approval receipt. */
@@ -60,6 +74,7 @@ export const lockedPanelSchema = panelProtocolSchema.superRefine((panel, ctx) =>
       path: ["status"],
       message: "A locked panel version carries the owner approval receipt",
     });
+  assertConsumerV1Panel(panel, ctx);
 });
 
 export const citationProtocolStateSchema = z
@@ -109,6 +124,10 @@ export function parseManualCaptureInput(value: unknown): {
   if (captureContext.surface.mode !== input.mode) throw new Error("citation_capture_mode_conflict");
   if (captureContext.surface.modelLabel !== input.modelVersion)
     throw new Error("citation_capture_model_conflict");
+  // v1 is consumer-only (spec §§2, 5.2): an API capture is not a consumer substitute and is refused
+  // at the boundary. Consumer web/search captures pass. (The general answer-evidence path still
+  // accepts API answers as ordinary non-panel evidence.)
+  if (captureContext.surface.mode === "api") throw new Error("citation_non_consumer_surface");
   return { input, captureContext };
 }
 
@@ -221,15 +240,23 @@ export function resolveStoredCaptures(
     const capturedAt = Date.parse(context.time.capturedAt);
     const approvedBeforeCapture =
       Number.isFinite(approvedAt) && Number.isFinite(capturedAt) && capturedAt >= approvedAt;
+    // v1 is consumer-only (spec §§2, 5.2): a stored capture on an API surface is never a complete
+    // consumer measurement. The write path refuses new API captures; this flags any already-stored
+    // one so historical invalid data cannot read as a complete consumer slot — it is a deviation and
+    // a would-be `complete` is demoted, exactly like the pre-approval case; failures stay themselves.
+    const consumerSurface = context.surface.mode !== "api";
+    const eligible = approvedBeforeCapture && consumerSurface;
     out.push({
       answerId: answer.id,
       panelId: panel.panelId,
       panelVersion: panel.version,
       kind: panel.kind,
-      outcome: outcome === "complete" && !approvedBeforeCapture ? "protocol_deviant" : outcome,
-      deviations: approvedBeforeCapture
-        ? deviations
-        : [...deviations, "panel_approved_after_capture"],
+      outcome: outcome === "complete" && !eligible ? "protocol_deviant" : outcome,
+      deviations: [
+        ...deviations,
+        ...(approvedBeforeCapture ? [] : ["panel_approved_after_capture"]),
+        ...(consumerSurface ? [] : ["non_consumer_surface"]),
+      ],
       panelResolved: true,
       brandRunResolved:
         panel.kind === "brand"
@@ -243,5 +270,46 @@ export function resolveStoredCaptures(
       captureContext: context,
     });
   }
-  return out;
+  // Guard against already-stored slot duplicates. The write path now enforces one original per slot
+  // atomically, but if two active-leaf captures still resolve to the same panel slot (panel version,
+  // brand run, question, round), feeding both to `panelCounts` would trip its duplicate-slot guard and
+  // make the whole report unreportable. Collapse each conflicted slot to ONE explicitly-invalid entry
+  // (outcome protocol_deviant, deviation `duplicate_slot`) in stable input order and exclude the
+  // extras from the resolved counts; the raw captures remain in storage. This never promotes a
+  // duplicate to a silent measurement success. Panel-unresolved captures carry no comparable slot and
+  // pass through unchanged.
+  const slotKey = (c: ResolvedCapture) =>
+    JSON.stringify([
+      c.panelId,
+      c.panelVersion,
+      c.captureContext.brandRunId,
+      c.captureContext.slot.questionId,
+      c.captureContext.slot.round,
+    ]);
+  const slotCount = new Map<string, number>();
+  for (const c of out)
+    if (c.panelResolved) slotCount.set(slotKey(c), (slotCount.get(slotKey(c)) ?? 0) + 1);
+  const seen = new Set<string>();
+  const deduped: ResolvedCapture[] = [];
+  for (const c of out) {
+    if (!c.panelResolved) {
+      deduped.push(c);
+      continue;
+    }
+    const key = slotKey(c);
+    if ((slotCount.get(key) ?? 0) <= 1) {
+      deduped.push(c);
+      continue;
+    }
+    if (seen.has(key)) continue; // exclude the extra duplicate(s); the raw rows remain in storage
+    seen.add(key);
+    deduped.push({
+      ...c,
+      outcome: "protocol_deviant",
+      deviations: c.deviations.includes("duplicate_slot")
+        ? c.deviations
+        : [...c.deviations, "duplicate_slot"],
+    });
+  }
+  return deduped;
 }

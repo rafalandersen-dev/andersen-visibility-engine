@@ -6,6 +6,7 @@ import {
   citationProtocolStateSchema,
   parseManualCaptureInput,
   panelDraftSchema,
+  lockedPanelSchema,
   resolveStoredCaptures,
   type BrandRunApproval,
 } from "./citation-protocol";
@@ -365,6 +366,78 @@ describe("citation protocol pure contract", () => {
       expect(resolved.map((r) => r.answerId)).toEqual(["cap"]);
       expect(resolved[0]).toMatchObject({ outcome: "complete", panelResolved: true });
     }
+  });
+  it("collapses an already-stored duplicate slot to one invalid entry so the report stays reportable", () => {
+    const dup = (id: string) => ({
+      id,
+      status: "complete" as const,
+      promptId: uuid(101),
+      promptRevision: 1,
+      captureContext: context(),
+      supersedesId: null,
+    });
+    const resolved = resolveStoredCaptures([dup("a"), dup("b")], [discoveryPanel()], []);
+    // Two independent originals share one slot: collapse to a single explicitly-invalid entry rather
+    // than forward both (which would trip panelCounts' duplicate-slot guard) or silently pick one.
+    expect(resolved).toHaveLength(1);
+    expect(resolved[0]).toMatchObject({ outcome: "protocol_deviant" });
+    expect(resolved[0].deviations).toContain("duplicate_slot");
+    const counts = panelCounts(
+      discoveryPanel(),
+      resolved.map((r) => ({
+        questionId: r.captureContext.slot.questionId,
+        round: r.captureContext.slot.round,
+        outcome: r.outcome,
+        citationsComplete: true,
+        ownCitation: null,
+        mention: null,
+        recommended: null,
+        brandRunId: r.captureContext.brandRunId,
+      })),
+    );
+    expect(counts).toMatchObject({ recorded: 1, outcomes: { complete: 0, protocol_deviant: 1 } });
+  });
+  it("refuses an API-surface panel as draft or locked, and accepts a consumer surface (v1 §§2/5.2)", () => {
+    const apiSurface = { ...surface, mode: "api" as const };
+    expect(
+      panelDraftSchema.safeParse(
+        discoveryPanel({ status: "draft", approval: null, surface: apiSurface }),
+      ).success,
+    ).toBe(false);
+    expect(lockedPanelSchema.safeParse(discoveryPanel({ surface: apiSurface })).success).toBe(
+      false,
+    );
+    expect(
+      panelDraftSchema.safeParse(discoveryPanel({ status: "draft", approval: null })).success,
+    ).toBe(true); // consumer (search) surface remains valid
+  });
+  it("refuses an API-surface manual capture at the input boundary (v1 consumer-only)", () => {
+    expect(() =>
+      parseManualCaptureInput(
+        answer({ mode: "api", captureContext: context({ surface: { ...surface, mode: "api" } }) }),
+      ),
+    ).toThrow("citation_non_consumer_surface");
+  });
+  it("flags an already-stored API capture as non-consumer, never a complete measurement", () => {
+    const apiSurface = { ...surface, mode: "api" as const };
+    // An API capture whose (historical) panel also records API would otherwise match and read
+    // complete; the consumer-only guard independently demotes it and flags non_consumer_surface.
+    const [r] = resolveStoredCaptures(
+      [
+        {
+          id: "a1",
+          status: "complete",
+          promptId: uuid(101),
+          promptRevision: 1,
+          captureContext: context({ surface: apiSurface }),
+          supersedesId: null,
+        },
+      ],
+      [discoveryPanel({ surface: apiSurface })],
+      [],
+    );
+    expect(r).toMatchObject({ panelResolved: true, outcome: "protocol_deviant" });
+    expect(r.deviations).toContain("non_consumer_surface");
   });
 });
 

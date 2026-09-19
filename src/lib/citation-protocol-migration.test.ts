@@ -454,6 +454,108 @@ describe("CI-2 manual capture resolution and binding", () => {
     );
     expect(counts).toMatchObject({ recorded: 1, outcomes: { complete: 1 } });
   });
+  it("enforces one observation per slot at the write boundary: refuses a second independent original, dedupes identical, still allows a correction", async () => {
+    const first = await importManualCapture(scope, discoveryCapture(), rpc); // slot SY-D01 round 1
+    expect(await importManualCapture(scope, discoveryCapture(), rpc)).toBe(first); // identical dedupes
+    const stored = (await readAnswerEvidence(scope, rpc)).answers[0];
+    const secondOriginal = {
+      input: { ...stored.input, rawAnswer: "an independent second observation for the same slot" },
+      prompt: stored.prompt,
+      analysis: stored.analysis,
+    };
+    // Direct SQL: a distinct new original for the occupied slot fails closed with the specific guard.
+    await expect(
+      db.query("SELECT save_citation_capture($1,$2,$3)", [user, "p", secondOriginal]),
+    ).rejects.toThrow(/citation_slot_occupied/);
+    // The public wrapper refuses it too (generic mapped error); nothing new is stored.
+    await expect(
+      importManualCapture(
+        scope,
+        discoveryCapture({}, { rawAnswer: "another independent second" }),
+        rpc,
+      ),
+    ).rejects.toThrow();
+    expect((await readAnswerEvidence(scope, rpc)).answers).toHaveLength(1);
+    // A same-observation correction (supersedes) is still allowed — it re-describes the one slot.
+    const corrected = await importManualCapture(
+      scope,
+      discoveryCapture({}, { supersedesId: first, rawAnswer: "corrected same-slot observation" }),
+      rpc,
+    );
+    expect(corrected).not.toBe(first);
+    expect((await readResolvedCaptures(scope, rpc)).captures.map((c) => c.answerId)).toEqual([
+      corrected,
+    ]);
+  });
+  it("keeps the report reportable when a slot duplicate is already stored: resolver collapses to one invalid slot", async () => {
+    const first = await importManualCapture(scope, discoveryCapture(), rpc); // slot SY-D01 round 1
+    const stored = (await readAnswerEvidence(scope, rpc)).answers[0];
+    // Simulate a pre-guard duplicate: a second independent original for the same slot, inserted
+    // directly (bypassing the write guard) with a distinct hash.
+    await db.query(
+      "INSERT INTO ai_answer_evidence(user_id,project_id,prompt_id,prompt_revision,document_hash,document) VALUES($1,'p',$2,1,'dupe-hash',$3)",
+      [
+        user,
+        discoveryPromptId,
+        {
+          input: { ...stored.input, rawAnswer: "duplicate original" },
+          prompt: stored.prompt,
+          analysis: stored.analysis,
+        },
+      ],
+    );
+    const { panels, captures } = await readResolvedCaptures(scope, rpc);
+    // The resolver collapses the conflicted slot to ONE explicitly-invalid entry, so the report layer
+    // never receives two records for one slot (which would throw) and never a false complete.
+    expect(captures).toHaveLength(1);
+    expect(captures[0]).toMatchObject({ outcome: "protocol_deviant" });
+    expect(captures[0].deviations).toContain("duplicate_slot");
+    void first;
+    const locked = panels.find((p) => p.status === "locked")!;
+    const counts = panelCounts(
+      locked,
+      captures.map((c) => ({
+        questionId: c.captureContext.slot.questionId,
+        round: c.captureContext.slot.round,
+        outcome: c.outcome,
+        citationsComplete: true,
+        ownCitation: null,
+        mention: null,
+        recommended: null,
+        brandRunId: c.captureContext.brandRunId,
+      })),
+    );
+    expect(counts).toMatchObject({ recorded: 1, outcomes: { complete: 0, protocol_deviant: 1 } });
+  });
+  it("enforces the v1 consumer-only boundary at the SQL boundary: refuses an API panel and an API capture", async () => {
+    // API panel draft is refused at the DB boundary (the client schema also refuses it before the RPC).
+    const apiPanel = draftDiscovery({ panelId: uuid(4), surface: { ...surface, mode: "api" } });
+    await expect(
+      db.query("SELECT save_citation_panel_draft($1,'p',$2,0,$3)", [user, uuid(4), apiPanel]),
+    ).rejects.toThrow(/citation_panel_not_consumer/);
+    // An API capture is refused at the DB boundary too. Build a valid consumer capture, then flip both
+    // the answer mode and the context surface mode to api (kept consistent, so the mode/model conflict
+    // guard is not what fires) — the consumer-only guard is.
+    const capId = await importManualCapture(scope, discoveryCapture(), rpc);
+    const stored = (await readAnswerEvidence(scope, rpc)).answers[0];
+    const apiCapture = {
+      input: {
+        ...stored.input,
+        mode: "api",
+        rawAnswer: "api attempt",
+        captureContext: { ...stored.input.captureContext, surface: { ...surface, mode: "api" } },
+      },
+      prompt: stored.prompt,
+      analysis: stored.analysis,
+    };
+    await expect(
+      db.query("SELECT save_citation_capture($1,$2,$3)", [user, "p", apiCapture]),
+    ).rejects.toThrow(/citation_non_consumer_surface/);
+    // The stored consumer capture is the valid consumer path.
+    expect((await readResolvedCaptures(scope, rpc)).captures.map((c) => c.answerId)).toEqual([
+      capId,
+    ]);
+  });
   it("refuses a legacy context-less correction of a capture-bound row and keeps the capture resolved, while legacy-of-legacy corrections still work", async () => {
     const capId = await importManualCapture(scope, discoveryCapture(), rpc);
     // The Answer panel's Correct action submits supersedesId with NO captureContext through legacy
@@ -536,17 +638,23 @@ describe("CI-2 manual capture resolution and binding", () => {
     await expect(
       db.query("SELECT save_citation_capture($1,$2,$3)", [user, "p", preApproval]),
     ).rejects.toThrow(/citation_panel_approved_after_capture/);
-    // Exactly at the approval instant, and after it, are accepted with their correct timestamps.
+    // Exactly at the approval instant, and after it, are accepted with their correct timestamps. Use
+    // a distinct slot (round 2) from validId's round 1 so acceptance is not masked by the one-per-slot
+    // guard — this test is about approval time, not slot occupancy.
     const at = "2026-09-01T00:00:00.000Z"; // equals the historical fixture approval
     expect(
       await importManualCapture(
         scope,
-        discoveryCapture({ time: { capturedAt: at, intendedSlotAt: at, delayMinutes: 0 } }),
+        discoveryCapture({
+          slot: { round: 2, questionId: "SY-D01" },
+          time: { capturedAt: at, intendedSlotAt: at, delayMinutes: 0 },
+        }),
         rpc,
       ),
     ).toBeTypeOf("string");
     expect(validId).toBeTypeOf("string");
-    // Only the 2026-09-08 and the at-approval captures persist; neither pre-approval attempt stored.
+    // Only the round-1 (2026-09-08) and the at-approval round-2 captures persist; neither pre-approval
+    // attempt stored anything.
     expect((await readAnswerEvidence(scope, rpc)).answers).toHaveLength(2);
   });
   it("rejects a capture against a draft version, a foreign version, a drifted question or an out-of-panel round", async () => {
@@ -574,9 +682,18 @@ describe("CI-2 manual capture resolution and binding", () => {
       [first],
     );
     expect(await importManualCapture(scope, discoveryCapture(), rpc)).toBe(first); // identical dedupes
+    // A genuinely new capture at an UNOCCUPIED slot (round 2) is blocked by the 100-record capacity,
+    // not the one-per-slot guard, so this still exercises the capacity ceiling; never auto-deleted.
     await expect(
-      importManualCapture(scope, discoveryCapture({}, { rawAnswer: "one over the ceiling" }), rpc),
-    ).rejects.toThrow(); // a genuinely new capture is blocked, never auto-deleted
+      importManualCapture(
+        scope,
+        discoveryCapture(
+          { slot: { round: 2, questionId: "SY-D01" } },
+          { rawAnswer: "one over the ceiling" },
+        ),
+        rpc,
+      ),
+    ).rejects.toThrow();
   });
   it("rejects a document whose capture instant is tampered at the SQL boundary", async () => {
     await importManualCapture(scope, discoveryCapture(), rpc);
@@ -643,29 +760,42 @@ describe("CI-2 brand capture budget and prospective approval", () => {
     ).rejects.toThrow(); // approved after the capture
   });
   it("bounds captures to the run's observation budget and rounds", async () => {
-    await insertBrandRun(uuid(50), { observationBudget: 1, rounds: 1 });
-    const first = await importManualCapture(scope, brandCapture(), rpc);
+    await insertBrandRun(uuid(50), { observationBudget: 1, rounds: 2 });
+    const first = await importManualCapture(scope, brandCapture(), rpc); // round 1
     // An exact re-import at an exhausted budget dedupes to the persisted id: hash dedup runs before
     // the new-observation budget check, so the identical capture is never re-charged or refused.
     expect(await importManualCapture(scope, brandCapture(), rpc)).toBe(first);
+    // A genuinely new observation at a DIFFERENT slot (round 2, within the run's rounds) is over the
+    // budget of one — this exercises the budget, not the one-per-slot guard.
     await expect(
       importManualCapture(
         scope,
-        brandCapture({}, { rawAnswer: "second distinct observation" }),
+        brandCapture({ slot: { round: 2, questionId: "SY-B01" } }, { rawAnswer: "second slot" }),
         rpc,
       ),
-    ).rejects.toThrow(); // a genuinely new observation over budget is refused
+    ).rejects.toThrow(); // budget of one is spent
+    // A round beyond the run's rounds is refused regardless of budget.
     await expect(
-      importManualCapture(scope, brandCapture({ slot: { round: 2, questionId: "SY-B01" } }), rpc),
-    ).rejects.toThrow(); // round beyond the run
+      importManualCapture(scope, brandCapture({ slot: { round: 3, questionId: "SY-B01" } }), rpc),
+    ).rejects.toThrow();
   });
   it("fails closed when the account workspace_meta row is missing, before any budget insert", async () => {
-    await insertBrandRun(uuid(50)); // valid approved run retained (budget 2)
-    // Capture one valid observation while meta is present, to obtain a real stored document.
+    await insertBrandRun(uuid(50), { rounds: 2 }); // valid approved run retained (budget 2, rounds 2)
+    // Capture one valid observation (round 1) while meta is present, to obtain a real stored document.
     const first = await importManualCapture(scope, brandCapture(), rpc);
     const stored = (await readAnswerEvidence(scope, rpc)).answers[0];
+    // The intended second observation is a genuinely DISTINCT, authorized slot (round 2) — a valid new
+    // observation whose only obstacle is the missing serialization row, so the guard is what rejects it
+    // (not the slot, budget or round guards).
     const another = {
-      input: { ...stored.input, rawAnswer: "a second, distinct observation" },
+      input: {
+        ...stored.input,
+        rawAnswer: "a second, distinct observation",
+        captureContext: {
+          ...stored.input.captureContext,
+          slot: { round: 2, questionId: "SY-B01" },
+        },
+      },
       prompt: stored.prompt,
       analysis: stored.analysis,
     };
@@ -678,9 +808,17 @@ describe("CI-2 brand capture budget and prospective approval", () => {
       await expect(
         db.query("SELECT save_citation_capture($1,$2,$3)", [user, "p", another]),
       ).rejects.toThrow(/citation_workspace_unavailable/);
-      // The public wrapper likewise refuses (mapped to the generic unavailable error).
+      // The public wrapper likewise refuses the same valid distinct-slot observation (mapped to the
+      // generic unavailable error).
       await expect(
-        importManualCapture(scope, brandCapture({}, { rawAnswer: "third distinct" }), rpc),
+        importManualCapture(
+          scope,
+          brandCapture(
+            { slot: { round: 2, questionId: "SY-B01" } },
+            { rawAnswer: "third distinct" },
+          ),
+          rpc,
+        ),
       ).rejects.toThrow();
       // No data mutation: only the first observation exists.
       expect((await readAnswerEvidence(scope, rpc)).answers).toHaveLength(1);
@@ -690,10 +828,14 @@ describe("CI-2 brand capture budget and prospective approval", () => {
         user,
       ]);
     }
-    // Meta restored: a genuinely new observation under the same run succeeds again (budget 2).
+    // Meta restored: the same valid distinct-slot observation (round 2, within the run's budget 2 and
+    // rounds 2) now succeeds — proving the missing row, not the slot/budget/round guards, was blocking.
     const second = await importManualCapture(
       scope,
-      brandCapture({}, { rawAnswer: "a second, distinct observation" }),
+      brandCapture(
+        { slot: { round: 2, questionId: "SY-B01" } },
+        { rawAnswer: "a second, distinct observation" },
+      ),
       rpc,
     );
     expect(second).toBeTypeOf("string");
