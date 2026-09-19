@@ -27,6 +27,13 @@ export interface ExpenseRequest {
    * is then neither created nor lowered, so a paid account is never frozen to
    * Free by a lookup blip. */
   defaults?: { accountCapMicrousd: number | null; globalCapMicrousd: number };
+  /** Server-derived classification: whether this attempt counts against the
+   * SHARED free-account pool (a Sybil-resistant circuit breaker). Derived only
+   * server-side from the verified plan/owner role, never from a caller field.
+   * Absent for legacy callers, which the RPC treats as `true` (conservative:
+   * an unclassified attempt is charged to the free pool). Only a verified owner
+   * or a KNOWN non-free plan sets this false to bypass the pool. */
+  usesFreePool?: boolean;
 }
 type Rpc = (
   name: string,
@@ -73,7 +80,8 @@ function validateRequest(r: ExpenseRequest) {
       (!safeInteger(r.defaults.globalCapMicrousd) ||
         r.defaults.globalCapMicrousd === 0 ||
         (r.defaults.accountCapMicrousd !== null &&
-          (!safeInteger(r.defaults.accountCapMicrousd) || r.defaults.accountCapMicrousd === 0))))
+          (!safeInteger(r.defaults.accountCapMicrousd) || r.defaults.accountCapMicrousd === 0)))) ||
+    (r.usesFreePool !== undefined && typeof r.usesFreePool !== "boolean")
   ) {
     throw new AiExpenseUnavailableError("invalid_request");
   }
@@ -128,6 +136,9 @@ export async function reserveAiExpense(request: ExpenseRequest): Promise<void> {
       p_ceiling: request.ceilingMicrousd,
       p_account_cap: request.defaults?.accountCapMicrousd ?? null,
       p_global_cap: request.defaults?.globalCapMicrousd ?? null,
+      // Absent (legacy) callers are conservatively charged to the shared free
+      // pool; only a server-verified owner/paid plan sets this false upstream.
+      p_use_free_pool: request.usesFreePool ?? true,
     });
   } catch {
     throw new AiExpenseUnavailableError("reservation_unavailable");

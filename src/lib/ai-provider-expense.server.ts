@@ -1,5 +1,6 @@
 import { DEFAULT_MODEL_ID } from "./ai-router";
 import { PLAN_LIMITS, type PlanId } from "./billing";
+import { OWNER_MULTIPLIER, resolveOwnerResult } from "./ai-usage.server";
 import { modelFor, AiProviderConfigurationError } from "./ai-provider.server";
 import { generateBoundedTextResult, validateTextRequest } from "./ai-text-bounds.server";
 import { generateImageResult, validateImageRequest, OPENAI_IMAGE_MODEL } from "./image-gen.server";
@@ -45,10 +46,17 @@ export function globalMonthlyCapMicrousd(): number {
  * content, improve, Milo score, authority, AI credits and audits — so the cap
  * cannot refuse work the plan has already granted. No new price or allowance is
  * introduced; a plan change changes the cap, which an AUTO budget row then
- * follows within the month. */
-export function planAccountCapMicrousd(plan: PlanId): number {
+ * follows within the month.
+ *
+ * `isOwner` raises the ceiling by the same OWNER_MULTIPLIER that `capFor` in
+ * ai-usage.server applies to interactive quotas, so the trusted-owner monthly
+ * allowance is consistent across both — the native cap can never refuse work the
+ * usage quota has already granted an owner. This argument is PURE: owner status
+ * is resolved server-side from user_roles by `defaultCaps` and is never accepted
+ * from a caller. It defaults to false, so ordinary accounts are unaffected. */
+export function planAccountCapMicrousd(plan: PlanId, isOwner = false): number {
   const limits = PLAN_LIMITS[plan] ?? PLAN_LIMITS.freePreview;
-  return (
+  const base =
     (limits.monthlyContentGenerations +
       limits.monthlyImproveDrafts +
       limits.monthlyMiloScores +
@@ -56,8 +64,8 @@ export function planAccountCapMicrousd(plan: PlanId): number {
       limits.monthlyAiCredits +
       limits.monthlyAudits) *
       NATIVE_TEXT_RESERVE_MICROUSD +
-    limits.monthlyImageGenerations * NATIVE_IMAGE_RESERVE_MICROUSD
-  );
+    limits.monthlyImageGenerations * NATIVE_IMAGE_RESERVE_MICROUSD;
+  return isOwner ? base * OWNER_MULTIPLIER : base;
 }
 
 /** A stalled entitlement lookup must not hang a native AI attempt after its
@@ -92,22 +100,46 @@ async function boundedPlanLookup<T>(work: PromiseLike<T>): Promise<T> {
 
 /** Caps supplied with every reservation so a missing monthly row can be created
  * and an existing AUTO row can follow a plan change. The platform cap is
- * deterministic (config, not a lookup). The account cap is NULL when the plan is
- * currently UNKNOWN — a transient entitlement lookup failure must never create
- * or lower a paid account to the Free cap. A missing row then stays
- * unconfigured (paused, safe) until the plan is known again, and an existing
- * auto row keeps its current cap. */
+ * deterministic (config, not a lookup). The account cap is NULL when the plan or
+ * the owner role is currently UNKNOWN — a transient entitlement OR role lookup
+ * failure must never create or lower a paid/owner account. A missing row then
+ * stays unconfigured (paused, safe) until both are known again, and an existing
+ * auto row keeps its current cap.
+ *
+ * Both server-side lookups run together under the SAME bounded 10s deadline, so
+ * neither a stalled entitlement read nor a stalled role read can hang an
+ * attempt. The owner role is read only from server-owned user_roles keyed by the
+ * authenticated `userId`; a caller cannot spoof it. Preserving uncertainty means
+ * a successful "no owner row" is a KNOWN non-owner (cap unchanged), while a role
+ * query error/throw yields an UNKNOWN cap (null) rather than silently demoting an
+ * owner to the ordinary ceiling.
+ *
+ * `usesFreePool` is the server-derived classification for the SHARED free-account
+ * circuit breaker. It bypasses the pool ONLY for a verified owner or a KNOWN
+ * non-free effective plan; every uncertain role/plan (including a lookup failure)
+ * conservatively uses the pool. It is derived here from the same trusted
+ * server-side reads and is never accepted from a caller field. */
 async function defaultCaps(
   userId: string,
-): Promise<{ accountCapMicrousd: number | null; globalCapMicrousd: number }> {
+): Promise<{
+  accountCapMicrousd: number | null;
+  globalCapMicrousd: number;
+  usesFreePool: boolean;
+}> {
   // Resolve the deterministic platform cap first: an invalid AI_GLOBAL_MONTHLY_CAP_USD
   // is a hard configuration error and must stop the attempt before any RPC.
   const globalCapMicrousd = globalMonthlyCapMicrousd();
   const { resolveEntitledPlanResult } = await import("./entitlements.server");
-  const result = await boundedPlanLookup(resolveEntitledPlanResult(userId));
+  const [plan, owner] = await boundedPlanLookup(
+    Promise.all([resolveEntitledPlanResult(userId), resolveOwnerResult(userId)]),
+  );
+  const verifiedOwner = owner.ok && owner.isOwner;
+  const knownPaid = plan.ok && plan.planId !== "freePreview";
   return {
-    accountCapMicrousd: result.ok ? planAccountCapMicrousd(result.planId) : null,
+    accountCapMicrousd:
+      plan.ok && owner.ok ? planAccountCapMicrousd(plan.planId, owner.isOwner) : null,
     globalCapMicrousd,
+    usesFreePool: !(verifiedOwner || knownPaid),
   };
 }
 
@@ -125,7 +157,7 @@ function request(
   context: NativeExpenseContext,
   model: string,
   ceilingMicrousd: number,
-  defaults: ExpenseRequest["defaults"],
+  caps: { accountCapMicrousd: number | null; globalCapMicrousd: number; usesFreePool: boolean },
 ): ExpenseRequest {
   // Created once per server invocation, reused throughout reservation and
   // reconciliation. No provider retry occurs inside an attempt. A user retry
@@ -139,7 +171,12 @@ function request(
     provider: "openai",
     model,
     ceilingMicrousd,
-    defaults,
+    defaults: {
+      accountCapMicrousd: caps.accountCapMicrousd,
+      globalCapMicrousd: caps.globalCapMicrousd,
+    },
+    // Server-derived pool classification; never sourced from a caller field.
+    usesFreePool: caps.usesFreePool,
   };
 }
 
