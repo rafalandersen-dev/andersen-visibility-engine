@@ -16,6 +16,8 @@ PR136 was independently reviewed at cba00f8, merged as 52261464 and deployed on 
 
 However, the first real conversation stopped after its project brief, before an analysing checkpoint or model expense reservation. Dispatcher and cron were disabled again. This is a failed acceptance check, not a completed agent release. Claude owns the bounded repair in the separate conversation-live-fix worktree. The earlier working article-generation and recovered-publication evidence remains separate. Research audit tables referring to production 209c335 and absent migrations describe their earlier snapshot, not current state.
 
+PR135 (competitor source binding) was subsequently released: candidate b5cee534 merged as 2cc03e2f with an identical tree and deployed as build 1789831689078 (deployment c328ecbc-36b9-4969-bdc3-3b06971f7c8f, exact merge, unmodified). The current PR135 runtime therefore supersedes the PR136 runtime as the live build, but this changes nothing about the conversation failure: the failed chat remains unresolved, dispatch stays disabled, and Claude's bounded repair is still open. PR135's receipt lives in evidence/competitor-source-review-2026-09-19.md; it performed no provider analysis, historical data repair or SQL.
+
 ## Ordered implementation packets
 
 | Packet | User problem / evidence | Change and expected effect | Cost / tradeoff | Acceptance |
