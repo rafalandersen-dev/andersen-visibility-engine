@@ -1,6 +1,8 @@
 # AI Visibility Monitor — Specification
 
-**Status:** Technical design baseline; automated observed monitoring remains unimplemented/unverified. Project-scoped owner-supplied prompt/answer intake is technically released through PR113; see [intake guide](AI-ANSWER-EVIDENCE.md). This does not establish provider collection or three-surface acceptance. **Current priority:** pre-launch R10–R12 in [product/ROADMAP.md](../product/ROADMAP.md), with cost controls first. Historical P3.1/P2.0 IDs remain references only. **Reconciled:** 2026-09-07.
+> **Supersession note (14 September 2026).** D03 replaced the v1 acceptance in this design: the current v1 milestone is Citation Intelligence v1 in `product/CITATION_INTELLIGENCE_SPEC.md` (native Google and Bing evidence, one manually observed consumer surface, human-reviewed findings, two verified improvements, one comparable re-test). The scheduled probing, ≥3 services/surfaces and cost-capped automated collection below are the historical design baseline and later, separately gated scope; they are not v1 dependencies. Nothing else in this file was rewritten.
+
+**Status:** Technical design baseline; automated observed monitoring remains unimplemented/unverified. Project-scoped owner-supplied prompt/answer intake is technically released through PR113; see [intake guide](AI-ANSWER-EVIDENCE.md). This does not establish provider collection; the former three-surface acceptance is superseded (see the note above). **Current priority:** pre-launch R10–R12 in [product/ROADMAP.md](../product/ROADMAP.md), with cost controls first. Historical P3.1/P2.0 IDs remain references only. **Reconciled:** 2026-09-07.
 Cross‑refs: `TARGET-ARCHITECTURE.md` (M6), `PRODUCT-AUDIT-2026-07.md` §Domain D, `AGENCY-BENCHMARK-SEMPIRE.md`, `DECISION-LOG.md`.
 
 ---
