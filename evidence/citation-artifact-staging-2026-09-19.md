@@ -75,3 +75,67 @@ Read-only production preflight: artifact table absent, candidate journal count 0
 `assert_knowledge_project(uuid,text,boolean)` present, conversation dispatch OFF.
 No P1 SQL applied, no live upload/parse/pilot claim. P1 has server functions but
 no user-facing intake yet; P4 supplies that UI, and P5 requires genuine exports.
+
+## PR144 review correction — aggregate declared-metadata byte cap (P2 4053980122), 19 September
+
+External review completed (code 17:20:22, security 17:20:54) with one P2 finding
+(4053980122) against the save-RPC candidate at SQL line 59. The database bounds the
+whole metadata object at `octet_length(metadata::text)<=8000` UTF-8 bytes (table
+CHECK line 18 and the save RPC guard), but the shared Zod metadata schema only
+bounded each field on its own — up to 20 filters of a 200-**character** value, a
+500-char `declaredProperty`, a 255-char `filename`. Those per-field maxima **sum**:
+20 filter values of 200 CJK characters are ~12 KB of UTF-8 (each ideograph is one
+JS char but three bytes), so a payload every field validated as in-bounds could
+clear the boundary and then fail the RPC with the generic `native_artifact_unavailable`
+size error. The finding is a validation/size-alignment gap, not a data-safety hole:
+no forged attribution, no cap raise, and the DB always refused the oversize row.
+
+Correction (source/tests/docs only; **no SQL/migration change**, the 8 000-byte DB
+cap is unchanged and stays authoritative):
+
+- `src/lib/native-ai-artifact.ts` — added `MAX_NATIVE_ARTIFACT_METADATA_BYTES = 8000`
+  (a documented shared constant that mirrors the migration's literal, not a new DB
+  limit) and `nativeArtifactMetadataJsonbBytes`, an **exact** projection of
+  PostgreSQL's canonical `jsonb::text` byte length. It accounts for jsonb's
+  formatting overhead — one space after every `:` and every `,` (never against a
+  `{}`/`[]` bound) — measures **UTF-8 bytes** (not JS UTF-16 char length), escapes
+  exactly the JSON control set (byte-identical to `JSON.stringify` for a string body,
+  non-ASCII kept raw), and relies on this metadata having only string/boolean/null/
+  nested-object values (no numbers or arrays, whose canonicalization would differ) and
+  on jsonb key order not changing the byte count. The shared metadata schema's
+  `superRefine` now rejects any declared metadata whose projected bytes exceed the cap,
+  so the check runs at the public input boundary (stage input, endpoint) and is the
+  same conservative-but-exact bound the DB applies — an accepted canonical payload can
+  no longer fail *only* on DB size, and no accepted input exceeds the DB's 8 000 bytes.
+  Read-back is unaffected: stored metadata was already `<=8000`, and the projection
+  equals the DB `octet_length`, so summaries/details/state never spuriously reject.
+- Raw artifact bytes are untouched (metadata-only change); no parser, no new metric,
+  no new endpoint, and no relaxation of any prior null/date/base64/auth/history-marker/
+  scope/cap guard.
+
+New regressions added to `native-ai-artifact-migration.test.ts` (real PGlite SQL),
+each targeting the finding and its alignment with the actual database:
+
+- a per-field-valid payload (20 filters, each key `<=64` and value exactly 200 CJK
+  chars) whose aggregate exceeds the cap is refused at the client boundary **before
+  any RPC** (no row created) **and** refused by the database itself via `rawSave`
+  (`invalid_native_artifact`), proving the boundary mirrors a real DB rejection rather
+  than an invented undersized limit;
+- a multibyte payload packed to just under the cap (bounded by bytes, not the 20-filter
+  count) stages, retrieves byte-exactly, and its stored `octet_length(metadata::text)`
+  equals the client projection and stays `<=8000`; adding one further in-bounds filter
+  crosses the cap and is refused by both the schema and the DB;
+- for ASCII, multibyte, escaping-heavy (quote / backslash / newline / tab / control
+  char) and spacing-sensitive (20 tiny filters maximizing `", "`/`": "` overhead)
+  payloads, the client projection equals the DB canonical `octet_length` exactly, so a
+  JS-accepted canonical payload cannot fail solely on the database size check.
+
+These new checks and a re-run of the full suite/types/build are **NOT RUN in this
+worktree** (Codex executes the prepared checks). The previously recorded **6057
+tests / 379 files**, type-check, scoped ESLint, whitespace and production-build passes
+were the **prior integration stage only** (17:17 UTC) and are not re-asserted here;
+this correction adds three real-SQL regressions whose results are pending Codex's run.
+
+### Codex validation of PR144 metadata-byte correction — 2026-09-19
+
+The three new real-SQL regressions pass. Focused artifact tests: **22/22 in 2 files**; full suite: **6060/6060 in 379 files**, 47.05 s. TypeScript, scoped ESLint, whitespace check and production build pass. Logs: `/tmp/milo-artifact-byte-{focused,types,full,build}-20260919.log`. These supersede the preceding correction's UNRUN status, without changing the historical prior-stage results. Exact UTF-8 accounting was compared against PGlite jsonb text for multibyte, ASCII, escape-heavy and separator-heavy metadata. No SQL applied, no upload UI enabled, no live artifact acceptance claimed.

@@ -8,7 +8,12 @@ import {
   removeNativeArtifact,
   stageNativeArtifact,
 } from "./native-ai-artifact.server";
-import { nativeArtifactScopeKey } from "./native-ai-artifact";
+import {
+  MAX_NATIVE_ARTIFACT_METADATA_BYTES,
+  nativeArtifactMetadataJsonbBytes,
+  nativeArtifactMetadataSchema,
+  nativeArtifactScopeKey,
+} from "./native-ai-artifact";
 import type { KnowledgeRpc } from "./project-knowledge.server";
 let db: PGlite;
 const user = "00000000-0000-4000-8000-000000000001",
@@ -67,6 +72,21 @@ const totalBytes = async () =>
   );
 const findArtifact = async (id: string) =>
   (await readNativeArtifacts(scope, rpc)).artifacts.find((r) => r.id === id);
+// Real PostgreSQL canonical jsonb byte length of a stored row's metadata — the exact value the
+// table CHECK and save RPC bound at <=8000, used to prove the client projection is byte-exact.
+const dbMetadataBytes = async (id: string) =>
+  Number(
+    (
+      await db.query<{ n: number }>(
+        "SELECT octet_length(metadata::text)::int n FROM ai_native_report_artifacts WHERE id=$1",
+        [id],
+      )
+    ).rows[0].n,
+  );
+// Each CJK ideograph is one JS char but three UTF-8 bytes, so char-length bounds and byte cost diverge.
+const cjk = (chars: number) => "文".repeat(chars);
+const parsedBytes = (m: unknown) =>
+  nativeArtifactMetadataJsonbBytes(nativeArtifactMetadataSchema.parse(m));
 beforeAll(async () => {
   db = new PGlite();
   await db.exec(
@@ -470,5 +490,97 @@ describe("raw native-report artifact staging SQL with real server round trips", 
         )
       ).rows[0],
     ).toEqual({ n: 1 });
+  });
+});
+describe("aggregate declared-metadata byte cap aligned with the real database jsonb limit", () => {
+  it("rejects a per-field-valid payload that sums past the DB byte cap before any RPC, matching the DB", async () => {
+    // Twenty filters, each individually in-bounds (<=20 filters; key<=64; value<=200 chars) but whose
+    // multibyte values sum far past the DB's 8000-byte metadata cap. Before this boundary check such a
+    // payload cleared validation and then died with a generic RPC size error.
+    const huge = {
+      ...metadata,
+      filters: Object.fromEntries(
+        Array.from({ length: 20 }, (_, i): [string, string] => ["k" + i, cjk(200)]),
+      ),
+    };
+    expect(Object.keys(huge.filters)).toHaveLength(20);
+    expect(Object.values(huge.filters).every((v) => v.length === 200)).toBe(true);
+    expect(Object.keys(huge.filters).every((k) => k.length <= 64)).toBe(true);
+    // Aggregate jsonb bytes exceed the cap; the shared metadata schema now refuses it.
+    const hugeBytes = nativeArtifactMetadataJsonbBytes(huge);
+    expect(hugeBytes).toBeGreaterThan(MAX_NATIVE_ARTIFACT_METADATA_BYTES);
+    expect(nativeArtifactMetadataSchema.safeParse(huge).success).toBe(false);
+    // The client boundary rejects it BEFORE any RPC (no row created)...
+    await expect(stage(huge, base64)).rejects.toThrow();
+    expect(await count()).toBe(0);
+    // ...and the database itself rejects the same payload on its metadata byte cap, so the boundary
+    // mirrors a real DB refusal instead of an invented undersized limit.
+    await expect(rawSave(huge)).rejects.toThrow(/invalid_native_artifact/);
+    expect(await count()).toBe(0);
+  });
+  it("accepts a multibyte payload packed to the cap and retrieves it byte-exactly through real SQL", async () => {
+    // Pack 200-char CJK filters until one more would cross the cap; the byte budget, not the 20-filter
+    // count, is what bounds the set, so this exercises the size boundary specifically.
+    const filters: Record<string, string> = {};
+    for (let i = 0; i < 20; i++) {
+      const next = { ...metadata, filters: { ...filters, ["k" + i]: cjk(200) } };
+      if (nativeArtifactMetadataJsonbBytes(next) > MAX_NATIVE_ARTIFACT_METADATA_BYTES) break;
+      filters["k" + i] = cjk(200);
+    }
+    const packed = { ...metadata, filters };
+    const filterCount = Object.keys(packed.filters).length;
+    expect(filterCount).toBeGreaterThan(0);
+    // Stopped by the byte budget, not the 20-filter count cap.
+    expect(filterCount).toBeLessThan(20);
+    const projected = parsedBytes(packed);
+    expect(projected).toBeLessThanOrEqual(MAX_NATIVE_ARTIFACT_METADATA_BYTES);
+    // Genuinely near the cap (within one filter of it), spending the multibyte budget.
+    expect(projected).toBeGreaterThan(7000);
+    // One further in-bounds filter (still <=20, value<=200) tips it over: the boundary and DB agree.
+    const over = { ...packed, filters: { ...packed.filters, extra: cjk(200) } };
+    expect(Object.keys(over.filters).length).toBeLessThanOrEqual(20);
+    const overBytes = nativeArtifactMetadataJsonbBytes(over);
+    expect(overBytes).toBeGreaterThan(MAX_NATIVE_ARTIFACT_METADATA_BYTES);
+    expect(nativeArtifactMetadataSchema.safeParse(over).success).toBe(false);
+    await expect(rawSave(over)).rejects.toThrow(/invalid_native_artifact/);
+    // The packed payload stages, and the DB's actual metadata byte length equals the client projection
+    // (byte-exact vs real PostgreSQL) within the cap, so an accepted payload cannot fail only on size.
+    const staged = await stage(packed, base64);
+    expect(staged.status).toBe("pending_parser");
+    const dbBytes = await dbMetadataBytes(staged.id);
+    expect(dbBytes).toBe(projected);
+    expect(dbBytes).toBeLessThanOrEqual(MAX_NATIVE_ARTIFACT_METADATA_BYTES);
+    // The multibyte metadata round-trips through real SQL exactly, and the raw bytes are untouched.
+    const detail = await getNativeArtifact(scope, staged.id, rpc);
+    expect(detail.metadata).toEqual(nativeArtifactMetadataSchema.parse(packed));
+    expect(Buffer.from(detail.base64, "base64").equals(Buffer.from(bytes))).toBe(true);
+    expect(await count()).toBe(1);
+  });
+  it("projects the DB metadata byte length exactly for ASCII, escaping and spacing-sensitive payloads", async () => {
+    // Representative shapes around the cap: plain ASCII, multibyte fields, an escaping-heavy value
+    // (quote / backslash / newline / tab / control char) and twenty tiny filters that maximize the
+    // ", " and ": " separator overhead. For each, the client projection must equal the DB's canonical
+    // octet_length, so a JS-accepted canonical payload can never fail only on the database size check.
+    const escaping = 'q:"quote" b:\\back nl:\n tab:\t ctrl:' + String.fromCharCode(1);
+    const tinyFilters = Object.fromEntries(
+      Array.from({ length: 20 }, (_, i): [string, string] => [String.fromCharCode(97 + i), "x"]),
+    );
+    const samples: unknown[] = [
+      metadata, // plain ASCII, empty filters
+      { ...metadata, declaredProperty: "https://例え.example/パス", filename: "レポート.csv" },
+      { ...metadata, filters: { note: escaping } },
+      { ...metadata, filters: tinyFilters },
+    ];
+    for (const sample of samples) {
+      const staged = await stage(sample, base64);
+      const projected = parsedBytes(sample);
+      expect(await dbMetadataBytes(staged.id)).toBe(projected);
+      expect(projected).toBeLessThanOrEqual(MAX_NATIVE_ARTIFACT_METADATA_BYTES);
+      // The escaping-heavy value survives verbatim through the jsonb round trip.
+      expect((await getNativeArtifact(scope, staged.id, rpc)).metadata).toEqual(
+        nativeArtifactMetadataSchema.parse(sample),
+      );
+    }
+    expect(await count()).toBe(samples.length); // four distinct declared scopes, none collapsed
   });
 });

@@ -23,6 +23,57 @@ export const MAX_NATIVE_ARTIFACT_PROJECT_BYTES = 40 * 1024 * 1024;
 /** Base64 length of the 2 MiB per-artifact byte cap; the encoded body is bounded before any decode. */
 export const MAX_NATIVE_ARTIFACT_BASE64 = Math.ceil(MAX_NATIVE_REPORT_BYTES / 3) * 4;
 /**
+ * The database stores `metadata` as jsonb and rejects any row whose canonical `metadata::text`
+ * exceeds this many UTF-8 bytes (`octet_length(metadata::text)<=8000` in both the table CHECK and
+ * the save RPC, 20260919150000_native_report_artifacts.sql). Every declared field is bounded on its
+ * own (declaredProperty 500, up to 20 filters of key<=64 / value<=200, filename 255, …) but those
+ * maxima *sum*: 20 filter values of 200 CJK characters are ~12 KB of UTF-8, far past this cap. The
+ * shared metadata schema mirrors the SAME aggregate byte budget so a per-field-valid payload is
+ * refused at the input boundary instead of clearing validation and then failing the RPC on an opaque
+ * size error. This is the DB's byte budget reflected in one documented constant, never raised.
+ */
+export const MAX_NATIVE_ARTIFACT_METADATA_BYTES = 8000;
+const UTF8_ENCODER = new TextEncoder();
+/** UTF-8 byte length of a JSON string literal (surrounding quotes and escapes included). jsonb and
+ * `JSON.stringify` escape exactly the same set — `"`, `\`, the JSON control chars — and both keep
+ * non-ASCII raw, so this is the byte cost of that string inside PostgreSQL's canonical jsonb text. */
+const jsonStringBytes = (s: string): number => UTF8_ENCODER.encode(JSON.stringify(s)).length;
+/**
+ * Exact UTF-8 byte length of PostgreSQL's canonical `jsonb::text` for a declared-metadata value, so
+ * the boundary accepts a payload exactly when the DB's `octet_length(metadata::text)` would. jsonb
+ * re-serializes with one space after every `:` and every `,` (never against a `{}`/`[]` bound) and
+ * keeps non-ASCII as raw UTF-8, so a string contributes `jsonStringBytes` and each object member adds
+ * `": "` plus its value. This metadata carries only string, boolean, null and nested-object values
+ * (no numbers or arrays, whose jsonb canonicalization would differ from JS), and jsonb key order does
+ * not change the byte count, so this is byte-exact against real PostgreSQL, not a loose over-estimate.
+ * It measures UTF-8 bytes, never JS UTF-16 char length, so a multibyte field is charged its DB cost.
+ */
+export function nativeArtifactMetadataJsonbBytes(value: unknown): number {
+  if (value === null) return 4; // null
+  if (typeof value === "boolean") return value ? 4 : 5; // true / false
+  if (typeof value === "string") return jsonStringBytes(value);
+  if (Array.isArray(value)) {
+    if (value.length === 0) return 2; // []
+    let bytes = 2 + (value.length - 1) * 2; // brackets plus the ", " between elements
+    for (const element of value) bytes += nativeArtifactMetadataJsonbBytes(element);
+    return bytes;
+  }
+  if (typeof value === "object") {
+    const entries = Object.entries(value as Record<string, unknown>).filter(
+      ([, v]) => v !== undefined,
+    );
+    if (entries.length === 0) return 2; // {}
+    let bytes = 2 + (entries.length - 1) * 2; // braces plus the ", " between members
+    // Each member is `"key": value` — the quoted key, then ": ", then the recursively measured value.
+    for (const [key, member] of entries)
+      bytes += jsonStringBytes(key) + 2 + nativeArtifactMetadataJsonbBytes(member);
+    return bytes;
+  }
+  // Numbers never occur in this metadata; jsonb canonicalizes them differently, so fall back to the
+  // compact JSON text for a shape that cannot appear rather than silently mis-projecting it.
+  return UTF8_ENCODER.encode(JSON.stringify(value)).length;
+}
+/**
  * Owner-declared staging metadata. Validated against shared contracts where they exist (source list,
  * the shared real-calendar/ordered `nativePeriodSchema`, market-scope rule, GSC timezone) and never
  * treated as publisher-verified. Server-derived and parsed facts are deliberately absent: they are
@@ -73,6 +124,16 @@ export const nativeArtifactMetadataSchema = z
         code: "custom",
         path: ["capturedAt"],
         message: "Use an actual download date from 2020 through now",
+      });
+    // Each declared field is bounded on its own, but the per-field maxima sum past the database's
+    // metadata byte cap (e.g. 20 filters of 200 multibyte characters). Mirror the DB's canonical
+    // jsonb::text byte budget here so a per-field-valid payload is refused at the boundary rather than
+    // clearing validation and failing the RPC on an opaque size error. Key order does not change the
+    // byte count, so this aggregate check is order-independent; it never rewrites the raw artifact.
+    if (nativeArtifactMetadataJsonbBytes(m) > MAX_NATIVE_ARTIFACT_METADATA_BYTES)
+      ctx.addIssue({
+        code: "custom",
+        message: `Declared metadata serializes to more than ${MAX_NATIVE_ARTIFACT_METADATA_BYTES} bytes; trim the declared property, filters or filename`,
       });
   });
 export type NativeArtifactMetadata = z.infer<typeof nativeArtifactMetadataSchema>;
