@@ -645,8 +645,82 @@ Prepared checks (approved `node_modules/.bin/...` executables, individually):
   write with the turn left pending.
 - `evidence/conversation-live-repair-2026-09-19.md` — this correction round.
 
+## Correction round 3 — nested proposal-model failures correlate to their own operation (19 September, later; base HEAD `2eb82885`)
+
+External PR145 review (finding `4054782044`, security review clean, Codex confirmed)
+found that the gated proposal tool's nested model callback,
+`model: (prompt) => ask(assignment.role, "responding", prompt, 5000)`, called `ask`
+with NO operation id, so `ask` minted a fresh id for that nested call's status
+checkpoint and model request while the stage tracker stayed `tool_dispatch` with the
+OUTER tool's id. A nested model or nested status-checkpoint failure therefore recorded
+the WRONG operation (the outer tool) instead of the request that actually ran. This
+round fixes ONLY that diagnostic correlation; no billing, prompt, provider, no-replay
+or claim behaviour changes, and no new framework/enum/SQL.
+
+### Fix (executor diagnostic tracking only)
+
+- `src/lib/milo-specialist-executor.server.ts` — the nested proposal callback is now
+  an async function that mints one `proposalOperation`, calls `enter("reply_model",
+  proposalOperation)` (the same "responding" call type used by the specialist reply)
+  and passes that SAME id explicitly to `ask`, so the nested status checkpoint, the
+  nested model request and any resulting receipt share one id. On success it restores
+  the outer `enter("tool_dispatch", operationId)` before the tool resumes its proposal
+  processing; on error it intentionally does NOT restore (no `finally`), so the catch
+  records the nested `reply_model` stage/id. The centralised `ask` and the existing
+  plan/reply stage identity and restoration semantics are unchanged.
+
+### Regressions added (this round, existing executor unit file)
+
+- `src/lib/milo-specialist-executor.server.test.ts` — a new group exercises a single
+  content assignment whose `draft_metadata_proposal` tool runs the nested proposal
+  model: (1) a nested model throw records `stage=reply_model` with the nested request
+  id — matching the nested status-checkpoint event id — and NOT the outer tool id, and
+  never logs the raw nested error; (2) a nested status-checkpoint throw
+  (`TeamAdmissionBusyError`) records `stage=reply_model`, `sqlState=55P03` with the
+  nested id before the nested model ever runs; (3) a successful nested model followed
+  by an outer tool failure attributes the OUTER `tool_dispatch` id (restore path), not
+  the nested id; (4) the final successful path is unchanged — the nested reply becomes
+  the tool evidence, the specialist reply is saved, no diagnostic is recorded, and the
+  plan/nested/reply models each dispatch exactly once.
+
+### Check status (this round — UNRUN; Codex runs validation)
+
+Every check below is **UNRUN**: no shell/test/build/type command was executed here
+(Read/Edit/Write/Glob/Grep only, scoped worktree; auto-memory disabled). The prior
+"58 focused / 6069 full / types / build PASS" result is the PREVIOUS stage's and does
+**not** apply to these new changes. Base HEAD is `2eb82885`; no SQL applied, no PR, no
+deploy, and no git/network/provider/DB action. USD50-global and manual-free AI controls
+and every scope/security boundary are preserved. No P1/P2/candidate-chain edits.
+
+Prepared checks (approved `node_modules/.bin/...` executables, individually):
+
+- New/changed behaviour:
+  `node_modules/.bin/vitest run src/lib/milo-specialist-executor.server.test.ts src/lib/milo-specialist-executor-live.server.test.ts`
+- Unchanged behaviour must hold:
+  `node_modules/.bin/vitest run src/lib/milo-conversation-diagnostics.server.test.ts src/lib/milo-specialist-tools.server.test.ts src/lib/milo-conversation.server.test.ts`
+- `node_modules/.bin/tsc --noEmit`
+- `node_modules/.bin/eslint src/lib/milo-specialist-executor.server.ts src/lib/milo-specialist-executor.server.test.ts`
+- `node_modules/.bin/prettier --check` on the two changed files above
+- Full suite `node_modules/.bin/vitest run` and production `node_modules/.bin/vite build`
+
+### Files (this round)
+
+- `src/lib/milo-specialist-executor.server.ts` — nested proposal model tracked as
+  reply_model with an explicit shared id; outer tool_dispatch/id restored on success.
+- `src/lib/milo-specialist-executor.server.test.ts` — four nested-proposal correlation
+  regressions.
+- `evidence/conversation-live-repair-2026-09-19.md` — this correction round.
+
 ## Codex verification after claim-boundary correction — 19 September 2026
 
 Owner explicitly authorized scoped Claude Read/Edit/Write/Glob/Grep; the resumed author completed the correction with zero permission denials. Reviewed the delta: input validation precedes the guarded claim; claim failure records unknown best-effort then rethrows the original value without advance, tool, model, read or reclaim.
 
 **58 focused tests/4 files PASS**, **6069 full-suite tests/379 files PASS** (110.53 s), TypeScript/scoped ESLint/Prettier/whitespace and production build PASS. Logs `/tmp/milo-diagnostic-claim-{focused,types,full,build}-20260919.log`. Previous UNRUN statements apply only to the author's pre-verification handoff. No additional Codex source edits for this correction. No SQL applied, deployment or production conversation test yet; production remains unverified for this change.
+
+## Codex verification of nested-operation correction — 19 September 2026
+
+The nested proposal callback now uses one explicit request/status/diagnostic operation ID at `reply_model`, restores the outer tool stage only after success, and preserves the nested failure identity on error. Independent delta review found no billing, claim, retry, prompt, enum or SQL change.
+
+**62 focused tests/4 files PASS**, **6073 full-suite tests/379 files PASS** (55.82 s), TypeScript, scoped lint, whitespace and production build PASS. Logs `/tmp/milo-diagnostic-nested-{focused,types,full,build}-20260919.log`. Codex integration exception: one Prettier-only wrap in the new unit test, no application behavior changed. Author's UNRUN entry above is superseded by these executed checks for this stage.
+
+No new migration applied, deployment or production turn; this remains diagnostics awaiting reviewed release and actual acceptance.

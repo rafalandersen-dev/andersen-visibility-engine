@@ -752,4 +752,166 @@ describe("real bounded specialist conversation execution", () => {
       }
     });
   });
+
+  describe("a nested proposal-model failure correlates to its own reply_model operation, not the outer tool", () => {
+    // The gated proposal tools run a nested "responding" model call INSIDE their
+    // tool_dispatch via `context.proposal.model`. `ask` mints one id shared by that
+    // call's status checkpoint and its model request; the executor tracks it as
+    // reply_model with the SAME id, then restores the outer tool_dispatch + tool id
+    // only after the nested call succeeds. A single content assignment with a real
+    // proposal tool exercises this path.
+    const proposalPlan = JSON.stringify({
+      handoff: "Redaktor proponuje poprawki metadanych.",
+      assignments: [
+        {
+          role: "content",
+          task: "Zaproponuj poprawki metadanych",
+          tools: [
+            {
+              name: "draft_metadata_proposal",
+              assetId: "a",
+              fields: ["metaTitle"],
+              instructions: "Popraw tytuł",
+            },
+          ],
+        },
+      ],
+    });
+    // The outer tool runs the nested proposal model inside its dispatch; the project
+    // brief never receives a proposal, so it is answered directly.
+    const withProposalTool = (h: ReturnType<typeof harness>) =>
+      h.tool.mockImplementation(async (input, context) => {
+        await context.beforeDispatch();
+        if (input.name === "project_brief")
+          return {
+            state: "completed" as const,
+            evidence: "brief",
+            reference: { kind: "draft" as const, id: "a" },
+          };
+        const reply = await context.proposal.model("PROPOSAL_PROMPT");
+        return {
+          state: "completed" as const,
+          evidence: reply,
+          reference: { kind: "draft" as const, id: "a" },
+        };
+      });
+    const outerToolOp = (h: ReturnType<typeof harness>) =>
+      h.tool.mock.calls.find(([input]) => input.name === "draft_metadata_proposal")![1].operationId;
+    const nestedModelOp = (h: ReturnType<typeof harness>) =>
+      h.model.mock.calls.find(([input]) => input.prompt === "PROPOSAL_PROMPT")?.[0].context.attempt
+        .requestId as string | undefined;
+
+    it("attributes a nested proposal model throw to reply_model with the nested request id", async () => {
+      const h = harness();
+      h.responses[0] = proposalPlan;
+      withProposalTool(h);
+      const respond = h.model.getMockImplementation()!;
+      h.model.mockImplementation(async (input) => {
+        if (input.prompt === "PROPOSAL_PROMPT") {
+          await input.context.beforeDispatch();
+          throw new Error("nested provider body");
+        }
+        return respond(input);
+      });
+      const result = await runConversationSpecialists(actor, target, h.deps);
+      expect(result.state).toBe("unknown");
+      expect(result.events.some((event) => event.kind === "assistant")).toBe(false);
+      // Only the plan and the nested proposal model ran; the specialist reply did not.
+      expect(h.model.mock.calls.map(([input]) => input.prompt === "PROPOSAL_PROMPT")).toEqual([
+        false,
+        true,
+      ]);
+      const nestedOp = nestedModelOp(h);
+      expect(typeof nestedOp).toBe("string");
+      // The nested status checkpoint, the nested model request and the diagnostic all
+      // carry the SAME nested id — and it is NOT the outer tool operation.
+      const status = result.events.find(
+        (event) => event.kind === "status" && event.code === "responding",
+      );
+      expect(status?.operationId).toBe(nestedOp);
+      const input = h.diagnostic.mock.calls[0][0] as ConversationDiagnosticInput;
+      expect(input.diagnosis.stage).toBe("reply_model");
+      expect(input.operationId).toBe(nestedOp);
+      expect(input.operationId).not.toBe(outerToolOp(h));
+      // The raw nested provider error is never logged into the receipt or the turn.
+      expect(JSON.stringify(result)).not.toContain("nested provider body");
+    });
+    it("attributes a nested proposal status-checkpoint throw to reply_model with the nested id and SQLSTATE 55P03", async () => {
+      const h = harness();
+      h.responses[0] = proposalPlan;
+      withProposalTool(h);
+      let firstResponding = true;
+      let nestedOp: string | undefined;
+      const original = h.advance.getMockImplementation()!;
+      h.advance.mockImplementation(async (a, b, update) => {
+        const responding = (
+          update.events as unknown as Array<{ code?: string; operationId?: string }>
+        ).find((event) => event.code === "responding");
+        if (responding && firstResponding) {
+          firstResponding = false;
+          nestedOp = responding.operationId;
+          throw new TeamAdmissionBusyError();
+        }
+        return original(a, b, update);
+      });
+      const result = await runConversationSpecialists(actor, target, h.deps);
+      expect(result.state).toBe("unknown");
+      // The status checkpoint failed first, so the nested model request never ran.
+      expect(h.model.mock.calls.some(([input]) => input.prompt === "PROPOSAL_PROMPT")).toBe(false);
+      expect(typeof nestedOp).toBe("string");
+      const input = h.diagnostic.mock.calls[0][0] as ConversationDiagnosticInput;
+      expect(input.diagnosis).toMatchObject({ stage: "reply_model", sqlState: "55P03" });
+      expect(input.operationId).toBe(nestedOp);
+      expect(input.operationId).not.toBe(outerToolOp(h));
+    });
+    it("restores the outer tool operation after a successful nested proposal model, so a later tool failure attributes the outer id", async () => {
+      const h = harness();
+      h.responses[0] = proposalPlan;
+      h.tool.mockImplementation(async (input, context) => {
+        await context.beforeDispatch();
+        if (input.name === "project_brief")
+          return {
+            state: "completed" as const,
+            evidence: "brief",
+            reference: { kind: "draft" as const, id: "a" },
+          };
+        await context.proposal.model("PROPOSAL_PROMPT"); // succeeds and restores the outer stage/id
+        throw new Error("tool failed after the proposal model");
+      });
+      const result = await runConversationSpecialists(actor, target, h.deps);
+      expect(result.state).toBe("unknown");
+      // The nested proposal model DID run (so the restore path executed)…
+      const nestedOp = nestedModelOp(h);
+      expect(typeof nestedOp).toBe("string");
+      // …but the post-restore tool failure correlates to the OUTER tool dispatch/id,
+      // never the nested reply operation.
+      const input = h.diagnostic.mock.calls[0][0] as ConversationDiagnosticInput;
+      expect(input.diagnosis.stage).toBe("tool_dispatch");
+      expect(input.operationId).toBe(outerToolOp(h));
+      expect(input.operationId).not.toBe(nestedOp);
+    });
+    it("keeps the final successful path unchanged when a tool uses the nested proposal model", async () => {
+      const h = harness();
+      h.responses[0] = proposalPlan;
+      withProposalTool(h);
+      const result = await runConversationSpecialists(actor, target, h.deps);
+      expect(result.state).toBe("completed");
+      // The nested reply became the tool evidence, the specialist reply was saved, and
+      // no failure diagnostic was recorded.
+      expect(
+        result.events.some(
+          (event) => event.tool === "draft_metadata_proposal" && event.state === "completed",
+        ),
+      ).toBe(true);
+      expect(
+        result.events.some((event) => event.kind === "assistant" && event.role === "content"),
+      ).toBe(true);
+      expect(h.diagnostic).not.toHaveBeenCalled();
+      // Plan, nested proposal and the specialist reply each dispatched exactly once.
+      expect(
+        h.model.mock.calls.filter(([input]) => input.prompt === "PROPOSAL_PROMPT"),
+      ).toHaveLength(1);
+      expect(h.model).toHaveBeenCalledTimes(3);
+    });
+  });
 });

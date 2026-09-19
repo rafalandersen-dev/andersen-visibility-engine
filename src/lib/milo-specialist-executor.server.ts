@@ -395,7 +395,27 @@ CONTEXT: ${serializeSpecialistContext({ ...baseContext, projectEvidence: brief }
               conversationId: target.conversationId,
               attemptId: claimId,
               locale: turn.locale,
-              model: (prompt) => ask(assignment.role, "responding", prompt, 5000),
+              model: async (prompt) => {
+                // The gated proposal model is a nested "responding" call made INSIDE
+                // tool_dispatch. `ask` mints one id shared by its status checkpoint and
+                // the model request; track that as reply_model with the SAME explicit
+                // id so a nested model or status-checkpoint failure correlates to the
+                // request that actually ran, not the outer tool. On success restore the
+                // outer tool_dispatch + tool id before the tool resumes its proposal
+                // processing; on error we intentionally do NOT restore (no finally), so
+                // the catch records the nested reply_model stage/id.
+                const proposalOperation = randomUUID();
+                enter("reply_model", proposalOperation);
+                const reply = await ask(
+                  assignment.role,
+                  "responding",
+                  prompt,
+                  5000,
+                  proposalOperation,
+                );
+                enter("tool_dispatch", operationId);
+                return reply;
+              },
             },
           }),
         );
