@@ -489,3 +489,7 @@ and every scope/security boundary are unchanged.
 ### Codex jsonb-text compatibility verification — 20 September 2026
 
 Reviewed stage-only UTF-16 scan and recursive declared-string/key checks, including valid surrogate pairs and RPC-not-called regression spies.87 focused tests/2 files PASS(1.31s), full6168 tests/381 files PASS(44.94s), types/scoped lint/whitespace/build PASS. Logs `/tmp/milo-artifact-jsonb-{focused,types,lint,full,build}-20260920.log`. Codex exceptions: Prettier on two changed files and product-copy edit to a plain unsupported-characters message; validation logic remains Claude-authored. Candidate165000 SQL unchanged/unapplied; no deployment/live artifact acceptance.
+
+## Integration with released PR147 — 20 September 2026
+
+Codex integration exception: normal merge of released main `2e4d7268` into this branch, without conflicts or application edits. Integrated checks: 6182 tests across 381 files passed (42.34s), TypeScript passed, production build passed, whitespace check passed. Logs: `/tmp/milo-artifact-main147-{full,types,build}-20260920.log`. Candidate migration165000 remains unapplied; these checks do not establish production acceptance of artifact staging.
