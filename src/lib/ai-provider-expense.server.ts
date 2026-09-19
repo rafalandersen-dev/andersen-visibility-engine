@@ -60,6 +60,36 @@ export function planAccountCapMicrousd(plan: PlanId): number {
   );
 }
 
+/** A stalled entitlement lookup must not hang a native AI attempt after its
+ * usage claim: the plan resolution is bounded, and a timeout fails the attempt
+ * before any reservation or provider dispatch. Consistent with
+ * AI_USAGE_LOOKUP_TIMEOUT_MS so both server-side lookups use the same time limit. */
+export const AI_ENTITLEMENT_LOOKUP_TIMEOUT_MS = 10_000;
+
+/** Bound the entitlement lookup. A timeout throws AiExpenseUnavailableError with
+ * a safe authored reason (no provider or credential content) before any
+ * reservation is placed. The timer is cleared on every path, and a late lookup
+ * rejection is swallowed so it never surfaces as an unhandled rejection once the
+ * deadline has already failed the attempt. */
+async function boundedPlanLookup<T>(work: PromiseLike<T>): Promise<T> {
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  const guarded = Promise.resolve(work);
+  guarded.catch(() => {});
+  try {
+    return await Promise.race([
+      guarded,
+      new Promise<never>((_, reject) => {
+        timer = setTimeout(
+          () => reject(new AiExpenseUnavailableError("entitlement_timeout")),
+          AI_ENTITLEMENT_LOOKUP_TIMEOUT_MS,
+        );
+      }),
+    ]);
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
 /** Caps supplied with every reservation so a missing monthly row can be created
  * and an existing AUTO row can follow a plan change. The platform cap is
  * deterministic (config, not a lookup). The account cap is NULL when the plan is
@@ -74,7 +104,7 @@ async function defaultCaps(
   // is a hard configuration error and must stop the attempt before any RPC.
   const globalCapMicrousd = globalMonthlyCapMicrousd();
   const { resolveEntitledPlanResult } = await import("./entitlements.server");
-  const result = await resolveEntitledPlanResult(userId);
+  const result = await boundedPlanLookup(resolveEntitledPlanResult(userId));
   return {
     accountCapMicrousd: result.ok ? planAccountCapMicrousd(result.planId) : null,
     globalCapMicrousd,

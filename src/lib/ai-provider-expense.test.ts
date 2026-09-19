@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
+  AI_ENTITLEMENT_LOOKUP_TIMEOUT_MS,
   DEFAULT_GLOBAL_MONTHLY_CAP_MICROUSD,
   NATIVE_IMAGE_RESERVE_MICROUSD,
   NATIVE_TEXT_RESERVE_MICROUSD,
@@ -342,6 +343,72 @@ describe("native provider money admission", () => {
     await expect(generateBudgetedImage(context, "x".repeat(8193))).rejects.toThrow("too long");
     expect(mocks.rpc).not.toHaveBeenCalled();
     expect(mocks.fetch).not.toHaveBeenCalled();
+  });
+});
+
+describe("a stalled entitlement lookup cannot hang a native attempt", () => {
+  for (const kind of ["text", "image"] as const) {
+    const run = () =>
+      kind === "text"
+        ? generateBudgetedText(context, "private source", 3000)
+        : generateBudgetedImage(context, "private image prompt");
+    it(`${kind} stops before reserving money or provider work`, async () => {
+      vi.useFakeTimers();
+      // A Supabase entitlement read that never resolves must not hang the attempt.
+      mocks.entitledPlan.mockImplementation(() => new Promise(() => {}));
+      const assertion = expect(run()).rejects.toMatchObject({ reason: "entitlement_timeout" });
+      await vi.advanceTimersByTimeAsync(AI_ENTITLEMENT_LOOKUP_TIMEOUT_MS + 1);
+      await assertion;
+      expect(mocks.rpc).not.toHaveBeenCalled();
+      expect(mocks.fetch).not.toHaveBeenCalled();
+    });
+  }
+
+  it("rolls back the generation usage claim when the lookup stalls", async () => {
+    vi.useFakeTimers();
+    const rpc = mocks.rpc.getMockImplementation()!;
+    mocks.rpc.mockImplementation(async (name, p) => {
+      if (name === "claim_generation_usage")
+        return {
+          data: [
+            { used: 1, cap: p.p_cap, allowed: true, receipt_id: p.p_id, claim_status: "reserved" },
+          ],
+          error: null,
+        };
+      if (name === "settle_generation_usage")
+        return { data: [{ receipt_id: p.p_id, state: p.p_outcome }], error: null };
+      return rpc(name, p);
+    });
+    mocks.entitledPlan.mockImplementation(() => new Promise(() => {}));
+    const assertion = expect(
+      withGenerationUsage(
+        { ...context, bucket: "contentGeneration", operation: "generateContentCore" },
+        async (attempt) =>
+          generateBudgetedText(
+            { ...context, operation: "generateContentCore", attempt },
+            "private source",
+            3000,
+          ),
+      ),
+    ).rejects.toMatchObject({ reason: "entitlement_timeout" });
+    await vi.advanceTimersByTimeAsync(AI_ENTITLEMENT_LOOKUP_TIMEOUT_MS + 1);
+    await assertion;
+    // The claim is released and no reservation or provider call ever happened.
+    expect(mocks.rpc.mock.calls.map((c) => c[0])).toEqual([
+      "claim_generation_usage",
+      "settle_generation_usage",
+    ]);
+    expect(mocks.rpc.mock.calls.at(-1)![1].p_outcome).toBe("released");
+    expect(mocks.fetch).not.toHaveBeenCalled();
+  });
+
+  it("clears the deadline when the lookup resolves fast, leaving no pending timer", async () => {
+    vi.useFakeTimers();
+    mocks.entitledPlan.mockResolvedValue({ ok: true, planId: "pro" });
+    expect(await generateBudgetedText(context, "private source", 3000)).toBe('{"ok":true}');
+    // Every deadline (entitlement, reservation, provider) is cleared on success.
+    expect(vi.getTimerCount()).toBe(0);
+    expect(mocks.fetch).toHaveBeenCalledOnce();
   });
 });
 
