@@ -49,6 +49,8 @@ const releasedConversationPacket = [
   "20260914090000_milo_account_conversations.sql",
   "20260914120000_milo_provider_check_consent.sql",
   "20260914150000_project_team_seats.sql",
+  // PR145 applied and verified on 20 September local time.
+  "20260919160000_milo_conversation_diagnostics.sql",
 ];
 const candidates = ["20260919150000_native_report_artifacts.sql"];
 const allowed = async (role: string, fn: string) =>
@@ -109,6 +111,8 @@ describe("candidate migration chain", () => {
     expect(unapplied).toEqual(candidates);
   });
   it.each([
+    "record_milo_conversation_diagnostic(uuid,uuid,text,text,text,text,text,integer,text,text)",
+    "prune_milo_conversation_diagnostics(timestamptz,integer)",
     "save_ai_native_report_artifact(uuid,text,jsonb,text)",
     "read_ai_native_report_artifacts(uuid,text)",
     "read_ai_native_report_artifact(uuid,text,uuid)",
