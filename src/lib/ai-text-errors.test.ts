@@ -83,8 +83,15 @@ describe("text error privacy in existing article generation", () => {
         generateContentCore("00000000-0000-4000-8000-000000000011", args),
       ).rejects.not.toThrow(privateText);
       expect(JSON.stringify(log.mock.calls)).not.toContain(privateText);
-      expect(log).toHaveBeenCalledWith("[ai.functions] gateway/validation error", {
+      expect(log).toHaveBeenCalledWith("[ai.functions] AI transport error", {
+        errorClass:
+          statusCode === 402
+            ? "quota_billing"
+            : statusCode === 429
+              ? "rate_limit"
+              : "provider_server_error",
         httpStatus: statusCode,
+        nameCategory: "other",
         boundary: null,
       });
       expect(mocks.model).toHaveBeenCalledTimes(1);
@@ -101,7 +108,8 @@ describe("text error privacy in existing article generation", () => {
     ).rejects.toThrow("too much source text");
     expect(mocks.model).not.toHaveBeenCalled();
     expect(JSON.stringify(log.mock.calls)).not.toContain("private-source");
-    expect(log).toHaveBeenCalledWith("[ai.functions] gateway/validation error", {
+    expect(log).toHaveBeenCalledWith("[ai.functions] AI transport error", {
+      errorClass: "boundary",
       httpStatus: null,
       boundary: "input_too_large",
     });

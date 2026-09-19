@@ -1,10 +1,22 @@
 import { createOpenAICompatible } from "@ai-sdk/openai-compatible";
 import { DEFAULT_MODEL_ID, getCandidateModelId, isCandidateConfigured } from "./ai-router";
+import { isHeaderSafeCredential } from "./ai-error-diagnostics.server";
 
 export class AiProviderConfigurationError extends Error {
   constructor() {
     super("AI generation is not configured. The workspace owner needs to connect the AI service.");
     this.name = "AiProviderConfigurationError";
+  }
+}
+
+/** A saved credential exists but cannot form a valid HTTP header (e.g. it has
+ * a stray newline or non-ASCII byte). We detect this as a boolean, before any
+ * reservation or transport, so it never surfaces as an opaque fetch TypeError.
+ * The offending value is never read, logged or exposed in any form. */
+export class AiMalformedCredentialError extends Error {
+  constructor() {
+    super("The saved AI key is not in a usable format. The workspace owner needs to re-enter it.");
+    this.name = "AiMalformedCredentialError";
   }
 }
 
@@ -20,6 +32,7 @@ export function modelFor(modelId?: string) {
   if (!modelId || modelId === DEFAULT_MODEL_ID) {
     const key = (process.env.OPENAI_API_KEY ?? "").trim();
     if (!key) throw new AiProviderConfigurationError();
+    if (!isHeaderSafeCredential(key)) throw new AiMalformedCredentialError();
     return createOpenAICompatible({
       name: "openai",
       baseURL: "https://api.openai.com/v1",
@@ -41,10 +54,12 @@ export function modelFor(modelId?: string) {
   }
   if (modelId !== getCandidateModelId() || !isCandidateConfigured())
     throw new AiProviderConfigurationError();
+  const candidateKey = (process.env.OPENROUTER_API_KEY ?? "").trim();
+  if (!isHeaderSafeCredential(candidateKey)) throw new AiMalformedCredentialError();
   return createOpenAICompatible({
     name: "openrouter",
     baseURL: "https://openrouter.ai/api/v1",
-    apiKey: (process.env.OPENROUTER_API_KEY ?? "").trim(),
+    apiKey: candidateKey,
     fetch: directFetch,
   })(modelId);
 }
