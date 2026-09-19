@@ -2,8 +2,8 @@
 
 Bounded conversation-executor repair under the 19 September working agreement
 (Claude implements/tests/documents; Codex reviews, integrates `main`, runs the
-prepared checks and releases). This isolated worktree was branched from a base
-that predates the PR136 production release `52261464`. No migrations were
+prepared checks and releases). This isolated worktree started at the PR136 release `52261464`; the integrated
+candidate now includes main through PR137 merge `465990cb`. No migrations were
 reapplied, no dispatcher activation, and no provider / DB / network / browser /
 email / deploy / git-mutation / credential / dependency / auto-memory operation
 was performed in this stage. USD50-global and manual-free AI controls untouched.
@@ -29,9 +29,9 @@ The reproduced mechanism is **admission contention on the browser preview-lease
 budget**, and it is *consistent with* the reported stored trail; it is **not** a
 confirmed historical cause of that specific turn (no production error was
 recorded, so the exact runtime fault for `642d004c…` cannot be established from
-here). The failure sits in the post-brief / pre-model path, and it is **not** in
-`serializeSpecialistContext`, `toolCatalog`, the `analysing` prompt build, or
-event validation (see "narrowing" below).
+here). The saved failure occurred in the post-brief / pre-model path. The bounded
+fixtures below did not reproduce a serialization, catalog, prompt-build or event
+validation fault; they do not exclude those causes for every possible input.
 
 Every conversation RPC in `milo-conversation.server.ts` wrapped its storage call
 with `admittedReadRpc(actor, rpc)` → `acquire_project_team_preview` (migration
@@ -56,8 +56,8 @@ one of the classified provider/usage/budget holds, so `failure()` returns
 collision would then clear, so the catch's own `execution_unknown` `advance`
 persists — the exact stored-event trail. The existing conversation/UI can and
 does poll while a turn is visibly working, so this is not a hypothetical
-interaction. (Pre-brief polling risk is negligible only because no events exist
-yet to render; it is not assumed impossible.)
+interaction. The repair also covers pre-brief reads; their contention risk is not assumed
+negligible or impossible.
 
 The executor never needed the preview budget: its RPCs re-authorise the actor's
 account, membership revision and durable claim inside storage on every call, and
@@ -221,3 +221,21 @@ Approved executables only (`node_modules/.bin/...`), individually:
   `/tmp/milo-chat-diagnostic-scratch-20260919` and are no longer present here.
   Only `milo-specialist-executor-live.server.test.ts` and the source changes above
   are intended for review.
+
+## Codex integration verification — 19 September, 16:39 UTC
+
+The source packet was reviewed independently and integrated with main `465990cb`
+at `521b860b`. The private reader/tool entry points have no browser-facing caller;
+browser read/export admission remains in place. Claude-authored regressions ran:
+175 focused tests across 10 files passed, followed by 6034 tests across 377 files
+in the integrated full suite. Type checking, scoped ESLint, whitespace checks
+and production build passed. Logs are `/tmp/milo-chat-complete-{focused,types,full,build}-20260919.log`.
+
+Codex integration exceptions: applied Prettier to one test formatting error,
+corrected evidence wording that exceeded the bounded reproduction, reconciled
+the applied-migration note with the actual temporary acceptance run, and ran
+Claude-prepared checks because its permitted tool set excludes shell execution.
+No new application logic was authored by Codex in this packet.
+
+Production acceptance is still pending: no deployment, dispatcher activation,
+new model call or replay of the old unknown turn was performed in this stage.
