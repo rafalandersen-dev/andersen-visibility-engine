@@ -171,6 +171,12 @@ describe("panel protocol and planned observations (CI11-T13, T14)", () => {
   });
 });
 describe("session protocol deviations and slot outcomes (CI11-T15, T16, T31)", () => {
+  it("keeps a draft available for planning without accepting it as an approved capture protocol", () => {
+    const draft = { ...panel(), status: "draft" as const, approval: null };
+    expect(plannedSlots(draft)).toHaveLength(40);
+    expect(protocolDeviations(draft, context(1, 1))).toContain("panel_not_approved");
+    expect(slotOutcome(draft, { status: "complete" }, context(1, 1))).toBe("protocol_deviant");
+  });
   it("marks a personalised or continued conversation as a deviation, not a baseline", () => {
     const p = panel();
     expect(protocolDeviations(p, context(1, 1))).toEqual([]);
@@ -249,6 +255,25 @@ describe("session protocol deviations and slot outcomes (CI11-T15, T16, T31)", (
     expect(slotOutcome(p, null, null)).toBe("missed");
     expect(captureContextSchema.parse(context(2, 4)).slot.round).toBe(2);
   });
+  it("rejects a different panel, version or round and each locked session difference", () => {
+    const p = panel();
+    expect(protocolDeviations(p, context(1, 1, { panelId: uuid(9) }))).toContain("panel_mismatch");
+    expect(protocolDeviations(p, context(1, 1, { panelVersion: 2 }))).toContain(
+      "panel_version_differs",
+    );
+    // Round 9 is outside the locked four discovery rounds.
+    expect(protocolDeviations(p, context(9, 1))).toContain("round_out_of_panel");
+    const sessionOf = (over: Partial<CaptureContext["session"]>) =>
+      protocolDeviations(p, context(1, 1, { session: { ...context(1, 1).session, ...over } }));
+    expect(sessionOf({ signedIn: "signed_out" })).toContain("signed_in_differs");
+    expect(sessionOf({ memory: "on" })).toContain("memory_differs");
+    expect(sessionOf({ customInstructions: "present" })).toContain("custom_instructions_differ");
+    expect(sessionOf({ connectedTools: "present" })).toContain("connected_tools_differ");
+    // An unknown-where-locked session state is also not the approved protocol.
+    expect(sessionOf({ signedIn: "unknown" })).toContain("signed_in_differs");
+    // The clean fixture still deviates in none of these ways.
+    expect(protocolDeviations(p, context(1, 1))).toEqual([]);
+  });
 });
 const captured = (
   questionId: string,
@@ -265,6 +290,27 @@ const captured = (
   capturedAt: `2026-${round === 4 ? "10-05" : "09-14"}T09:00:00Z`,
   ...over,
 });
+/** A distinct, destination-verified improvement receipt for the comparable-pair gate. */
+const verifiedImprovement = (id: number, verifiedAt: string): Improvement =>
+  improvementSchema.parse({
+    improvementId: uuid(id),
+    findingIds: [uuid(60)],
+    taskId: uuid(81),
+    change: {
+      description: "FIXTURE change",
+      approvedVersion: "v1",
+      approvedBy: owner,
+      approvedAt: "2026-09-20T10:00:00Z",
+    },
+    destination: { kind: "public_url", reference: "https://example.test/priser" },
+    baselineCaptureIds: [],
+    verification: {
+      method: "owner_inspection",
+      receipt: "FIXTURE receipt",
+      verifiedAt,
+      reviewer: owner,
+    },
+  });
 describe("descriptive counts and comparable pairs (CI11-T19, T20, T21, T38)", () => {
   it("counts eligible captures with explicit denominators and keeps unknowns out", () => {
     const p = panel();
@@ -304,14 +350,16 @@ describe("descriptive counts and comparable pairs (CI11-T19, T20, T21, T38)", ()
       captured("SY-D02", 4, { citationsComplete: false, ownCitation: null }),
       captured("SY-D03", 4),
     ];
-    const none = comparablePairs(p, caps, rounds, ["2026-09-28T10:00:00Z"]);
+    const none = comparablePairs(p, caps, rounds, [
+      verifiedImprovement(90, "2026-09-28T10:00:00Z"),
+    ]);
     expect(none.comparable).toBe(false);
     expect(none.missing.find((m) => m.questionId === "SY-D01")?.reason).toBe(
       "two_verified_improvements_required",
     );
     const ready = comparablePairs(p, caps, rounds, [
-      "2026-09-28T10:00:00Z",
-      "2026-10-01T10:00:00Z",
+      verifiedImprovement(90, "2026-09-28T10:00:00Z"),
+      verifiedImprovement(91, "2026-10-01T10:00:00Z"),
     ]);
     expect(ready.pairs.map((pair) => pair.questionId)).toEqual(["SY-D01"]);
     expect(ready.missing).toEqual(
@@ -322,12 +370,103 @@ describe("descriptive counts and comparable pairs (CI11-T19, T20, T21, T38)", ()
     );
     expect(ready.missing).toHaveLength(9);
     const early = comparablePairs(p, caps, rounds, [
-      "2026-10-06T10:00:00Z",
-      "2026-10-07T10:00:00Z",
+      verifiedImprovement(90, "2026-10-06T10:00:00Z"),
+      verifiedImprovement(91, "2026-10-07T10:00:00Z"),
     ]);
     expect(early.missing.find((m) => m.questionId === "SY-D01")?.reason).toBe(
       "follow_up_before_both_improvements",
     );
+  });
+  it("refuses duplicate improvements, self-pairing rounds and malformed follow-up chronology", () => {
+    const p = panel();
+    const rounds = { baseline: 1, followUp: 4 };
+    const caps = [captured("SY-D01", 1), captured("SY-D01", 4, { ownCitation: true })];
+    // Two copies of one improvement are not two distinct verified changes.
+    const dup = comparablePairs(p, caps, rounds, [
+      verifiedImprovement(90, "2026-09-28T10:00:00Z"),
+      verifiedImprovement(90, "2026-10-01T10:00:00Z"),
+    ]);
+    expect(dup.comparable).toBe(false);
+    expect(dup.missing.find((m) => m.questionId === "SY-D01")?.reason).toBe(
+      "two_verified_improvements_required",
+    );
+    // A round is never compared with itself.
+    const self = comparablePairs(p, caps, { baseline: 4, followUp: 4 }, [
+      verifiedImprovement(90, "2026-09-28T10:00:00Z"),
+      verifiedImprovement(91, "2026-10-01T10:00:00Z"),
+    ]);
+    expect(self.comparable).toBe(false);
+    expect(self.missing.every((m) => m.reason === "baseline_and_follow_up_same_round")).toBe(true);
+    // A malformed follow-up timestamp cannot be ordered against the gate, so no pair is claimed.
+    const badCaps = [captured("SY-D01", 1), captured("SY-D01", 4, { ownCitation: true })];
+    badCaps[1] = { ...badCaps[1], capturedAt: "not-a-real-date" };
+    const bad = comparablePairs(p, badCaps, rounds, [
+      verifiedImprovement(90, "2026-09-28T10:00:00Z"),
+      verifiedImprovement(91, "2026-10-01T10:00:00Z"),
+    ]);
+    expect(bad.comparable).toBe(false);
+    expect(bad.missing.find((m) => m.questionId === "SY-D01")?.reason).toBe(
+      "capture_timestamp_invalid",
+    );
+  });
+  it("refuses duplicate, out-of-panel and out-of-range captures rather than inflate denominators", () => {
+    const p = panel();
+    expect(() =>
+      panelCounts(p, [captured("SY-D01", 1), captured("SY-D01", 1, { ownCitation: true })]),
+    ).toThrow(/duplicate/);
+    expect(() => panelCounts(p, [captured("SY-B01", 1)])).toThrow(/not in this/);
+    expect(() => panelCounts(p, [captured("SY-D01", 9)])).toThrow(/outside the panel/);
+  });
+  it("rejects ambiguous follow-up evidence without relying on a prior counts call", () => {
+    const improvements = [
+      verifiedImprovement(90, "2026-09-28T10:00:00Z"),
+      verifiedImprovement(91, "2026-10-01T10:00:00Z"),
+    ];
+    expect(() =>
+      comparablePairs(
+        panel(),
+        [
+          captured("SY-D01", 1),
+          captured("SY-D01", 4, { ownCitation: true }),
+          captured("SY-D01", 4, { ownCitation: false }),
+        ],
+        { baseline: 1, followUp: 4 },
+        improvements,
+      ),
+    ).toThrow(/duplicate/);
+    expect(() =>
+      comparablePairs(
+        panel(),
+        [captured("SY-D01", 1), { ...captured("SY-D01", 4), round: 9 }],
+        { baseline: 1, followUp: 9 },
+        improvements,
+      ),
+    ).toThrow(/outside the panel/);
+  });
+  it.each([0, 1.5, 9, NaN, Infinity])("refuses an invalid comparison round %s", (round) => {
+    const result = comparablePairs(panel(), [], { baseline: 1, followUp: round }, []);
+    expect(result.comparable).toBe(false);
+    expect(result.missing.every((item) => item.reason === "comparison_rounds_invalid")).toBe(true);
+  });
+  it("does not claim a discovery retest for an unapproved panel or a brand diagnostic", () => {
+    const improvements = [
+      verifiedImprovement(90, "2026-09-28T10:00:00Z"),
+      verifiedImprovement(91, "2026-10-01T10:00:00Z"),
+    ];
+    const draft = { ...panel(), status: "draft" as const, approval: null };
+    const result = comparablePairs(
+      draft,
+      [captured("SY-D01", 1), captured("SY-D01", 4)],
+      { baseline: 1, followUp: 4 },
+      improvements,
+    );
+    expect(result.comparable).toBe(false);
+    expect(result.missing.every((item) => item.reason === "panel_not_approved")).toBe(true);
+    const brand = { ...panel(), kind: "brand" as const, rounds: 0, questions: [question(1, "B")] };
+    expect(comparablePairs(brand, [], { baseline: 1, followUp: 2 }, improvements)).toMatchObject({
+      comparable: false,
+      missing: [{ questionId: "SY-B01", reason: "discovery_panel_required" }],
+    });
   });
 });
 const support = (over: Partial<Parameters<typeof sourceSupportSchema.parse>[0] & object> = {}) => ({
@@ -549,5 +688,20 @@ describe("verified improvements (CI11-T36)", () => {
     expect(isVerifiedImprovement(verified)).toBe(true);
     expect(isVerifiedImprovement(stale)).toBe(false);
     expect(verifiedImprovementCount([draft, verified, stale])).toBe(1);
+    // Two copies of one verified improvement are a single distinct change, never two.
+    expect(verifiedImprovementCount([verified, structuredClone(verified)])).toBe(1);
+    // Two genuinely distinct verified improvements meet the CI-3 gate.
+    const second = improvementSchema.parse(
+      improvement({
+        improvementId: uuid(84),
+        verification: {
+          method: "index_inspection",
+          receipt: "Indexed copy inspected",
+          verifiedAt: "2026-09-27T10:00:00Z",
+          reviewer: owner,
+        },
+      }),
+    );
+    expect(verifiedImprovementCount([verified, second])).toBe(2);
   });
 });

@@ -5,6 +5,7 @@ import { describe, expect, it } from "vitest";
  * Documentation is data here; this guards wording, not behaviour. */
 const active = [
   "product/ROADMAP.md",
+  "product/LAUNCH_READINESS.md",
   "product/CURRENT_STATE.md",
   "product/PLAN_REVIEW_2026_09_07.md",
   "product/STRATEGY_2026_2027.md",
@@ -15,7 +16,7 @@ const active = [
   "docs/TRACEABILITY-MATRIX.md",
 ];
 const oldGate =
-  /(?:at least|minimum(?: of)?|≥ ?|>= ?)\s*(?:three|3)\s+(?:trustworthy |initial |high-quality |observed-AI |verified )*(?:surfaces?|providers?|services)/i;
+  /(?:at least|minimum(?: of)?|≥ ?|>= ?)\s*(?:three|3)\s+(?:trustworthy |initial |high-quality |observed-AI |verified )*(?:surfaces?|providers?|services)|first[ -]three(?:[ -]AI)?[ -]surfaces?.*floor/i;
 describe("Citation Intelligence v1 scope (D03, 14 September 2026)", () => {
   it("keeps the specification at its canonical path with the v1 milestone and no three-surface gate", () => {
     const spec = readFileSync("product/CITATION_INTELLIGENCE_SPEC.md", "utf8");

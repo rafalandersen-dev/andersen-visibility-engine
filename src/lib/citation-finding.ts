@@ -262,7 +262,10 @@ export function isVerifiedImprovement(i: Improvement) {
     Date.parse(i.verification.verifiedAt) >= Date.parse(i.change.approvedAt)
   );
 }
-/** CI-3 gate: two substantive, verified improvements; drafts and acknowledgements do not count. */
+/** CI-3 gate: two substantive, verified improvements; drafts and acknowledgements do not count.
+ * Distinct improvement identities only, so duplicate copies of one record cannot meet the gate. */
 export function verifiedImprovementCount(improvements: Improvement[]) {
-  return improvements.filter(isVerifiedImprovement).length;
+  const distinct = new Set<string>();
+  for (const i of improvements) if (isVerifiedImprovement(i)) distinct.add(i.improvementId);
+  return distinct.size;
 }

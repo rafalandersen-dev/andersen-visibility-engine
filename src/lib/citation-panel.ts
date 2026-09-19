@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { answerEvidenceSchema } from "./answer-evidence";
+import { isVerifiedImprovement, type Improvement } from "./citation-finding";
 /**
  * Citation Intelligence v1, CI-2 record design (product/CITATION_INTELLIGENCE_SPEC.md §5, §8).
  *
@@ -186,12 +187,29 @@ export type SlotOutcome = (typeof SLOT_OUTCOMES)[number];
 /** Protocol deviations that make a capture ineligible for comparison (§5.2, CI11-T15/T16). */
 export function protocolDeviations(panel: PanelProtocol, context: CaptureContext): string[] {
   const out: string[] = [];
+  if (panel.status !== "locked" || !panel.approval) out.push("panel_not_approved");
+  // A capture is only comparable against the exact locked panel version it claims. A different
+  // panel or version is a different approved protocol, not the same baseline.
+  if (context.panelId !== panel.panelId) out.push("panel_mismatch");
+  if (context.panelVersion !== panel.version) out.push("panel_version_differs");
+  // Discovery rounds are the panel's planned slots; a round outside 1..rounds is not planned.
+  // Brand rounds are governed by a separately approved run, not the panel, so are not bounded here.
+  if (panel.kind === "discovery" && (context.slot.round < 1 || context.slot.round > panel.rounds))
+    out.push("round_out_of_panel");
   const question = panel.questions.find((q) => q.id === context.slot.questionId);
   if (!question) out.push("question_not_in_panel");
   else if (question.text !== context.instructions.questionText) out.push("question_text_changed");
   if (!context.session.freshSession) out.push("session_not_fresh");
   if (context.session.personalisation !== panel.session.personalisation)
     out.push("personalisation_differs");
+  // The locked session protocol also fixes sign-in, memory, custom instructions and connected
+  // tools; a materially different (or unknown-where-locked) session is not a comparable capture.
+  if (context.session.signedIn !== panel.session.signedIn) out.push("signed_in_differs");
+  if (context.session.memory !== panel.session.memory) out.push("memory_differs");
+  if (context.session.customInstructions !== panel.session.customInstructions)
+    out.push("custom_instructions_differ");
+  if (context.session.connectedTools !== panel.session.connectedTools)
+    out.push("connected_tools_differ");
   if (context.instructions.extraInstruction !== null) out.push("extra_instruction");
   if (context.instructions.priorMessages > 0) out.push("prior_messages");
   if (
@@ -228,8 +246,34 @@ export interface ReviewedCapture {
   /** A positive own citation seen in a partial capture (kept out of complete-pair counts). */
   partialPositiveCitation?: boolean;
 }
+/** Both counting and pairing must reject ambiguous or unplanned evidence independently. */
+function assertCaptureSlots(panel: PanelProtocol, captures: ReviewedCapture[]) {
+  // Denominators must not be inflated by slots that do not belong to this panel. Reject an
+  // ambiguous capture set rather than silently keeping whichever copy reads more favourably:
+  // a question outside the panel, a discovery round outside 1..rounds, or two records for one
+  // slot are all refused. Brand/discovery stay separate because the question ids never overlap.
+  const questionIds = new Set(panel.questions.map((q) => q.id));
+  const seenSlots = new Set<string>();
+  for (const c of captures) {
+    if (!questionIds.has(c.questionId))
+      throw new Error(`panelCounts: capture ${c.questionId} is not in this ${panel.kind} panel`);
+    if (
+      !Number.isInteger(c.round) ||
+      c.round < 1 ||
+      (panel.kind === "discovery" && c.round > panel.rounds)
+    )
+      throw new Error(
+        `panelCounts: round ${c.round} is outside the panel's ${panel.rounds} rounds`,
+      );
+    const slot = `${c.questionId}:${c.round}`;
+    if (seenSlots.has(slot))
+      throw new Error(`panelCounts: duplicate captures for slot ${slot}; resolve to one record`);
+    seenSlots.add(slot);
+  }
+}
 /** Descriptive counts with explicit denominators (§6.2). Never a rate estimate. */
 export function panelCounts(panel: PanelProtocol, captures: ReviewedCapture[]) {
+  assertCaptureSlots(panel, captures);
   const planned = plannedSlots(panel).length;
   const complete = captures.filter((c) => c.outcome === "complete");
   const citationEligible = complete.filter((c) => c.citationsComplete && c.ownCitation !== null);
@@ -261,17 +305,49 @@ export function panelCounts(panel: PanelProtocol, captures: ReviewedCapture[]) {
 }
 /**
  * Comparable baseline/follow-up pairs for the fourth-round re-test (§5.3, CI11-T38). A pair
- * needs the same question complete, reviewed and citation-complete in both rounds, and the
- * follow-up captured after both verified improvements. Missing pairs are listed, not filled.
+ * needs the same question complete, reviewed and citation-complete in two distinct rounds, a
+ * valid baseline-before-follow-up chronology, and the follow-up captured after two *distinct*
+ * destination-verified improvements. Missing pairs are listed with a reason, never filled.
+ *
+ * The gate takes the verified improvement records (not bare timestamps) so duplicate copies of
+ * one improvement and unverified drafts cannot fake the two-change threshold: distinctness and
+ * genuine verification are decided by citation-finding's `isVerifiedImprovement` and identity.
  */
 export function comparablePairs(
   panel: PanelProtocol,
   captures: Array<ReviewedCapture & { capturedAt: string }>,
   rounds: { baseline: number; followUp: number },
-  improvementsVerifiedAt: string[],
+  improvements: Improvement[],
 ) {
-  const verified = improvementsVerifiedAt.map((t) => Date.parse(t)).filter(Number.isFinite);
-  const gate = verified.length >= 2 ? Math.max(...verified) : null;
+  assertCaptureSlots(panel, captures);
+  const refusal = (reason: string) => ({
+    pairs: [] as Array<{
+      questionId: string;
+      baseline: ReviewedCapture;
+      followUp: ReviewedCapture;
+    }>,
+    missing: panel.questions.map((q) => ({ questionId: q.id, reason })),
+    comparable: false,
+  });
+  if (panel.status !== "locked" || !panel.approval) return refusal("panel_not_approved");
+  // This gate proves a planned discovery retest. Brand diagnostics require their
+  // separate approved run, which this function does not receive or authorize.
+  if (panel.kind !== "discovery") return refusal("discovery_panel_required");
+  if (
+    [rounds.baseline, rounds.followUp].some(
+      (round) => !Number.isInteger(round) || round < 1 || round > panel.rounds,
+    ) ||
+    rounds.followUp < rounds.baseline
+  )
+    return refusal("comparison_rounds_invalid");
+  const verifiedAtById = new Map<string, number>();
+  for (const imp of improvements) {
+    if (!isVerifiedImprovement(imp)) continue;
+    const at = Date.parse(imp.verification!.verifiedAt);
+    if (Number.isFinite(at)) verifiedAtById.set(imp.improvementId, at);
+  }
+  const gate = verifiedAtById.size >= 2 ? Math.max(...verifiedAtById.values()) : null;
+  const sameRound = rounds.baseline === rounds.followUp;
   const pairs: Array<{ questionId: string; baseline: ReviewedCapture; followUp: ReviewedCapture }> =
     [];
   const missing: Array<{ questionId: string; reason: string }> = [];
@@ -285,15 +361,42 @@ export function comparablePairs(
           c.citationsComplete &&
           c.ownCitation !== null,
       );
-    const baseline = eligible(rounds.baseline),
-      followUp = eligible(rounds.followUp);
-    if (!baseline) missing.push({ questionId: q.id, reason: "baseline_not_eligible" });
-    else if (!followUp) missing.push({ questionId: q.id, reason: "follow_up_not_eligible" });
-    else if (gate === null)
+    // A round cannot be its own baseline and follow-up; that would compare a capture with itself.
+    if (sameRound) {
+      missing.push({ questionId: q.id, reason: "baseline_and_follow_up_same_round" });
+      continue;
+    }
+    const baseline = eligible(rounds.baseline);
+    const followUp = eligible(rounds.followUp);
+    if (!baseline) {
+      missing.push({ questionId: q.id, reason: "baseline_not_eligible" });
+      continue;
+    }
+    if (!followUp) {
+      missing.push({ questionId: q.id, reason: "follow_up_not_eligible" });
+      continue;
+    }
+    if (gate === null) {
       missing.push({ questionId: q.id, reason: "two_verified_improvements_required" });
-    else if (Date.parse(followUp.capturedAt) <= gate)
+      continue;
+    }
+    const baselineAt = Date.parse(baseline.capturedAt);
+    const followUpAt = Date.parse(followUp.capturedAt);
+    // Malformed timestamps cannot be ordered; refuse them explicitly rather than let a NaN
+    // comparison fall through and assert a re-test the chronology never proves.
+    if (!Number.isFinite(baselineAt) || !Number.isFinite(followUpAt)) {
+      missing.push({ questionId: q.id, reason: "capture_timestamp_invalid" });
+      continue;
+    }
+    if (followUpAt <= baselineAt) {
+      missing.push({ questionId: q.id, reason: "follow_up_not_after_baseline" });
+      continue;
+    }
+    if (followUpAt <= gate) {
       missing.push({ questionId: q.id, reason: "follow_up_before_both_improvements" });
-    else pairs.push({ questionId: q.id, baseline, followUp });
+      continue;
+    }
+    pairs.push({ questionId: q.id, baseline, followUp });
   }
   return { pairs, missing, comparable: pairs.length > 0 };
 }

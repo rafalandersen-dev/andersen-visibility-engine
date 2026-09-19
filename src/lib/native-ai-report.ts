@@ -89,14 +89,17 @@ export function interpretExportCell(
 ): NativeCell {
   if (raw === null || raw === undefined)
     return { raw: null, value: null, status: "unavailable", unit };
-  const text = raw.length > MAX_NATIVE_CELL_CHARS ? raw.slice(0, MAX_NATIVE_CELL_CHARS) : raw;
-  const trimmed = text.trim();
-  if (UNAVAILABLE_MARKERS.has(trimmed))
-    return { raw: text, value: null, status: "unknown_source", unit };
+  // An oversized cell is never interpreted: slicing first would let a numeric prefix pass as a
+  // clean value while invalid trailing material is silently dropped. Keep the bounded prefix as
+  // diagnostic text (schema caps `raw` at MAX_NATIVE_CELL_CHARS) but refuse the cell as invalid.
+  if (raw.length > MAX_NATIVE_CELL_CHARS)
+    return { raw: raw.slice(0, MAX_NATIVE_CELL_CHARS), value: null, status: "invalid", unit };
+  const trimmed = raw.trim();
+  if (UNAVAILABLE_MARKERS.has(trimmed)) return { raw, value: null, status: "unknown_source", unit };
   const value = parseNumber(trimmed, unit);
-  if (value === null) return { raw: text, value: null, status: "invalid", unit };
-  if (value === 0) return { raw: text, value: null, status: "unknown_export_zero", unit };
-  return { raw: text, value, status: options.preliminary ? "preliminary" : "known_value", unit };
+  if (value === null) return { raw, value: null, status: "invalid", unit };
+  if (value === 0) return { raw, value: null, status: "unknown_export_zero", unit };
+  return { raw, value, status: options.preliminary ? "preliminary" : "known_value", unit };
 }
 /** A human confirms the original report showed numeric zero for this exact cell. The raw
  * export text is never rewritten; only the interpretation and its receipt change. */
@@ -195,6 +198,19 @@ export const nativeReportImportInputSchema = nativeReportSnapshotSchema
             message: "Review receipts are recorded by the server after import, not imported",
           });
   });
+/**
+ * Fold only the case-insensitive scheme and authority (host, optional port/userinfo) of a
+ * URL-prefix property; the path, query and fragment stay case-sensitive so `/Shop` and
+ * `/shop` remain distinct scope identities (§3.1, §3.3). A property that is not a URL (for
+ * example a domain property or opaque owner label) is preserved verbatim; this invents no
+ * export column mapping. */
+function normalizeDeclaredProperty(property: string): string {
+  const trimmed = property.trim();
+  const match = /^([A-Za-z][A-Za-z0-9+.-]*:\/\/)([^/?#]*)([\s\S]*)$/.exec(trimmed);
+  if (!match) return trimmed;
+  const [, scheme, authority, rest] = match;
+  return `${scheme.toLowerCase()}${authority.toLowerCase()}${rest}`;
+}
 /** Scope identity used to version same-scope reimports (§3.3). Two exports of the same
  * source, property, report kind, dimension, period and filters describe one snapshot
  * lineage; the artifact hash separates versions within it. */
@@ -212,7 +228,7 @@ export function nativeSnapshotScopeKey(
 ): string {
   return JSON.stringify([
     snapshot.source,
-    snapshot.declaredProperty.trim().toLowerCase(),
+    normalizeDeclaredProperty(snapshot.declaredProperty),
     snapshot.reportKind,
     snapshot.dimension,
     snapshot.period.start,
@@ -229,15 +245,21 @@ export function nativeSnapshotScopeKey(
  * unknown. Never averages, never sums rows, never combines sources.
  */
 export function nativePresence(snapshot: NativeReportSnapshot, metric: string) {
-  const cells = snapshot.rows.map((row) => row.cells[metric]).filter((cell) => cell !== undefined);
-  if (!cells.length) return { observed: null as boolean | null, reason: "metric_not_in_report" };
+  const cells = snapshot.rows.map((row) => row.cells[metric]);
+  const present = cells.filter((cell) => cell !== undefined);
+  if (!present.length) return { observed: null as boolean | null, reason: "metric_not_in_report" };
   if (
-    cells.some(
+    present.some(
       (cell) => (cell.status === "known_value" || cell.status === "preliminary") && cell.value! > 0,
     )
   )
     return { observed: true, reason: "known_positive_value" };
-  if (snapshot.completeness === "complete" && cells.every((cell) => cell.status === "known_zero"))
+  // Absence needs *every* row to carry a reviewed known zero. A row missing this metric is an
+  // unknown cell, not a zero, so its absence can never establish observed:false.
+  if (
+    snapshot.completeness === "complete" &&
+    cells.every((cell) => cell !== undefined && cell.status === "known_zero")
+  )
     return { observed: false, reason: "all_cells_reviewed_zero" };
   return { observed: null, reason: "unknown_or_incomplete_cells" };
 }

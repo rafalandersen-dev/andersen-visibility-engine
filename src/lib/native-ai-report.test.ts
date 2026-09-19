@@ -190,6 +190,35 @@ describe("availability, versioning and safety (CI11-T10, T11, T12, T35)", () => 
     expect(nativePresence(partial, "impressions").observed).toBeNull();
     expect(nativePresence({ ...base(), rows: [] }, "impressions").observed).toBeNull();
   });
+  it("never reads a row missing the metric as a reviewed zero", () => {
+    // A complete snapshot with one reviewed known zero and one row missing that metric: the
+    // missing cell is unknown, not zero, so absence must stay unknown rather than assert false.
+    const snapshot = base();
+    const reviewedZero = resolveExportZero(interpretExportCell("0", "count"), {
+      ...receipt,
+      original: "numeric_zero",
+    });
+    snapshot.rows = [
+      { key: "https://example.test/a", cells: { impressions: reviewedZero } },
+      { key: "https://example.test/b", cells: { clicks: interpretExportCell("4", "count") } },
+    ];
+    expect(nativePresence(snapshot, "impressions")).toEqual({
+      observed: null,
+      reason: "unknown_or_incomplete_cells",
+    });
+    // With every present row a reviewed zero and no row missing the metric, absence holds.
+    snapshot.rows[1].cells.impressions = reviewedZero;
+    expect(nativePresence(snapshot, "impressions").observed).toBe(false);
+  });
+  it("keeps case-sensitive URL-prefix properties as distinct scope identities", () => {
+    const shopUpper = { ...base(), declaredProperty: "https://example.test/Shop" };
+    const shopLower = { ...base(), declaredProperty: "https://example.test/shop" };
+    expect(nativeSnapshotScopeKey(shopUpper)).not.toBe(nativeSnapshotScopeKey(shopLower));
+    // Scheme and host case is not significant; only the path/query is.
+    expect(
+      nativeSnapshotScopeKey({ ...base(), declaredProperty: "HTTPS://EXAMPLE.TEST/Shop" }),
+    ).toBe(nativeSnapshotScopeKey(shopUpper));
+  });
   it("versions same-scope reimports by scope key and artifact rather than adding events", () => {
     const first = base();
     const reimport = { ...base(), artifact: { ...base().artifact, sha256: "b".repeat(64) } };
@@ -223,7 +252,15 @@ describe("availability, versioning and safety (CI11-T10, T11, T12, T35)", () => 
     expect(escapeForSpreadsheet("-")).toBe("-");
     expect(escapeForSpreadsheet("12")).toBe("12");
     expect(escapeForSpreadsheet(null)).toBe("");
-    expect(interpretExportCell("9".repeat(5000), "count").raw).toHaveLength(2048);
+    // An oversized cell is refused as invalid: its numeric prefix must not be interpreted after
+    // the invalid trailing material is truncated away. Bounded diagnostic text is still kept.
+    const oversized = interpretExportCell("9".repeat(5000), "count");
+    expect(oversized.raw).toHaveLength(2048);
+    expect(oversized).toMatchObject({ status: "invalid", value: null });
+    expect(interpretExportCell(`5${" ".repeat(5000)}`, "count")).toMatchObject({
+      status: "invalid",
+      value: null,
+    });
     expect(() =>
       nativeReportSnapshotSchema.parse({
         ...base(),
