@@ -438,17 +438,29 @@ authenticated caller as the actor (the reviewer is never a payload field, so an 
 reviewer), passing the supplied owner/project/finding through, and reject malformed ids, a bad content
 hash, an off-list decision and a malformed project/owner.
 
+`milo-candidate-chain-migration.test.ts` (the whole-repo candidate inventory) is reconciled to the current
+tree: `native_report_artifacts` (20260919165000) and the conversation checkpoint lock-wait (20260920180000)
+are enumerated as APPLIED, and the P3 citation candidate `20260920200000` is the SOLE unapplied candidate.
+It is applied in the combined chain on top of its REAL released prerequisites (project knowledge, publication
+approval/evidence, answer evidence, native artifacts, project-team reads/policy — reused verbatim, never
+invented substitutes), so the migration actually executes end-to-end; the chain then asserts that all
+seventeen P3 service RPCs are `service_role`-only, the eleven P3 internal helpers are REVOKEd from every
+role (reachable only from the definer RPCs), and the four P3 stores
+(`ai_citation_findings`/`_improvements`/`_finding_reviews`/`_business_facts`) have RLS on, no policies and no
+client-role table grants. There is no P2 citation panel candidate in this worktree (a separate open author
+owns PR146); it is deliberately absent, not duplicated or cherry-picked.
+
 No pass counts are claimed and the earlier focused run does not carry over — the schema, canonical reads,
-improvement gate, storage and tests all changed and must be re-run. Single-connection PGlite verifies
-logical guards, not true concurrency.
+improvement gate, storage, the candidate-chain inventory and tests all changed and must be re-run.
+Single-connection PGlite verifies logical guards, not true concurrency.
 
 ## Prepared commands — UNRUN (Codex executes)
 
 ```
-npx vitest run src/lib/citation-record-migration.test.ts src/lib/citation-business-fact-migration.test.ts src/lib/citation-finding-review-migration.test.ts src/lib/citation-record.functions.test.ts src/lib/citation-business-fact.functions.test.ts src/lib/citation-finding-review.functions.test.ts
+npx vitest run src/lib/citation-record-migration.test.ts src/lib/citation-business-fact-migration.test.ts src/lib/citation-finding-review-migration.test.ts src/lib/citation-record.functions.test.ts src/lib/citation-business-fact.functions.test.ts src/lib/citation-finding-review.functions.test.ts src/lib/milo-candidate-chain-migration.test.ts
 npx vitest run
 npx tsc --noEmit
-npx eslint src/lib/citation-record.ts src/lib/citation-record.server.ts src/lib/citation-record.functions.ts src/lib/citation-business-fact.ts src/lib/citation-business-fact.server.ts src/lib/citation-business-fact.functions.ts src/lib/citation-finding.ts src/lib/citation-finding-review.ts src/lib/citation-finding-review.server.ts src/lib/citation-finding-review.functions.ts src/lib/citation-record-migration.test.ts src/lib/citation-business-fact-migration.test.ts src/lib/citation-finding-review-migration.test.ts src/lib/citation-record.functions.test.ts src/lib/citation-business-fact.functions.test.ts src/lib/citation-finding-review.functions.test.ts
+npx eslint src/lib/citation-record.ts src/lib/citation-record.server.ts src/lib/citation-record.functions.ts src/lib/citation-business-fact.ts src/lib/citation-business-fact.server.ts src/lib/citation-business-fact.functions.ts src/lib/citation-finding.ts src/lib/citation-finding-review.ts src/lib/citation-finding-review.server.ts src/lib/citation-finding-review.functions.ts src/lib/citation-record-migration.test.ts src/lib/citation-business-fact-migration.test.ts src/lib/citation-finding-review-migration.test.ts src/lib/citation-record.functions.test.ts src/lib/citation-business-fact.functions.test.ts src/lib/citation-finding-review.functions.test.ts src/lib/milo-candidate-chain-migration.test.ts
 npx prettier --check "src/lib/citation-record*.ts" "src/lib/citation-business-fact*.ts" "src/lib/citation-finding-review*.ts" src/lib/citation-finding.ts supabase/migrations/20260920200000_citation_findings_improvements.sql
 npm run build
 ```
@@ -470,3 +482,7 @@ Codex independently checked the completed correction packet: actual saved captur
 ### Codex reviewer/source checkpoint — 20 September 2026
 
 Completed scoped review of real account admission, bounded receipt display with full dissent aggregation, reviewer withdrawal, and actual source material inspection. Focused six suites passed 98 tests (2.52s); TypeScript passed. Formatting-only Codex integration exception applied to seven changed TypeScript files; scoped ESLint and whitespace checks passed. Full suite: 6279 passed, one failed (44.51s), specifically the stale candidate migration inventory, which still listed artifact staging as unapplied and omitted the new P3 candidate. Production build independently passed. Logs: /tmp/milo-p3-source-bounds-{focused,types}-20260920.log and /tmp/milo-p3-review-checkpoint-{format,lint,full,build}-20260920.log. This is a local checkpoint, not release acceptance. Reconcile current main and migration inventory next; panel binding, destination verification, UI, genuine exports and real-use acceptance remain open.
+
+### Codex integrated chain verification — 20 September 2026
+
+After normal merge of released main bd0afee8, the combined migration chain test applies the P3 candidate over its real released dependencies and verifies service RPCs, internal helpers and closed stores. All 52 chain tests passed (1.07s); TypeScript, scoped ESLint, full 6322-test suite across 388 files (43.21s), production build and whitespace checks passed. Formatter-only Codex integration exception on the chain test. Logs: /tmp/milo-p3-chain-{focused,types,format,lint,full,build}-20260920.log. No migration applied or production deployment performed. P2 panel binding, destination-content proof, UI and real-use acceptance remain outstanding.
