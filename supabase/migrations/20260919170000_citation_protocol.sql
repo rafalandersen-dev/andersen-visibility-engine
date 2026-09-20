@@ -102,6 +102,13 @@ RETURNS jsonb LANGUAGE plpgsql SECURITY DEFINER SET search_path='' AS $$
 DECLARE current_version integer;
 BEGIN
   PERFORM public.assert_knowledge_project(p_user,p_project,true);
+  -- Serialize the 200-version capacity guard under the account's workspace_meta row. As in
+  -- save_citation_capture, assert_knowledge_project(...,true) takes that row FOR UPDATE but a project
+  -- references auth.users only, so the row can be absent and the lock a silent no-op. Re-take it in ONE
+  -- statement so presence and lock acquisition are inseparable (FOUND reports an actually-locked row);
+  -- a missing row fails closed, re-locking a row this txn holds is harmless.
+  PERFORM 1 FROM public.workspace_meta WHERE user_id=p_user FOR UPDATE;
+  IF NOT FOUND THEN RAISE EXCEPTION 'citation_workspace_unavailable'; END IF;
   IF p_panel IS NULL OR p_expected IS NULL OR p_expected<0 OR p_expected>=1000 OR p_document IS NULL
     OR jsonb_typeof(p_document)<>'object' OR octet_length(p_document::text)>60000
     OR (p_document->>'panelId') IS DISTINCT FROM p_panel::text
@@ -139,6 +146,11 @@ RETURNS jsonb LANGUAGE plpgsql SECURITY DEFINER SET search_path='' AS $$
 DECLARE draft jsonb; current_version integer; locked jsonb;
 BEGIN
   PERFORM public.assert_knowledge_project(p_user,p_project,true);
+  -- Serialize the 200-version capacity guard under the account's workspace_meta row (see
+  -- save_citation_capture): the helper's FOR UPDATE is a silent no-op when the row is absent. One
+  -- statement makes presence and lock inseparable; a missing row fails closed.
+  PERFORM 1 FROM public.workspace_meta WHERE user_id=p_user FOR UPDATE;
+  IF NOT FOUND THEN RAISE EXCEPTION 'citation_workspace_unavailable'; END IF;
   IF p_panel IS NULL OR p_expected IS NULL OR p_expected<1 THEN RAISE EXCEPTION 'invalid_citation_panel'; END IF;
   SELECT coalesce(max(version),0) INTO current_version FROM public.citation_panels WHERE user_id=p_user AND project_id=p_project AND panel_id=p_panel;
   IF current_version<>p_expected THEN RAISE EXCEPTION 'citation_panel_changed'; END IF;
@@ -179,6 +191,11 @@ RETURNS jsonb LANGUAGE plpgsql SECURITY DEFINER SET search_path='' AS $$
 DECLARE panel_doc jsonb; existing jsonb; doc jsonb;
 BEGIN
   PERFORM public.assert_knowledge_project(p_user,p_project,true);
+  -- Serialize the 20-run capacity guard under the account's workspace_meta row (see
+  -- save_citation_capture): the helper's FOR UPDATE is a silent no-op when the row is absent. One
+  -- statement makes presence and lock inseparable; a missing row fails closed.
+  PERFORM 1 FROM public.workspace_meta WHERE user_id=p_user FOR UPDATE;
+  IF NOT FOUND THEN RAISE EXCEPTION 'citation_workspace_unavailable'; END IF;
   IF p_run IS NULL OR p_panel IS NULL OR p_version IS NULL OR p_budget IS NULL OR p_rounds IS NULL
     OR p_budget<1 OR p_budget>50 OR p_rounds<1 OR p_rounds>2 THEN
     RAISE EXCEPTION 'invalid_citation_brand_run';

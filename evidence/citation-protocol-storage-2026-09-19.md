@@ -193,6 +193,26 @@ all conversation files.
   without the trigger blocking or recreating a tombstone (a second tenant's answer is preserved), and
   legacy deletion still functional.
 
+## Review round 8 (panel/run writes must serialize like the capture path)
+
+- `save_citation_panel_draft`, `lock_citation_panel` and `approve_citation_brand_run` call
+  `assert_knowledge_project(...,true)`, but that helper's `workspace_meta` `FOR UPDATE` is a silent
+  no-op when the account has no `workspace_meta` row (a project references `auth.users` only), so their
+  capacity guards (`>=200` panel versions, `>=20` brand runs) could count-then-insert unserialized —
+  the same gap round 2 closed for `save_citation_capture`. Fixed in the unapplied `…170000` only: each
+  of the three now runs, right after the helper, one atomic
+  `PERFORM 1 FROM public.workspace_meta WHERE user_id=p_user FOR UPDATE; IF NOT FOUND THEN RAISE
+  EXCEPTION 'citation_workspace_unavailable'; END IF;` so presence and lock acquisition are inseparable
+  and a missing account row fails closed before any count/insert. `read_citation_protocol` (a pure read,
+  no capacity guard, helper called without `true`) is untouched; no released helper/SQL changed; every
+  existing version/approval/capacity/owner/deletion guard still runs after this gate. Regression: one
+  SQL test provisions a lockable brand draft, a locked brand v2 and prompts while the account row is
+  present, deletes `workspace_meta`, then asserts each RPC fails closed — specific
+  `citation_workspace_unavailable` via direct SQL, generic refusal via the public wrapper — with no
+  panel draft/lock or run inserted, and finally that restoring the row lets all three succeed. Note:
+  PGlite is single-connection, so this proves the fail-closed presence gate, not multi-connection lock
+  contention.
+
 ## Checks (status: UNRUN — prepared for Codex)
 
 Prior stages: 143 (tsc failing) → 146 → 148/147-PASS-1-FAIL → 150 → 170/6081 → (round 5) read-ordering
@@ -213,8 +233,12 @@ test and ran it at 31 SQL tests PASS (1.52s) but TypeScript FAILED at
 Fixed here (test typing only): the `db.query` full-row read now carries a
 `<{ r: Record<string, unknown> }>` row generic — the same pattern as the existing `{ data: unknown }`
 query — so the full-row content-free assertion is unchanged and uses no broad `any`; no application or
-SQL behavior changed. All prior counts — including 31/PASS-with-types-FAILED — are a PRIOR STAGE and do
-not carry over; every check below is UNRUN and re-run by Codex.
+SQL behavior changed. Round 8 (this turn) adds the missing `workspace_meta FOR UPDATE`+`FOUND`
+serialization gate to `save_citation_panel_draft`, `lock_citation_panel` and
+`approve_citation_brand_run` (candidate `…170000`), plus one SQL regression exercising all three
+missing-row/restored paths. All prior counts — including 31/PASS-with-types-FAILED — are a PRIOR STAGE
+and do not carry over; every check below, including the new serialization gate and its regression, is
+UNRUN and re-run by Codex.
 
 | Check | Purpose | Status |
 | --- | --- | --- |
@@ -273,3 +297,7 @@ Reviewed SQL-specific refusal plus public normalized refusal and no inserted loc
 ## Final erasure correction and integration — 20 September
 
 Codex verified query typing without weakening full-row assertions.31 SQL tests PASS1.50s, types/lint PASS. Normal merge of released mainfaaa195f resolved only migration inventory:165000 is released,170000 remains the only candidate. Included artifact release receipt. Integrated56 focused PASS1.93s,6248 full/384 files PASS50.95s, types/scoped lint/build PASS. Final test-only grant inventory adds internal UTF16/tombstone helpers;27 chain tests PASS1.14s and lint/whitespace PASS after that addition (full suite preceded those two assertions). Logs /tmp/milo-p2-erasure-{typed,integrated}-*-20260920.log and /tmp/milo-p2-erasure-grants-20260920.log. Codex exceptions: formatting, merge inventory and grant inventory only. No protocol SQL applied or live acceptance claimed.
+
+## Account-row serialization correction verified — 20 September
+
+Codex independently reviewed the three new FOR UPDATE + FOUND gates, matching capture admission without modifying released SQL.89 focused/4files PASS1.84s,6251 full/384files PASS41.86s, TypeScript/scoped lint/whitespace/build PASS. Logs /tmp/milo-p2-presence-{focused,types,lint,full,build}-20260920.log. Codex exception: two formatting wraps in the test corrected with Prettier. The initial lint log records those two failures; lint passed after formatting. No migration applied, no real concurrency or production workflow acceptance claimed.

@@ -276,6 +276,32 @@ attempts contract. Fixed without touching the released RPC:
   cascades everything without the trigger blocking or recreating a tombstone (other tenant preserved),
   and legacy deletion still functional.
 
+### Review round 8 — the three panel/run write RPCs must serialize like the capture path
+
+Round 2 fixed `save_citation_capture` to re-take the `workspace_meta` row `FOR UPDATE` because
+`assert_knowledge_project(...,true)`'s lock is a silent no-op when no account row exists (a project
+references `auth.users` only). The three sibling write RPCs — `save_citation_panel_draft`,
+`lock_citation_panel`, `approve_citation_brand_run` — still ran their capacity guards (`>=200` panel
+versions, `>=20` brand runs) under only that helper, so the same count-then-insert could interleave
+unserialized.
+
+- **Fix (candidate `…170000` only):** each of the three now runs, immediately after
+  `assert_knowledge_project(...,true)`, the identical single statement
+  `PERFORM 1 FROM public.workspace_meta WHERE user_id=p_user FOR UPDATE; IF NOT FOUND THEN RAISE
+  EXCEPTION 'citation_workspace_unavailable'; END IF;` — presence and lock acquisition are inseparable,
+  a missing account row fails closed before any capacity count or insert, and re-locking a row this
+  transaction already holds is harmless. `read_citation_protocol` is untouched (a pure read with no
+  capacity guard, and it calls the helper without `true`). No released helper/SQL changed; all existing
+  version/approval/capacity/owner/deletion guards are preserved and still run after this gate.
+- **Regression:** one SQL test builds a lockable brand draft, a separately locked brand panel and (for
+  approve) its v2 while the account row is present, then deletes `workspace_meta` and asserts each of
+  the three RPCs fails closed — the specific `citation_workspace_unavailable` via direct SQL (proving
+  the gate fires before the capacity count/insert) and a generic refusal via the public wrapper — with
+  **no** mutation (no discovery draft stored, no lock appended to the brand draft, no run created).
+  Restoring the row then lets all three legitimate paths succeed, proving the missing row (not a content
+  or capacity guard) was the sole blocker. PGlite is single-connection, so this proves the fail-closed
+  presence gate, not multi-connection lock contention.
+
 ## Files
 
 | File | Change |
@@ -323,11 +349,13 @@ tombstone trigger to validate the captureContext shape before casting (malformed
 stay erasable, no tombstone fabricated) and strengthened the tests (malformed-capture erasability, a
 live-capture project deletion, full-row content-free inspection); Codex ran that at **31 SQL tests
 PASS (1.52s) but TypeScript FAILED** — `citation-protocol-migration.test.ts(1011,18)` TS2571, the
-full-row `row_to_json` result was `unknown`. Fixed here (test typing only, no app/SQL change): the
-`db.query` call now carries a `<{ r: Record<string, unknown> }>` row generic (as the existing
-`{ data: unknown }` query does), so the full-row content-free assertion is unchanged and uses no
-broad `any`. **All prior counts — 31/PASS-with-types-FAILED included — are a prior stage and do not
-carry over**; every check below is UNRUN in this worktree and must be re-executed by Codex.
+full-row `row_to_json` result was `unknown`; fixed (test typing only) with a `<{ r: Record<string,
+unknown> }>` row generic, no broad `any`, assertion unchanged. Round 8 (this turn) adds the missing
+`workspace_meta FOR UPDATE`+`FOUND` serialization gate to the three panel/run write RPCs (matching the
+capture path) plus one SQL regression, all in candidate `…170000` and the test file only. **All prior
+counts — the 31/PASS-with-types-FAILED included — are a prior stage and do not carry over**; every
+check below, including the new serialization gate and its regression, is UNRUN in this worktree and
+must be re-executed by Codex.
 
 - `npx vitest run src/lib/citation-protocol.test.ts`
 - `npx vitest run src/lib/citation-protocol.functions.test.ts`

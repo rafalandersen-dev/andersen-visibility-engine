@@ -388,6 +388,96 @@ describe("CI-2 panel storage, versioning and owner lock", () => {
     ).rejects.toThrow(/citation_panel_grid_invalid/);
     expect(await versions(uuid(34))).toEqual({ n: 1 }); // still only the draft; nothing locked
   });
+  it("fails closed on all three write RPCs when the account workspace_meta row is missing, then permits them once restored", async () => {
+    // save_citation_panel_draft, lock_citation_panel and approve_citation_brand_run all call
+    // assert_knowledge_project(...,true), whose workspace_meta FOR UPDATE is a silent no-op when no row
+    // exists — so their capacity guards could run unserialized. Each now re-takes the row lock, matching
+    // save_citation_capture. Preconditions are built while meta is present so the ONLY obstacle below is
+    // the missing serialization row, not any content/capacity guard.
+    await saveCitationPanelDraft(scope, uuid(40), 0, draftBrand({ panelId: uuid(40) }), rpc); // a lockable brand draft
+    await saveCitationPanelDraft(scope, brandPanelId, 0, draftBrand(), rpc);
+    await lockCitationPanel(scope, brandPanelId, 1, rpc); // a locked brand v2 to approve a run against
+    const panelCount = async (panelId: string) =>
+      (
+        await db.query<{ n: number }>(
+          "SELECT count(*)::int n FROM citation_panels WHERE user_id=$1 AND project_id='p' AND panel_id=$2",
+          [user, panelId],
+        )
+      ).rows[0].n;
+    const runCount = async () =>
+      (
+        await db.query<{ n: number }>(
+          "SELECT count(*)::int n FROM citation_brand_runs WHERE user_id=$1 AND project_id='p'",
+          [user],
+        )
+      ).rows[0].n;
+    const brandVersions = await panelCount(brandPanelId); // 2 (draft v1 + locked v2)
+    await db.query("DELETE FROM workspace_meta WHERE user_id=$1", [user]);
+    try {
+      // Each RPC surfaces the specific serialization guard via direct SQL (it fires before any capacity
+      // count/insert), and the public wrapper refuses the same call (mapped to the generic error).
+      await expect(
+        db.query("SELECT save_citation_panel_draft($1,'p',$2,$3,$4)", [
+          user,
+          discoveryPanelId,
+          0,
+          draftDiscovery(),
+        ]),
+      ).rejects.toThrow(/citation_workspace_unavailable/);
+      await expect(
+        saveCitationPanelDraft(scope, discoveryPanelId, 0, draftDiscovery(), rpc),
+      ).rejects.toThrow();
+      await expect(
+        db.query("SELECT lock_citation_panel($1,'p',$2,$3)", [user, uuid(40), 1]),
+      ).rejects.toThrow(/citation_workspace_unavailable/);
+      await expect(lockCitationPanel(scope, uuid(40), 1, rpc)).rejects.toThrow();
+      await expect(
+        db.query("SELECT approve_citation_brand_run($1,'p',$2,$3,$4,$5,$6)", [
+          user,
+          uuid(51),
+          brandPanelId,
+          2,
+          5,
+          1,
+        ]),
+      ).rejects.toThrow(/citation_workspace_unavailable/);
+      await expect(
+        approveBrandRun(
+          scope,
+          {
+            runId: uuid(52),
+            panelId: brandPanelId,
+            panelVersion: 2,
+            observationBudget: 5,
+            rounds: 1,
+          },
+          rpc,
+        ),
+      ).rejects.toThrow();
+      // No mutation on any path: no discovery draft stored, no lock appended to the brand draft, no run.
+      expect(await panelCount(discoveryPanelId)).toBe(0);
+      expect(await panelCount(uuid(40))).toBe(1); // still only the editable draft, never locked
+      expect(await panelCount(brandPanelId)).toBe(brandVersions);
+      expect(await runCount()).toBe(0);
+    } finally {
+      // Restore the fixture (workspace_meta is not truncated between tests) so no later test is affected.
+      await db.query("INSERT INTO workspace_meta(user_id) VALUES($1) ON CONFLICT DO NOTHING", [
+        user,
+      ]);
+    }
+    // Meta restored: each legitimate path now succeeds — proving the missing row, not a content guard,
+    // was what blocked every write.
+    await saveCitationPanelDraft(scope, discoveryPanelId, 0, draftDiscovery(), rpc);
+    expect(await panelCount(discoveryPanelId)).toBe(1);
+    const locked = await lockCitationPanel(scope, uuid(40), 1, rpc);
+    expect(locked).toMatchObject({ version: 2, status: "locked" });
+    const run = await approveBrandRun(
+      scope,
+      { runId: uuid(53), panelId: brandPanelId, panelVersion: 2, observationBudget: 5, rounds: 1 },
+      rpc,
+    );
+    expect(run).toMatchObject({ id: uuid(53), approvedBy: user });
+  });
 });
 
 describe("CI-2 brand run approval", () => {
