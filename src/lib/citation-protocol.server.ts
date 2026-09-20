@@ -3,6 +3,8 @@ import { analyzeAnswer, evidenceProjectId, evidenceRowSchema } from "./answer-ev
 import { readAnswerEvidence } from "./answer-evidence.server";
 import {
   brandRunApprovalSchema,
+  canonicalRun,
+  canonicalUuid,
   citationProtocolStateSchema,
   citationReports,
   lockedPanelSchema,
@@ -152,8 +154,12 @@ export async function importManualCapture(
   const s = scope.parse(raw);
   const { input } = parseManualCaptureInput(value);
   const state = await readAnswerEvidence(s, rpc);
+  // Bind the prompt by SEMANTIC uuid identity: the stored prompt id is canonical lowercase while the
+  // capture's `input.promptId` keeps the client's spelling (possibly UPPERCASE), so a raw-string find
+  // would miss it and reject a valid capture. Revision is an integer compare.
   const prompt = state.prompts.find(
-    (p) => p.id === input.promptId && p.revision === input.promptRevision,
+    (p) =>
+      canonicalUuid(p.id) === canonicalUuid(input.promptId) && p.revision === input.promptRevision,
   );
   if (!prompt) throw Error("evidence_prompt_missing");
   const document = evidenceRowSchema
@@ -195,10 +201,14 @@ export async function readResolvedCaptures(raw: z.infer<typeof scope>, rpc?: Kno
   // tombstoned original is already deleted (so it is absent from `answers`), but this still correctly
   // drops an ORPHANED correction of a deleted original; it is defensive and preserves the chain-identity
   // semantics. The chain root is resolved from the complete ancestry map.
+  // Chain identity is keyed by CANONICAL uuid: a stored `supersedesId` keeps the client's spelling
+  // (possibly UPPERCASE) while `id` is a lowercase DB id and a tombstone's `answerId` is a lowercase
+  // column, so a raw-string map would fail to link a chain or match a tombstoned root. Normalize every id.
   const parentOf = new Map<string, string | null>();
-  for (const a of answers) parentOf.set(a.id, a.input.supersedesId ?? null);
+  for (const a of answers)
+    parentOf.set(canonicalUuid(a.id), canonicalRun(a.input.supersedesId ?? null));
   const rootOf = (id: string): string => {
-    let cur = id;
+    let cur = canonicalUuid(id);
     const seen = new Set<string>([cur]);
     let p = parentOf.get(cur) ?? null;
     while (p !== null && parentOf.has(p) && !seen.has(p)) {
@@ -208,19 +218,28 @@ export async function readResolvedCaptures(raw: z.infer<typeof scope>, rpc?: Kno
     }
     return cur;
   };
-  const tombstonedRoots = new Set(protocol.tombstones.map((t) => t.answerId));
+  const tombstonedRoots = new Set(protocol.tombstones.map((t) => canonicalUuid(t.answerId)));
   const survivingAnswers = answers.filter((a) => !tombstonedRoots.has(rootOf(a.id)));
   // A survivor sharing a slot with a KNOWN erased original is ambiguous duplicate history: the resolver
   // flags it `erased_duplicate_slot` and demotes it (never a silent success). These keys match the
   // resolver's internal slot key. Only transmitted (grid, LIMIT-bounded) tombstones are known here; when
   // truncated, `coverageComplete` is false for the version so the incompleteness is already surfaced.
+  // Must normalize identically to the resolver's internal slot key (uuid components canonical, questionId
+  // verbatim) so a tombstone-derived erased key matches a live capture's key regardless of id spelling.
   const tombstoneSlotKey = (t: {
     panelId: string;
     panelVersion: number;
     brandRunId: string | null;
     questionId: string;
     round: number;
-  }) => JSON.stringify([t.panelId, t.panelVersion, t.brandRunId, t.questionId, t.round]);
+  }) =>
+    JSON.stringify([
+      canonicalUuid(t.panelId),
+      t.panelVersion,
+      canonicalRun(t.brandRunId),
+      t.questionId,
+      t.round,
+    ]);
   const erasedSlotKeys = new Set(protocol.tombstones.map(tombstoneSlotKey));
   const captures = resolveStoredCaptures(
     survivingAnswers.map((a) => ({
@@ -252,7 +271,7 @@ export async function readResolvedCaptures(raw: z.infer<typeof scope>, rpc?: Kno
   // surviving live original AND an erased sibling at the same slot as two; a JS reconstruction that
   // dropped same-slot live originals would under-report). Bounded to the approved runs.
   const consumedByRun: Record<string, number> = {};
-  for (const r of protocol.runConsumed) consumedByRun[r.runId] = r.consumed;
+  for (const r of protocol.runConsumed) consumedByRun[canonicalUuid(r.runId)] = r.consumed;
   // Content-free malformed-tombstone counts per panel version, surfaced as `excluded` in the report.
   const excludedByVersion: Record<string, number> = {};
   // Coverage completeness per version: the transmitted (LIMIT-bounded) grid tombstone rows for a version

@@ -85,16 +85,18 @@ REVOKE ALL ON FUNCTION public.tombstone_citation_capture() FROM PUBLIC,anon,auth
 CREATE TRIGGER tombstone_citation_capture AFTER DELETE ON public.ai_answer_evidence
   FOR EACH ROW EXECUTE FUNCTION public.tombstone_citation_capture();
 
--- Semantic brandRunId identity. save_citation_capture persists the client's ORIGINAL captureContext JSON
--- verbatim (immutable — the document and its hash are never rewritten), so a historical brandRunId string
--- may be UPPERCASE or mixed-case (or, for pre-guard data, malformed). Budget enforcement, consumed
--- reporting, the same-slot guard and correction identity must therefore compare by UUID VALUE, not by raw
--- text: a run id rendered as text (`run_id::text`) is canonical LOWERCASE, so an uppercase original
--- silently escapes a text compare — evading the budget count, the duplicate-slot guard and the correction
--- match. This returns the NORMALIZED uuid value for any Postgres-castable uuid spelling (case- and
--- form-insensitive) and NULL for a malformed or absent one, so a read never throws on bad history and a
--- malformed/absent run identity fails closed (matches nothing, is counted nowhere). Pure and content-free:
--- it reads and rewrites no row and touches no document text.
+-- Semantic UUID identity for captured/persisted identifiers. save_citation_capture persists the client's
+-- ORIGINAL captureContext JSON verbatim (immutable — the document and its hash are never rewritten), and
+-- panel documents likewise keep the reviewed question `promptId` spelling, so a historical brandRunId /
+-- panelId / promptId string may be UPPERCASE or mixed-case (or, for pre-guard data, malformed). Budget
+-- enforcement, consumed reporting, the same-slot guard, correction identity and question-binding must
+-- therefore compare by UUID VALUE, not by raw text: an id rendered as text (`::text`) is canonical
+-- LOWERCASE, so an uppercase original silently escapes a text compare — evading the budget/duplicate
+-- guards, breaking a legitimate correction, or unbinding a valid question. This returns the NORMALIZED
+-- uuid value for any Postgres-castable uuid spelling (case- and form-insensitive) and NULL for a malformed
+-- or absent one, so a read never throws on bad history and a malformed/absent identity fails closed
+-- (matches nothing). Pure and content-free: it reads and rewrites no row and touches no document text.
+-- (Named for its first use on captureContext run ids; it is a generic uuid-value normalizer.)
 CREATE FUNCTION public.citation_ctx_run(p_text text) RETURNS uuid LANGUAGE plpgsql IMMUTABLE SET search_path='' AS $$
 BEGIN
   RETURN p_text::uuid;
@@ -348,7 +350,7 @@ CREATE FUNCTION public.save_citation_capture(p_user uuid,p_project text,p_docume
 RETURNS uuid LANGUAGE plpgsql SECURITY DEFINER SET search_path='' AS $$
 DECLARE
   ctx jsonb; digest text; result uuid; prompt uuid; rev integer; replaced uuid; saved jsonb;
-  panel_doc jsonb; panel_kind text; run_doc jsonb; v_run uuid; question jsonb; rnd integer; pred_ctx jsonb;
+  panel_doc jsonb; panel_kind text; run_doc jsonb; v_run uuid; v_panel uuid; question jsonb; rnd integer; pred_ctx jsonb;
 BEGIN
   PERFORM public.assert_knowledge_project(p_user,p_project,true);
   -- Serialization safety for the observation budget: the count+insert below must run under the
@@ -387,9 +389,12 @@ BEGIN
     FROM public.ai_visibility_prompts WHERE user_id=p_user AND project_id=p_project AND id=prompt AND revision=rev;
   IF saved IS NULL OR saved IS DISTINCT FROM p_document->'prompt' THEN RAISE EXCEPTION 'evidence_prompt_changed'; END IF;
   -- Resolve the owner-locked panel version the capture claims. Missing, unlocked or wrong-version
-  -- fails closed (deletion, a draft, or a cross-version reference).
+  -- fails closed (deletion, a draft, or a cross-version reference). v_panel is the capture's panel id as a
+  -- uuid VALUE (the cast fails closed on a malformed NEW context) and is reused for every panelId identity
+  -- comparison below, so an UPPERCASE captureContext panelId resolves and matches like its lowercase form.
+  v_panel := (ctx->>'panelId')::uuid;
   SELECT document INTO panel_doc FROM public.citation_panels
-    WHERE user_id=p_user AND project_id=p_project AND panel_id=(ctx->>'panelId')::uuid AND version=(ctx->>'panelVersion')::integer;
+    WHERE user_id=p_user AND project_id=p_project AND panel_id=v_panel AND version=(ctx->>'panelVersion')::integer;
   IF panel_doc IS NULL OR panel_doc->>'status'<>'locked' THEN RAISE EXCEPTION 'citation_panel_unresolved'; END IF;
   panel_kind := panel_doc->>'kind';
   -- Prospective panel approval (spec Appendix A: owner review BEFORE USE, then save the immutable
@@ -405,7 +410,11 @@ BEGIN
   -- id+revision and this exact text (which equals the recorded questionText).
   SELECT elem INTO question FROM jsonb_array_elements(panel_doc->'questions') AS t(elem) WHERE elem->>'id'=ctx->'slot'->>'questionId';
   IF question IS NULL THEN RAISE EXCEPTION 'citation_question_not_in_panel'; END IF;
-  IF question->>'promptId' IS DISTINCT FROM prompt::text OR (question->>'promptRevision')::integer IS DISTINCT FROM rev
+  -- promptId matched by UUID VALUE: the panel document keeps the reviewed question's original promptId
+  -- spelling (possibly UPPERCASE), while `prompt` is the capture's promptId as a uuid, so a raw-text
+  -- compare would unbind a valid question. questionText stays an EXACT text match (case-sensitive by
+  -- contract), and promptRevision is an integer compare.
+  IF public.citation_ctx_run(question->>'promptId') IS DISTINCT FROM prompt OR (question->>'promptRevision')::integer IS DISTINCT FROM rev
     OR question->>'text' IS DISTINCT FROM ctx->'instructions'->>'questionText' THEN
     RAISE EXCEPTION 'citation_question_unbound';
   END IF;
@@ -419,7 +428,7 @@ BEGIN
     -- cross-version runs fail closed.
     SELECT document INTO run_doc FROM public.citation_brand_runs
       WHERE user_id=p_user AND project_id=p_project AND run_id=v_run
-        AND panel_id=(ctx->>'panelId')::uuid AND panel_version=(ctx->>'panelVersion')::integer;
+        AND panel_id=v_panel AND panel_version=(ctx->>'panelVersion')::integer;
     IF run_doc IS NULL THEN RAISE EXCEPTION 'brand_run_unresolved'; END IF;
     -- Owner approval is prospective: a run approved after the capture cannot sanction it.
     IF (p_document->'input'->>'capturedAt')::timestamptz < (run_doc->>'approvedAt')::timestamptz THEN RAISE EXCEPTION 'brand_run_approved_after_capture'; END IF;
@@ -445,7 +454,9 @@ BEGIN
       WHERE user_id=p_user AND project_id=p_project AND id=replaced AND prompt_id=prompt AND prompt_revision=rev;
     IF pred_ctx IS NULL THEN RAISE EXCEPTION 'evidence_correction_missing'; END IF;
     IF jsonb_typeof(pred_ctx)<>'object'
-      OR pred_ctx->>'panelId' IS DISTINCT FROM ctx->>'panelId'
+      -- panel identity by UUID VALUE (v_panel is the new capture's normalized panel), so an UPPERCASE
+      -- historical predecessor still matches its lowercase correction rather than being rejected.
+      OR public.citation_ctx_run(pred_ctx->>'panelId') IS DISTINCT FROM v_panel
       OR pred_ctx->>'panelVersion' IS DISTINCT FROM ctx->>'panelVersion'
       -- brand run identity by UUID VALUE (v_run is the new capture's normalized run), so an UPPERCASE
       -- historical predecessor still matches its lowercase correction — a raw-text compare would wrongly
@@ -475,7 +486,9 @@ BEGIN
     EXISTS (
       SELECT 1 FROM public.ai_answer_evidence
       WHERE user_id=p_user AND project_id=p_project AND supersedes_id IS NULL
-        AND document->'input'->'captureContext'->>'panelId'=ctx->>'panelId'
+        -- panel identity by UUID VALUE (v_panel is this capture's normalized panel), so an UPPERCASE
+        -- historical original at the same slot is still detected rather than read as a different slot.
+        AND public.citation_ctx_run(document->'input'->'captureContext'->>'panelId')=v_panel
         AND document->'input'->'captureContext'->>'panelVersion'=ctx->>'panelVersion'
         AND document->'input'->'captureContext'->'slot'->>'questionId'=ctx->'slot'->>'questionId'
         AND document->'input'->'captureContext'->'slot'->>'round'=ctx->'slot'->>'round'
@@ -487,7 +500,7 @@ BEGIN
     OR EXISTS (
       SELECT 1 FROM public.citation_capture_tombstones
       WHERE user_id=p_user AND project_id=p_project
-        AND panel_id=(ctx->>'panelId')::uuid AND panel_version=(ctx->>'panelVersion')::integer
+        AND panel_id=v_panel AND panel_version=(ctx->>'panelVersion')::integer
         AND question_id=ctx->'slot'->>'questionId' AND round=(ctx->'slot'->>'round')::integer
         AND brand_run_id IS NOT DISTINCT FROM v_run
     )

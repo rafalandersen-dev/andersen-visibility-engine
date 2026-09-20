@@ -537,6 +537,52 @@ Against the renamed candidate `20260920190000_citation_protocol.sql` (old `…17
   same-slot guard refuses a lowercase duplicate of an uppercase original (`citation_slot_occupied`); a
   correction whose predecessor differs only in brandRunId case is accepted. No multi-connection claim.
 
+## Review round 20 (one coherent semantic-UUID identity packet across the resolver — P2 4057793975)
+
+- Round 19 fixed the SQL brandRunId compares; this generalizes to EVERY P2 UUID comparison and key.
+  Identifiers inside immutable JSON (capture `context.panelId`/`brandRunId`, `supersedesId`, a panel
+  question `promptId`) keep the client's spelling (a uuid accepts UPPERCASE), while ids from uuid columns
+  or `::text` (panel-document id, run id, tombstone columns) are canonical lowercase. Raw-string compares
+  mis-judged identity — the confirmed case: `resolveStoredCaptures` compared `p.panelId ===
+  context.panelId`, so a validly-admitted mixed-case capture read `panel_unresolved`. Same gap hit
+  brand-run resolution, correction lineage, slot/erased keys, tombstone reconciliation, prompt binding and
+  report `runById`/`forVersion` grouping.
+- Fix (comparison/derived-representation normalization; no stored-document rewrite): a shared
+  `canonicalUuid`/`canonicalRun` (lowercases only a uuid-shaped value; a non-uuid such as a grid
+  questionId is returned unchanged) is applied at every P2 identity boundary. Crucially the parsed
+  `context`'s `panelId`/`brandRunId` are canonicalized ONCE, AND the released PR137
+  `protocolDeviations`/`slotOutcome` (which compare `answer.promptId` to the question `promptId` and
+  run/panel ids RAW) are fed DERIVED copies whose panel id, question promptIds and run ids are
+  canonicalized plus a canonicalized `answer.promptId` — so a capture bound by uuid value at write time
+  (e.g. against a panel whose question stored an UPPERCASE promptId) stays ELIGIBLE (complete), not
+  demoted with a spurious `panel_mismatch`/`prompt_mismatch`. Also fixed: correction-lineage set,
+  panel/run matching, slot key, `resolveErasedSlots`, `citationReport` grouping/loops/per-run output, and
+  the server chain-root/tombstone-key/consumed maps and `importManualCapture` prompt binding.
+  `citation-panel.ts` (released) is NOT edited — only the P2 data handed to it is normalized; questionId
+  and question TEXT stay verbatim.
+- SQL (candidate) parallel comparisons: `save_citation_capture` derives a `v_panel` uuid once and matches
+  `panelId` by value in panel resolution, the same-slot guard, correction identity and the brand-run
+  lookup, and binds the question by `public.citation_ctx_run(question.promptId) = prompt` (reusing the
+  round-19 generic uuid-value helper — every call SCHEMA-QUALIFIED as `public.` because the function runs
+  under `SECURITY DEFINER SET search_path=''`; NO new SQL object, rollback inventory unchanged).
+  questionId/text stay EXACT; the authoritative `::uuid` casts that reject a malformed NEW identifier are
+  unchanged; the read-only `pgUuid` acceptance and ownership scoping are preserved.
+- CORRECTION to the first round-20 attempt (this packet): that attempt shipped two defects a Codex run
+  surfaced (180 PASS / 47 FAIL, tsc not reached) — the two new SQL helper calls were UNqualified
+  (unresolvable under `search_path=''`, failing every capture write with a wrapper-masked
+  `citation_protocol_unavailable`), and the released `slotOutcome` still saw a raw `answer.promptId`/
+  question `promptId` (an uppercase-stored question promptId kept demoting a valid capture). Both are
+  fixed here; a direct-SQL admission assertion now surfaces any root SQL error instead of the wrapper
+  masking it.
+- Tests: pure-resolver units — a mixed-case brand capture resolves eligible (complete) and the report
+  groups it (observed/consumed 1, excluded 0); a correction chain links across case (only the leaf, no
+  spurious duplicate); a survivor is flagged `erased_duplicate_slot` across case. Real PGlite
+  (letter-containing ids) — an UPPERCASE-identifier capture (question promptId + panelId + brandRunId) is
+  admitted AND read back resolved + eligible + counted (not excluded); a lowercase duplicate at the same
+  slot is refused (`citation_slot_occupied`); a lowercase correction of the uppercase original is accepted
+  without double-charging; an erased uppercase capture reconciles to an erased slot with consumed budget
+  preserved. No multi-connection empirical proof claimed.
+
 ## Checks (status: UNRUN — prepared for Codex)
 
 Prior stages: 143 (tsc failing) → 146 → 148/147-PASS-1-FAIL → 150 → 170/6081 → (round 5) read-ordering
@@ -727,3 +773,17 @@ Test commands (Codex runs; UNRUN here): `npx vitest run src/lib/citation-protoco
 ### Codex semantic run identity verification — 20 September 2026
 
 Independently reviewed UUID-value comparisons for existing mixed-case run references across admission, consumed reporting, occupied slots and correction identity. Eight focused suites passed 220 tests (2.76s); TypeScript passed. Full suite passed 6314 tests across 385 files (44.37s), with scoped ESLint, production build and git diff --check passing. Logs: /tmp/milo-p2-uuid-budget-{focused,types,format,lint,full,build}-20260920.log. Codex integration exceptions: formatting the changed test file and correcting its explanatory comment; no application behavior authored by Codex. Single-connection tests do not establish empirical multi-connection acceptance. Candidate migration remains UNAPPLIED; prior guarded SQL and expected identity remain stale. Exact-head external reviews and live release verification remain outstanding.
+
+## Coherent semantic-UUID identity across the resolver — status UNRUN (P2 4057793975)
+
+Round 20 generalizes UUID identity from the round-19 SQL brandRunId fix to EVERY P2 comparison and key. The confirmed bug: `resolveStoredCaptures` compared `p.panelId === context.panelId` as raw strings, so a validly-admitted capture whose stored `captureContext.panelId` was UPPERCASE read as `panel_unresolved`; the same gap affected brand-run resolution, correction lineage, slot/erased keys, tombstone reconciliation, prompt binding, and the report `runById`/`forVersion` grouping. A shared `canonicalUuid`/`canonicalRun` (lowercases only a uuid-shaped value; questionId/text returned unchanged) now normalizes at each identity boundary; the parsed `context` is canonicalized once so the released PR137 `protocolDeviations`/`slotOutcome` also see canonical ids and a mixed-case capture stays ELIGIBLE, not merely resolved. The candidate SQL additionally compares `panelId` (via a derived `v_panel`) and the question `promptId` (via the reused `citation_ctx_run`) by uuid value, and `importManualCapture`'s prompt binding matches by value. No new SQL object (rollback inventory unchanged); `citation-panel.ts` (released) not edited; questionId/text stay case-sensitive; immutable documents/hashes never rewritten; strict write casts and read-only `pgUuid` acceptance unchanged. Edited only `supabase/migrations/20260920190000_citation_protocol.sql`, `src/lib/citation-protocol.ts`, `src/lib/citation-protocol.server.ts`, the two P2 test files and these docs.
+
+CORRECTION / failed-run distinction: the FIRST round-20 attempt was defective — a Codex run of it recorded 180 PASS / 47 FAIL (8 files, 2.88s; tsc NOT run because `&&` short-circuited after the failures; log /tmp/milo-p2-uuid-resolution-focused-20260920.log). Two bugs caused the widespread failures (all wrapper-masked `citation_protocol_unavailable` on import): (1) the two new SQL helper calls were unqualified `citation_ctx_run(...)`, unresolvable under `SECURITY DEFINER SET search_path=''`; (2) the released `slotOutcome` still compared a raw `answer.promptId`/question `promptId`, so an uppercase-stored question promptId demoted a valid capture. This packet fixes both (schema-qualified `public.` calls; normalized panel/runs/answer promptId into the released helpers) and adds a direct-SQL admission assertion so a root SQL error surfaces instead of being masked. The seven pure-contract tests that passed in that run did NOT exercise the storage path, so they did not prove it.
+
+That 180/47-FAIL run is a FAILED prior attempt of these edits, not a passing baseline. The last PASSING stage (Codex verification on 3c9c663f, PRE-round-20: 220 focused / 6314 full PASS, 44.37s, types/lint/build PASS) does NOT carry over; every round-20 check is UNRUN in this worktree and must be re-executed by Codex under the recorded exception — this assistant did not run tests and claims no PASS. New checks: pure-resolver units (mixed-case capture resolves eligible + report groups it; correction chain links across case; erased_duplicate_slot flagged across case) and real PGlite with letter-containing ids (UPPERCASE-identifier capture admitted and read back resolved + eligible + counted; lowercase duplicate refused `citation_slot_occupied`; lowercase correction of an uppercase original accepted without double-charging; erased uppercase capture reconciles to an erased slot with consumed preserved). No multi-connection empirical proof claimed. Candidate `20260920190000` remains UNAPPLIED; prepared deploy SQL / expected-identity artifacts remain STALE (never executed); USD50 + manual-free budget unchanged; nothing is deployed.
+
+Test commands (Codex runs; UNRUN here): `npx vitest run src/lib/citation-protocol.test.ts src/lib/citation-protocol.functions.test.ts src/lib/citation-protocol-migration.test.ts`; `npx tsc --noEmit`; and the repository lint/build tasks.
+
+### Codex full semantic-identity verification — 20 September 2026
+
+After fixing the failed intermediate attempt, independently verified qualified helper calls under the preserved empty search path and normalized derived panel/question/run/answer inputs to released resolution helpers. Eight focused suites passed 227 tests (2.79s), TypeScript passed; full suite passed 6321 tests across 385 files (44.25s), scoped ESLint, production build and whitespace checks passed. Formatter-only Codex integration exception on four changed TypeScript files. Logs: /tmp/milo-p2-uuid-resolution-recheck-{focused,types}-20260920.log and /tmp/milo-p2-uuid-resolution-{format,lint,full,build}-20260920.log. Real storage tests admit and resolve mixed-case panel/run/prompt identities, corrections and erasures without rewriting immutable documents. No migration applied or production acceptance claimed; old guarded SQL and expected identity remain stale.

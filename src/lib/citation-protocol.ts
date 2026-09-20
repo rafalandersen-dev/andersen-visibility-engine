@@ -145,9 +145,24 @@ export const lockedPanelSchema = panelProtocolSchema.superRefine((panel, ctx) =>
  * only: NEW capture/panel/run authorization and input schemas keep the stricter `.uuid()`, and
  * identity MATCHING still requires a genuine locked+approved panel / approved run (an id that resolves
  * to no real entity stays `panelResolved: false` / excluded — the read grants no authority). */
-const pgUuid = z
-  .string()
-  .regex(/^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$/);
+const PG_UUID_RE = /^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$/;
+const pgUuid = z.string().regex(PG_UUID_RE);
+
+/**
+ * Canonical UUID identity for comparison and keying. PostgreSQL normalizes any accepted uuid spelling to
+ * lowercase in its uuid COLUMNS (so brand-run/tombstone ids surfaced from columns are already lowercase),
+ * but a uuid persisted inside an IMMUTABLE JSON document or captureContext keeps the client's ORIGINAL
+ * spelling — which may be UPPERCASE/mixed-case. Comparing or keying those by raw string treats two
+ * spellings of ONE uuid as different: a validly-admitted capture reads `panel_unresolved`, a duplicate
+ * escapes a slot key, a correction chain fails to link, a brand run fails to group. Normalizing a
+ * uuid-shaped value to its canonical PostgreSQL text (lowercase) makes identity SEMANTIC without rewriting
+ * any stored document or hash. A non-uuid string (e.g. a grid questionId, or free text) is returned
+ * UNCHANGED, so question-id/text case sensitivity is deliberately untouched. Use this at every P2 identity
+ * comparison/derived-key boundary; never mutate the stored value itself.
+ */
+export const canonicalUuid = (v: string): string => (PG_UUID_RE.test(v) ? v.toLowerCase() : v);
+export const canonicalRun = (v: string | null): string | null =>
+  v === null ? null : canonicalUuid(v);
 
 export const erasedSlotFactSchema = z
   .object({
@@ -328,21 +343,57 @@ export function resolveStoredCaptures(
   // predecessor superseded; otherwise a valid observation would vanish from the resolved counts (the
   // original excluded as superseded, the successor skipped below as unresolvable). Superseded records
   // that ARE resolvable captures stay raw history but are not re-counted (active-leaf only).
+  // Correction lineage is matched by SEMANTIC uuid identity: a successor's `supersedesId` is persisted
+  // from the client document (possibly UPPERCASE) while the predecessor's `id` is a canonical-lowercase
+  // DB id, so a raw-string set would fail to link the chain and both rows would resolve (a false
+  // duplicate). Normalize both ends.
   const superseded = new Set<string>();
   for (const a of answers)
     if (a.supersedesId && captureContextSchema.safeParse(a.captureContext).success)
-      superseded.add(a.supersedesId);
+      superseded.add(canonicalUuid(a.supersedesId));
+  // The released PR137 helpers (protocolDeviations/slotOutcome) compare `answer.promptId` to the panel
+  // question's `promptId`, and run/panel ids, by RAW string. A panel document can carry an UPPERCASE
+  // question promptId (the lock validates it by casting to uuid, then persists it verbatim), so a capture
+  // bound by uuid VALUE at write time would otherwise read as prompt_mismatch and be demoted. Feed those
+  // helpers DERIVED copies whose panel ids, question promptIds and run ids are canonicalized (the answer
+  // promptId is canonicalized at the call site); questionId and question TEXT stay verbatim, and no stored
+  // document is rewritten.
+  const normPanels = panels.map((p) => ({
+    ...p,
+    panelId: canonicalUuid(p.panelId),
+    questions: p.questions.map((q) => ({ ...q, promptId: canonicalUuid(q.promptId) })),
+  }));
+  const normRuns = brandRuns.map((r) => ({
+    ...r,
+    id: canonicalUuid(r.id),
+    panelId: canonicalUuid(r.panelId),
+  }));
   const out: ResolvedCapture[] = [];
   for (const answer of answers) {
     if (answer.captureContext === undefined || answer.captureContext === null) continue;
     // Skip superseded captures: resolve only the active leaf of each capture correction chain.
-    if (superseded.has(answer.id)) continue;
+    if (superseded.has(canonicalUuid(answer.id))) continue;
     const parsed = captureContextSchema.safeParse(answer.captureContext);
     if (!parsed.success) continue;
-    const context = parsed.data;
-    const panel = panels.find(
+    // Normalize the DERIVED context's uuid identities to canonical (lowercase) ONCE, at this boundary,
+    // before any comparison — including the released PR137 helpers (protocolDeviations/slotOutcome), which
+    // compare `context.panelId`/`brandRunId` to the panel/run by raw string. The panel document id and the
+    // approved-run id are already canonical (the write path derives them from `::text`), so a capture that
+    // stored an UPPERCASE panelId/brandRunId would otherwise read as `panel_mismatch`/run-not-found and be
+    // demoted, though it was validly admitted. This never rewrites the stored document — only the derived
+    // representation used for resolution — and leaves questionId/text untouched.
+    const context: CaptureContext = {
+      ...parsed.data,
+      panelId: canonicalUuid(parsed.data.panelId),
+      brandRunId: canonicalRun(parsed.data.brandRunId),
+    };
+    // Resolve the panel by SEMANTIC uuid identity: the panel document's `panelId` is canonical lowercase
+    // (the draft write enforces `panelId = p_panel::text`), but the capture's `context.panelId` keeps the
+    // client's original spelling (possibly UPPERCASE) — the write RPC admitted it by casting to uuid. A
+    // raw-string compare would then mis-report a validly-admitted capture as `panel_unresolved`.
+    const panel = normPanels.find(
       (p) =>
-        p.panelId === context.panelId &&
+        p.panelId === canonicalUuid(context.panelId) &&
         p.version === context.panelVersion &&
         p.status === "locked" &&
         !!p.approval,
@@ -363,12 +414,19 @@ export function resolveStoredCaptures(
       });
       continue;
     }
-    const deviations = protocolDeviations(panel, context, brandRuns);
+    // Pass the normalized panel/runs AND a canonicalized answer promptId, so the released helpers compare
+    // question-binding and run/panel identity by uuid VALUE (a mixed-case promptId no longer mis-reads as
+    // prompt_mismatch). questionId/text remain exact, and the stored answer is not mutated.
+    const deviations = protocolDeviations(panel, context, normRuns);
     const outcome = slotOutcome(
       panel,
-      { status: answer.status, promptId: answer.promptId, promptRevision: answer.promptRevision },
+      {
+        status: answer.status,
+        promptId: canonicalUuid(answer.promptId),
+        promptRevision: answer.promptRevision,
+      },
       context,
-      brandRuns,
+      normRuns,
     );
     // Prospective panel approval (spec Appendix A: owner review BEFORE USE). A locked panel version
     // is a usable baseline only from its DB-minted approval instant onward, so a capture whose
@@ -413,9 +471,9 @@ export function resolveStoredCaptures(
       panelResolved: true,
       brandRunResolved:
         panel.kind === "brand"
-          ? brandRuns.some(
+          ? normRuns.some(
               (r) =>
-                r.id === context.brandRunId &&
+                r.id === canonicalRun(context.brandRunId) &&
                 r.panelId === panel.panelId &&
                 r.panelVersion === panel.version,
             )
@@ -431,11 +489,14 @@ export function resolveStoredCaptures(
   // extras from the resolved counts; the raw captures remain in storage. This never promotes a
   // duplicate to a silent measurement success. Panel-unresolved captures carry no comparable slot and
   // pass through unchanged.
+  // Slot key by SEMANTIC uuid identity for the uuid components (panel, brand run) so two spellings of one
+  // slot collapse to one key and match the erased-slot keys derived from lowercase tombstone columns; the
+  // questionId is left verbatim (grid ids are case-sensitive by contract).
   const slotKey = (c: ResolvedCapture) =>
     JSON.stringify([
-      c.panelId,
+      canonicalUuid(c.panelId),
       c.panelVersion,
-      c.captureContext.brandRunId,
+      canonicalRun(c.captureContext.brandRunId),
       c.captureContext.slot.questionId,
       c.captureContext.slot.round,
     ]);
@@ -489,13 +550,23 @@ export interface ErasedSlot {
   brandRunResolved: boolean | null;
 }
 
+// Shared erased/live slot key. uuid components are normalized to canonical identity (a live capture's
+// brandRunId is client-spelled, a tombstone's is a lowercase column) so live and erased facts for one
+// slot always collapse together; questionId stays verbatim (case-sensitive grid ids).
 const erasedSlotKey = (t: {
   panelId: string;
   panelVersion: number;
   brandRunId: string | null;
   questionId: string;
   round: number;
-}) => JSON.stringify([t.panelId, t.panelVersion, t.brandRunId, t.questionId, t.round]);
+}) =>
+  JSON.stringify([
+    canonicalUuid(t.panelId),
+    t.panelVersion,
+    canonicalRun(t.brandRunId),
+    t.questionId,
+    t.round,
+  ]);
 
 /**
  * Resolve content-free erasure tombstones into erased-slot facts, EXCLUDING any slot a surviving
@@ -537,9 +608,11 @@ export function resolveErasedSlots(
     // transmitted subset — so a duplicate/extra historical practice at a slot is reported, not hidden.
     if (liveSlots.has(key) || seen.has(key)) continue;
     seen.add(key);
+    // Match panels/runs by SEMANTIC uuid identity (tombstone ids are lowercase columns; a panel document
+    // id is lowercase, but normalize both ends so a mixed-case historical row still resolves).
     const panel = panels.find(
       (p) =>
-        p.panelId === t.panelId &&
+        canonicalUuid(p.panelId) === canonicalUuid(t.panelId) &&
         p.version === t.panelVersion &&
         p.status === "locked" &&
         !!p.approval,
@@ -557,8 +630,8 @@ export function resolveErasedSlots(
           ? null
           : brandRuns.some(
               (r) =>
-                r.id === t.brandRunId &&
-                r.panelId === t.panelId &&
+                canonicalUuid(r.id) === canonicalRun(t.brandRunId) &&
+                canonicalUuid(r.panelId) === canonicalUuid(t.panelId) &&
                 r.panelVersion === t.panelVersion,
             ),
     });
@@ -655,11 +728,15 @@ export function citationReport(
   erasure: CitationErasure,
   approvedBrandRuns: BrandRun[] = [],
 ): CitationReport {
-  const forVersion = (pid: string, ver: number) => pid === panel.panelId && ver === panel.version;
+  // Group by SEMANTIC uuid identity throughout: panel/run ids from documents keep the client's spelling
+  // while ids from uuid columns are lowercase, so raw-string grouping would drop a validly-admitted
+  // capture or brand run from its version/run. questionId/round stay verbatim.
+  const forVersion = (pid: string, ver: number) =>
+    canonicalUuid(pid) === canonicalUuid(panel.panelId) && ver === panel.version;
   const questionIds = new Set(panel.questions.map((q) => q.id));
   const outcomes = emptyOutcomes();
   const runs = approvedBrandRuns.filter((r) => forVersion(r.panelId, r.panelVersion));
-  const runById = new Map(runs.map((r) => [r.id, r]));
+  const runById = new Map(runs.map((r) => [canonicalUuid(r.id), r]));
   const runObserved = new Map<string, number>();
   const runErased = new Map<string, number>();
   const validSlot = (questionId: string, round: number, brandRunId: string | null): boolean => {
@@ -674,7 +751,7 @@ export function citationReport(
   let excluded = 0;
   for (const c of resolvedCaptures) {
     if (!c.panelResolved || !forVersion(c.panelId, c.panelVersion)) continue;
-    const { brandRunId } = c.captureContext;
+    const brandRunId = canonicalRun(c.captureContext.brandRunId);
     const { questionId, round } = c.captureContext.slot;
     const key = JSON.stringify([brandRunId, questionId, round]);
     if (!validSlot(questionId, round, brandRunId) || liveSlotKeys.has(key)) {
@@ -691,9 +768,10 @@ export function citationReport(
   let erased = 0;
   for (const e of erasure.slots) {
     if (!forVersion(e.panelId, e.panelVersion)) continue;
-    const key = JSON.stringify([e.brandRunId, e.questionId, e.round]);
+    const eRun = canonicalRun(e.brandRunId);
+    const key = JSON.stringify([eRun, e.questionId, e.round]);
     if (
-      !validSlot(e.questionId, e.round, e.brandRunId) ||
+      !validSlot(e.questionId, e.round, eRun) ||
       liveSlotKeys.has(key) ||
       erasedSlotKeys.has(key)
     ) {
@@ -702,8 +780,7 @@ export function citationReport(
     }
     erasedSlotKeys.add(key);
     erased += 1;
-    if (panel.kind === "brand" && e.brandRunId)
-      runErased.set(e.brandRunId, (runErased.get(e.brandRunId) ?? 0) + 1);
+    if (panel.kind === "brand" && eRun) runErased.set(eRun, (runErased.get(eRun) ?? 0) + 1);
   }
   // Malformed historical tombstones for this version are already a content-free count — surface them.
   const versionKey = `${panel.panelId}:${panel.version}`;
@@ -739,9 +816,9 @@ export function citationReport(
     brandRuns: runs.map((r) => ({
       runId: r.id,
       approvedBudget: r.observationBudget,
-      consumed: erasure.consumedByRun[r.id] ?? 0,
-      observed: runObserved.get(r.id) ?? 0,
-      erased: runErased.get(r.id) ?? 0,
+      consumed: erasure.consumedByRun[canonicalUuid(r.id)] ?? 0,
+      observed: runObserved.get(canonicalUuid(r.id)) ?? 0,
+      erased: runErased.get(canonicalUuid(r.id)) ?? 0,
     })),
   };
 }

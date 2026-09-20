@@ -675,11 +675,68 @@ legitimate correction wrongly rejected).
   (`citation_slot_occupied`); and a correction whose predecessor differs only in brandRunId case is
   accepted. No multi-connection claim.
 
+### Review round 20 — one coherent semantic-UUID identity packet across the resolver (P2 4057793975)
+
+Round 19 fixed the SQL brandRunId compares; this generalizes UUID identity to EVERY P2 comparison and
+key. Identifiers persisted inside immutable JSON (a capture's `captureContext.panelId`/`brandRunId`, an
+`supersedesId`, a panel question's `promptId`) keep the client's original spelling (a uuid accepts
+UPPERCASE), while ids surfaced from uuid COLUMNS or derived via `::text` (panel-document id, approved-run
+id, tombstone columns) are canonical lowercase. Raw-string comparison therefore mis-judged identity: the
+confirmed case was a validly-admitted capture reading `panel_unresolved` because
+`resolveStoredCaptures` compared `p.panelId === context.panelId` across the case gap; the same gap hit
+brand-run resolution, correction lineage, the slot/erased keys, tombstone reconciliation, prompt binding
+and the report `runById`/`forVersion` grouping.
+
+- **Fix — comparison/derived-representation normalization (never a stored-document rewrite).** A shared
+  `canonicalUuid`/`canonicalRun` (lowercases only a uuid-shaped value; a non-uuid such as a grid
+  questionId is returned UNCHANGED) is applied at every P2 identity boundary: in
+  `resolveStoredCaptures` the parsed `context` has its `panelId`/`brandRunId` canonicalized ONCE, AND the
+  released PR137 `protocolDeviations`/`slotOutcome` — which compare `answer.promptId` to the question
+  `promptId` and run/panel ids by raw string — are fed DERIVED copies whose panel id, question promptIds
+  and run ids are canonicalized plus a canonicalized `answer.promptId`, so a capture bound by uuid value
+  at write time (e.g. against a panel whose question stored an UPPERCASE promptId) resolves AND stays
+  eligible (not demoted with a spurious `panel_mismatch`/`prompt_mismatch`); plus the correction-lineage
+  set, panel/brand-run matching and the slot key; in `resolveErasedSlots` the panel/run matching and the
+  shared slot key; in `citationReport` the `forVersion` filter, `runById` map, both slot loops and the
+  per-run output; in the server `readResolvedCaptures` the chain-root map, tombstoned-root set, tombstone
+  slot key, consumed-by-run map and the `importManualCapture` prompt binding. `citation-panel.ts`
+  (released) is NOT edited — only the P2 data handed to it is normalized; questionId and question TEXT
+  stay verbatim.
+- **SQL (candidate) parallel comparisons.** `save_citation_capture` now compares `panelId` and the
+  question `promptId` by UUID value too, reusing the round-19 `citation_ctx_run` normalizer (a generic
+  uuid-value helper) — every call is schema-qualified as `public.citation_ctx_run(...)` because the
+  function runs under `SECURITY DEFINER SET search_path=''` and an unqualified call cannot resolve. A
+  `v_panel` uuid is derived once and used for panel resolution, the same-slot guard, correction identity
+  and the brand-run lookup, and the question binding matches `public.citation_ctx_run(question.promptId)`
+  to the capture's `prompt` uuid. So a panel whose question stored an UPPERCASE promptId, or a mixed-case
+  capture panelId, is admitted and bound rather than rejected. No new SQL object (helper reused), so the
+  rollback inventory is unchanged.
+- **Correction to the first round-20 attempt (this packet).** The initial round-20 edit shipped two
+  defects that a Codex run surfaced (180 PASS / 47 FAIL, `tsc` not reached): the two new SQL helper calls
+  were UNqualified (`citation_ctx_run(...)`), which cannot resolve under `search_path=''` and failed every
+  capture write with a wrapper-masked `citation_protocol_unavailable`; and the released
+  `slotOutcome` still saw a raw `answer.promptId`/question `promptId`, so an uppercase-stored question
+  promptId kept demoting a valid capture. Both are fixed here (schema-qualified calls; normalized
+  panel/runs/answer promptId into the released helpers), and a direct-SQL admission assertion now surfaces
+  any root SQL error instead of the wrapper hiding it.
+- **Untouched.** Question ids and prompt/answer text stay EXACT (case-sensitive) comparisons; immutable
+  documents/hashes are never rewritten; strict write validation (the authoritative `::uuid` casts that
+  reject a malformed NEW identifier) is unchanged; the read-only `pgUuid` acceptance and ownership
+  scoping are preserved.
+- Tests: pure-resolver unit tests — a mixed-case brand capture resolves eligible (complete) and the
+  report groups it (observed/consumed 1, excluded 0); a correction chain links across case (only the leaf
+  resolves, no spurious duplicate); a survivor is flagged `erased_duplicate_slot` across case. Real
+  PGlite (letter-containing ids) — an UPPERCASE-identifier capture (question promptId, panelId,
+  brandRunId) is admitted AND read back resolved + eligible + counted (not excluded); a lowercase
+  duplicate at the same slot is refused (`citation_slot_occupied`); a lowercase correction of the
+  uppercase original is accepted without double-charging; and an erased uppercase capture reconciles to an
+  erased slot with consumed budget preserved.
+
 ## Files
 
 | File | Change |
 | --- | --- |
-| `src/lib/citation-protocol.ts` | New. Pure storage contract: `panelDraftSchema`, `lockedPanelSchema`, `citationProtocolStateSchema`, `brandRunApprovalSchema`, `parseManualCaptureInput`, `resolveStoredCaptures`, caps. Reuses PR137 schemas; never redefines them. |
+| `src/lib/citation-protocol.ts` | New. Pure storage contract: `panelDraftSchema`, `lockedPanelSchema`, `citationProtocolStateSchema`, `brandRunApprovalSchema`, `parseManualCaptureInput`, `resolveStoredCaptures`, `canonicalUuid`/`canonicalRun` (semantic uuid identity for comparison/keys), caps. Reuses PR137 schemas; never redefines them. |
 | `src/lib/citation-protocol.server.ts` | New. Service RPC helpers: read, save draft, lock, approve brand run, import capture, read+resolve. Owner/time/approval derived server-side; network-free. |
 | `src/lib/citation-protocol.functions.ts` | New. Six `requireSupabaseAuth` endpoints, each refusing an owner mismatch and never accepting a client approval/reviewer/timestamp. |
 | `src/lib/citation-protocol.test.ts` | New. Pure-contract + mocked-server unit tests. |
@@ -809,11 +866,29 @@ never throw and a bad run identity fails closed); all four brandRunId comparison
 same-slot guard, correction identity) now match by uuid VALUE. No document/hash rewrite, questionId case
 sensitivity unchanged, atomic read / tombstone privacy / ownership guards unchanged; the RPC signatures are
 unchanged and the rollback inventory gains one internal helper dropped after its callers — candidate SQL +
-P2 migration tests + docs only.
-**All prior counts — including the latest Codex run on db5ae6f8 (146 focused / 6310 full PASS,
+P2 migration tests + docs only. Round 20 (this turn) fixes P2 4057793975 as ONE coherent identity packet:
+raw-string UUID comparison throughout the P2 resolver/reconciliation/report (a capture's mixed-case
+`context.panelId` read as `panel_unresolved`, brand-run/correction/slot/prompt/report grouping likewise)
+now normalizes via a shared `canonicalUuid`/`canonicalRun` at every comparison and derived key — including
+canonicalizing the parsed `context` once so the released PR137 helpers see canonical identities (the
+capture stays eligible, not just resolved) — and the candidate SQL compares `panelId` and the question
+`promptId` by uuid value too (a `v_panel` and the reused `citation_ctx_run`), plus `importManualCapture`'s
+prompt binding. Question ids/text stay case-sensitive, immutable documents/hashes are never rewritten,
+strict write casts and the read-only `pgUuid` acceptance are unchanged, `citation-panel.ts` (released) is
+not edited, and NO new SQL object is added (rollback inventory unchanged) — candidate SQL +
+`citation-protocol.ts`/`.server.ts` + P2 tests + docs only. The FIRST round-20 attempt was defective —
+a Codex run of it recorded **180 PASS / 47 FAIL (tsc not reached)** from two bugs now corrected here: the
+two new SQL helper calls were unqualified (unresolvable under `search_path=''`, failing every write with a
+wrapper-masked `citation_protocol_unavailable`), and the released `slotOutcome` still compared a raw
+`answer.promptId`/question `promptId`. This packet schema-qualifies the calls and normalizes the
+panel/runs/answer promptId into the released helpers, and adds a direct-SQL admission assertion so a root
+SQL error is not masked.
+**That 180/47-FAIL run is a FAILED prior attempt of these edits, not a passing baseline. All prior PASS
+counts — including the pre-round-20 Codex run on 3c9c663f (220 focused / 6314 full PASS,
 types/lint/build PASS) — are a prior stage and do not carry over**; every check below, including the
 round-16 single-snapshot read tests, the round-17 capacity-reservation tests, the round-18
-erased-extra-attempt tests, and the round-19 brandRunId-identity tests, is UNRUN in this worktree and must
+erased-extra-attempt tests, the round-19 brandRunId-identity tests, and the round-20 semantic-UUID
+identity tests, is UNRUN in this worktree and must
 be re-executed by Codex. No released SQL, released `citation-panel.ts`, global
 migration inventory, or P3/R09 file was touched (the last commit `777ee67f` — Codex's doc rollback
 inventory fix — is preserved); USD50/manual-free is unchanged. The prepared deploy SQL /

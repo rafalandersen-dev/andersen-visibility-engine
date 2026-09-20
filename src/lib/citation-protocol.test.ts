@@ -299,6 +299,101 @@ describe("citation protocol pure contract", () => {
     expect(foreign.outcome).toBe("protocol_deviant");
     expect(foreign.deviations).toContain("brand_run_not_approved");
   });
+  it("resolves a mixed-case brand capture against a lowercase panel and run (semantic UUID identity)", () => {
+    // The panel document id and approved-run id are canonical lowercase (the write path derives them from
+    // ::text), but a validly-admitted capture stored an UPPERCASE panelId/brandRunId. It must RESOLVE and
+    // stay ELIGIBLE (complete) — not read as panel_unresolved / brand_run_not_approved and get demoted.
+    const panelLower = "0000abcd-0000-4000-8000-0000000000a1";
+    const runLower = "0000abcd-0000-4000-8000-0000000000b2";
+    const brandLower = { ...brandPanel(), panelId: panelLower };
+    const run = brandRun({ id: runLower, panelId: panelLower });
+    const store = [
+      {
+        id: "0000abcd-0000-4000-8000-0000000000c3",
+        status: "complete" as const,
+        promptId: uuid(201),
+        promptRevision: 1,
+        supersedesId: null,
+        captureContext: context({
+          panelId: panelLower.toUpperCase(),
+          slot: { round: 1, questionId: "SY-B01" },
+          brandRunId: runLower.toUpperCase(),
+          instructions: { questionText: brandText, extraInstruction: null, priorMessages: 0 },
+        }),
+      },
+    ];
+    const [r] = resolveStoredCaptures(store, [brandLower], [run]);
+    expect(r).toMatchObject({ panelResolved: true, brandRunResolved: true, outcome: "complete" });
+    expect(r.deviations).toEqual([]); // no panel_mismatch / brand_run_not_approved from the case gap
+    // The report groups the capture under its run by uuid VALUE (observed 1, never excluded).
+    const report = citationReport(
+      brandLower,
+      [r],
+      {
+        slots: [],
+        consumedByRun: { [runLower]: 1 },
+        excludedByVersion: {},
+        coverageCompleteByVersion: {},
+        extraAttemptsByVersion: {},
+      },
+      [run],
+    );
+    expect(report.brandRuns[0]).toMatchObject({ runId: runLower, observed: 1, consumed: 1 });
+    expect(report.excluded).toBe(0);
+    expect(report.outcomes.complete).toBe(1);
+  });
+  it("links a correction chain across UUID case so only the active leaf resolves", () => {
+    // The successor's supersedesId is the UPPERCASE spelling of the predecessor's lowercase id. Chain
+    // identity must link by uuid VALUE, so only the leaf resolves — not both (which would collapse to a
+    // spurious duplicate_slot).
+    const origLower = "0000abcd-0000-4000-8000-0000000000d4";
+    const orig = {
+      id: origLower,
+      status: "complete" as const,
+      promptId: uuid(101),
+      promptRevision: 1,
+      supersedesId: null,
+      captureContext: context(),
+    };
+    const corr = {
+      id: uuid(802),
+      status: "complete" as const,
+      promptId: uuid(101),
+      promptRevision: 1,
+      supersedesId: origLower.toUpperCase(),
+      captureContext: context(),
+    };
+    const resolved = resolveStoredCaptures([orig, corr], [discoveryPanel()], []);
+    expect(resolved.map((c) => c.answerId)).toEqual([uuid(802)]); // only the active leaf
+    expect(resolved[0].deviations).not.toContain("duplicate_slot");
+  });
+  it("flags a survivor sharing a slot with an erased original across UUID case", () => {
+    // The known erased slot key (from a lowercase tombstone column) must match a survivor whose stored
+    // brandRunId is UPPERCASE, so the ambiguous duplicate history is flagged rather than read as clean.
+    const panelLower = "0000abcd-0000-4000-8000-0000000000a1";
+    const runLower = "0000abcd-0000-4000-8000-0000000000b2";
+    const brandLower = { ...brandPanel(), panelId: panelLower };
+    const run = brandRun({ id: runLower, panelId: panelLower });
+    const erasedKeys = new Set([JSON.stringify([panelLower, 1, runLower, "SY-B01", 1])]);
+    const store = [
+      {
+        id: uuid(803),
+        status: "complete" as const,
+        promptId: uuid(201),
+        promptRevision: 1,
+        supersedesId: null,
+        captureContext: context({
+          panelId: panelLower.toUpperCase(),
+          slot: { round: 1, questionId: "SY-B01" },
+          brandRunId: runLower.toUpperCase(),
+          instructions: { questionText: brandText, extraInstruction: null, priorMessages: 0 },
+        }),
+      },
+    ];
+    const [r] = resolveStoredCaptures(store, [brandLower], [run], erasedKeys);
+    expect(r.outcome).toBe("protocol_deviant");
+    expect(r.deviations).toContain("erased_duplicate_slot");
+  });
   it("resolves only active correction-chain leaves and roundtrips into panelCounts without duplicate slots", () => {
     // A correction-of-correction chain a←b←c at round 1, plus an unrelated capture d at round 2.
     const at = (id: string, supersedesId: string | null, over = {}) => ({

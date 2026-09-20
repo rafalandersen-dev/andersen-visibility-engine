@@ -2084,6 +2084,169 @@ describe("CI-2 erasure preserves the slot/budget fact (content-free tombstone)",
   });
 });
 
+describe("CI-2 semantic UUID identity for mixed-case stored identifiers", () => {
+  // Letter-containing ids so a canonical (lowercase) spelling and an UPPERCASE one differ as text but are
+  // one uuid value. Panel document ids are canonical lowercase (the draft write enforces
+  // `panelId = p_panel::text`); the brand-run document id/panelId are lowercase (built from `::text`); but
+  // a capture's captureContext and a panel question's promptId keep the client's ORIGINAL spelling.
+  const pPrompt = "0000abcd-0000-4000-8000-0000000000c1";
+  const pPanel = "0000abcd-0000-4000-8000-0000000000c2";
+  const pRun = "0000abcd-0000-4000-8000-0000000000c3";
+  const brandCtx = (over: Record<string, unknown> = {}) => ({
+    ...ctxBase,
+    panelId: pPanel.toUpperCase(), // UPPERCASE captureContext panel id
+    panelVersion: 2,
+    slot: { round: 1, questionId: "SY-B01" },
+    brandRunId: pRun.toUpperCase(), // UPPERCASE captureContext run id
+    instructions: { questionText: brandText, extraInstruction: null, priorMessages: 0 },
+    time: {
+      capturedAt: "2026-09-08T10:00:00Z",
+      intendedSlotAt: "2026-09-08T09:00:00Z",
+      delayMinutes: 60,
+    },
+    ...over,
+  });
+  // The capture's own promptId is CANONICAL lowercase while the panel question stored it UPPERCASE — the
+  // exact "uppercase question promptId vs DB-canonical answer promptId" gap: the SQL binds them by uuid
+  // value, and the resolver must compare them by value too (not raw) so the capture stays eligible.
+  const upperCapture = (
+    answerOver: Record<string, unknown> = {},
+    ctxOver: Record<string, unknown> = {},
+  ) => ({
+    ...answerBase,
+    promptId: pPrompt, // canonical lowercase input promptId (panel question promptId is UPPERCASE)
+    promptRevision: 1,
+    capturedAt: "2026-09-08T10:00:00Z",
+    captureContext: brandCtx(ctxOver),
+    ...answerOver,
+  });
+  beforeEach(async () => {
+    // A brand panel whose question binds to pPrompt but stores the promptId UPPERCASE (the lock validates
+    // it by casting to uuid, then persists it verbatim). The panel document id is lowercase pPanel.
+    await saveEvidencePrompt(scope, pPrompt, 0, promptData(brandText), rpc);
+    const draft = {
+      ...draftBrand(),
+      panelId: pPanel,
+      questions: [
+        {
+          id: "SY-B01",
+          promptId: pPrompt.toUpperCase(),
+          promptRevision: 1,
+          text: brandText,
+          language: "sv",
+        },
+      ],
+    };
+    await saveCitationPanelDraft(scope, pPanel, 0, draft, rpc);
+    await lockCitationPanel(scope, pPanel, 1, rpc);
+    await backdatePanelApproval(pPanel);
+    // Approved run: id/panelId are lowercase (a direct insert with a backdated approval, like insertBrandRun).
+    await db.query(
+      "INSERT INTO citation_brand_runs(user_id,project_id,run_id,panel_id,panel_version,document) VALUES($1,'p',$2,$3,2,$4)",
+      [
+        user,
+        pRun,
+        pPanel,
+        {
+          id: pRun,
+          panelId: pPanel,
+          panelVersion: 2,
+          approvedBy: user,
+          approvedAt: "2026-09-01T00:00:00Z",
+          observationBudget: 5,
+          rounds: 2,
+        },
+      ],
+    );
+  });
+  it("admits an UPPERCASE-identifier capture (question promptId, panelId, brandRunId) and reports it resolved + eligible", async () => {
+    // The whole pipeline must accept the mixed-case capture — the SQL question-binding matches the
+    // UPPERCASE panel promptId by uuid value, and panel/run resolve by cast — and the canonical report
+    // must show it RESOLVED, eligible (complete) and COUNTED, never excluded or panel_unresolved.
+    const id = await importManualCapture(scope, upperCapture(), rpc);
+    expect(id).toBeTypeOf("string");
+    const { captures, reports } = await readResolvedCaptures(scope, rpc);
+    expect(captures).toHaveLength(1);
+    expect(captures[0]).toMatchObject({
+      panelResolved: true,
+      brandRunResolved: true,
+      outcome: "complete", // eligible: bound to slot by uuid value despite the case gap
+    });
+    // The case gap must not surface as an identity deviation (panelId, run, or prompt binding).
+    expect(captures[0].deviations).not.toContain("panel_mismatch");
+    expect(captures[0].deviations).not.toContain("brand_run_not_approved");
+    const report = reports.find((x) => x.panelId === pPanel);
+    expect(report?.outcomes.complete).toBe(1); // counted as a complete observation, not excluded
+    expect(report?.excluded).toBe(0);
+    expect(report?.brandRuns[0]).toMatchObject({ runId: pRun, observed: 1, consumed: 1 });
+    // Direct-SQL admission of a second distinct capture (round 2), so a ROOT SQL error (e.g. an
+    // unqualified helper under search_path='') surfaces as a raw throw instead of being masked by the
+    // wrapper's citation_protocol_unavailable.
+    const base = (await readAnswerEvidence(scope, rpc)).answers[0];
+    const r2 = upperCapture(
+      { rawAnswer: "r2 direct" },
+      { slot: { round: 2, questionId: "SY-B01" } },
+    );
+    const direct = await db.query<{ id: string }>("SELECT save_citation_capture($1,'p',$2) id", [
+      user,
+      { input: r2, prompt: base.prompt, analysis: base.analysis },
+    ]);
+    expect(direct.rows[0].id).toMatch(
+      /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/,
+    );
+  });
+  it("refuses a lowercase duplicate original of the UPPERCASE-stored capture at the same slot", async () => {
+    await importManualCapture(scope, upperCapture(), rpc); // UPPERCASE original at SY-B01 r1
+    const base = (await readAnswerEvidence(scope, rpc)).answers[0];
+    // A distinct NEW capture at the SAME slot but spelled lowercase must be refused as occupied — the
+    // same-slot guard matches panelId/brandRunId by uuid value across case. Specific guard via direct SQL,
+    // generic via the wrapper.
+    const lower = upperCapture(
+      { rawAnswer: "lowercase duplicate", promptId: pPrompt },
+      { panelId: pPanel, brandRunId: pRun },
+    );
+    await expect(
+      db.query("SELECT save_citation_capture($1,'p',$2)", [
+        user,
+        { input: lower, prompt: base.prompt, analysis: base.analysis },
+      ]),
+    ).rejects.toThrow(/citation_slot_occupied/);
+    await expect(importManualCapture(scope, lower, rpc)).rejects.toThrow();
+  });
+  it("accepts a lowercase correction of the UPPERCASE-stored original (identity by uuid value)", async () => {
+    const original = await importManualCapture(scope, upperCapture(), rpc);
+    // Correction spelled lowercase for panelId/brandRunId/promptId; same observation identity by value.
+    const correction = upperCapture(
+      { supersedesId: original, rawAnswer: "lowercase correction", promptId: pPrompt },
+      { panelId: pPanel, brandRunId: pRun },
+    );
+    const id = await importManualCapture(scope, correction, rpc);
+    expect(id).toBeTypeOf("string");
+    // Only the active leaf resolves; the run's budget is not double-charged (a correction is exempt).
+    const { captures, reports } = await readResolvedCaptures(scope, rpc);
+    expect(captures.map((c) => c.answerId)).toEqual([id]);
+    expect(reports.find((x) => x.panelId === pPanel)?.brandRuns[0]).toMatchObject({
+      consumed: 1,
+      observed: 1,
+    });
+  });
+  it("reconciles an erased UPPERCASE capture: erased slot + consumed preserved across case", async () => {
+    const original = await importManualCapture(scope, upperCapture(), rpc);
+    await removeAnswerEvidence(scope, "answer", original, rpc); // tombstone brand_run_id/panel_id lowercase
+    const { captures, erasedSlots, reports } = await readResolvedCaptures(scope, rpc);
+    expect(captures).toEqual([]);
+    // The erased slot resolves (its lowercase tombstone matches the case-normalized coverage) and the
+    // run's budget stays consumed.
+    expect(erasedSlots).toHaveLength(1);
+    expect(erasedSlots[0]).toMatchObject({ questionId: "SY-B01", brandRunResolved: true });
+    expect(reports.find((x) => x.panelId === pPanel)?.brandRuns[0]).toMatchObject({
+      consumed: 1,
+      observed: 0,
+      erased: 1,
+    });
+  });
+});
+
 describe("CI-2 capacity, isolation, deletion and access control", () => {
   it("enforces the panel-version and brand-run capacities", async () => {
     await saveCitationPanelDraft(scope, brandPanelId, 0, draftBrand(), rpc);
