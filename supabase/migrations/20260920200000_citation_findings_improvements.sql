@@ -4,20 +4,26 @@
 -- server boundary) under server-derived authenticated provenance.
 --
 -- HONEST SCOPE (see evidence/citation-findings-improvements-2026-09-20.md): this packet is the STORAGE +
--- server boundary. It does NOT system-verify an improvement. `verificationStatus` is one of:
---   * 'owner_attested'  — the authenticated PROJECT OWNER recorded an owner_inspection over evidence that
---                         still resolves. This is an authenticated owner attestation, NOT a causal/system
---                         proof and NOT a claim the destination was probed.
---   * 'unresolved'      — a publication_receipt / index_inspection method whose receipt CANNOT be bound to
---                         a trusted publication_evidence / google_index_inspections record here (no such
---                         binding contract exists yet); it is explicitly NOT authenticated. Remaining
---                         wiring is documented in the evidence file.
---   * 'unverified'      — no receipt, a forged/missing reviewer or timestamp, or an unresolved dependency.
--- A caller receipt string, a forged approver (approvedBy/approvedVersion/taskId are declared, UNRESOLVED
--- references here), or a `pending_parser` native artifact are NEVER elevated into authenticated proof.
--- No provider calls, no auto-approval, no publication, no parser. Panel/client scope is OWNER-DECLARED
--- (not authenticated against a P2 panel record); it keeps P3 independent of P2 while binding an
--- improvement to findings of the same declared scope.
+-- server boundary + a STRUCTURED publication/approval binding. It does NOT system-verify an improvement.
+-- Two SEPARATE server-derived axes are returned, never a client boolean and never a causal/system claim:
+--   `verificationStatus` (approval + delivery ladder, strongest resolved):
+--     'unverified'        no binding, an unresolved pinned finding/source, the publication is gone, or the
+--                         pinned version is not the CURRENTLY approved version for the asset.
+--     'approval_bound'    the pinned version_hash is currently approved for the asset in this project.
+--     'connector_receipt' plus a 'published' attempt carrying a connector response whose liveUrl equals the
+--                         destination and whose Plan action equals the task — an AUTHENTIC CONNECTOR
+--                         RESPONSE, NOT proof the destination actually shows the approved content.
+--     'owner_attested'    plus a structured OWNER inspection of that exact liveUrl reading
+--                         shows_approved_content at a finite, on/after-publication, non-future time, AND a
+--                         still-resolving scoped baseline (evidenceStatus='baseline_recorded'). An
+--                         authenticated owner before/after attestation, still NOT a system verification.
+--   `evidenceStatus` (before/after baseline axis, reported separately so it is never silently dropped):
+--     'baseline_absent' | 'baseline_missing' | 'baseline_recorded' (see citation_improvement_evidence).
+-- The record's DECLARED approval facts (change.approvedVersion/approvedBy) are reconciled to the actually
+-- bound approval; a forged approver/version alongside a real binding is refused. A caller receipt string or
+-- a `pending_parser` native artifact are NEVER elevated into proof. No provider calls, no auto-approval, no
+-- publication, no parser. Panel/client scope is OWNER-DECLARED (not authenticated against a P2 panel
+-- record); it keeps P3 independent of P2 while binding an improvement to findings of the same scope.
 
 CREATE TABLE public.ai_citation_findings (
   user_id uuid NOT NULL, project_id text NOT NULL, id uuid NOT NULL DEFAULT gen_random_uuid(),
@@ -66,6 +72,11 @@ CREATE TABLE public.ai_citation_improvements (
   -- exist, so deleting the referenced correction invalidates the dependent claim rather than silently
   -- rebinding to an older superseded version.
   bound_finding_row_ids uuid[] NOT NULL DEFAULT '{}',
+  -- The P3-specific STRUCTURED publication/approval binding (or NULL) — never free receipt text. Its
+  -- pinned publicationId/assetId/versionHash (+ optional structured owner inspection) are resolved LIVE at
+  -- read; the binding is folded into record_sha256 (see save), so a resave with a different binding is a
+  -- new version and a binding can never be silently rebound.
+  publication_binding jsonb CHECK(publication_binding IS NULL OR (jsonb_typeof(publication_binding)='object' AND octet_length(publication_binding::text)<=4000)),
   supersedes_id uuid,
   predecessor_deleted boolean NOT NULL DEFAULT false,
   created_at timestamptz NOT NULL DEFAULT clock_timestamp(),
@@ -144,34 +155,58 @@ RETURNS uuid LANGUAGE sql STABLE SECURITY DEFINER SET search_path='' AS $$
 $$;
 REVOKE ALL ON FUNCTION public.citation_finding_head_id(uuid,text,uuid,uuid,integer,text,text) FROM PUBLIC,anon,authenticated,service_role;
 
--- Server-derived verification STATUS from LIVE dependency state; never a client boolean and never a
--- system/causal proof. Returns 'unverified' unless there is a verification receipt, verifiedAt is on/after
--- the approval, there is >=1 baseline capture and every one still resolves to a live ai_answer_evidence
--- row, and every PINNED finding version row (p_bound) still exists with its own cited sources still
--- available. When those gates hold: 'owner_attested' for method='owner_inspection' (an authenticated owner
--- attestation — the recorder is the project owner, enforced at save), else 'unresolved' for a
--- publication_receipt/index_inspection whose receipt is not bound to a trusted record here. A deleted
--- finding row, source or baseline collapses this to 'unverified'.
-CREATE FUNCTION public.citation_improvement_status(p_user uuid,p_project text,p_record jsonb,p_bound uuid[])
+-- The BEFORE/AFTER baseline axis, reported SEPARATELY from the delivery ladder so baseline eligibility is
+-- never silently dropped. An owner-recorded verification is a before/after claim; it must name baseline
+-- captures that STILL resolve to live in-scope answer evidence:
+--   'baseline_absent'   no verification block (a delivery record with no before/after claim recorded).
+--   'baseline_missing'  a verification block whose baselines no longer all resolve in this project
+--                       (deleted, malformed, or never in-scope) — the before/after evidence is gone.
+--   'baseline_recorded' a verification block whose every baseline still resolves live in this project.
+CREATE FUNCTION public.citation_improvement_evidence(p_user uuid,p_project text,p_record jsonb)
 RETURNS text LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path='' AS $$
-DECLARE v jsonb; cid text; frec jsonb; approved timestamptz; verified_at timestamptz; method text; i integer;
+DECLARE v jsonb; cid text;
 BEGIN
   v := p_record->'verification';
-  IF v IS NULL OR jsonb_typeof(v)<>'object' THEN RETURN 'unverified'; END IF;
-  -- Fail closed on a missing (SQL NULL from an absent key) or non-string reviewer, and require the
-  -- attesting reviewer to be the authenticated project owner (p_user) — so even a direct insert cannot
-  -- yield an authenticated status with a forged identity.
-  IF v->'reviewer' IS NULL OR jsonb_typeof(v->'reviewer')<>'string'
-     OR (v->>'reviewer') !~ '^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$'
-  THEN RETURN 'unverified'; END IF;
-  IF (v->>'reviewer')::uuid <> p_user THEN RETURN 'unverified'; END IF;
-  IF jsonb_typeof(p_record->'baselineCaptureIds') IS DISTINCT FROM 'array' THEN RETURN 'unverified'; END IF;
-  IF jsonb_array_length(p_record->'baselineCaptureIds')=0 THEN RETURN 'unverified'; END IF;
-  BEGIN
-    approved := (p_record->'change'->>'approvedAt')::timestamptz;
-    verified_at := (v->>'verifiedAt')::timestamptz;
-  EXCEPTION WHEN others THEN RETURN 'unverified'; END;
-  IF approved IS NULL OR verified_at IS NULL OR verified_at < approved THEN RETURN 'unverified'; END IF;
+  IF v IS NULL OR jsonb_typeof(v)<>'object' THEN RETURN 'baseline_absent'; END IF;
+  IF jsonb_typeof(p_record->'baselineCaptureIds')<>'array' OR jsonb_array_length(p_record->'baselineCaptureIds')=0 THEN
+    RETURN 'baseline_missing';
+  END IF;
+  FOR cid IN SELECT jsonb_array_elements_text(p_record->'baselineCaptureIds') LOOP
+    IF cid !~ '^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$' THEN
+      RETURN 'baseline_missing';
+    END IF;
+    IF NOT EXISTS(SELECT 1 FROM public.ai_answer_evidence WHERE user_id=p_user AND project_id=p_project AND id=cid::uuid) THEN
+      RETURN 'baseline_missing';
+    END IF;
+  END LOOP;
+  RETURN 'baseline_recorded';
+END; $$;
+REVOKE ALL ON FUNCTION public.citation_improvement_evidence(uuid,text,jsonb) FROM PUBLIC,anon,authenticated,service_role;
+
+-- Server-derived verification STATUS from the STRUCTURED publication/approval binding + LIVE dependency
+-- state. Never a client boolean, never an independent/system content check (none exists here), and no
+-- causal claim. The distinct ladder (strongest resolved):
+--   'unverified'        no binding; an unresolved pinned finding/source; the bound publication is gone; or
+--                       the pinned version is not the CURRENTLY approved version for the asset.
+--   'approval_bound'    the pinned version_hash is currently approved for the asset in this project.
+--   'connector_receipt' plus a 'published' attempt carrying a connector response (outcome_data) whose
+--                       liveUrl equals the improvement's destination and whose snapshot Plan action equals
+--                       the improvement's task. This is an AUTHENTIC CONNECTOR RESPONSE, NOT proof the
+--                       destination actually shows the approved content.
+--   'owner_attested'    plus a STRUCTURED owner inspection of that exact liveUrl reading
+--                       shows_approved_content at a finite, on/after-(publication AND current approval),
+--                       non-future time (5-minute clock-skew policy), AND a still-resolving scoped baseline
+--                       (evidenceStatus='baseline_recorded'). An authenticated OWNER before/after
+--                       attestation, still NOT a system/independent verification.
+-- Deleting the publication, the approval (asset/version change or withdrawal), the asset, a pinned finding
+-- or a baseline — or a re-approval that post-dates the inspection — collapses this back down; a stored
+-- binding never keeps a stale current status.
+CREATE FUNCTION public.citation_improvement_status(p_user uuid,p_project text,p_record jsonb,p_bound uuid[],p_binding jsonb)
+RETURNS text LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path='' AS $$
+DECLARE frec jsonb; i integer; pub public.publication_evidence%ROWTYPE;
+  b_asset text; b_vhash text; live_url text; insp jsonb; status text; appr_at timestamptz; obs timestamptz;
+BEGIN
+  IF p_binding IS NULL OR jsonb_typeof(p_binding)<>'object' THEN RETURN 'unverified'; END IF;
   -- Every PINNED finding version row must still exist with resolvable in-scope sources.
   IF coalesce(array_length(p_bound,1),0)=0 THEN RETURN 'unverified'; END IF;
   FOR i IN 1..array_length(p_bound,1) LOOP
@@ -181,21 +216,46 @@ BEGIN
       RETURN 'unverified';
     END IF;
   END LOOP;
-  -- Every baseline capture must still resolve to a live answer-evidence row (guard, then cast).
-  FOR cid IN SELECT jsonb_array_elements_text(p_record->'baselineCaptureIds') LOOP
-    IF cid !~ '^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$' THEN
-      RETURN 'unverified';
+  b_asset := p_binding->>'assetId'; b_vhash := p_binding->>'versionHash';
+  IF (p_binding->>'publicationId') !~ '^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$'
+  THEN RETURN 'unverified'; END IF;
+  SELECT * INTO pub FROM public.publication_evidence
+    WHERE user_id=p_user AND project_id=p_project AND id=(p_binding->>'publicationId')::uuid;
+  IF pub.id IS NULL OR pub.asset_id IS DISTINCT FROM b_asset OR pub.version_hash IS DISTINCT FROM b_vhash THEN
+    RETURN 'unverified';
+  END IF;
+  -- The CURRENT approval for the asset (and its time) — a re-approval bumps updated_at and can post-date an
+  -- earlier inspection, which then no longer attests the current approved state.
+  SELECT updated_at INTO appr_at FROM public.publication_approvals
+    WHERE user_id=p_user AND project_id=p_project AND asset_id=b_asset
+      AND algorithm='milo-publication-v1' AND version_hash=b_vhash AND approved;
+  IF appr_at IS NULL THEN RETURN 'unverified'; END IF;
+  status := 'approval_bound';
+  live_url := CASE WHEN jsonb_typeof(pub.outcome_data)='object' THEN pub.outcome_data->>'liveUrl' END;
+  IF pub.outcome='published' AND live_url IS NOT NULL
+     AND (p_record->'destination'->>'reference') = live_url
+     AND (pub.snapshot->>'actionId') = (p_record->>'taskId') THEN
+    status := 'connector_receipt';
+    insp := p_binding->'ownerInspection';
+    -- owner_attested (before/after content attestation) requires a resolving scoped baseline AND a
+    -- structured inspection of THIS liveUrl at a finite, on/after-(publication AND approval), non-future
+    -- time. A deleted baseline, or a re-approval that post-dates the inspection, drops it to connector_receipt.
+    IF insp IS NOT NULL AND jsonb_typeof(insp)='object'
+       AND (insp->>'checkResult') = 'shows_approved_content'
+       AND (insp->>'observedUrl') = live_url
+       AND pub.finished_at IS NOT NULL
+       AND public.citation_improvement_evidence(p_user,p_project,p_record)='baseline_recorded' THEN
+      BEGIN obs := (insp->>'observedAt')::timestamptz; EXCEPTION WHEN others THEN obs := NULL; END;
+      IF obs IS NOT NULL AND isfinite(obs)
+         AND obs >= greatest(pub.finished_at,appr_at)
+         AND obs <= clock_timestamp() + interval '5 minutes' THEN
+        status := 'owner_attested';
+      END IF;
     END IF;
-    IF NOT EXISTS(SELECT 1 FROM public.ai_answer_evidence WHERE user_id=p_user AND project_id=p_project AND id=cid::uuid) THEN
-      RETURN 'unverified';
-    END IF;
-  END LOOP;
-  method := v->>'method';
-  IF method='owner_inspection' THEN RETURN 'owner_attested'; END IF;
-  IF method IN ('publication_receipt','index_inspection') THEN RETURN 'unresolved'; END IF;
-  RETURN 'unverified';
+  END IF;
+  RETURN status;
 END; $$;
-REVOKE ALL ON FUNCTION public.citation_improvement_status(uuid,text,jsonb,uuid[]) FROM PUBLIC,anon,authenticated,service_role;
+REVOKE ALL ON FUNCTION public.citation_improvement_status(uuid,text,jsonb,uuid[],jsonb) FROM PUBLIC,anon,authenticated,service_role;
 
 CREATE FUNCTION public.save_ai_citation_finding(p_user uuid,p_project text,p_record jsonb,p_scope jsonb)
 RETURNS jsonb LANGUAGE plpgsql SECURITY DEFINER SET search_path='' AS $$
@@ -335,11 +395,13 @@ BEGIN
   RETURN true;
 END; $$;
 
-CREATE FUNCTION public.save_ai_citation_improvement(p_user uuid,p_project text,p_record jsonb,p_scope jsonb)
+CREATE FUNCTION public.save_ai_citation_improvement(p_user uuid,p_project text,p_record jsonb,p_scope jsonb,p_binding jsonb)
 RETURNS jsonb LANGUAGE plpgsql SECURITY DEFINER SET search_path='' AS $$
 DECLARE digest text; existing uuid; head uuid; new_id uuid; next_version integer;
   iid uuid; v jsonb; fid text; cid text; row_id uuid; bound uuid[] := '{}';
   panel uuid; pver integer; cname text; cmarket text;
+  pub public.publication_evidence%ROWTYPE; b_asset text; b_vhash text; b_live text; insp jsonb;
+  appr_at timestamptz; obs timestamptz;
 BEGIN
   PERFORM public.assert_knowledge_project(p_user,p_project,true);
   PERFORM public.citation_lock_account(p_user);
@@ -408,12 +470,82 @@ BEGIN
       END IF;
     END LOOP;
   END IF;
+  -- Structured publication/approval binding (optional). It is NOT free receipt text: each field is
+  -- resolved against the released publication_evidence / publication_approvals contracts and a mismatch
+  -- fails closed. This rejects a wrong publication/project/asset/version, an unrelated or non-current
+  -- approval, a wrong Plan action, a wrong destination url, and a manufactured owner inspection.
+  IF p_binding IS NOT NULL AND jsonb_typeof(p_binding)='object' THEN
+    IF octet_length(p_binding::text)>4000
+       OR jsonb_typeof(p_binding->'publicationId') IS DISTINCT FROM 'string'
+       OR (p_binding->>'publicationId') !~ '^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$'
+       OR jsonb_typeof(p_binding->'assetId') IS DISTINCT FROM 'string'
+       OR jsonb_typeof(p_binding->'versionHash') IS DISTINCT FROM 'string'
+       OR (p_binding->>'versionHash') !~ '^[a-f0-9]{64}$' THEN
+      RAISE EXCEPTION 'invalid_citation_improvement' USING ERRCODE='22023';
+    END IF;
+    b_asset := p_binding->>'assetId'; b_vhash := p_binding->>'versionHash';
+    SELECT * INTO pub FROM public.publication_evidence
+      WHERE user_id=p_user AND project_id=p_project AND id=(p_binding->>'publicationId')::uuid;
+    IF pub.id IS NULL OR pub.asset_id<>b_asset OR pub.version_hash<>b_vhash THEN
+      RAISE EXCEPTION 'citation_improvement_binding_unresolved' USING ERRCODE='22023';
+    END IF;
+    SELECT updated_at INTO appr_at FROM public.publication_approvals
+      WHERE user_id=p_user AND project_id=p_project AND asset_id=b_asset
+        AND algorithm='milo-publication-v1' AND version_hash=b_vhash AND approved;
+    IF appr_at IS NULL THEN
+      RAISE EXCEPTION 'citation_improvement_binding_unapproved' USING ERRCODE='22023';
+    END IF;
+    -- The record's DECLARED approval facts may not contradict the actually-bound approval: the declared
+    -- approvedVersion must be the bound version_hash, and the declared approvedBy must be the authenticated
+    -- owner who holds the approval (publication_approvals is owner-keyed). That table records no separate
+    -- approver identity or human approvedAt, so those declared fields are reconciled to the owner and the
+    -- bound version and NOT otherwise endorsed here; a forged approver/version alongside a real binding is
+    -- refused rather than co-existing with an authenticated approval_bound.
+    IF (p_record->'change'->>'approvedVersion') IS DISTINCT FROM b_vhash
+       OR (p_record->'change'->>'approvedBy') IS DISTINCT FROM p_user::text THEN
+      RAISE EXCEPTION 'citation_improvement_binding_approval_mismatch' USING ERRCODE='22023';
+    END IF;
+    IF (pub.snapshot->>'actionId') IS DISTINCT FROM (p_record->>'taskId') THEN
+      RAISE EXCEPTION 'citation_improvement_binding_task_mismatch' USING ERRCODE='22023';
+    END IF;
+    b_live := CASE WHEN jsonb_typeof(pub.outcome_data)='object' THEN pub.outcome_data->>'liveUrl' END;
+    IF pub.outcome='published' AND b_live IS NOT NULL
+       AND (p_record->'destination'->>'reference') IS DISTINCT FROM b_live THEN
+      RAISE EXCEPTION 'citation_improvement_binding_destination_mismatch' USING ERRCODE='22023';
+    END IF;
+    -- A structured owner inspection may only attest a PUBLISHED liveUrl it actually names, recorded by the
+    -- authenticated owner (this save runs as that owner) at a FINITE observedAt on/after both the recorded
+    -- publication (finished_at) and the current approval, and not in the future beyond a 5-minute
+    -- clock-skew allowance. It is an owner attestation only, never a system/independent content check.
+    insp := p_binding->'ownerInspection';
+    IF insp IS NOT NULL AND jsonb_typeof(insp)<>'null' THEN
+      IF jsonb_typeof(insp)<>'object'
+         OR jsonb_typeof(insp->'checkResult') IS DISTINCT FROM 'string'
+         OR (insp->>'checkResult') NOT IN ('shows_approved_content','does_not_show','inconclusive')
+         OR jsonb_typeof(insp->'observedUrl') IS DISTINCT FROM 'string'
+         OR jsonb_typeof(insp->'observedAt') IS DISTINCT FROM 'string'
+         OR pub.outcome<>'published' OR b_live IS NULL OR pub.finished_at IS NULL
+         OR (insp->>'observedUrl') IS DISTINCT FROM b_live THEN
+        RAISE EXCEPTION 'citation_improvement_binding_inspection_invalid' USING ERRCODE='22023';
+      END IF;
+      BEGIN obs := (insp->>'observedAt')::timestamptz;
+      EXCEPTION WHEN others THEN RAISE EXCEPTION 'citation_improvement_binding_inspection_invalid' USING ERRCODE='22023'; END;
+      IF NOT isfinite(obs) OR obs < greatest(pub.finished_at,appr_at)
+         OR obs > clock_timestamp() + interval '5 minutes' THEN
+        RAISE EXCEPTION 'citation_improvement_binding_inspection_invalid' USING ERRCODE='22023';
+      END IF;
+    END IF;
+  END IF;
   IF EXISTS(SELECT 1 FROM public.ai_citation_improvements
      WHERE user_id=p_user AND project_id=p_project AND improvement_id=iid
        AND (panel_id<>panel OR panel_version<>pver OR client_name<>cname OR client_market<>cmarket)) THEN
     RAISE EXCEPTION 'citation_improvement_scope_drift' USING ERRCODE='22023';
   END IF;
-  digest := encode(sha256(convert_to(jsonb_build_array(panel,pver,cname,cmarket,p_record)::text,'UTF8')),'hex');
+  -- The RESOLVED pinned finding row ids AND the binding are folded into the idempotency digest, so a resave
+  -- is idempotent only under the SAME dependency state: a different binding, or the same payload after a
+  -- referenced finding has been superseded (a new head row id), yields a new digest and a NEW version
+  -- pinning the current rows — never a silent rebind of the prior record to stale dependencies.
+  digest := encode(sha256(convert_to(jsonb_build_array(panel,pver,cname,cmarket,p_record,coalesce(p_binding,'null'::jsonb),to_jsonb(bound))::text,'UTF8')),'hex');
   SELECT id INTO existing FROM public.ai_citation_improvements
     WHERE user_id=p_user AND project_id=p_project AND record_sha256=digest;
   IF existing IS NOT NULL THEN
@@ -422,7 +554,8 @@ BEGIN
       'client',jsonb_build_object('name',client_name,'market',client_market),
       'actorId',actor_id,'supersedesId',supersedes_id,'predecessorDeleted',predecessor_deleted,
       'createdAt',created_at,
-      'verificationStatus',public.citation_improvement_status(p_user,p_project,record,bound_finding_row_ids))
+      'verificationStatus',public.citation_improvement_status(p_user,p_project,record,bound_finding_row_ids,publication_binding),
+      'evidenceStatus',public.citation_improvement_evidence(p_user,p_project,record))
       FROM public.ai_citation_improvements WHERE user_id=p_user AND project_id=p_project AND id=existing);
   END IF;
   IF (SELECT count(*) FROM public.ai_citation_improvements WHERE user_id=p_user AND project_id=p_project)>=100 THEN
@@ -437,15 +570,16 @@ BEGIN
     WHERE user_id=p_user AND project_id=p_project AND improvement_id=iid;
   INSERT INTO public.ai_citation_improvements
     (user_id,project_id,improvement_id,version,record,record_sha256,
-     panel_id,panel_version,client_name,client_market,actor_id,bound_finding_row_ids,supersedes_id)
-    VALUES(p_user,p_project,iid,next_version,p_record,digest,panel,pver,cname,cmarket,p_user,bound,head)
+     panel_id,panel_version,client_name,client_market,actor_id,bound_finding_row_ids,publication_binding,supersedes_id)
+    VALUES(p_user,p_project,iid,next_version,p_record,digest,panel,pver,cname,cmarket,p_user,bound,p_binding,head)
     RETURNING id INTO new_id;
   RETURN (SELECT jsonb_build_object('id',id,'improvementId',improvement_id,'version',version,
     'panelId',panel_id,'panelVersion',panel_version,
     'client',jsonb_build_object('name',client_name,'market',client_market),
     'actorId',actor_id,'supersedesId',supersedes_id,'predecessorDeleted',predecessor_deleted,
     'createdAt',created_at,
-    'verificationStatus',public.citation_improvement_status(p_user,p_project,record,bound_finding_row_ids))
+    'verificationStatus',public.citation_improvement_status(p_user,p_project,record,bound_finding_row_ids,publication_binding),
+    'evidenceStatus',public.citation_improvement_evidence(p_user,p_project,record))
     FROM public.ai_citation_improvements WHERE user_id=p_user AND project_id=p_project AND id=new_id);
 END; $$;
 
@@ -459,7 +593,8 @@ BEGIN
     'client',jsonb_build_object('name',client_name,'market',client_market),
     'actorId',actor_id,'supersedesId',supersedes_id,'predecessorDeleted',predecessor_deleted,
     'createdAt',created_at,
-    'verificationStatus',public.citation_improvement_status(p_user,p_project,record,bound_finding_row_ids))
+    'verificationStatus',public.citation_improvement_status(p_user,p_project,record,bound_finding_row_ids,publication_binding),
+    'evidenceStatus',public.citation_improvement_evidence(p_user,p_project,record))
     ORDER BY created_at DESC,id DESC)
     FROM public.ai_citation_improvements WHERE user_id=p_user AND project_id=p_project),'[]'::jsonb));
 END; $$;
@@ -475,7 +610,13 @@ BEGIN
     'client',jsonb_build_object('name',client_name,'market',client_market),
     'actorId',actor_id,'supersedesId',supersedes_id,'predecessorDeleted',predecessor_deleted,
     'createdAt',created_at,'record',record,
-    'verificationStatus',public.citation_improvement_status(p_user,p_project,record,bound_finding_row_ids)) INTO result
+    -- The exact pinned dependency identity is returned on the DETAIL read so the owner can audit/export
+    -- what an improvement is bound to (the resolved finding version rows and the structured binding, which
+    -- carries no secret/provider material). The list stays metadata-only.
+    'boundFindingRowIds',to_jsonb(bound_finding_row_ids),
+    'publicationBinding',publication_binding,
+    'verificationStatus',public.citation_improvement_status(p_user,p_project,record,bound_finding_row_ids,publication_binding),
+    'evidenceStatus',public.citation_improvement_evidence(p_user,p_project,record)) INTO result
     FROM public.ai_citation_improvements WHERE user_id=p_user AND project_id=p_project AND id=p_id;
   IF result IS NULL THEN RAISE EXCEPTION 'citation_improvement_unavailable' USING ERRCODE='22023'; END IF;
   RETURN result;
@@ -498,7 +639,7 @@ REVOKE ALL ON FUNCTION
   public.read_ai_citation_findings(uuid,text),
   public.read_ai_citation_finding(uuid,text,uuid),
   public.remove_ai_citation_finding(uuid,text,uuid),
-  public.save_ai_citation_improvement(uuid,text,jsonb,jsonb),
+  public.save_ai_citation_improvement(uuid,text,jsonb,jsonb,jsonb),
   public.read_ai_citation_improvements(uuid,text),
   public.read_ai_citation_improvement(uuid,text,uuid),
   public.remove_ai_citation_improvement(uuid,text,uuid)
@@ -508,7 +649,7 @@ GRANT EXECUTE ON FUNCTION
   public.read_ai_citation_findings(uuid,text),
   public.read_ai_citation_finding(uuid,text,uuid),
   public.remove_ai_citation_finding(uuid,text,uuid),
-  public.save_ai_citation_improvement(uuid,text,jsonb,jsonb),
+  public.save_ai_citation_improvement(uuid,text,jsonb,jsonb,jsonb),
   public.read_ai_citation_improvements(uuid,text),
   public.read_ai_citation_improvement(uuid,text,uuid),
   public.remove_ai_citation_improvement(uuid,text,uuid)

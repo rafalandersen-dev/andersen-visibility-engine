@@ -7,9 +7,9 @@ import { GAP_FAMILIES, findingSchema, improvementSchema } from "./citation-findi
  * panel/client scope plus the read-back shapes the server returns. It is client-safe and network-free.
  *
  * Authenticated provenance is NOT in these client types: the server stamps `actorId`/`reviewerId`, and an
- * improvement's `verified` is re-derived server-side from live dependency resolution on every read (a
- * deleted source, finding or baseline collapses it). A `verified: true` is therefore an authenticated
- * server fact returned on read, never a value a caller can submit.
+ * improvement's `verificationStatus`/`evidenceStatus` are re-derived server-side from live dependency
+ * resolution on every read (a deleted source, pinned finding, publication/approval or baseline collapses
+ * them). They are authenticated server facts returned on read, never values a caller can submit.
  */
 const text = (max: number) => z.string().trim().min(1).max(max);
 const uuid = z.string().uuid();
@@ -54,8 +54,34 @@ const boundedImprovement = improvementSchema.superRefine((i, ctx) => {
 export const citationFindingStageSchema = z
   .object({ scope: citationPanelScopeSchema, finding: boundedFinding })
   .strict();
+/** A STRUCTURED publication/approval binding (never free receipt text): the exact publication attempt,
+ * its asset and the reviewed version_hash, optionally an owner inspection of the published URL. The
+ * server resolves every field against the released publication_evidence / publication_approvals records
+ * and refuses a mismatch; `verificationStatus` is then derived live from these (see the enum below). */
+export const citationPublicationBindingSchema = z
+  .object({
+    publicationId: uuid,
+    assetId: text(400),
+    versionHash: z.string().regex(/^[a-f0-9]{64}$/),
+    ownerInspection: z
+      .object({
+        observedAt: z.string().datetime({ offset: true }),
+        checkResult: z.enum(["shows_approved_content", "does_not_show", "inconclusive"]),
+        /** Must equal the published liveUrl; the server rejects an inspection of any other URL. */
+        observedUrl: text(2000),
+      })
+      .strict()
+      .nullable(),
+  })
+  .strict();
+export type CitationPublicationBinding = z.infer<typeof citationPublicationBindingSchema>;
 export const citationImprovementStageSchema = z
-  .object({ scope: citationPanelScopeSchema, improvement: boundedImprovement })
+  .object({
+    scope: citationPanelScopeSchema,
+    improvement: boundedImprovement,
+    /** Optional; a bound improvement carries this, an unbound draft omits it (or sends null). */
+    binding: citationPublicationBindingSchema.nullish(),
+  })
   .strict();
 /** Server-attributed finding view (metadata only in the list). `actorId`/`reviewerId`, `version`,
  * `supersedesId`, `predecessorDeleted`, `createdAt` and `sourceAvailable` are set/derived by the server
@@ -86,22 +112,38 @@ export const citationFindingDetailSchema = citationFindingSummarySchema
 export const citationFindingsStateSchema = z
   .object({ findings: z.array(citationFindingSummarySchema).max(200) })
   .strict();
-/** The server-derived verification status of an improvement, re-computed on every read from LIVE
- * dependency state (never a client boolean, never a system/causal proof):
- *  - `owner_attested`: the authenticated project owner recorded an `owner_inspection` over evidence that
- *    still resolves — an authenticated owner attestation, not a probed system receipt.
- *  - `unresolved`: a `publication_receipt`/`index_inspection` whose receipt is not bound to a trusted
- *    publication/index record here (that binding is unwired; see the evidence doc). NOT authenticated.
- *  - `unverified`: no receipt, a forged/missing reviewer or timestamp, or an unresolved dependency
- *    (a deleted source, pinned finding version, or baseline). */
+/** The server-derived verification status of an improvement, re-computed on every read from the
+ * structured binding + LIVE dependency state (never a client boolean, never an independent/system check,
+ * no causal claim):
+ *  - `unverified`: no binding, an unresolved pinned finding/source, a deleted publication, or an approval
+ *    that is no longer current at the pinned version.
+ *  - `approval_bound`: the pinned version_hash is currently approved for the asset in this project.
+ *  - `connector_receipt`: plus a published attempt carrying a connector response whose liveUrl matches the
+ *    improvement's destination and whose Plan action matches its task — an AUTHENTIC CONNECTOR RESPONSE,
+ *    not proof the destination actually shows the approved content.
+ *  - `owner_attested`: plus a structured owner inspection of that exact liveUrl recording
+ *    `shows_approved_content` — an authenticated OWNER ATTESTATION, still not a system verification. */
 export const CITATION_VERIFICATION_STATUSES = [
   "unverified",
-  "unresolved",
+  "approval_bound",
+  "connector_receipt",
   "owner_attested",
 ] as const;
-/** Server-attributed improvement view. `verificationStatus` is the authenticated, server-derived status
- * above; a deleted dependency (source, the pinned finding version, or a baseline) collapses it to
- * `unverified`. It is never `verified: true` on a caller string — P3 does not system-verify. */
+/** The SEPARATE before/after baseline axis (never silently folded into the delivery ladder above), derived
+ * live on every read: `baseline_absent` (no verification block recorded), `baseline_missing` (a
+ * verification block whose baselines no longer all resolve in this project — e.g. a deleted or out-of-scope
+ * capture), or `baseline_recorded` (a verification block whose every baseline still resolves). An
+ * `owner_attested` verificationStatus additionally requires `baseline_recorded`, so an owner before/after
+ * proof is never claimed without a live scoped baseline. */
+export const CITATION_EVIDENCE_STATUSES = [
+  "baseline_absent",
+  "baseline_missing",
+  "baseline_recorded",
+] as const;
+/** Server-attributed improvement view. `verificationStatus` is the authenticated, server-derived delivery
+ * status above and `evidenceStatus` the separate baseline axis; a deleted dependency (source, the pinned
+ * finding version, the publication/approval, or a baseline) collapses them. Neither is ever a caller
+ * boolean — P3 does not system-verify. */
 export const citationImprovementSummarySchema = z
   .object({
     id: uuid,
@@ -115,11 +157,19 @@ export const citationImprovementSummarySchema = z
     predecessorDeleted: z.boolean(),
     createdAt: z.string(),
     verificationStatus: z.enum(CITATION_VERIFICATION_STATUSES),
+    evidenceStatus: z.enum(CITATION_EVIDENCE_STATUSES),
   })
   .strict();
 export type CitationImprovementSummary = z.infer<typeof citationImprovementSummarySchema>;
+/** The DETAIL read additionally returns the exact pinned dependency identity so the owner can audit/export
+ * what the improvement is bound to: the resolved finding version row ids and the stored structured binding
+ * (which carries no secret/provider material). The list read stays metadata-only. */
 export const citationImprovementDetailSchema = citationImprovementSummarySchema
-  .extend({ record: improvementSchema })
+  .extend({
+    record: improvementSchema,
+    boundFindingRowIds: z.array(uuid),
+    publicationBinding: citationPublicationBindingSchema.nullable(),
+  })
   .strict();
 export const citationImprovementsStateSchema = z
   .object({ improvements: z.array(citationImprovementSummarySchema).max(100) })

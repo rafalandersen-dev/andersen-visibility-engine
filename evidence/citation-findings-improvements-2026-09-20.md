@@ -1,116 +1,161 @@
-# Citation Intelligence v1 — P3 findings/improvements storage + atomic invalidation (Claude, 20 September 2026)
+# Citation Intelligence v1 — P3 findings/improvements storage + publication-evidence binding (Claude, 20 September 2026)
 
-Third accepted packet of `product/CITATION_WORKFLOW_IMPLEMENTATION_2026_09_19.md` (§2.5, §3, §6), on branch
-`codex/milo-citation-findings-20260920` over released main `faaa195f`. P1 (native raw-artifact staging) is
-RELEASED (migration `20260919165000` applied immutable; `evidence/citation-artifact-release-2026-09-20.md`
-preserved). P2 (panel/session protocol) is a separate branch under review (PR146) and is NOT touched.
-Conversation repair is another worktree (candidate `20260920180000`) and is NOT touched. This packet adds
-the human-reviewed **findings** and **improvements** store, its authenticated server boundary, and atomic
-invalidation of dependent claims. No genuine exports exist; no native rows/metrics/results are fabricated.
-No git/DB(applied)/network/provider/deploy/credential/package/auto-memory action. USD50-global /
-manual-free-grant unchanged.
+Bounded P3 packet on branch `codex/milo-citation-findings-20260920` over released main `faaa195f`. P1
+(native raw-artifact staging) is RELEASED (migration `20260919165000` applied immutable; its release
+evidence `evidence/citation-artifact-release-2026-09-20.md` is preserved and authoritative). P2
+(panel/session protocol) is a separate branch under review; its real table will be `citation_panels` and
+this packet does NOT depend on or guess it. Conversation repair is another worktree. Everything here is in
+the single additive candidate `20260920200000_citation_findings_improvements.sql`, **UNAPPLIED**. No
+git/DB-apply/network/provider/deploy/paid action; USD50-global / manual-free unchanged.
 
-## Owned NEW files (disjoint from released P1, P2 branch, and the conversation-repair worktree)
+**This packet is storage + server boundary + a structured publication/approval binding. It is NOT the
+complete P3 workflow and is NOT production-accepted.** It does not perform, and never claims, an
+independent/system check that a destination actually shows the approved content, and it makes no causal
+claim.
 
-- `supabase/migrations/20260920200000_citation_findings_improvements.sql` — additive, **UNAPPLIED**
-  candidate: `ai_citation_findings`, `ai_citation_improvements` (RLS, `REVOKE ALL … FROM
-  PUBLIC,anon,authenticated,service_role`, `workspace_entities` composite FK `ON DELETE CASCADE`,
+## Owned NEW files (disjoint from released P1, the P2 branch, the conversation-repair worktree)
+
+- `supabase/migrations/20260920200000_citation_findings_improvements.sql` — additive, **UNAPPLIED**:
+  `ai_citation_findings`, `ai_citation_improvements` (RLS, `REVOKE ALL`, `workspace_entities` FK CASCADE,
   `record_sha256` idempotency, `finding_id/improvement_id`+`version` immutable chains, `supersedes_id`
-  fork guard, self-FK `NO ACTION` with `remove_*` unlinking the successor + a server-derived
-  `predecessor_deleted` marker, bounded `octet_length`); `SECURITY DEFINER SET search_path=''` RPCs
-  `save_/read_(list)/read_(one)/remove_ai_citation_finding` and `…_improvement` gated by
-  `assert_knowledge_project` (account-first `FOR UPDATE` lock on writes); three internal
-  `REVOKE`-closed helpers (`citation_finding_sources_available`, `citation_finding_head`,
-  `citation_improvement_verified`); `EXECUTE` granted to `service_role` only.
-- `src/lib/citation-record.ts` — client-safe stage schemas (reusing the accepted `findingSchema` /
-  `improvementSchema` verbatim) + owner-declared panel/client scope + read-back summary/detail/state
-  schemas, with an input byte-budget guard held under the DB `record::text` cap so an over-cap record is
-  refused at the boundary rather than failing the RPC generically (the PR144 lesson).
-- `src/lib/citation-record.server.ts` — `call()` 10 s-timeout wrapper (branded-error normalization: only
-  the two capacity codes surface, every thrown/rejected/transport error collapses to
-  `citation_record_unavailable`, no raw text); `save/read/get/remove` for findings and improvements.
-- `src/lib/citation-record.functions.ts` — eight `createServerFn`+`requireSupabaseAuth` endpoints with the
-  `context.userId !== expectedOwnerId → evidence_owner_changed` guard.
-- `src/lib/citation-record-migration.test.ts`, `src/lib/citation-record.functions.test.ts` — the §6 P3
-  cases (real PGlite SQL round-trips + endpoint auth).
+  fork guard, self-FK `NO ACTION` + `predecessor_deleted`, bounded `octet_length`); `SECURITY DEFINER`
+  RPCs `save_/read_(list)/read_(one)/remove_` for each; `assert_knowledge_project` + a P3-owned
+  fail-closed `citation_lock_account`; internal `REVOKE`-closed helpers
+  (`citation_finding_sources_available`, `citation_finding_head_id`, `citation_improvement_status`);
+  EXECUTE granted to `service_role` only.
+- `src/lib/citation-record.ts` — client-safe stage schemas (reusing the accepted `findingSchema`/
+  `improvementSchema`) + the owner-declared panel/client scope + the STRUCTURED
+  `citationPublicationBindingSchema` + read-back summary/detail/state schemas and the
+  `CITATION_VERIFICATION_STATUSES` enum.
+- `src/lib/citation-record.server.ts`, `src/lib/citation-record.functions.ts` — the `call()` wrapper
+  (branded-error normalization) and the eight `requireSupabaseAuth` + `expectedOwnerId` endpoints.
+- `src/lib/citation-record-migration.test.ts`, `src/lib/citation-record.functions.test.ts` — real-PGlite
+  SQL + endpoint tests.
 
-Only NEW files are added; no released migration, P2 file, shared-helper behavior or the global candidate
-inventory is edited. The implementation doc is appended (P1-released status + this P3 note) without
-erasing historical evidence.
+## Publication/approval binding and the verification-status ladder
 
-## Security constraints enforced
+An improvement carries an optional **structured** binding (never free receipt text): `publicationId`
+(→ released `public.publication_evidence.id`), `assetId`, `versionHash`, and an optional owner inspection
+`{observedAt, checkResult, observedUrl}`. The server resolves every field against the released contracts
+(`publication_evidence`, `publication_approvals` from `20260910170000`/`20260910200000`) and, on save,
+**refuses** a wrong publication/project, wrong asset, wrong version, a non-current/unrelated approval
+(`publication_approvals` must currently hold `approved=true` at that exact `version_hash` for the asset),
+a Plan-action/task mismatch (`publication_evidence.snapshot->>'actionId'` must equal the improvement's
+`taskId`), a destination-url mismatch (for a published attempt the improvement's `destination.reference`
+must equal `outcome_data.liveUrl`), and a manufactured owner inspection (only a PUBLISHED `liveUrl` the
+inspection actually names). The resolved binding is stored and **folded into `record_sha256`**, so a
+resave with a different binding is a new version — a binding is never silently rebound. The pinned finding
+version rows (`bound_finding_row_ids`) and the binding are re-resolved on every read, so a deleted
+publication, a withdrawn/changed approval, a deleted asset, or a deleted pinned finding collapses the
+status.
 
-- **Authenticated provenance the pure helpers lack.** `citation-finding.ts`/`citation-panel.ts` are typed
-  records and rules only. Here every row's `actor_id` (and a finding's `reviewer_id`) is the authenticated
-  caller, never a caller claim. A finding whose top-level `review.reviewer` is not the actor, and an
-  improvement whose `verification.reviewer` is not the actor, are **refused** — a review/verification can
-  only be attributed to the authenticated reviewer.
-- **`verified` is server-derived on every read, never accepted from the client.** There is no client
-  `verified` field; `citation_improvement_verified` re-computes it from LIVE state: a verification receipt
-  is present, `verifiedAt` is on/after `change.approvedAt`, there is ≥1 baseline capture and every one
-  still resolves to a live `ai_answer_evidence` row, and every referenced finding still resolves to an
-  in-scope finding whose own cited answer/native sources are still present. A forged `verified=true` is
-  impossible, and a deleted source, finding or baseline collapses `verified` to false.
-- **Improvement requires scoped finding / baseline / receipt (no circular gate).** Save resolves every
-  `findingIds` entry to a stored finding sharing the improvement's declared panel/client scope (foreign /
-  missing / out-of-scope → refused), and, when a receipt is present, resolves every `baselineCaptureIds`
-  entry to `ai_answer_evidence`. The comparable **re-test** stays a read-side computation in the existing
-  `comparablePairs` helper (fed by these records); storage never gates on the re-test, so completed proof
-  adds the re-test rather than becoming a circular precondition.
-- **Atomic deletion / invalidation of dependent claims.** Removing a finding preserves a distinct later
-  correction (unlink successor + `predecessor_deleted`), and any dependent improvement's `verified`
-  collapses to false on the next read because the finding no longer resolves — uniform with a released
-  **source** deletion (`ai_answer_evidence` / `ai_native_report_artifacts`), which P3 cannot trigger on a
-  released table and instead resolves at read time, marking a finding `sourceAvailable=false` and its
-  dependent improvements unverified. Project deletion CASCADEs both tables via the `workspace_entities` FK.
-- **Tenant isolation, immutable versions, bounded quota, account-first locking, idempotency.** Every RPC
-  runs `assert_knowledge_project` (owner/project; `FOR UPDATE` on writes). Records are append-only
-  versions with supersede chains; corrections never rewrite originals. Conservative provisional caps
-  **200 findings / 100 improvements per project** (including versions; no eviction, no raise, no new
-  spend). Identical re-save is idempotent by `record_sha256`. No provider calls, auto-approval or
-  publication; the Capture API is not treated as consumer evidence anywhere here.
+Two SEPARATE server-derived axes are returned (never a caller boolean, no causal/system claim):
 
-## Narrow integration points / residual dependencies (no guessed schema)
+`verificationStatus` — the approval + delivery ladder:
 
-- **Panel/client scope is owner-declared, not authenticated against a P2 panel record.** P3 is independent
-  of P2 (per §8): the finding/improvement rows carry a declared `(panelId, panelVersion, client)` used
-  only to bind an improvement to findings of the *same* declared scope (string equality, exactly as
-  `comparablePairs`' `panelClientKey`). Authenticating that a panel/version actually exists and is
-  owner-locked is a P2/P4 concern; this packet neither invents the P2 `ai_citation_panels` contract nor
-  depends on it.
-- **Source resolution reads two RELEASED tables.** `citation_finding_sources_available` and
-  `citation_improvement_verified` read `ai_answer_evidence` (released `20260910210000`) and
-  `ai_native_report_artifacts` (released `20260919165000`) by `(user_id,project_id,id)`. Both are owned by
-  the migration role, so the `SECURITY DEFINER` helpers resolve them; nothing is written to, or altered
-  in, a released table. `'source'`-kind evidence is the inline passage on the finding and is always
-  present. This read dependency is the only cross-packet coupling.
-- **DB does not fully re-validate the large finding/improvement structure.** Unlike P1's small metadata,
-  the full `findingSchema`/`improvementSchema` structure is validated at the Zod boundary; the DB
-  independently enforces the security-critical invariants (actor/reviewer, family/decision enums, scope,
-  caps, idempotency, dependency resolution, byte cap). Direct RPC access is `service_role`-only (REVOKEd
-  from anon/authenticated), and the trusted server always validates with Zod first; a malformed direct-RPC
-  record is out of the realistic threat model. Noted, bounded limitation.
+- `unverified` — no binding, an unresolved pinned finding/source, a deleted publication, or a version no
+  longer currently approved.
+- `approval_bound` — the pinned `version_hash` is CURRENTLY approved for the asset in this project.
+- `connector_receipt` — plus a `published` attempt carrying a connector response (`outcome_data`,
+  `verification='connector_response_only'`) whose `liveUrl` matches the destination and whose Plan action
+  matches the task. **This is an authentic connector response, NOT proof the destination actually shows
+  the approved content**; a `rejected`/`unknown`/`started` outcome never reaches this.
+- `owner_attested` — plus a STRUCTURED owner inspection of that exact `liveUrl` recording
+  `checkResult='shows_approved_content'` at a finite, on/after-(publication `finished_at` AND current
+  approval `updated_at`), non-future time (5-minute clock-skew policy), AND a still-resolving scoped
+  baseline (`evidenceStatus='baseline_recorded'`). An authenticated **owner before/after attestation**,
+  explicitly distinct from — and never promoted to — a system/independent verification.
 
-## Tests prepared (offline, synthetic; NOT RUN here — Codex runs them under the recorded exception)
+`evidenceStatus` — the SEPARATE before/after baseline axis, reported so baseline eligibility is never
+silently dropped: `baseline_absent` (no verification block), `baseline_missing` (a verification block whose
+baselines no longer all resolve in this project — deleted or out-of-scope), or `baseline_recorded` (all
+resolve live). An `owner_attested` before/after proof is therefore never reached without a live scoped
+baseline; a deleted baseline drops it back to `connector_receipt` while the honest delivery fact stands.
 
-- `citation-record-migration.test.ts` (real PGlite over project_knowledge → answer_evidence →
-  native_report_artifacts → this candidate): server-derived actor/reviewer + record round-trip; forged
-  reviewer refused; idempotent re-save; corrected finding versions/supersedes; a finding marked
-  `sourceAvailable=false` after its cited answer source is deleted; improvement `verified` true only when
-  findings+sources+baselines resolve in scope; a cross-scope finding reference refused; a forged
-  verification reviewer refused; `verified` downgraded when a baseline capture is deleted; a dependent
-  improvement's `verified` invalidated when its finding is removed (record preserved); owner/project
-  isolation; RLS closes both tables and the internal helper to every client role while `service_role` may
-  call the list RPC.
-- `citation-record.functions.test.ts` (mocked server): all eight endpoints require auth; reads/saves bind
-  to the authenticated owner; foreign `expectedOwnerId → owner_changed`; caller-supplied owner, malformed
-  project id/uuid, forged server-only extra key, an unconfirmed accepted finding, an empty `findingIds`
-  and a receipt-without-baselines improvement all refused at the boundary; deletion owner-switch never
-  touches storage.
+There is deliberately no `system_verified` / independent-destination-check status: no such trusted record
+proves destination contents, and this packet adds no autonomous checker, provider call or network request.
 
-These assert behavior (authenticated provenance, live `verified` derivation, atomic dependency
-invalidation, scope binding, isolation, caps), not code structure. **No pass counts are claimed** and no
-concurrency is claimed (single-connection PGlite verifies logical guards under the `FOR UPDATE` lock).
+**Declared approval facts are reconciled, not trusted.** When a binding resolves, the record's declared
+`change.approvedVersion` must equal the bound `version_hash` and `change.approvedBy` must be the
+authenticated owner who holds the approval (`publication_approvals` is owner-keyed and records no separate
+approver or human approval time, so those declared fields are reconciled to real facts and not otherwise
+endorsed); a forged approver/version alongside a real binding is refused rather than co-existing with an
+authenticated `approval_bound`.
+
+**Auditable detail.** The single-improvement (detail) read returns the exact pinned dependency identity —
+the resolved finding version row ids and the stored structured binding (including any owner inspection),
+which carry no secret/provider material — so an owner can audit or export what a claim is bound to; the
+list read stays metadata-only. The resolved pinned finding rows AND the binding are folded into the
+idempotency digest, so resaving the identical payload after a referenced finding is superseded records a
+new version pinning the current correction instead of silently returning the stale row.
+
+## Security constraints (unchanged from the corrected P3 boundary, plus the binding)
+
+- **Server-derived, forgery-resistant provenance.** `actor_id`/`reviewer_id` are the authenticated owner;
+  a finding is refused unless every embedded reviewer identity (top, `secondReview`, `recommendation`,
+  each `support[]`/`accuracy[]`, via a lax `$.**.reviewer` scan) is the actor; an improvement's
+  `verification.reviewer` (when present) must be the actor. Verification status is derived from the
+  binding, never from a caller boolean or receipt string.
+- **Trusted-record resolution.** `kind:'source'` finding evidence resolves against
+  `project_knowledge_sources`; `answer`/`native` are presence-only (a `pending_parser` artifact or raw
+  answer is never elevated to measurement). Improvement→finding pins exact version rows.
+- **Tenant isolation, immutable versions, bounded quota (200 findings / 100 improvements per project),
+  account-first fail-closed lock, scope-bound idempotency (now including the binding), atomic dependency
+  invalidation.** No provider calls, auto-approval or publication; no shared released SQL or provider
+  client changed.
+
+## Remaining wiring (NOT implemented; storage/binding-only is not complete P3)
+
+- **Independent destination content check.** No trusted record proves a destination shows the approved
+  content; `owner_attested` is the strongest status and is an owner attestation, not a system check. A
+  future packet would need an authenticated independent check to go beyond it.
+- **Two-person / independent reviewer authentication** (P3 accepts only self-attested findings),
+  **dated business-fact resolution** (`accuracy[].factId` is a declared reference; no fact table yet), and
+  **panel authentication** (panel/client scope stays owner-declared until the P2 `citation_panels`
+  contract exists) all remain unresolved and are documented here rather than guessed.
+
+## Review history (short note; superseded, not erased)
+
+The initial P3 cut returned a `verified: boolean` from extant findings/baselines/timestamps; a review
+found six issues (over-claimed verification, always-available `source` evidence, a fail-open account lock,
+scope-blind idempotency, silent version rebinding, and misaligned byte bounds), all corrected (see git
+history / the prior evidence revision). A follow-up review required binding to real publication/approval
+records instead of an indefinite `unresolved` status. A further review of that binding packet found six
+issues, all fixed here: a focused-test setup crash (untyped seed params feeding `jsonb_build_object`, and
+runtime status calls passing four arguments to the five-argument status helper — the RPC now passes the
+binding on every save/list/detail call and the seed params are explicitly typed); the status helper had
+dropped the before/after baseline requirement (now a separate `evidenceStatus` axis gates `owner_attested`
+and a deleted baseline invalidates); the owner inspection time was only cast (now finite, on/after
+publication and approval, non-future); declared `change.approvedVersion/approvedBy` could contradict the
+bound approval (now reconciled or refused); the detail read omitted the pinned binding/finding rows (now
+returned for audit/export); and the idempotency digest excluded the resolved pinned rows (now folded in, so
+a superseded finding yields a new version rather than a silent stale rebind). Earlier `verified`-boolean
+and `unresolved`-status descriptions are superseded by the two axes above.
+
+## Tests prepared (offline, synthetic; NOT RUN here — Codex runs them)
+
+`citation-record-migration.test.ts` (real PGlite over project_knowledge → publication_approval →
+publication_evidence → answer_evidence → native_report_artifacts → this candidate; temporal fixtures are
+derived from the DB clock, so they are robust to the runner wall clock): finding provenance + forged
+(nested) reviewer refusal + `source` resolution/removal + multilingual byte bound; the delivery ladder
+(`approval_bound`, `connector_receipt`, `owner_attested`) with its `evidenceStatus` counterpart; an unbound
+improvement is `unverified`; a `rejected`/`unknown` outcome never reaches `connector_receipt`;
+arbitrary/unknown publication id, wrong asset/version, non-current approval, task mismatch, destination-url
+mismatch and a manufactured/unpublished owner inspection are all refused at save; **declared
+approvedVersion/approvedBy must reconcile with the bound approval (a forged approver or off-version is
+refused)**; **the before/after axis gates `owner_attested` (inspection-without-baseline stays
+`connector_receipt`+`baseline_absent`; a deleted baseline drops `owner_attested`→`connector_receipt`+
+`baseline_missing`; an other-project baseline is refused at save)**; **the owner inspection time must be a
+finite, on/after-publication, non-future instant (pre-publication and future observations refused; a
+non-finite `observedAt` refused at the RPC even if it bypasses the client schema)**; **the detail read
+round-trips the exact binding, owner inspection and pinned finding rows, and resaving after a finding head
+is superseded records a new version pinning the new head**; live invalidation on
+publication/approval/asset/finding removal (record preserved but status downgraded); owner/project
+isolation; fail-closed status helper; RLS closes tables + internal helpers to every client role while
+`service_role` may call the list RPC. `citation-record.functions.test.ts`: the eight endpoints require
+auth, bind to the owner, and refuse off-contract records.
+
+No pass counts are claimed; single-connection PGlite verifies logical guards, not true concurrency.
 
 ## Prepared commands — UNRUN (Codex executes)
 
@@ -119,79 +164,15 @@ npx vitest run src/lib/citation-record-migration.test.ts src/lib/citation-record
 npx vitest run
 npx tsc --noEmit
 npx eslint src/lib/citation-record.ts src/lib/citation-record.server.ts src/lib/citation-record.functions.ts src/lib/citation-record-migration.test.ts src/lib/citation-record.functions.test.ts
-npx prettier --check src/lib/citation-record*.ts supabase/migrations/20260920200000_citation_findings_improvements.sql
+npx prettier --check "src/lib/citation-record*.ts" supabase/migrations/20260920200000_citation_findings_improvements.sql
 npm run build
 ```
 
-## Outstanding real-acceptance gates (unchanged; cannot be self-certified)
+Migration `20260920200000` is UNAPPLIED. This packet binds improvement evidence to trusted
+publication/approval records with honest, distinct statuses; it is not P3 completion and not production
+acceptance, and the outstanding real-acceptance gates (genuine exports, the owner-locked panel, the manual
+pilot, independent destination proof) remain.
 
-Genuine authorized native exports (still absent), the owner-locked panel (P2/P4), the four-week manual
-ChatGPT-Search captures, two distinct destination-verified improvements and one comparable re-test remain
-the real-acceptance gates. This packet stores and binds those records with authenticated provenance and
-atomic invalidation; it does not itself constitute that acceptance, and the P4 review UI / P5 parser are
-out of scope. Migration `20260920200000` is UNAPPLIED.
+## Codex checkpoint — 20 September, binding corrections
 
-## Review correction — six findings (20 September; SUPERSEDES the `verified`-boolean claims above)
-
-The initial cut passed its 15 tests but did not meet acceptance: it over-claimed verification and under-
-resolved sources/identity/locking/idempotency. All six review findings are fixed together in the same
-UNAPPLIED candidate `20260920200000` (no released migration, no P2 file, no shared-helper edit). **This
-packet is storage + server boundary; it does NOT system-verify an improvement.** Candid corrected state:
-
-1. **Verification is no longer `verified: true` from caller strings.** The RPCs now return a server-derived
-   `verificationStatus` re-computed on every read: `owner_attested` (the authenticated PROJECT OWNER
-   recorded an `owner_inspection` over evidence that still resolves — an authenticated owner attestation,
-   not a probed/causal system proof), `unresolved` (a `publication_receipt`/`index_inspection` method:
-   there is no safe contract here to bind the caller receipt to a trusted `publication_evidence` /
-   `google_index_inspections` record, so it is explicitly NOT authenticated), or `unverified`. A forged
-   approver and `approvedBy`/`approvedVersion`/`taskId` are declared, **unresolved** references (no Plan/
-   Studio approval-resolution contract is invented). A caller receipt or forged approver can never reach
-   an authenticated state.
-2. **Source resolution is real, and opaque/unparsed evidence is never elevated.** `kind:'source'` now
-   resolves against the trusted `public.project_knowledge_sources` (the finding carries only an id, so a
-   missing source is *unavailable*, not "always available"); `kind:'answer'`/`'native'` are presence-only
-   and a `pending_parser` artifact or a raw answer is never treated as validated measurement. A finding is
-   refused unless **every** embedded reviewer identity (top, `secondReview`, `recommendation`, each
-   `support[]`/`accuracy[]`) is the authenticated actor — a foreign/forged reviewer is rejected via a
-   `jsonpath $.**.reviewer` scan; two-person review needs a trusted reviewer-resolution boundary (below).
-3. **Account lock fails closed.** Each write RPC calls a P3-owned `citation_lock_account` that takes the
-   `workspace_meta` `FOR UPDATE` lock and RAISES when the row is missing (the shared
-   `assert_knowledge_project` does not check `FOUND`), so a missing account row fails before any
-   quota/idempotency/version mutation. No shared helper was edited.
-4. **Idempotency binds scope.** `record_sha256` is computed over the canonical declared scope plus the
-   record, and a logical `finding_id`/`improvement_id` reused under a different panel/client is refused as
-   scope drift — an identical record under a different scope can never silently return the prior scope's
-   row or resurrect a cross-panel claim through the version chain.
-5. **Version dependencies are pinned; deletion invalidates, never rebinds.** An improvement stores the
-   exact `ai_citation_findings.id` version rows it resolved at save (`bound_finding_row_ids`); verification
-   requires those exact rows to still exist, so deleting the referenced correction collapses the dependent
-   claim to `unverified` instead of silently rebinding to an older superseded version. No deleted content
-   is retained (only the `predecessor_deleted` marker on the direct successor).
-6. **Byte bounds aligned; guards fail closed.** The table caps for `client_name`/`client_market` are 600/
-   360 bytes to admit the client's 200/120 UTF-16-unit multilingual bounds (a BMP char is ≤3 bytes), so a
-   valid CJK name is not rejected at INSERT. Missing/forged reviewer, an unorderable/pre-approval or null
-   timestamp, and an empty pinned-finding set all yield `unverified` (never authenticated).
-
-New/updated regressions in `citation-record-migration.test.ts` cover each: owner_attested vs. always-
-`unresolved` receipt methods; forged top/nested reviewer refusal; `kind:'source'` resolution + removal;
-multilingual byte bound; scope-drift refusal; baseline-deletion downgrade; pinned-version deletion
-invalidation without rebind; missing-account-row refusal then success; and direct fail-closed status
-checks. Still NOT RUN here (Codex runs them).
-
-### Precise remaining wiring (NOT implemented here; storage-only is not complete P3)
-
-- **System (causal) verification of a `publication_receipt`/`index_inspection`.** A future packet must
-  define the binding contract from an improvement's `destination`/receipt to a trusted
-  `public.publication_evidence` (outcome `published`) or `public.google_index_inspections` (status
-  `succeeded`, matching `url`) record for the same project, and only then may a status stronger than
-  `owner_attested` be derived. Until then those methods are `unresolved`.
-- **Two-person / independent reviewer authentication.** P3 accepts only self-attested (actor-equals-
-  reviewer) findings; authenticating a distinct `secondReview`/support/accuracy reviewer needs a trusted
-  reviewer-identity/membership resolution boundary.
-- **Dated business-fact resolution.** `accuracy[].factId` is a declared reference; there is no
-  business-fact table yet, so an accuracy assessment's fact is not authenticated.
-- **Panel authentication.** Panel/client scope stays owner-declared until the P2 `ai_citation_panels`
-  contract is available to authenticate it.
-
-Acceptance is therefore NOT met by this packet: it is a correct, forgery-resistant storage/boundary layer
-with explicit unresolved statuses, not the end-to-end verified-improvement workflow.
+The corrected packet was independently inspected against the released publication contracts. Focused SQL/server tests: 35 passed across two files (1.39s); TypeScript passed. ESLint and git diff --check passed after a formatter-only Codex integration exception on the five citation-record TypeScript files. Logs: /tmp/milo-p3-binding-recheck-focused-20260920.log and /tmp/milo-p3-binding-recheck-types-20260920.log. No full-suite, deployment, destination or real-use acceptance is claimed by this checkpoint. Remaining fact resolution, reviewer authentication and panel integration stay open.

@@ -124,6 +124,7 @@ export async function saveCitationImprovement(
         p_project: s.projectId,
         p_record: input.improvement,
         p_scope: input.scope,
+        p_binding: input.binding ?? null,
       },
       rpc,
     ),

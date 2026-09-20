@@ -53,7 +53,7 @@ export const saveCitationImprovementFn = createServerFn({ method: "POST" })
     if (context.userId !== data.expectedOwnerId) throw Error("evidence_owner_changed");
     return (await import("./citation-record.server")).saveCitationImprovement(
       { ownerId: context.userId, projectId: data.projectId },
-      { scope: data.scope, improvement: data.improvement },
+      { scope: data.scope, improvement: data.improvement, binding: data.binding },
     );
   });
 export const readCitationImprovementsFn = createServerFn({ method: "POST" })

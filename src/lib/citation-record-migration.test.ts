@@ -15,9 +15,16 @@ const user = "00000000-0000-4000-8000-000000000001",
   other = "00000000-0000-4000-8000-000000000002";
 const scope = { ownerId: user, projectId: "p" };
 const ANSWER = "10000000-0000-4000-8000-000000000001";
-const ANSWER2 = "10000000-0000-4000-8000-000000000002";
+const BASELINE = "10000000-0000-4000-8000-000000000002"; // a distinct answer used only as an improvement baseline
 const PROMPT = "20000000-0000-4000-8000-000000000001";
 const SOURCE = "80000000-0000-4000-8000-000000000001";
+const ACTION = "50000000-0000-4000-8000-000000000001"; // Plan action id == improvement.taskId
+const PUB = "90000000-0000-4000-8000-000000000001"; // published attempt
+const PUB_STARTED = "90000000-0000-4000-8000-000000000002"; // started attempt
+const ASSET = "content-asset-1";
+const VERSION = "a".repeat(64);
+const VERSION2 = "b".repeat(64);
+const LIVE = "https://acme.example/services";
 const panelScope = {
   panelId: "40000000-0000-4000-8000-000000000001",
   panelVersion: 1,
@@ -67,51 +74,113 @@ const finding = (
   secondReview: null,
   linkedTaskId: null,
 });
+// The declared change.approvedVersion defaults to the bound version_hash and approvedBy to the owner, so a
+// bound improvement's declared approval facts reconcile with the actual approval (a mismatch is refused).
+// `verified` records an owner verification block with the before/after baseline captures it improves on.
 const improvement = (
   improvementId: string,
   findingId: string,
   opts: {
-    method?: "publication_receipt" | "owner_inspection" | "index_inspection";
-    reviewer?: string;
-    verification?: boolean;
-    baseline?: string;
+    reference?: string;
+    taskId?: string;
+    approvedVersion?: string;
+    approvedBy?: string;
+    verified?: boolean;
+    baselines?: string[];
   } = {},
 ) => ({
   improvementId,
   findingIds: [findingId],
-  taskId: "50000000-0000-4000-8000-000000000001",
+  taskId: opts.taskId ?? ACTION,
   change: {
     description: "Added a service page and updated the listing.",
-    approvedVersion: "v1",
-    approvedBy: user,
+    approvedVersion: opts.approvedVersion ?? VERSION,
+    approvedBy: opts.approvedBy ?? user,
     approvedAt: now,
   },
-  destination: { kind: "public_url" as const, reference: "https://example.com/services" },
-  baselineCaptureIds: [opts.baseline ?? ANSWER],
-  verification:
-    opts.verification === false
+  destination: { kind: "public_url" as const, reference: opts.reference ?? LIVE },
+  baselineCaptureIds: opts.baselines ?? (opts.verified ? [ANSWER] : []),
+  verification: opts.verified
+    ? {
+        method: "owner_inspection" as const,
+        receipt: "owner inspected the published page",
+        verifiedAt: later,
+        reviewer: user,
+      }
+    : null,
+});
+const binding = (
+  opts: {
+    publicationId?: string;
+    assetId?: string;
+    versionHash?: string;
+    inspection?: { checkResult: string; observedUrl?: string; observedAt?: string } | null;
+  } = {},
+) => ({
+  publicationId: opts.publicationId ?? PUB,
+  assetId: opts.assetId ?? ASSET,
+  versionHash: opts.versionHash ?? VERSION,
+  ownerInspection:
+    opts.inspection === undefined || opts.inspection === null
       ? null
       : {
-          method: opts.method ?? "owner_inspection",
-          receipt: "https://example.com/services",
-          verifiedAt: later,
-          reviewer: opts.reviewer ?? user,
+          observedAt: opts.inspection.observedAt ?? later,
+          checkResult: opts.inspection.checkResult,
+          observedUrl: opts.inspection.observedUrl ?? LIVE,
         },
 });
 const saveF = (f: unknown, s = scope, sc = panelScope) =>
   saveCitationFinding(s, { scope: sc, finding: f }, rpc);
-const saveI = (i: unknown, s = scope, sc = panelScope) =>
-  saveCitationImprovement(s, { scope: sc, improvement: i }, rpc);
+const saveI = (i: unknown, b: unknown = null, s = scope, sc = panelScope) =>
+  saveCitationImprovement(s, { scope: sc, improvement: i, binding: b }, rpc);
 const findingCount = async () =>
   Number(
     (await db.query<{ n: number }>("SELECT count(*)::int n FROM ai_citation_findings")).rows[0].n,
   );
-const seedAnswer = async (id: string) => {
-  await db.query(
+const seedAnswer = async (id: string) =>
+  db.query(
     "INSERT INTO ai_answer_evidence(user_id,project_id,id,prompt_id,prompt_revision,document_hash,document) VALUES($1,'p',$2,$3,1,$4,'{}'::jsonb)",
     [user, id, PROMPT, "hash-" + id],
   );
-};
+// An ISO-8601 UTC instant relative to the DB clock, so temporal fixtures (observed/publication/approval
+// times) stay coherent on any runner wall clock instead of hardcoding a calendar date. `delta` is a SQL
+// interval expression, e.g. "- interval '1 hour'".
+const isoAt = async (delta: string) =>
+  (
+    await db.query<{ t: string }>(
+      `SELECT to_char((clock_timestamp() ${delta}) AT TIME ZONE 'UTC','YYYY-MM-DD"T"HH24:MI:SS"Z"') t`,
+    )
+  ).rows[0].t;
+// The approval's updated_at is pinned ~3h before now so a valid owner inspection (~1h before now) is on or
+// after it; all seed params are explicitly typed (they feed polymorphic jsonb_build_object / interval math).
+const seedApproval = async (approved = true, version = VERSION, asset = ASSET) =>
+  db.query(
+    "INSERT INTO publication_approvals(user_id,project_id,asset_id,algorithm,version_hash,approved,updated_at) VALUES($1::uuid,'p',$2::text,'milo-publication-v1',$3::text,$4::boolean,clock_timestamp() - interval '3 hours') ON CONFLICT(user_id,project_id,asset_id) DO UPDATE SET version_hash=$3::text,approved=$4::boolean,updated_at=clock_timestamp() - interval '3 hours'",
+    [user, asset, version, approved],
+  );
+const seedPublication = async (
+  id: string,
+  opts: { outcome?: string; live?: string; action?: string; asset?: string; version?: string } = {},
+) =>
+  db.query(
+    "INSERT INTO publication_evidence(user_id,project_id,id,asset_id,version_hash,snapshot,outcome,outcome_data,finished_at) VALUES($1::uuid,'p',$2::uuid,$3::text,$4::text,jsonb_build_object('actionId',$5::text,'assetId',$3::text,'version',$4::text),$6::text,$7::jsonb,CASE WHEN $6::text='published' THEN clock_timestamp() - interval '2 hours' ELSE NULL END)",
+    [
+      user,
+      id,
+      opts.asset ?? ASSET,
+      opts.version ?? VERSION,
+      opts.action ?? ACTION,
+      opts.outcome ?? "published",
+      (opts.outcome ?? "published") === "published"
+        ? JSON.stringify({
+            liveUrl: opts.live ?? LIVE,
+            externalId: "x",
+            publishedAt: "2026-09-19T17:00:00Z",
+            verification: "connector_response_only",
+          })
+        : null,
+    ],
+  );
 beforeAll(async () => {
   db = new PGlite();
   await db.exec(
@@ -121,6 +190,8 @@ beforeAll(async () => {
   await db.query("INSERT INTO workspace_meta(user_id) VALUES($1),($2)", [user, other]);
   for (const name of [
     "20260909200000_project_knowledge.sql",
+    "20260910170000_publication_approval.sql",
+    "20260910200000_publication_evidence.sql",
     "20260910210000_answer_evidence.sql",
     "20260919165000_native_report_artifacts.sql",
     "20260920200000_citation_findings_improvements.sql",
@@ -138,18 +209,23 @@ beforeEach(async () => {
     [user, other],
   );
   await db.query(
+    "INSERT INTO workspace_entities(user_id,collection,entity_id,data) VALUES($1,'content',$2,jsonb_build_object('projectId','p'))",
+    [user, ASSET],
+  );
+  await db.query(
     "INSERT INTO ai_visibility_prompts(user_id,project_id,id,revision,data) VALUES($1,'p',$2,1,'{}'::jsonb)",
     [user, PROMPT],
   );
   await seedAnswer(ANSWER);
-  await seedAnswer(ANSWER2);
-  // project_knowledge_sources references auth.users, not workspace_entities, so the TRUNCATE above does
-  // not clear it; reset it explicitly each test.
+  await seedAnswer(BASELINE);
   await db.exec("DELETE FROM public.project_knowledge_sources");
   await db.query(
     "INSERT INTO project_knowledge_sources(user_id,project_id,id,revision,payload) VALUES($1,'p',$2,1,'{}'::jsonb)",
     [user, SOURCE],
   );
+  await seedApproval(true);
+  await seedPublication(PUB, { outcome: "published" });
+  await seedPublication(PUB_STARTED, { outcome: "started" });
 });
 afterAll(async () => {
   await db?.close();
@@ -167,16 +243,16 @@ describe("citation findings storage with server-derived, forgery-resistant prove
     expect((await saveF(f)).id).toBe(saved.id);
     expect(await findingCount()).toBe(1);
   });
-  it("refuses a forged top-level OR nested reviewer identity (only the authenticated actor may review)", async () => {
+  it("refuses a forged top-level OR nested reviewer identity", async () => {
     await expect(
       saveF(finding("60000000-0000-4000-8000-000000000002", undefined, other)),
     ).rejects.toThrow();
-    // A nested secondReview naming a different identity is a forged provenance claim and is refused.
-    const nested = {
-      ...finding("60000000-0000-4000-8000-000000000003"),
-      secondReview: { reviewer: other, reviewedAt: now },
-    };
-    await expect(saveF(nested)).rejects.toThrow();
+    await expect(
+      saveF({
+        ...finding("60000000-0000-4000-8000-000000000003"),
+        secondReview: { reviewer: other, reviewedAt: now },
+      }),
+    ).rejects.toThrow();
     expect(await findingCount()).toBe(0);
   });
   it("resolves a kind=source citation against a trusted in-scope source, unavailable once removed", async () => {
@@ -199,125 +275,318 @@ describe("citation findings storage with server-derived, forgery-resistant prove
     });
     expect(saved.client.name).toBe(cjk);
   });
-  it("refuses reusing one finding id under a different declared scope (no cross-panel drift)", async () => {
-    const id = "60000000-0000-4000-8000-000000000006";
-    await saveF(finding(id), scope, panelScope);
-    await expect(saveF(finding(id), scope, otherScope)).rejects.toThrow();
-  });
 });
-describe("improvement verification is server-derived, never authenticated from a caller string", () => {
-  it("marks an owner_inspection by the authenticated owner over resolvable evidence as owner_attested", async () => {
+describe("improvement verification binds to trusted publication/approval records", () => {
+  const seedFinding = async (fid: string) => saveF(finding(fid));
+  it("returns approval_bound for a current approval with a not-yet-published attempt", async () => {
     const fid = "60000000-0000-4000-8000-000000000010";
-    await saveF(finding(fid));
-    const imp = await saveI(improvement("70000000-0000-4000-8000-000000000001", fid));
-    expect(imp.verificationStatus).toBe("owner_attested");
-  });
-  it("never authenticates a publication_receipt / index_inspection: status stays unresolved", async () => {
-    const fid = "60000000-0000-4000-8000-000000000011";
-    await saveF(finding(fid));
-    for (const method of ["publication_receipt", "index_inspection"] as const) {
-      const imp = await saveI(
-        improvement(
-          "70000000-0000-4000-8000-00000000001" + (method === "publication_receipt" ? "2" : "3"),
-          fid,
-          { method },
-        ),
-      );
-      expect(imp.verificationStatus).toBe("unresolved");
-    }
-  });
-  it("refuses a verification whose reviewer is not the authenticated actor", async () => {
-    const fid = "60000000-0000-4000-8000-000000000014";
-    await saveF(finding(fid));
-    await expect(
-      saveI(improvement("70000000-0000-4000-8000-000000000004", fid, { reviewer: other })),
-    ).rejects.toThrow();
-  });
-  it("records an unverified draft with no verification receipt", async () => {
-    const fid = "60000000-0000-4000-8000-000000000015";
-    await saveF(finding(fid));
+    await seedFinding(fid);
     const imp = await saveI(
-      improvement("70000000-0000-4000-8000-000000000005", fid, { verification: false }),
+      improvement("70000000-0000-4000-8000-000000000001", fid),
+      binding({ publicationId: PUB_STARTED }),
     );
+    expect(imp.verificationStatus).toBe("approval_bound");
+  });
+  it("returns connector_receipt for a published attempt whose liveUrl and Plan action match", async () => {
+    const fid = "60000000-0000-4000-8000-000000000011";
+    await seedFinding(fid);
+    const imp = await saveI(improvement("70000000-0000-4000-8000-000000000002", fid), binding());
+    expect(imp.verificationStatus).toBe("connector_receipt");
+    // Delivery ladder and the before/after axis are separate: a delivered change with no verification block
+    // is honestly connector_receipt + baseline_absent, never silently an owner/before-after proof.
+    expect(imp.evidenceStatus).toBe("baseline_absent");
+  });
+  it("returns owner_attested only with an inspection of the exact liveUrl AND a resolving scoped baseline", async () => {
+    const fid = "60000000-0000-4000-8000-000000000012";
+    await seedFinding(fid);
+    const observedAt = await isoAt("- interval '1 hour'");
+    const imp = await saveI(
+      improvement("70000000-0000-4000-8000-000000000003", fid, { verified: true }),
+      binding({ inspection: { checkResult: "shows_approved_content", observedAt } }),
+    );
+    expect(imp.verificationStatus).toBe("owner_attested");
+    expect(imp.evidenceStatus).toBe("baseline_recorded");
+  });
+  it("stays approval_bound (never connector_receipt) for a rejected/unknown connector outcome", async () => {
+    const fid = "60000000-0000-4000-8000-000000000013";
+    await seedFinding(fid);
+    await db.query(
+      "UPDATE publication_evidence SET outcome='rejected',outcome_data=NULL WHERE user_id=$1 AND id=$2",
+      [user, PUB],
+    );
+    const imp = await saveI(improvement("70000000-0000-4000-8000-000000000004", fid), binding());
+    expect(imp.verificationStatus).toBe("approval_bound");
+  });
+  it("records an unbound improvement (no binding) as unverified", async () => {
+    const fid = "60000000-0000-4000-8000-000000000014";
+    await seedFinding(fid);
+    const imp = await saveI(improvement("70000000-0000-4000-8000-000000000005", fid), null);
     expect(imp.verificationStatus).toBe("unverified");
   });
-  it("refuses an improvement that references a finding outside its declared scope", async () => {
-    const fid = "60000000-0000-4000-8000-000000000016";
-    await saveF(finding(fid), scope, panelScope);
+});
+describe("binding is structured and forgery-resistant: arbitrary/mismatched bindings are refused", () => {
+  const fid = "60000000-0000-4000-8000-000000000020";
+  beforeEach(async () => {
+    await saveF(finding(fid));
+  });
+  const attempt = (b: unknown, taskId?: string) =>
+    saveI(improvement("70000000-0000-4000-8000-000000000020", fid, taskId ? { taskId } : {}), b);
+  it("refuses an arbitrary/unknown publication id (a receipt string cannot bind)", async () => {
     await expect(
-      saveI(improvement("70000000-0000-4000-8000-000000000006", fid), scope, otherScope),
+      attempt(binding({ publicationId: "90000000-0000-4000-8000-0000000000ff" })),
     ).rejects.toThrow();
   });
-  it("downgrades to unverified when a baseline capture is deleted", async () => {
-    const fid = "60000000-0000-4000-8000-000000000017";
-    await saveF(finding(fid, [{ kind: "answer", id: ANSWER2 }]), scope, panelScope);
+  it("refuses a wrong asset or wrong version", async () => {
+    await expect(attempt(binding({ assetId: "other-asset" }))).rejects.toThrow();
+    await expect(attempt(binding({ versionHash: VERSION2 }))).rejects.toThrow();
+  });
+  it("refuses a version that is not the current approval", async () => {
+    await seedApproval(false); // withdraw
+    await expect(attempt(binding())).rejects.toThrow();
+    await seedApproval(true, VERSION2); // approved, but a different version than the binding claims
+    await expect(attempt(binding())).rejects.toThrow();
+  });
+  it("refuses a Plan action / task mismatch and a destination url mismatch", async () => {
+    await expect(attempt(binding(), "50000000-0000-4000-8000-0000000000ee")).rejects.toThrow();
+    await expect(
+      saveI(
+        improvement("70000000-0000-4000-8000-000000000021", fid, {
+          reference: "https://acme.example/wrong",
+        }),
+        binding(),
+      ),
+    ).rejects.toThrow();
+  });
+  it("refuses an owner inspection of an unpublished attempt or of a different url", async () => {
+    await expect(
+      attempt(
+        binding({
+          publicationId: PUB_STARTED,
+          inspection: { checkResult: "shows_approved_content" },
+        }),
+      ),
+    ).rejects.toThrow();
+    await expect(
+      attempt(
+        binding({
+          inspection: {
+            checkResult: "shows_approved_content",
+            observedUrl: "https://acme.example/other",
+          },
+        }),
+      ),
+    ).rejects.toThrow();
+  });
+});
+describe("declared approval facts must reconcile with the actually-bound approval", () => {
+  const fid = "60000000-0000-4000-8000-000000000050";
+  beforeEach(async () => {
+    await saveF(finding(fid));
+  });
+  it("accepts a declared approvedVersion == the bound version_hash and approvedBy == the owner", async () => {
     const imp = await saveI(
-      improvement("70000000-0000-4000-8000-000000000007", fid, { baseline: ANSWER }),
+      improvement("70000000-0000-4000-8000-000000000050", fid, {
+        approvedVersion: VERSION,
+        approvedBy: user,
+      }),
+      binding({ publicationId: PUB_STARTED }),
+    );
+    expect(imp.verificationStatus).toBe("approval_bound");
+  });
+  it("refuses a forged declared approver or a declared version other than the bound approval", async () => {
+    await expect(
+      saveI(
+        improvement("70000000-0000-4000-8000-000000000051", fid, { approvedBy: other }),
+        binding({ publicationId: PUB_STARTED }),
+      ),
+    ).rejects.toThrow();
+    await expect(
+      saveI(
+        improvement("70000000-0000-4000-8000-000000000052", fid, { approvedVersion: "v1" }),
+        binding({ publicationId: PUB_STARTED }),
+      ),
+    ).rejects.toThrow();
+  });
+});
+describe("before/after baseline axis is reported separately and gates owner_attested", () => {
+  const fid = "60000000-0000-4000-8000-000000000060";
+  beforeEach(async () => {
+    await saveF(finding(fid));
+  });
+  it("does not promote to owner_attested without a baseline (inspection alone stays connector_receipt)", async () => {
+    const observedAt = await isoAt("- interval '1 hour'");
+    const imp = await saveI(
+      improvement("70000000-0000-4000-8000-000000000060", fid), // no verification block => no baseline
+      binding({ inspection: { checkResult: "shows_approved_content", observedAt } }),
+    );
+    expect(imp.verificationStatus).toBe("connector_receipt");
+    expect(imp.evidenceStatus).toBe("baseline_absent");
+  });
+  it("invalidates the baseline (owner_attested -> connector_receipt) when a baseline capture is deleted", async () => {
+    const observedAt = await isoAt("- interval '1 hour'");
+    const imp = await saveI(
+      improvement("70000000-0000-4000-8000-000000000061", fid, {
+        verified: true,
+        baselines: [BASELINE],
+      }),
+      binding({ inspection: { checkResult: "shows_approved_content", observedAt } }),
     );
     expect(imp.verificationStatus).toBe("owner_attested");
+    expect(imp.evidenceStatus).toBe("baseline_recorded");
     await db.query("DELETE FROM ai_answer_evidence WHERE user_id=$1 AND project_id='p' AND id=$2", [
       user,
-      ANSWER,
+      BASELINE,
     ]);
-    const listed = await readCitationImprovements(scope, rpc);
-    expect(listed.improvements.find((r) => r.id === imp.id)?.verificationStatus).toBe("unverified");
+    const read = await getCitationImprovement(scope, imp.id, rpc);
+    expect(read.evidenceStatus).toBe("baseline_missing");
+    expect(read.verificationStatus).toBe("connector_receipt"); // finding still cites ANSWER, so delivery stands
   });
-});
-describe("atomic invalidation pins the exact finding version and never rebinds to an older one", () => {
-  it("invalidates the dependent improvement when the pinned finding version is deleted, without rebinding", async () => {
-    const fid = "60000000-0000-4000-8000-000000000020";
-    await saveF(finding(fid)); // v1
-    const v2 = await saveF({ ...finding(fid), observation: "Corrected." }); // v2 becomes head
-    // The improvement binds the CURRENT head (v2) at save.
-    const imp = await saveI(improvement("70000000-0000-4000-8000-000000000010", fid));
-    expect(imp.verificationStatus).toBe("owner_attested");
-    // Deleting the pinned newest version invalidates the claim; it is NOT rebound to the surviving v1.
-    await removeCitationFinding(scope, v2.id, rpc);
-    expect((await getCitationImprovement(scope, imp.id, rpc)).verificationStatus).toBe(
-      "unverified",
+  it("refuses at save a baseline capture from another project", async () => {
+    await db.query(
+      "INSERT INTO workspace_entities(user_id,collection,entity_id,data) VALUES($1,'projects','q2',jsonb_build_object('projectId','q2')) ON CONFLICT DO NOTHING",
+      [user],
     );
-  });
-});
-describe("account lock and fail-closed status", () => {
-  it("refuses a write when the account lock row is missing, and succeeds after it is restored", async () => {
-    await db.query("DELETE FROM workspace_meta WHERE user_id=$1", [user]);
-    await expect(saveF(finding("60000000-0000-4000-8000-000000000030"))).rejects.toThrow();
-    expect(await findingCount()).toBe(0);
-    await db.query("INSERT INTO workspace_meta(user_id) VALUES($1)", [user]);
-    expect((await saveF(finding("60000000-0000-4000-8000-000000000030"))).version).toBe(1);
-  });
-  it("citation_improvement_status fails closed on a pre-baseline verification or an empty binding", async () => {
-    // verifiedAt before approvedAt, valid shape otherwise, but no pinned findings -> unverified.
-    const rec = await db.query<{ s: string }>(
-      "SELECT citation_improvement_status($1,'p',$2::jsonb,ARRAY[]::uuid[]) s",
-      [
-        user,
-        JSON.stringify({
-          verification: {
-            method: "owner_inspection",
-            reviewer: user,
-            verifiedAt: "2020-01-01T00:00:00Z",
-            receipt: "r",
+    await db.query(
+      "INSERT INTO ai_visibility_prompts(user_id,project_id,id,revision,data) VALUES($1,'q2',$2,1,'{}'::jsonb)",
+      [user, PROMPT],
+    );
+    const foreign = "10000000-0000-4000-8000-0000000000f0";
+    await db.query(
+      "INSERT INTO ai_answer_evidence(user_id,project_id,id,prompt_id,prompt_revision,document_hash,document) VALUES($1,'q2',$2,$3,1,'h','{}'::jsonb)",
+      [user, foreign, PROMPT],
+    );
+    await expect(
+      saveI(
+        improvement("70000000-0000-4000-8000-000000000062", fid, {
+          verified: true,
+          baselines: [foreign],
+        }),
+        binding({
+          inspection: {
+            checkResult: "shows_approved_content",
+            observedAt: await isoAt("- interval '1 hour'"),
           },
-          change: { approvedAt: "2026-01-01T00:00:00Z" },
-          baselineCaptureIds: [ANSWER],
         }),
-      ],
+      ),
+    ).rejects.toThrow();
+  });
+});
+describe("owner inspection time is bound to a real, on/after-publication, non-future instant", () => {
+  const fid = "60000000-0000-4000-8000-000000000070";
+  beforeEach(async () => {
+    await saveF(finding(fid));
+  });
+  const attemptInspection = (observedAt: string) =>
+    saveI(
+      improvement("70000000-0000-4000-8000-000000000070", fid, { verified: true }),
+      binding({ inspection: { checkResult: "shows_approved_content", observedAt } }),
     );
-    expect(rec.rows[0].s).toBe("unverified");
-    // A missing reviewer also fails closed.
-    const rec2 = await db.query<{ s: string }>(
-      "SELECT citation_improvement_status($1,'p',$2::jsonb,ARRAY[]::uuid[]) s",
-      [
-        user,
-        JSON.stringify({
-          verification: { method: "owner_inspection", verifiedAt: later, receipt: "r" },
-          change: { approvedAt: now },
-          baselineCaptureIds: [ANSWER],
-        }),
-      ],
+  it("accepts an inspection observed after the publication and approval", async () => {
+    const imp = await attemptInspection(await isoAt("- interval '1 hour'"));
+    expect(imp.verificationStatus).toBe("owner_attested");
+  });
+  it("refuses a pre-publication observation", async () => {
+    await expect(attemptInspection(await isoAt("- interval '5 hours'"))).rejects.toThrow();
+  });
+  it("refuses a future observation beyond the clock-skew allowance", async () => {
+    await expect(attemptInspection(await isoAt("+ interval '2 hours'"))).rejects.toThrow();
+  });
+  it("refuses a non-finite observedAt at the RPC even if it bypasses the client schema", async () => {
+    const rec = improvement("70000000-0000-4000-8000-000000000071", fid, { verified: true });
+    const b = {
+      publicationId: PUB,
+      assetId: ASSET,
+      versionHash: VERSION,
+      ownerInspection: {
+        observedAt: "infinity",
+        checkResult: "shows_approved_content",
+        observedUrl: LIVE,
+      },
+    };
+    const r = await rpc("save_ai_citation_improvement", {
+      p_user: user,
+      p_project: "p",
+      p_record: rec,
+      p_scope: panelScope,
+      p_binding: b,
+    });
+    expect(r.error).not.toBeNull();
+  });
+});
+describe("detail read exposes the pinned dependency identity for audit/export", () => {
+  it("round-trips the exact structured binding, owner inspection and pinned finding rows", async () => {
+    const fid = "60000000-0000-4000-8000-000000000080";
+    const savedFinding = await saveF(finding(fid));
+    const observedAt = await isoAt("- interval '1 hour'");
+    const imp = await saveI(
+      improvement("70000000-0000-4000-8000-000000000080", fid, { verified: true }),
+      binding({ inspection: { checkResult: "shows_approved_content", observedAt } }),
     );
-    expect(rec2.rows[0].s).toBe("unverified");
+    const detail = await getCitationImprovement(scope, imp.id, rpc);
+    expect(detail.boundFindingRowIds).toEqual([savedFinding.id]);
+    expect(detail.publicationBinding).toEqual({
+      publicationId: PUB,
+      assetId: ASSET,
+      versionHash: VERSION,
+      ownerInspection: { observedAt, checkResult: "shows_approved_content", observedUrl: LIVE },
+    });
+  });
+  it("returns a null binding for an unbound improvement", async () => {
+    const fid = "60000000-0000-4000-8000-000000000081";
+    await saveF(finding(fid));
+    const imp = await saveI(improvement("70000000-0000-4000-8000-000000000081", fid), null);
+    const detail = await getCitationImprovement(scope, imp.id, rpc);
+    expect(detail.publicationBinding).toBeNull();
+    expect(detail.boundFindingRowIds.length).toBe(1);
+  });
+});
+describe("live invalidation and non-silent rebinding", () => {
+  const fid = "60000000-0000-4000-8000-000000000030";
+  it("invalidates the current status when the publication, approval, asset or pinned finding goes", async () => {
+    const savedFinding = await saveF(finding(fid));
+    const imp = await saveI(improvement("70000000-0000-4000-8000-000000000030", fid), binding());
+    expect(imp.verificationStatus).toBe("connector_receipt");
+    const status = async () =>
+      (await getCitationImprovement(scope, imp.id, rpc)).verificationStatus;
+    // Approval withdrawn -> current proof gone (record preserved).
+    await seedApproval(false);
+    expect(await status()).toBe("unverified");
+    await seedApproval(true);
+    expect(await status()).toBe("connector_receipt");
+    // Publication deleted -> unverified.
+    await db.query("DELETE FROM publication_evidence WHERE user_id=$1 AND id=$2", [user, PUB]);
+    expect(await status()).toBe("unverified");
+    await seedPublication(PUB, { outcome: "published" });
+    expect(await status()).toBe("connector_receipt");
+    // Pinned finding removed -> unverified (dependency gate).
+    await removeCitationFinding(scope, savedFinding.id, rpc);
+    expect(await status()).toBe("unverified");
+  });
+  it("does not silently rebind on resave: a different binding is a new version", async () => {
+    await saveF(finding(fid));
+    const v1 = await saveI(improvement("70000000-0000-4000-8000-000000000031", fid), binding());
+    expect(v1.version).toBe(1);
+    const v2 = await saveI(
+      improvement("70000000-0000-4000-8000-000000000031", fid),
+      binding({ publicationId: PUB_STARTED }),
+    );
+    expect(v2.version).toBe(2);
+    expect(v2.verificationStatus).toBe("approval_bound");
+  });
+  it("resaving the identical payload after the finding head is superseded pins the new head (not a stale rebind)", async () => {
+    const f1 = await saveF(finding(fid));
+    const imp1 = await saveI(improvement("70000000-0000-4000-8000-000000000032", fid), binding());
+    expect(imp1.version).toBe(1);
+    // Supersede the referenced finding: a new version becomes the head under the same logical id + scope.
+    const f2 = await saveF({ ...finding(fid), decision: "dismissed" as const });
+    expect(f2.supersedesId).toBe(f1.id);
+    // The identical improvement payload + binding now resolves to the NEW head row, so the resolved pinned
+    // ids differ, the digest differs, and a v2 is recorded pinning the current correction — the stale v1 is
+    // never silently returned. v1 stays pinned to f1 (immutable), which still exists.
+    const imp2 = await saveI(improvement("70000000-0000-4000-8000-000000000032", fid), binding());
+    expect(imp2.version).toBe(2);
+    expect((await getCitationImprovement(scope, imp2.id, rpc)).boundFindingRowIds).toEqual([f2.id]);
+    expect((await getCitationImprovement(scope, imp1.id, rpc)).boundFindingRowIds).toEqual([f1.id]);
   });
 });
 describe("isolation and access boundaries", () => {
@@ -328,6 +597,17 @@ describe("isolation and access boundaries", () => {
       { ownerId: user, projectId: "q" },
     ])
       expect((await readCitationFindings(foreign, rpc)).findings).toEqual([]);
+  });
+  it("returns unverified from the status helper with no binding or an empty pinned set", async () => {
+    for (const args of ["ARRAY[]::uuid[],NULL", "ARRAY[]::uuid[],'{}'::jsonb"])
+      expect(
+        (
+          await db.query<{ s: string }>(
+            `SELECT citation_improvement_status($1,'p','{}'::jsonb,${args}) s`,
+            [user],
+          )
+        ).rows[0].s,
+      ).toBe("unverified");
   });
   it("closes the tables and internal helpers to every client role; only service RPCs are callable", async () => {
     for (const role of ["anon", "authenticated", "service_role"]) {
@@ -340,7 +620,7 @@ describe("isolation and access boundaries", () => {
       );
       for (const helper of [
         "citation_finding_sources_available($1,'p','{}'::jsonb)",
-        "citation_improvement_status($1,'p','{}'::jsonb,ARRAY[]::uuid[])",
+        "citation_improvement_status($1,'p','{}'::jsonb,ARRAY[]::uuid[],NULL)",
         "citation_lock_account($1)",
       ])
         await expect(db.query("SELECT " + helper, [user])).rejects.toThrow(/permission denied/);
