@@ -616,6 +616,31 @@ Against the renamed candidate `20260920190000_citation_protocol.sql` (old `…17
   across case. The round-17 capacity tests are unchanged and stay valid (kind-less seed rows + at most one
   discovery lock + separate brand locks).
 
+## Review round 22 (semantic UUID identity at draft/lock/approve ADMISSION boundaries — P2 4057958482)
+
+- Confirmed: `save_citation_panel_draft` compared the document panelId to `p_panel::text` (canonical
+  lowercase) by raw text, so a valid UPPERCASE panelId in both the document and the argument passed the
+  server wrapper (`draft.panelId !== id`, both uppercase) but failed the SQL with `invalid_citation_panel`;
+  and the wrapper rejected the SAME uuid spelled differently in the document vs the argument. Fix: the
+  wrapper compares `canonicalUuid(draft.panelId) !== canonicalUuid(id)`; the SQL compares
+  `public.citation_ctx_run(p_document->>'panelId') IS DISTINCT FROM p_panel`. Document stored VERBATIM;
+  row `panel_id` column stays canonical; a malformed panelId still fails closed.
+- Analogous boundaries fixed: the owner-receipt checks in `lockCitationPanel`/`approveBrandRun` (server
+  110/138) compared the server-minted lowercase `approvedBy` to the caller's `ownerId` raw — now
+  `canonicalUuid` both; the brand-run idempotent retry (SQL 342) compares
+  `public.citation_ctx_run(existing->>'panelId')=p_panel`, so a historical uppercase-stored panelId reads
+  as the same panel (idempotent) not a spurious conflict. A different owner / panel / params still fail
+  closed. Authorization, strict NEW-uuid schemas, version concurrency, single-discovery-baseline and all
+  caps intact; questionId/text case-sensitive; `citation_ctx_run`/`canonicalUuid` reused (no new
+  subsystem, no new SQL object, rollback inventory unchanged).
+- Tests: real storage — UPPERCASE panelId in both document and argument accepted, stored verbatim, then
+  locked/read/resolved eligible; same uuid spelled differently both directions accepted; a different
+  document panelId refused by the wrapper (`citation_panel_draft_mismatch`) AND via direct SQL
+  (`invalid_citation_panel`, visible); a brand-run retry across a historical uppercase stored panelId
+  returns idempotently while a differing-budget retry conflicts (direct SQL). Mocked — lock/brand
+  owner-receipt of the same uuid spelled differently accepted, a different owner still mismatches. Failing
+  SQL asserted directly, not only via the wrapper's generic error.
+
 ## Checks (status: UNRUN — prepared for Codex)
 
 Prior stages: 143 (tsc failing) → 146 → 148/147-PASS-1-FAIL → 150 → 170/6081 → (round 5) read-ordering
@@ -833,3 +858,16 @@ Test commands (Codex runs; UNRUN here): `npx vitest run src/lib/citation-protoco
 ### Codex baseline and legacy-intake verification — 20 September 2026
 
 Reviewed project-scoped discovery lock serialization, historical ambiguity reporting and shared leaf UUID comparisons in legacy intake. Four focused suites passed 135 tests (2.78s); TypeScript passed; full suite passed 6330 tests across 385 files (43.62s). Scoped ESLint on the five changed TypeScript files, production build and whitespace checks passed. Formatter-only Codex integration exception on these five files. Whole-repository `npm run lint` failed with 3790 errors and 14 warnings across the repository; this is not claimed as a clean global lint run and no unrelated mass formatting was performed. Logs: /tmp/milo-p2-baseline-legacy-{focused,types,format,lint,scoped-lint,full,build}-20260920.log. Candidate remains unapplied; no production or empirical multi-connection acceptance claimed. Release SQL and expected identity must be regenerated for the final approved commit.
+
+## Semantic UUID identity at admission boundaries — status UNRUN (P2 4057958482)
+
+Round 22 closes the remaining raw-string UUID comparisons at the panel-draft/lock/brand-approve admission boundaries. Confirmed: `save_citation_panel_draft` matched the document panelId to `p_panel::text` (canonical lowercase) by raw text, so a valid UPPERCASE panelId in both the document and the argument passed the server wrapper but failed the SQL (`invalid_citation_panel`), and the wrapper rejected the same uuid spelled differently in the document vs the argument. Fix: the wrapper compares `canonicalUuid(draft.panelId) !== canonicalUuid(id)`; the SQL compares `public.citation_ctx_run(p_document->>'panelId') IS DISTINCT FROM p_panel`. Analogous boundaries fixed by value too: the `lockCitationPanel`/`approveBrandRun` owner-receipt checks (server-minted lowercase `approvedBy` vs the caller's `ownerId`) via `canonicalUuid`, and the brand-run idempotent retry via `public.citation_ctx_run(existing->>'panelId')=p_panel`. Documents are stored VERBATIM; row uuid columns stay canonical; authorization, strict NEW-uuid schemas, version concurrency, the single-discovery-baseline rule and all caps are intact; questionId/text stay case-sensitive; `citation_ctx_run`/`canonicalUuid` are reused (no new subsystem, no new SQL object, rollback inventory unchanged). Edited only `supabase/migrations/20260920190000_citation_protocol.sql`, `src/lib/citation-protocol.server.ts`, the two P2 test files and these docs.
+
+The last PASSING stage (Codex verification on 14b20dc9: 135 focused / 6330 full PASS, 43.62s, types/scoped-lint/build PASS; whole-repo lint separately RED with ~3790 errors, pre-existing and NOT this packet's) does NOT carry over; every round-22 check is UNRUN in this worktree and must be re-executed by Codex under the recorded exception — this assistant did not run tests and claims no PASS. This packet does NOT mass-format or claim a global-lint pass; only scoped lint on the touched P2 files applies. New checks: real storage — UPPERCASE panelId in both the document and the argument accepted, stored verbatim, then locked/read/resolved eligible; the same uuid spelled differently both directions accepted; a different document panelId refused by the wrapper (`citation_panel_draft_mismatch`) AND via direct SQL (`invalid_citation_panel`, visible); a brand-run retry across a historical uppercase stored panelId returns idempotently while a differing-budget retry conflicts (direct SQL). Mocked — lock/brand owner-receipt of the same uuid spelled differently accepted, a different owner still mismatches. Candidate `20260920190000` remains UNAPPLIED; prepared deploy SQL / expected-identity artifacts remain STALE (never executed); USD50 + manual-free budget unchanged; nothing is deployed.
+
+Test commands (Codex runs; UNRUN here): `npx vitest run src/lib/citation-protocol.test.ts src/lib/citation-protocol.functions.test.ts src/lib/citation-protocol-migration.test.ts`; `npx tsc --noEmit`; and the SCOPED lint on the touched files (the repo-wide lint is separately red and pre-existing).
+
+
+### Codex draft/admission UUID verification — 20 September 2026
+
+Reviewed semantic UUID comparison of draft document and request identity, lock/brand owner receipts and historical brand retry. Stored documents remain verbatim and mismatching UUIDs remain rejected. Four focused suites passed 141 tests (2.90s); TypeScript passed. Full suite passed 6336 tests across 385 files (45.17s), scoped ESLint, production build and whitespace checks passed. Formatter-only Codex integration exception on three changed TypeScript files. Logs: /tmp/milo-p2-draft-uuid-{focused,types,format,lint,full,build}-20260920.log. The previously recorded whole-repository lint failure remains open; no global lint pass is claimed. Candidate remains unapplied, prepared release SQL/identity stale; no production acceptance or multi-connection experiment claimed.

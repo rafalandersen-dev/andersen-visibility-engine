@@ -1009,6 +1009,34 @@ describe("citation protocol server, no provider or URL calls", () => {
       ),
     ).rejects.toThrow("citation_panel_owner_mismatch");
   });
+  it("accepts a lock whose owner receipt is the SAME uuid spelled differently (case), still rejects a different owner", async () => {
+    // Server-minted approvedBy is canonical lowercase; the caller's ownerId here is UPPERCASE — one uuid.
+    const ownerLower = "0000abcd-0000-4000-8000-0000000000f1";
+    const upperScope = { ownerId: ownerLower.toUpperCase(), projectId: "p" };
+    const rpc = vi.fn().mockResolvedValue({
+      data: discoveryPanel({
+        approval: { approvedBy: ownerLower, approvedAt: "2026-09-01T00:00:00Z" },
+      }),
+      error: null,
+    });
+    expect(await lockCitationPanel(upperScope, uuid(1), 1, rpc)).toMatchObject({
+      status: "locked",
+    });
+    // A genuinely different owner still fails closed.
+    await expect(
+      lockCitationPanel(
+        upperScope,
+        uuid(1),
+        1,
+        vi.fn().mockResolvedValue({
+          data: discoveryPanel({
+            approval: { approvedBy: other, approvedAt: "2026-09-01T00:00:00Z" },
+          }),
+          error: null,
+        }),
+      ),
+    ).rejects.toThrow("citation_panel_owner_mismatch");
+  });
   it("approves a brand run through the server, never trusting a client owner", async () => {
     const run = brandRun();
     const rpc = vi.fn().mockResolvedValue({ data: run, error: null });
@@ -1029,6 +1057,21 @@ describe("citation protocol server, no provider or URL calls", () => {
       p_budget: 5,
       p_rounds: 1,
     });
+  });
+  it("accepts a brand-run approval whose owner receipt is the same uuid spelled differently (case)", async () => {
+    const ownerLower = "0000abcd-0000-4000-8000-0000000000f2";
+    const upperScope = { ownerId: ownerLower.toUpperCase(), projectId: "p" };
+    const rpc = vi
+      .fn()
+      .mockResolvedValue({ data: brandRun({ approvedBy: ownerLower }), error: null });
+    const approval: BrandRunApproval = {
+      runId: uuid(50),
+      panelId: uuid(2),
+      panelVersion: 1,
+      observationBudget: 5,
+      rounds: 1,
+    };
+    expect((await approveBrandRun(upperScope, approval, rpc)).approvedBy).toBe(ownerLower);
   });
   it("builds the capture document from the saved prompt and routes it to the capture RPC", async () => {
     const rpc = vi

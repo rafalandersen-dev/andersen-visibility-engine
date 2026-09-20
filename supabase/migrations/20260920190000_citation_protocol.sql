@@ -197,7 +197,12 @@ BEGIN
   IF NOT FOUND THEN RAISE EXCEPTION 'citation_workspace_unavailable'; END IF;
   IF p_panel IS NULL OR p_expected IS NULL OR p_expected<0 OR p_expected>=1000 OR p_document IS NULL
     OR jsonb_typeof(p_document)<>'object' OR octet_length(p_document::text)>60000
-    OR (p_document->>'panelId') IS DISTINCT FROM p_panel::text
+    -- Match the document's panelId to p_panel by UUID VALUE: p_panel::text is canonical lowercase, so a
+    -- valid UPPERCASE panelId (the server wrapper now accepts the same uuid spelled either way) would
+    -- otherwise fail this raw-text check. citation_ctx_run normalizes any castable spelling (NULL for a
+    -- malformed one, which stays DISTINCT and fails closed). The document is stored VERBATIM; only the
+    -- comparison is normalized.
+    OR public.citation_ctx_run(p_document->>'panelId') IS DISTINCT FROM p_panel
     OR (p_document->>'version')::integer IS DISTINCT FROM p_expected+1
     OR (p_document->>'status') IS DISTINCT FROM 'draft'
     OR p_document->'approval' IS DISTINCT FROM 'null'::jsonb
@@ -339,7 +344,11 @@ BEGIN
   IF panel_doc IS NULL OR panel_doc->>'status'<>'locked' OR panel_doc->>'kind'<>'brand' THEN RAISE EXCEPTION 'citation_brand_panel_unresolved'; END IF;
   SELECT document INTO existing FROM public.citation_brand_runs WHERE user_id=p_user AND project_id=p_project AND run_id=p_run;
   IF existing IS NOT NULL THEN
-    IF existing->>'panelId'=p_panel::text AND (existing->>'panelVersion')::integer=p_version
+    -- Idempotent retry: the same run id (matched by uuid value on run_id above) with identical params
+    -- returns the stored doc. Compare panelId by UUID VALUE so a historical run doc whose stored panelId
+    -- is UPPERCASE still reads as the same panel rather than a spurious conflict; the other fields are
+    -- integers.
+    IF public.citation_ctx_run(existing->>'panelId')=p_panel AND (existing->>'panelVersion')::integer=p_version
       AND (existing->>'observationBudget')::integer=p_budget AND (existing->>'rounds')::integer=p_rounds THEN
       RETURN existing;
     END IF;

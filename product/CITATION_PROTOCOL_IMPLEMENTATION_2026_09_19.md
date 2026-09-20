@@ -774,13 +774,45 @@ Two confirmed findings, one packet.
   unchanged and remain valid: they exercise the 200-row reservation with kind-less seed rows plus at most
   one discovery lock and separate brand locks, consistent with v1/brand scope.
 
+### Review round 22 — semantic UUID identity at the draft/lock/approve ADMISSION boundaries (P2 4057958482)
+
+Rounds 19–20 fixed capture-path and resolver identity; this closes the same raw-string UUID comparisons at
+the panel-draft/lock/brand-approve admission boundaries.
+
+- **Confirmed: `save_citation_panel_draft` panelId (SQL + wrapper).** The SQL compared the document's
+  panelId to `p_panel::text` (canonical lowercase) by raw text, so a valid UPPERCASE panelId in both the
+  document and the panel argument passed the server wrapper (`draft.panelId !== id`, both uppercase) but
+  then failed the SQL with `invalid_citation_panel`; and the wrapper REJECTED the same uuid spelled
+  differently in the document vs the argument. Fix: the wrapper compares `canonicalUuid(draft.panelId) !==
+  canonicalUuid(id)`, and the SQL compares `public.citation_ctx_run(p_document->>'panelId') IS DISTINCT
+  FROM p_panel` (uuid value). The document is stored VERBATIM (immutable); the row's `panel_id` column
+  stays canonical; only the comparison is normalized. A malformed panelId still fails closed.
+- **Analogous boundaries fixed.** The owner-receipt checks in `lockCitationPanel` and `approveBrandRun`
+  compared the server-minted `approvedBy` (canonical lowercase `p_user::text`) to the caller's `ownerId`
+  raw, false-mismatching the SAME owner spelled differently; both now compare by `canonicalUuid`. The
+  brand-run idempotent-retry `existing->>'panelId'=p_panel::text` now uses
+  `public.citation_ctx_run(existing->>'panelId')=p_panel`, so a historical run doc whose stored panelId is
+  uppercase reads as the same panel (idempotent) instead of a spurious conflict. A genuinely different
+  owner, panel, or run's params still fail closed. Authorization, the strict NEW-uuid input schemas,
+  version-concurrency, the single-discovery-baseline rule and all caps are unchanged; question ids/text
+  stay case-sensitive; `citation_ctx_run`/`canonicalUuid` are reused (NO new subsystem, NO new SQL object,
+  rollback inventory unchanged).
+- Tests: real storage — an UPPERCASE panelId in both the document and the argument is accepted, stored
+  verbatim, then locked, read and resolved eligible; the same uuid spelled differently in the document vs
+  the argument is accepted both directions; a genuinely different document panelId is refused by the
+  wrapper (`citation_panel_draft_mismatch`) AND, via direct SQL, by the guard (`invalid_citation_panel`,
+  visible); a brand-run retry across a historical UPPERCASE stored panelId returns idempotently while a
+  differing-budget retry still conflicts (direct SQL). Mocked — a lock/brand-run owner receipt that is the
+  same uuid spelled differently is accepted, a different owner still mismatches. Failing SQL is asserted
+  directly, not only through the wrapper's generic error.
+
 ## Files
 
 | File | Change |
 | --- | --- |
 | `src/lib/pg-uuid.ts` | New (leaf, no imports). Shared semantic-UUID identity: `PG_UUID_RE`, `canonicalUuid`, `canonicalRun`. Imported by the citation-protocol layer and the legacy answer-evidence intake without a circular import. |
 | `src/lib/citation-protocol.ts` | New. Pure storage contract: `panelDraftSchema`, `lockedPanelSchema`, `citationProtocolStateSchema`, `brandRunApprovalSchema`, `parseManualCaptureInput`, `resolveStoredCaptures` (semantic-uuid identity throughout; discovery-baseline-ambiguity flag), caps. Re-exports `canonicalUuid`/`canonicalRun` from `./pg-uuid`. Reuses PR137 schemas; never redefines them. |
-| `src/lib/citation-protocol.server.ts` | New. Service RPC helpers: read, save draft, lock, approve brand run, import capture, read+resolve. Owner/time/approval derived server-side; network-free. |
+| `src/lib/citation-protocol.server.ts` | New. Service RPC helpers: read, save draft, lock, approve brand run, import capture, read+resolve. Owner/time/approval derived server-side; network-free. Draft panelId, prompt binding and the lock/brand owner-receipt checks compare by SEMANTIC uuid value (`canonicalUuid`). |
 | `src/lib/citation-protocol.functions.ts` | New. Six `requireSupabaseAuth` endpoints, each refusing an owner mismatch and never accepting a client approval/reviewer/timestamp. |
 | `src/lib/citation-protocol.test.ts` | New. Pure-contract + mocked-server unit tests. |
 | `src/lib/citation-protocol.functions.test.ts` | New. Endpoint authentication/validation tests. |
@@ -936,14 +968,22 @@ from `citation-protocol.ts`, re-exported there; no circular import), so an UPPER
 longer bypass `evidence_capture_correction_requires_context`. No new SQL object (rollback inventory
 unchanged); `citation-panel.ts` released contract untouched; questionId/text stay case-sensitive; no
 owner-pilot approval invented; candidate SQL + `citation-protocol.ts`/`.server.ts` +
-`answer-evidence.server.ts` + `pg-uuid.ts` + P2 tests + docs only.
-**That 180/47-FAIL run is a FAILED prior attempt of the round-20 edits, not a passing baseline. All prior
-PASS counts — including the latest Codex run on a5dea92c (227 focused / 6321 full PASS,
-types/lint/build PASS) — are a prior stage and do not carry over**; every check below, including the
+`answer-evidence.server.ts` + `pg-uuid.ts` + P2 tests + docs only. Round 22 (this turn) fixes P2
+4057958482: the panel-draft/lock/brand-approve ADMISSION boundaries compared uuids by raw text —
+`save_citation_panel_draft` matched the document panelId to `p_panel::text` (so a valid UPPERCASE panelId
+passed the wrapper but failed the SQL, and the wrapper rejected the same uuid spelled differently), and
+the lock/brand owner-receipt checks and the brand-run retry compared raw. All now compare by uuid value
+(`canonicalUuid` in the wrappers; `public.citation_ctx_run` in the SQL draft check and the retry), storing
+documents verbatim and keeping authorization / strict NEW-uuid schemas / version concurrency /
+single-discovery-baseline / caps intact; question ids/text stay case-sensitive; no new SQL object
+(rollback inventory unchanged) — candidate SQL + `citation-protocol.server.ts` + P2 tests + docs only.
+**All prior PASS counts — including the latest Codex run on 14b20dc9 (135 focused / 6330 full PASS,
+types/scoped-lint/build PASS) — are a prior stage and do not carry over**; every check below, including the
 round-16 single-snapshot read tests, the round-17 capacity-reservation tests, the round-18
 erased-extra-attempt tests, the round-19 brandRunId-identity tests, the round-20 semantic-UUID
-identity tests, and the round-21 single-baseline + legacy-intake tests, is UNRUN in this worktree and must
-be re-executed by Codex. No released SQL, released `citation-panel.ts`, global
+identity tests, the round-21 single-baseline + legacy-intake tests, and the round-22 admission-boundary
+identity tests, is UNRUN in this worktree and must
+be re-executed by Codex. The repository-wide lint is separately RED (~3790 errors / 14 warnings, pre-existing across the repo); this packet does NOT mass-format or claim a global-lint pass — only the SCOPED lint on the touched P2 files applies. No released SQL, released `citation-panel.ts`, global
 migration inventory, or P3/R09 file was touched (the last commit `777ee67f` — Codex's doc rollback
 inventory fix — is preserved); USD50/manual-free is unchanged. The prepared deploy SQL /
 expected-identity artifacts are STALE — never execute them; nothing here is deployed.

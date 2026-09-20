@@ -2413,6 +2413,116 @@ describe("CI-2 single v1 discovery baseline per project (spec §§2/5.2/5.3)", (
   });
 });
 
+describe("CI-2 admission UUID identity boundaries (mixed-case panel / owner / run)", () => {
+  // Letter-containing ids so an UPPERCASE spelling differs from canonical lowercase as text but is one
+  // uuid value. Panel-document panelId and run-document panelId are stored VERBATIM (immutable); the
+  // uuid COLUMNS are canonical. The admission comparisons must be by uuid VALUE, not raw text.
+  it("accepts an UPPERCASE panelId in BOTH the document and the argument, then locks, reads and resolves", async () => {
+    const pl = "0000abcd-0000-4000-8000-0000000000d1";
+    // Pre-fix: the server wrapper passed (both uppercase) but the SQL raw-text check
+    // (`p_document->>'panelId' <> p_panel::text`) failed with invalid_citation_panel.
+    await saveCitationPanelDraft(
+      scope,
+      pl.toUpperCase(),
+      0,
+      draftDiscovery({ panelId: pl.toUpperCase() }),
+      rpc,
+    );
+    const locked = await lockCitationPanel(scope, pl.toUpperCase(), 1, rpc);
+    expect(locked).toMatchObject({ version: 2, status: "locked" });
+    // The document keeps the uppercase spelling verbatim; the row's panel_id column is canonical.
+    expect(
+      (
+        await db.query<{ p: string }>(
+          "SELECT document->>'panelId' p FROM citation_panels WHERE user_id=$1 AND project_id='p' AND panel_id=$2 AND version=2",
+          [user, pl],
+        )
+      ).rows[0].p,
+    ).toBe(pl.toUpperCase());
+    // Read + resolve: the panel resolves and a capture against it (uppercase panelId) is eligible.
+    await backdatePanelApproval(pl);
+    const capture = await importManualCapture(
+      scope,
+      discoveryCapture({ panelId: pl.toUpperCase() }),
+      rpc,
+    );
+    const { captures } = await readResolvedCaptures(scope, rpc);
+    expect(captures.map((c) => c.answerId)).toEqual([capture]);
+    expect(captures[0]).toMatchObject({ panelResolved: true, outcome: "complete" });
+  });
+  it("accepts the same panel uuid spelled differently in the document vs the argument (both directions)", async () => {
+    const a = "0000abcd-0000-4000-8000-0000000000d3";
+    const b = "0000abcd-0000-4000-8000-0000000000d4";
+    // doc UPPERCASE, arg lowercase — pre-fix the wrapper rejected (draft.panelId !== id).
+    await saveCitationPanelDraft(scope, a, 0, draftDiscovery({ panelId: a.toUpperCase() }), rpc);
+    // doc lowercase, arg UPPERCASE — the other direction.
+    await saveCitationPanelDraft(scope, b.toUpperCase(), 0, draftDiscovery({ panelId: b }), rpc);
+    // Both drafts stored; locking one establishes the single discovery baseline.
+    expect(await lockCitationPanel(scope, a, 1, rpc)).toMatchObject({ status: "locked" });
+  });
+  it("refuses a draft whose document panelId is a DIFFERENT uuid than the argument (wrapper and SQL)", async () => {
+    const a = "0000abcd-0000-4000-8000-0000000000d5";
+    const bDoc = "0000abcd-0000-4000-8000-0000000000d6"; // a genuinely different uuid
+    await expect(
+      saveCitationPanelDraft(scope, a, 0, draftDiscovery({ panelId: bDoc }), rpc),
+    ).rejects.toThrow(/citation_panel_draft_mismatch/);
+    // Direct SQL (bypassing the wrapper): the SQL guard also refuses with the specific error, visibly.
+    await expect(
+      db.query("SELECT save_citation_panel_draft($1,'p',$2,$3,$4)", [
+        user,
+        a,
+        0,
+        draftDiscovery({ panelId: bDoc }),
+      ]),
+    ).rejects.toThrow(/invalid_citation_panel/);
+  });
+  it("brand-run approve is idempotent across a historical UPPERCASE stored panelId (retry)", async () => {
+    const bl = "0000abcd-0000-4000-8000-0000000000e3"; // brand panel id with hex letters
+    await saveCitationPanelDraft(scope, bl, 0, draftBrand({ panelId: bl }), rpc);
+    await lockCitationPanel(scope, bl, 1, rpc); // brand v2 locked (exempt from the discovery baseline rule)
+    const rid = "0000abcd-0000-4000-8000-0000000000e4";
+    // A historical run doc whose STORED panelId is UPPERCASE, inserted directly (FK: bl v2 exists).
+    await db.query(
+      "INSERT INTO citation_brand_runs(user_id,project_id,run_id,panel_id,panel_version,document) VALUES($1,'p',$2,$3,2,$4)",
+      [
+        user,
+        rid,
+        bl,
+        {
+          id: rid,
+          panelId: bl.toUpperCase(),
+          panelVersion: 2,
+          approvedBy: user,
+          approvedAt: "2026-09-01T00:00:00Z",
+          observationBudget: 5,
+          rounds: 1,
+        },
+      ],
+    );
+    // A retry with canonical params returns the existing run idempotently — pre-fix the raw
+    // `existing->>'panelId'=p_panel::text` mismatched the uppercase stored spelling and raised a conflict.
+    const again = await approveBrandRun(
+      scope,
+      { runId: rid, panelId: bl, panelVersion: 2, observationBudget: 5, rounds: 1 },
+      rpc,
+    );
+    expect(again).toMatchObject({ id: rid, panelId: bl.toUpperCase() }); // stored doc returned verbatim
+    // A retry of the SAME run id with a DIFFERENT budget still conflicts (identity matched by value, but
+    // the params differ) — the semantic panelId match does not weaken the conflict guard. Direct SQL so
+    // the specific error is visible.
+    await expect(
+      db.query("SELECT approve_citation_brand_run($1,'p',$2,$3,$4,$5,$6)", [
+        user,
+        rid,
+        bl,
+        2,
+        3,
+        1,
+      ]),
+    ).rejects.toThrow(/citation_brand_run_conflict/);
+  });
+});
+
 describe("CI-2 capacity, isolation, deletion and access control", () => {
   it("enforces the panel-version and brand-run capacities", async () => {
     await saveCitationPanelDraft(scope, brandPanelId, 0, draftBrand(), rpc);

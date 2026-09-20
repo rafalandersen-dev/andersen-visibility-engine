@@ -67,7 +67,10 @@ export async function saveCitationPanelDraft(
   const id = z.string().uuid().parse(panelId);
   const expectedVersion = z.number().int().min(0).max(999).parse(expected);
   const draft = panelDraftSchema.parse(value);
-  if (draft.panelId !== id || draft.version !== expectedVersion + 1)
+  // Match the document's panelId to the request arg by SEMANTIC uuid identity: both are client-supplied
+  // uuids (either may be UPPERCASE), so a raw compare would reject the SAME uuid spelled differently. The
+  // document is stored verbatim; only the comparison is normalized. Version is an integer compare.
+  if (canonicalUuid(draft.panelId) !== canonicalUuid(id) || draft.version !== expectedVersion + 1)
     throw Error("citation_panel_draft_mismatch");
   return panelDraftSchema.parse(
     await call(
@@ -106,8 +109,12 @@ export async function lockCitationPanel(
       rpc,
     ),
   );
-  // Defence in depth: the approval must name the authenticated owner the server locked under.
-  if (locked.approval?.approvedBy !== s.ownerId) throw Error("citation_panel_owner_mismatch");
+  // Defence in depth: the approval must name the authenticated owner the server locked under. The
+  // server-minted `approvedBy` is canonical lowercase (`p_user::text`) while the caller's `ownerId` keeps
+  // its spelling, so compare by SEMANTIC uuid identity — a raw compare would false-mismatch the SAME owner
+  // spelled differently, while a genuinely different owner still fails.
+  if (canonicalUuid(locked.approval?.approvedBy ?? "") !== canonicalUuid(s.ownerId))
+    throw Error("citation_panel_owner_mismatch");
   return locked;
 }
 
@@ -135,7 +142,9 @@ export async function approveBrandRun(
       rpc,
     ),
   );
-  if (run.approvedBy !== s.ownerId) throw Error("citation_brand_run_owner_mismatch");
+  // Same owner-receipt check by SEMANTIC uuid identity (server-minted lowercase vs caller's spelling).
+  if (canonicalUuid(run.approvedBy) !== canonicalUuid(s.ownerId))
+    throw Error("citation_brand_run_owner_mismatch");
   return run;
 }
 
