@@ -654,6 +654,7 @@ describe("citation canonical report folds live + trusted erasure facts (final co
       consumedByRun: {},
       excludedByVersion: {},
       coverageCompleteByVersion: {},
+      extraAttemptsByVersion: {},
     });
     expect(report).toMatchObject({
       planned: 40,
@@ -664,6 +665,27 @@ describe("citation canonical report folds live + trusted erasure facts (final co
       excluded: 0,
     });
     expect(report.outcomes.complete).toBe(1); // only the live complete; erasure adds no complete
+  });
+  it("surfaces additional erased attempts at one slot as erasedExtra without double-counting coverage", () => {
+    // Two historical originals erased at ONE discovery slot: the resolver collapses them to a single
+    // erased slot (so planned coverage is counted once), and the EXACT SQL aggregate reports the extra
+    // attempt via extraAttemptsByVersion. The extra attempt is neither hidden nor a new planned slot.
+    const key = `${uuid(1)}:1`;
+    const report = citationReport(discoveryPanel(), [], {
+      slots: [es()], // one distinct erased slot (SY-D01 r1)
+      consumedByRun: {},
+      excludedByVersion: {},
+      coverageCompleteByVersion: { [key]: true },
+      extraAttemptsByVersion: { [key]: 1 }, // one additional erased attempt at an already-recorded slot
+    });
+    expect(report).toMatchObject({
+      observed: 0,
+      erased: 1, // distinct slot — planned coverage counted exactly once
+      erasedExtra: 1, // the duplicate/extra historical practice, surfaced not silently dropped
+      recorded: 1,
+      neverObserved: 39, // 40 planned − 0 observed − 1 erased; the extra attempt is not a planned slot
+      excluded: 0, // extra attempts are reported as erasedExtra, not folded into excluded
+    });
   });
   it("keeps a brand run's budget consumed after every capture is erased (live empty)", () => {
     const report = citationReport(
@@ -689,6 +711,7 @@ describe("citation canonical report folds live + trusted erasure facts (final co
         consumedByRun: { [uuid(50)]: 2 }, // trusted: two erased tombstone rows
         excludedByVersion: {},
         coverageCompleteByVersion: {},
+        extraAttemptsByVersion: {},
       },
       [brandRun({ observationBudget: 2, rounds: 2 })],
     );
@@ -715,6 +738,7 @@ describe("citation canonical report folds live + trusted erasure facts (final co
         consumedByRun: { [uuid(50)]: 2 },
         excludedByVersion: {},
         coverageCompleteByVersion: {},
+        extraAttemptsByVersion: {},
       },
       [brandRun({ observationBudget: 2, rounds: 2 })],
     );
@@ -732,6 +756,7 @@ describe("citation canonical report folds live + trusted erasure facts (final co
         consumedByRun: { [uuid(50)]: 2 },
         excludedByVersion: { [`${uuid(2)}:1`]: 2 },
         coverageCompleteByVersion: {},
+        extraAttemptsByVersion: {},
       },
       [brandRun({ observationBudget: 5, rounds: 2 })],
     );
@@ -745,6 +770,7 @@ describe("citation canonical report folds live + trusted erasure facts (final co
       consumedByRun: {},
       excludedByVersion: {},
       coverageCompleteByVersion: {},
+      extraAttemptsByVersion: {},
     });
     expect(report.observed).toBe(1);
     expect(report.erased).toBe(0); // the live capture holds the slot; the erased fact is not re-counted
@@ -758,6 +784,7 @@ describe("citation canonical report folds live + trusted erasure facts (final co
       consumedByRun: {},
       excludedByVersion: {},
       coverageCompleteByVersion: { [key]: true },
+      extraAttemptsByVersion: {},
     });
     expect(complete).toMatchObject({ coverageComplete: true, neverObserved: 38 });
     // Same inputs but coverage flagged incomplete (the read LIMIT truncated this version's tombstones):
@@ -767,6 +794,7 @@ describe("citation canonical report folds live + trusted erasure facts (final co
       consumedByRun: {},
       excludedByVersion: {},
       coverageCompleteByVersion: { [key]: false },
+      extraAttemptsByVersion: {},
     });
     expect(incomplete).toMatchObject({
       coverageComplete: false,
@@ -972,6 +1000,7 @@ describe("citation protocol server, no provider or URL calls", () => {
         planned: 40,
         observed: 0,
         erased: 0,
+        erasedExtra: 0,
         recorded: 0,
         neverObserved: 40,
         coverageComplete: true,

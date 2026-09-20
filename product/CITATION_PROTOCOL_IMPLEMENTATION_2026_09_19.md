@@ -606,6 +606,40 @@ stranded.
   full project does not block a fresh one). Scope isolation and the missing-workspace serialization guard
   are unchanged.
 
+### Review round 18 — surface additional erased attempts at one slot, never silently drop them (P2 4057410893)
+
+`resolveErasedSlots` collapses multiple tombstones for one slot to a single erased fact (and skips a slot
+a live capture holds). That is correct for PLANNED coverage — a slot must not be double-counted — but the
+ADDITIONAL erased attempts were then silently dropped: two historical originals erased at one discovery
+grid slot read as `erased 1, excluded 0`, hiding the second attempt entirely.
+
+- **Fix (candidate SQL + P2 report layer).** `read_citation_protocol`'s `erasureByVersion` now also
+  returns `duplicateRows` per bounded panel version: the EXACT count of additional grid erased attempts
+  beyond one per slot — `count(*) − count(DISTINCT (question_id, round, brand_run_id))` over grid-shaped
+  tombstone rows for that version. It is computed over the FULL tombstone set (not the LIMIT-bounded
+  transmitted `tombstones`), so a truncated transmit can never hide an extra attempt; it is content-free
+  (only counts). `citationProtocolStateSchema.erasureByVersion` gains `duplicateRows`; the service folds
+  it into `CitationErasure.extraAttemptsByVersion`, and `citationReport` exposes it as a new
+  `erasedExtra` field. `erased` stays one-per-slot (planned coverage never double-counted); `erasedExtra`
+  is the explicit duplicate/extra-practice count. `resolveErasedSlots`' collapse is unchanged (its comment
+  now records that the dropped attempts are surfaced exactly via the aggregate, not lost).
+- **Coverage of the reviewer's cases.** Two erased originals at one slot → `erased 1` + `erasedExtra 1`.
+  A fully erased correction chain tombstones only the ORIGINAL (supersedes null) → `erased 1`,
+  `erasedExtra 0` (corrections never look like duplicate practice). A live original with an erased
+  same-slot sibling → the live capture holds the slot (`erased 0`) and its ambiguous history is surfaced
+  as a `protocol_deviant` OUTCOME (`erasedExtra 0`). A brand run's `consumed` (live originals + each
+  tombstone row) is the existing authoritative SQL aggregate — unchanged. Under truncation `erased` stays
+  a floor with `coverageComplete false`/`neverObserved null` as before, while `erasedExtra` remains exact
+  (from the aggregate). No deleted content is ever returned; the grid-only content-free transmit, the
+  read-only `pgUuid` identity guard, ownership scoping, and the new-capture one-per-slot write guard are
+  all unchanged.
+- Tests: a pure-report unit test (one erased slot + `extraAttemptsByVersion 1` → `erased 1`,
+  `erasedExtra 1`, `excluded 0`, `neverObserved 39`) and real-PGlite tests — two historical originals at
+  one discovery slot, released delete of BOTH → `erased 1` + explicit `erasedExtra 1`; the same
+  order-independently, asserting the exact `erasureByVersion.duplicateRows`/`gridRows` aggregate; a fully
+  erased correction chain → `erasedExtra 0`; and a mixed live/erased sibling → deviant outcome with
+  `erasedExtra 0`. No unproven concurrency/truncation claims.
+
 ## Files
 
 | File | Change |
@@ -719,10 +753,25 @@ unable to lock; `lock_citation_panel` consumes a head's own reservation and pres
 physical `>= 200` guard is a never-triggered backstop for valid pending heads). No deletion/retirement,
 no cap change (still 200 read/write), no in-place mutation; the `save_citation_panel_draft` /
 `lock_citation_panel` signatures are unchanged, so the rollback inventory is unaffected — only two
-candidate SQL function bodies plus the P2 migration tests and these docs changed.
-**All prior counts — the round-15 135-focused / 6299-full PASS run included — are a prior stage and do
-not carry over**; every check below, including the round-16 single-snapshot read tests and the round-17
-capacity-reservation tests, is UNRUN in this worktree and must be re-executed by Codex. No released SQL, released `citation-panel.ts`, global
+candidate SQL function bodies plus the P2 migration tests and these docs changed. Round 18 (this turn)
+fixes P2 4057410893: `resolveErasedSlots` collapsed same-slot tombstones for coverage but silently
+dropped the ADDITIONAL erased attempts (two erased originals at one slot read as `erased 1, excluded 0`).
+`read_citation_protocol.erasureByVersion` now also returns an exact content-free `duplicateRows` (grid
+rows − distinct question/round/run slots, over the FULL tombstone set, not the LIMIT-bounded transmit);
+`citationProtocolStateSchema.erasureByVersion` gains `duplicateRows`; the service folds it into
+`CitationErasure.extraAttemptsByVersion` and `citationReport` exposes a new `erasedExtra` field, so
+`erased` stays one-per-slot (planned coverage never double-counted) while the extra practice is surfaced
+exactly, not hidden — corrections (root = one attempt) and a live+erased sibling (deviant outcome)
+contribute 0, brand `consumed` is unchanged, deleted content is never returned, and the `pgUuid`/ownership
+guards and new-capture one-per-slot write guard are unchanged. The `read_citation_protocol(uuid,text)`
+signature is unchanged, so the rollback inventory is unaffected.
+**All prior counts — including the latest Codex round-17 run on 175851ac (141 focused / 6305 full PASS,
+types/lint/build PASS) — are a prior stage and do not carry over**; every check below, including the
+round-16 single-snapshot read tests, the round-17 capacity-reservation tests, and the round-18
+erased-extra-attempt tests, is UNRUN in this worktree and must be re-executed by Codex. No released SQL, released `citation-panel.ts`, global
+migration inventory, or P3/R09 file was touched (the last commit `777ee67f` — Codex's doc rollback
+inventory fix — is preserved); USD50/manual-free is unchanged. The prepared deploy SQL /
+expected-identity artifacts are STALE — never execute them; nothing here is deployed. No released SQL, released `citation-panel.ts`, global
 migration inventory, or P3/R09 file was touched (the last commit `777ee67f` — Codex's doc rollback
 inventory fix — is preserved); USD50/manual-free is unchanged. The prepared deploy SQL /
 expected-identity artifacts are STALE — never execute them; nothing here is deployed.

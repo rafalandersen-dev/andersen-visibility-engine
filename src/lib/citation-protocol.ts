@@ -176,13 +176,18 @@ export type RunConsumed = z.infer<typeof runConsumedSchema>;
 /** Coverage-completeness metadata per ACTUAL stored panel version that has tombstones. `gridRows` is
  * the TRUE grid-shaped tombstone-row total, so a consumer can tell whether the LIMIT-bounded
  * `tombstones` are complete for the version (and must NOT derive a definitive `neverObserved` when they
- * are not); `excludedRows` is the content-free malformed (non-grid) row count. `panelId` is a DB-derived
- * stored identity (canonical Postgres uuid shape). */
+ * are not); `duplicateRows` is the EXACT count of ADDITIONAL grid erased attempts beyond one per slot
+ * (grid rows − distinct question/round/run slots), computed over the full tombstone set (not the
+ * LIMIT-bounded `tombstones`), so a truncated transmit never hides an extra erased attempt; a lone
+ * erasure and a fully erased correction chain (one tombstone at the ORIGINAL) contribute 0.
+ * `excludedRows` is the content-free malformed (non-grid) row count. `panelId` is a DB-derived stored
+ * identity (canonical Postgres uuid shape). All counts are content-free. */
 export const erasureByVersionSchema = z
   .object({
     panelId: pgUuid,
     panelVersion: z.number().int().min(0).max(2147483647),
     gridRows: z.number().int().min(0).max(2147483647),
+    duplicateRows: z.number().int().min(0).max(2147483647),
     excludedRows: z.number().int().min(0).max(2147483647),
   })
   .strict();
@@ -525,6 +530,11 @@ export function resolveErasedSlots(
   const out: ErasedSlot[] = [];
   for (const t of tombstones) {
     const key = erasedSlotKey(t);
+    // Collapse to ONE fact per slot (and skip a slot a live capture already holds) so PLANNED coverage is
+    // never double-counted. The additional erased attempts this drops are NOT lost: the report surfaces
+    // them from the exact content-free SQL aggregate (`erasureByVersion.duplicateRows` →
+    // `CitationReport.erasedExtra`), which is computed over the full tombstone set, not this LIMIT-bounded
+    // transmitted subset — so a duplicate/extra historical practice at a slot is reported, not hidden.
     if (liveSlots.has(key) || seen.has(key)) continue;
     seen.add(key);
     const panel = panels.find(
@@ -571,6 +581,12 @@ export interface CitationErasure {
   consumedByRun: Record<string, number>;
   excludedByVersion: Record<string, number>;
   coverageCompleteByVersion: Record<string, boolean>;
+  /** EXACT count of ADDITIONAL erased attempts beyond one per slot, per `${panelId}:${panelVersion}`,
+   * from the read RPC's SQL aggregate (`erasureByVersion.duplicateRows`) — not from the LIMIT-bounded
+   * transmitted tombstones, so a truncated read never hides an extra attempt. A missing key means zero.
+   * This surfaces historical duplicate/extra practice at a slot WITHOUT restoring content or affecting
+   * the planned-coverage counts (`erased` stays one-per-slot). */
+  extraAttemptsByVersion: Record<string, number>;
 }
 
 /** One canonical, erased-aware measurement report for a locked panel version. Live captures supply the
@@ -586,8 +602,15 @@ export interface CitationReport {
   planned: number;
   /** Distinct valid planned slots with a surviving (live) capture. */
   observed: number;
-  /** Distinct valid planned slots whose observation was erased (unique observations lost). */
+  /** Distinct valid planned slots whose observation was erased (unique observations lost). One per slot,
+   * so planned coverage is never double-counted. A floor when `coverageComplete` is false. */
   erased: number;
+  /** EXACT count of ADDITIONAL erased attempts at already-recorded grid slots for this version (historical
+   * duplicate/extra practice at one slot, beyond the one erased slot counted in `erased`), from the SQL
+   * aggregate — never the LIMIT-bounded transmitted rows, so a truncated read never hides an extra
+   * attempt. Two erased originals at one slot → `erased` 1 AND `erasedExtra` 1. Restores no content and
+   * does not affect planned coverage; a lone erasure or a fully erased correction chain contributes 0. */
+  erasedExtra: number;
   /** observed + erased: distinct slots attempted (live or erased), explicit vs never-observed. */
   recorded: number;
   /** Discovery only: planned − observed − erased. `null` when the erased-slot coverage for this version
@@ -685,6 +708,10 @@ export function citationReport(
   // Malformed historical tombstones for this version are already a content-free count — surface them.
   const versionKey = `${panel.panelId}:${panel.version}`;
   excluded += erasure.excludedByVersion[versionKey] ?? 0;
+  // Additional erased attempts at already-recorded grid slots (duplicate/extra historical practice) come
+  // from the EXACT SQL aggregate, so a truncated tombstone transmit never hides one; `erased` stays
+  // one-per-slot so planned coverage is not double-counted, and this is surfaced separately, not dropped.
+  const erasedExtra = erasure.extraAttemptsByVersion[versionKey] ?? 0;
   // Coverage completeness: a missing key means no erased rows for this version (trivially complete).
   const coverageComplete = erasure.coverageCompleteByVersion[versionKey] ?? true;
   const planned = panel.kind === "discovery" ? panel.questions.length * panel.rounds : 0;
@@ -703,6 +730,7 @@ export function citationReport(
     planned,
     observed,
     erased,
+    erasedExtra,
     recorded: observed + erased,
     neverObserved,
     coverageComplete,

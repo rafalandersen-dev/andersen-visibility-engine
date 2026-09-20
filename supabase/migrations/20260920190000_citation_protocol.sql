@@ -135,6 +135,15 @@ BEGIN
         'gridRows',(SELECT count(*) FROM public.citation_capture_tombstones tb
            WHERE tb.user_id=p_user AND tb.project_id=p_project AND tb.panel_id=pv.panel_id
              AND tb.panel_version=pv.panel_version AND tb.question_id ~ '^[A-Z]{2}-[DB][0-9]{2}$'),
+        -- EXACT count of ADDITIONAL grid erased attempts beyond one per slot: grid rows minus DISTINCT
+        -- (question,round,run) slots. Two historical originals erased at one slot → 1 duplicate. Computed
+        -- from the full tombstone set (NOT the LIMIT-bounded `tombstones` above), so a truncated transmit
+        -- never hides an extra attempt; content-free (only counts). A single-attempt slot and a fully
+        -- erased correction chain (one tombstone at the ORIGINAL) contribute 0, so corrections and a lone
+        -- erasure never inflate it.
+        'duplicateRows',(SELECT count(*)-count(DISTINCT (tb.question_id,tb.round,tb.brand_run_id)) FROM public.citation_capture_tombstones tb
+           WHERE tb.user_id=p_user AND tb.project_id=p_project AND tb.panel_id=pv.panel_id
+             AND tb.panel_version=pv.panel_version AND tb.question_id ~ '^[A-Z]{2}-[DB][0-9]{2}$'),
         'excludedRows',(SELECT count(*) FROM public.citation_capture_tombstones tb
            WHERE tb.user_id=p_user AND tb.project_id=p_project AND tb.panel_id=pv.panel_id
              AND tb.panel_version=pv.panel_version AND tb.question_id !~ '^[A-Z]{2}-[DB][0-9]{2}$')))

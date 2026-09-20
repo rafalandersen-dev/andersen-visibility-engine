@@ -265,16 +265,22 @@ export async function readResolvedCaptures(raw: z.infer<typeof scope>, rpc?: Kno
     receivedByVersion[k] = (receivedByVersion[k] ?? 0) + 1;
   }
   const coverageCompleteByVersion: Record<string, boolean> = {};
+  // EXACT additional-erased-attempt count per version, straight from the SQL aggregate (NOT the
+  // LIMIT-bounded transmitted tombstones), so a duplicate/extra historical practice at one slot is
+  // surfaced (report `erasedExtra`) even when the read truncated the per-row tombstones.
+  const extraAttemptsByVersion: Record<string, number> = {};
   for (const v of protocol.erasureByVersion) {
     const k = `${v.panelId}:${v.panelVersion}`;
     excludedByVersion[k] = (excludedByVersion[k] ?? 0) + v.excludedRows;
     coverageCompleteByVersion[k] = (receivedByVersion[k] ?? 0) >= v.gridRows;
+    extraAttemptsByVersion[k] = (extraAttemptsByVersion[k] ?? 0) + v.duplicateRows;
   }
   const erasure = {
     slots: erasedSlots,
     consumedByRun,
     excludedByVersion,
     coverageCompleteByVersion,
+    extraAttemptsByVersion,
   };
   // Canonical erased-aware report per locked panel version, computed at the service boundary from these
   // trusted facts so a consumer cannot read `captures` and silently ignore erased/consumed facts.

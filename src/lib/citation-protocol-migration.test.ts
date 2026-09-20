@@ -1509,6 +1509,109 @@ describe("CI-2 erasure preserves the slot/budget fact (content-free tombstone)",
     });
     expect(r?.outcomes.complete).toBe(1); // only the live capture; erasure contributes no complete
   });
+  // Insert a second historical ORIGINAL (supersedes null) at the SAME discovery slot as `doc` — the write
+  // gate now forbids a live duplicate, but historical data predates the one-per-slot guard.
+  const insertHistoricalDuplicate = async (
+    id: string,
+    doc: { input: unknown; prompt: unknown; analysis: unknown },
+  ) =>
+    db.query(
+      "INSERT INTO ai_answer_evidence(user_id,project_id,id,prompt_id,prompt_revision,document_hash,document,supersedes_id) VALUES($1,'p',$2,$3,1,$4,$5,NULL)",
+      [
+        user,
+        id,
+        discoveryPromptId,
+        `hist-${id}`,
+        { input: doc.input, prompt: doc.prompt, analysis: doc.analysis },
+      ],
+    );
+  it("reports two erased originals at one discovery slot as erased 1 PLUS an explicit extra attempt", async () => {
+    // The exact bug: two historical originals erased at ONE grid slot must not read as erased 1 / extra 0
+    // (hiding the second attempt). The slot counts ONCE for planned coverage (erased 1) and the extra
+    // erased attempt is surfaced explicitly (erasedExtra 1) from the exact SQL aggregate — no content
+    // restored, planned coverage not double-counted.
+    const o1 = await importManualCapture(scope, discoveryCapture(), rpc); // SY-D01 r1
+    const doc = (await readAnswerEvidence(scope, rpc)).answers[0];
+    await insertHistoricalDuplicate(uuid(740), doc);
+    await removeAnswerEvidence(scope, "answer", o1, rpc);
+    await removeAnswerEvidence(scope, "answer", uuid(740), rpc);
+    expect(
+      (
+        await db.query<{ n: number }>(
+          "SELECT count(*)::int n FROM citation_capture_tombstones WHERE user_id=$1",
+          [user],
+        )
+      ).rows[0],
+    ).toEqual({ n: 2 }); // two tombstone rows, one slot
+    const { erasedSlots, reports } = await readResolvedCaptures(scope, rpc);
+    expect(erasedSlots.map((s) => s.questionId)).toEqual(["SY-D01"]); // ONE distinct erased slot (coverage)
+    const r = reports.find((x) => x.panelId === discoveryPanelId && x.panelVersion === 2);
+    expect(r).toMatchObject({
+      observed: 0,
+      erased: 1, // planned coverage counted once
+      erasedExtra: 1, // the additional erased attempt, surfaced not hidden
+      recorded: 1,
+      neverObserved: 39, // 40 − 0 observed − 1 erased; the extra attempt is not a planned slot
+      excluded: 0, // reported as erasedExtra, never folded into excluded or silently dropped
+    });
+  });
+  it("computes the extra erased attempt from the exact SQL aggregate, order-independently", async () => {
+    // Same two-original slot, but erase in the REVERSE order; the erased/extra counts are identical
+    // because they derive from the content-free SQL aggregate over the final tombstone set, not from the
+    // transmit order. The aggregate (erasureByVersion.duplicateRows/gridRows) is exact and complete here.
+    const o1 = await importManualCapture(scope, discoveryCapture(), rpc);
+    const doc = (await readAnswerEvidence(scope, rpc)).answers[0];
+    await insertHistoricalDuplicate(uuid(741), doc);
+    await removeAnswerEvidence(scope, "answer", uuid(741), rpc); // erase the historical duplicate FIRST
+    await removeAnswerEvidence(scope, "answer", o1, rpc); // then the RPC original
+    const protocol = await readCitationProtocol(scope, rpc);
+    const v = protocol.erasureByVersion.find(
+      (x) => x.panelId === discoveryPanelId && x.panelVersion === 2,
+    );
+    expect(v).toMatchObject({ gridRows: 2, duplicateRows: 1, excludedRows: 0 }); // exact SQL aggregate
+    const r = (await readResolvedCaptures(scope, rpc)).reports.find(
+      (x) => x.panelId === discoveryPanelId && x.panelVersion === 2,
+    );
+    expect(r).toMatchObject({
+      erased: 1,
+      erasedExtra: 1,
+      coverageComplete: true,
+      neverObserved: 39,
+    });
+  });
+  it("does not inflate the extra count for a fully erased correction chain (root = one attempt)", async () => {
+    // An original + its correction at one slot, both erased (deleting the original cascades the chain).
+    // The trigger tombstones only the ORIGINAL (supersedes null), so there is ONE attempt at the slot:
+    // erased 1 and erasedExtra 0 — corrections never look like duplicate practice.
+    const original = await importManualCapture(scope, discoveryCapture(), rpc);
+    await importManualCapture(
+      scope,
+      discoveryCapture({}, { supersedesId: original, rawAnswer: "corrected same-slot" }),
+      rpc,
+    );
+    await removeAnswerEvidence(scope, "answer", original, rpc); // cascades the correction
+    const r = (await readResolvedCaptures(scope, rpc)).reports.find(
+      (x) => x.panelId === discoveryPanelId && x.panelVersion === 2,
+    );
+    expect(r).toMatchObject({ observed: 0, erased: 1, erasedExtra: 0, neverObserved: 39 });
+  });
+  it("surfaces an erased same-slot sibling of a SURVIVING live original via the deviant outcome, extra 0", async () => {
+    // Mixed live/erased at one slot: a live original survives while a historical sibling at the same slot
+    // is erased. The live capture holds the slot (erased 0), and its ambiguous duplicate history is
+    // surfaced as a protocol_deviant OUTCOME (never silently dropped). The tombstone is not a duplicate
+    // erased ROW at a distinct slot, so erasedExtra is 0 — the sibling is accounted for by the outcome.
+    const live = await importManualCapture(scope, discoveryCapture(), rpc); // SY-D01 r1, survives
+    void live;
+    const doc = (await readAnswerEvidence(scope, rpc)).answers[0];
+    await insertHistoricalDuplicate(uuid(742), doc);
+    await removeAnswerEvidence(scope, "answer", uuid(742), rpc); // erase only the sibling
+    const { captures, reports } = await readResolvedCaptures(scope, rpc);
+    expect(captures[0]).toMatchObject({ outcome: "protocol_deviant" });
+    expect(captures[0].deviations).toContain("erased_duplicate_slot");
+    const r = reports.find((x) => x.panelId === discoveryPanelId && x.panelVersion === 2);
+    expect(r).toMatchObject({ observed: 1, erased: 0, erasedExtra: 0 });
+    expect(r?.outcomes.protocol_deviant).toBe(1); // the erased sibling is surfaced via the deviant outcome
+  });
   it("reports a brand run's budget as consumed after every capture is erased (final report counts)", async () => {
     await saveCitationPanelDraft(scope, brandPanelId, 0, draftBrand(), rpc);
     await lockCitationPanel(scope, brandPanelId, 1, rpc);

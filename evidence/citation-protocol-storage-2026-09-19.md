@@ -482,6 +482,32 @@ Against the renamed candidate `20260920190000_citation_protocol.sql` (old `…17
   project-scoped (a full project does not block a fresh one). Scope isolation and the missing-workspace
   serialization guard unchanged. No multi-connection empirical proof claimed.
 
+## Review round 18 (surface additional erased attempts at one slot — P2 4057410893)
+
+- `resolveErasedSlots` collapses same-slot tombstones to one erased fact (and skips a slot a live capture
+  holds) — correct for PLANNED coverage — but then silently DROPPED the additional erased attempts: two
+  historical originals erased at one grid slot read as `erased 1, excluded 0`, hiding the second attempt.
+- Fix (candidate SQL + P2 report layer): `read_citation_protocol.erasureByVersion` now also returns
+  `duplicateRows` per bounded panel version — the EXACT count of grid erased rows beyond one per slot
+  (`count(*) − count(DISTINCT (question_id,round,brand_run_id))` over grid rows), computed over the FULL
+  tombstone set (not the LIMIT-bounded transmitted `tombstones`), content-free. `citationProtocolStateSchema`
+  gains `duplicateRows`; the service folds it into `CitationErasure.extraAttemptsByVersion`; `citationReport`
+  exposes a new `erasedExtra` field. `erased` stays one-per-slot (planned coverage never double-counted);
+  `erasedExtra` is the explicit duplicate/extra-practice count. `resolveErasedSlots`' collapse is unchanged
+  (its comment now records the dropped attempts are surfaced exactly via the aggregate).
+- Cases: two erased originals at one slot → erased 1 + erasedExtra 1; a fully erased correction chain
+  (tombstone at the ORIGINAL only) → erased 1, erasedExtra 0; a live original + erased same-slot sibling →
+  live holds the slot (erased 0) with a protocol_deviant OUTCOME, erasedExtra 0; brand `consumed` (live
+  originals + tombstone rows) unchanged. Under truncation `erased` stays a floor with coverageComplete
+  false / neverObserved null, while `erasedExtra` is exact (aggregate). No deleted content returned; grid-
+  only content-free transmit, read-only `pgUuid`/ownership guards and the new-capture one-per-slot write
+  guard unchanged; the `read_citation_protocol(uuid,text)` signature unchanged → rollback inventory
+  unaffected.
+- Tests: a pure-report unit test (erasedExtra 1 without double-counting coverage) and real-PGlite tests
+  (two historical originals → delete both → erased 1 + explicit erasedExtra 1; order-independence asserting
+  the exact duplicateRows/gridRows aggregate; correction chain → erasedExtra 0; mixed live/erased → deviant
+  outcome, erasedExtra 0). No unproven concurrency/truncation claims.
+
 ## Checks (status: UNRUN — prepared for Codex)
 
 Prior stages: 143 (tsc failing) → 146 → 148/147-PASS-1-FAIL → 150 → 170/6081 → (round 5) read-ordering
@@ -649,3 +675,14 @@ The prior stage (Codex round-16 verification on a306b5c5: 135 focused / 6299 ful
 ### Round 17 independent verification, 2026-09-20
 
 Codex reviewed the reservation invariant: after draft insertion, physical rows plus one future lock row per pending latest draft head stay at or below 200; locking consumes its reservation. Focused141 tests/4 files PASS (2.35s), full6305 tests/385 files PASS (79.67s), TypeScript/scoped ESLint/production build/git diff --check PASS. Formatter-only Codex integration exception on the migration test. Logs:/tmp/milo-p2-capacity-{focused,types,lint,full,build}-20260920.log. Candidate remains unapplied; no production or multi-connection acceptance is claimed.
+
+## Additional-erased-attempt reporting — status UNRUN (P2 4057410893)
+
+Round 18 fixes the silent drop in `resolveErasedSlots`: same-slot tombstones still collapse to one erased fact for PLANNED coverage, but the additional erased attempts are no longer hidden. `read_citation_protocol.erasureByVersion` now also returns an exact content-free `duplicateRows` (grid rows − distinct question/round/run slots, computed over the full tombstone set, not the LIMIT-bounded transmit); `citationProtocolStateSchema.erasureByVersion` gains `duplicateRows`; the service folds it into `CitationErasure.extraAttemptsByVersion`; `citationReport` exposes a new `erasedExtra` field. `erased` stays one-per-slot; a fully erased correction chain and a live+erased sibling contribute erasedExtra 0 (the sibling surfaces via a protocol_deviant outcome); brand `consumed` is the existing authoritative aggregate, unchanged; deleted content is never returned; the grid-only transmit, read-only `pgUuid`/ownership guards, and the new-capture one-per-slot write guard are unchanged; the `read_citation_protocol(uuid,text)` signature is unchanged → rollback inventory unaffected. Edited only `supabase/migrations/20260920190000_citation_protocol.sql`, `src/lib/citation-protocol.ts`, `src/lib/citation-protocol.server.ts`, the two P2 test files and these docs.
+
+The prior stage (Codex round-17 verification on 175851ac: 141 focused / 6305 full PASS, 79.67s, types/lint/build PASS) does NOT carry over; every round-18 check is UNRUN in this worktree and must be re-executed by Codex under the recorded exception — this assistant did not run tests and claims no PASS. New checks: a pure-report unit test (one erased slot + extra 1 → erased 1 / erasedExtra 1 / excluded 0 / neverObserved 39) and real PGlite — two historical originals at one discovery slot, released delete of BOTH → erased 1 + explicit erasedExtra 1; the same order-independently, asserting the exact erasureByVersion.duplicateRows/gridRows aggregate; a fully erased correction chain → erasedExtra 0; a mixed live/erased sibling → protocol_deviant outcome with erasedExtra 0. No multi-connection or truncation empirical proof claimed. Candidate `20260920190000` remains UNAPPLIED; prepared deploy SQL / expected-identity artifacts remain STALE (never executed); USD50 + manual-free budget unchanged; nothing is deployed.
+
+
+### Round 18 independent verification, 2026-09-20
+
+Codex reviewed the full-tombstone SQL duplicate aggregate and its separate erasedExtra report field, preserving distinct planned-slot coverage and brand consumption. Focused146 tests/4 files PASS (2.56s); full6310 tests/385 files PASS (47.52s); TypeScript/scoped ESLint/production build/git diff --check PASS. Formatter-only Codex integration exception on four P2 TypeScript files. Logs:/tmp/milo-p2-erasedduplicates-{focused,types,lint,full,build}-20260920.log. SQL semantics provide the full-set aggregate; no empirical multi-connection or large truncation experiment is claimed. Candidate remains unapplied, and prepared release SQL/identity must be regenerated for the approved final commit.
