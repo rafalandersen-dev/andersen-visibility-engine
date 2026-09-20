@@ -139,6 +139,15 @@ beforeAll(async () => {
     // production applied set) to prove the end-to-end receipt write. It also
     // schedules a daily pg_cron retention sweep, hence the cron stub above.
     "20260919160000_milo_conversation_diagnostics.sql",
+    // NOTE: the checkpoint lock-wait candidate 20260920180000 is deliberately NOT
+    // applied here. Its redefined claim carries the 20260913160000 dispatch gates
+    // (milo_conversation_dispatch_control / dispatch_until), which this suite does not
+    // apply — this suite seeds turns directly and injects contention through the
+    // executor deps, so it validates executor/diagnostic behaviour independently of the
+    // dispatch chain. The redefined RPCs are exercised end-to-end against the FULL
+    // production chain by milo-dispatch-migration.test.ts (which applies 160000 then
+    // 180000, including a real queued-handler conversation) and by
+    // milo-conversation-checkpoint-lock-wait-migration.test.ts.
   ])
     await db.exec(readFileSync(`supabase/migrations/${name}`, "utf8"));
   await db.query(

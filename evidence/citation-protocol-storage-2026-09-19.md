@@ -301,3 +301,7 @@ Codex verified query typing without weakening full-row assertions.31 SQL tests P
 ## Account-row serialization correction verified — 20 September
 
 Codex independently reviewed the three new FOR UPDATE + FOUND gates, matching capture admission without modifying released SQL.89 focused/4files PASS1.84s,6251 full/384files PASS41.86s, TypeScript/scoped lint/whitespace/build PASS. Logs /tmp/milo-p2-presence-{focused,types,lint,full,build}-20260920.log. Codex exception: two formatting wraps in the test corrected with Prettier. The initial lint log records those two failures; lint passed after formatting. No migration applied, no real concurrency or production workflow acceptance claimed.
+
+
+## Integration after PR148 — 20 September 2026
+Current candidate is `20260920190000_citation_protocol.sql`, renamed byte-identically from historical `20260919170000_citation_protocol.sql` to follow already-applied checkpoint migration20180000. SHA256 `d5955cc1cb19c9aaf632559d2c34760a4e71d4fc7651121115c812c5a75bd63b`. Still UNAPPLIED. Earlier filename references are historical. Latest f56 code review5749963376 and security5749970573 clean; all CI checks passed. Normal merge of released bd0 required only migration-inventory reconciliation. Codex integration-only exception: rename/references/inventory and preserve release evidence, no application behavior changes. Integrated validation pending.

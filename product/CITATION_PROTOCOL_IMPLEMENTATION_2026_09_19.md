@@ -312,7 +312,7 @@ unserialized.
 | `src/lib/citation-protocol.test.ts` | New. Pure-contract + mocked-server unit tests. |
 | `src/lib/citation-protocol.functions.test.ts` | New. Endpoint authentication/validation tests. |
 | `src/lib/citation-protocol-migration.test.ts` | New. Real PGlite SQL round trips (isolation, auth, missing project, reference forgery, approval version, protocol binding, capacity, deletion, idempotency). |
-| `supabase/migrations/20260919170000_citation_protocol.sql` | New (one migration). Three tables (panels, brand runs, content-free capture tombstones) + five service-only SECURITY DEFINER RPCs + an `AFTER DELETE` tombstone trigger on `ai_answer_evidence`; RLS on, project-scoped FKs, project-deletion cascade. |
+| `supabase/migrations/20260920190000_citation_protocol.sql` | New (one migration). Three tables (panels, brand runs, content-free capture tombstones) + five service-only SECURITY DEFINER RPCs + an `AFTER DELETE` tombstone trigger on `ai_answer_evidence`; RLS on, project-scoped FKs, project-deletion cascade. |
 | `src/lib/answer-evidence.ts` | Additive only: optional opaque `captureContext` on `answerEvidenceSchema` so reads tolerate capture-bound records. Legacy documents are byte-identical (field absent). |
 | `src/lib/answer-evidence.server.ts` | Additive only: `importAnswerEvidence` refuses a capture context (legacy path stays capture-blind; captures must use the panel-aware path). |
 | `product/CITATION_PROTOCOL_IMPLEMENTATION_2026_09_19.md`, `evidence/citation-protocol-storage-2026-09-19.md` | New. This doc and the evidence record. |
@@ -364,7 +364,7 @@ must be re-executed by Codex.
 - `npx tsc --noEmit` (types) and the repository lint task.
 
 The migration test loads `20260909200000_project_knowledge.sql`,
-`20260910210000_answer_evidence.sql` and the new `20260919170000_citation_protocol.sql` into PGlite,
+`20260910210000_answer_evidence.sql` and the new `20260920190000_citation_protocol.sql` into PGlite,
 so it validates the new SQL against the actual prior schema without applying anything to a database.
 
 ## Migration / rollback

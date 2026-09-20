@@ -113,6 +113,17 @@ beforeAll(async () => {
     turnId: legacyTurn,
   });
   await db.exec(migration);
+  // Candidate 20260920180000 redefines claim/advance/check_execution to add a bounded
+  // lock wait. Applying it here runs this whole dispatch/lifecycle suite against the
+  // FINAL redefined bodies, proving the redefinition preserves every dispatch gate
+  // (enabled control, dispatch window, advisory + global-8/actor-2 concurrency), lease,
+  // expected-count and idempotency behaviour and only changes the lock wait.
+  await db.exec(
+    readFileSync(
+      "supabase/migrations/20260920180000_milo_conversation_checkpoint_lock_wait.sql",
+      "utf8",
+    ),
+  );
   legacyWindow = (
     await db.query<{ dispatch_until: unknown }>(
       "SELECT dispatch_until FROM milo_conversation_turns",

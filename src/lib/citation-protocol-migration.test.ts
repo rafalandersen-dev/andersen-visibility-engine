@@ -248,7 +248,7 @@ beforeAll(async () => {
   for (const name of [
     "20260909200000_project_knowledge.sql",
     "20260910210000_answer_evidence.sql",
-    "20260919170000_citation_protocol.sql",
+    "20260920190000_citation_protocol.sql",
   ])
     await db.exec(readFileSync("supabase/migrations/" + name, "utf8"));
 }, 30000);
