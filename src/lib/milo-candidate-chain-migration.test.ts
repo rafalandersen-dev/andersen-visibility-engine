@@ -138,6 +138,8 @@ describe("candidate migration chain", () => {
       expect(await allowed(role, fn)).toBe(false);
   });
   it.each([
+    "native_artifact_utf16_length(text)",
+    "tombstone_citation_capture()",
     "milo_conversation_turn_view(public.milo_conversation_turns)",
     "assert_milo_conversation_access(uuid,uuid,text)",
     "assert_project_team_seat(uuid,text,text,text,integer,integer)",
