@@ -232,3 +232,7 @@ changed. All checks below remain UNRUN here; Codex re-runs them.
   change/refund, no old-turn replay. Real multi-connection lock-wait behaviour is NOT
   validated in PGlite and is left for a multi-connection check / the next reviewed live
   acceptance. Tests are UNRUN until Codex.
+
+## Codex verification after restored author access
+
+Existing authorized Claude context completed correction successfully on20September; no account or spending-limit change. New focused123tests/7files PASS3.37s, typesPASS, twoPrettier wraps corrected as integration exception. The three RPC bodies were mechanically compared with latest released definitions and match apart from intended assert and NOWAIT removal. Normal merge of mainfaaa195f resolved only candidate inventory:160000/165000 released,20180000 remains candidate. Integrated49focused/3filesPASS2.21s,6196full/382filesPASS45.34s,types/scopedlint/buildPASS. Logs /tmp/milo-lock-resumed-*-20260920.log. No SQL applied, no production conversation success claimed; actual multi-connection wait behavior remains unverified.
