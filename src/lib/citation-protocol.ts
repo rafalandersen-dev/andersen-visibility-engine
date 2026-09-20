@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { PG_UUID_RE, canonicalUuid, canonicalRun } from "./pg-uuid";
 import { answerEvidenceSchema, evidenceRowSchema, type AnswerEvidence } from "./answer-evidence";
 import {
   brandRunSchema,
@@ -145,24 +146,11 @@ export const lockedPanelSchema = panelProtocolSchema.superRefine((panel, ctx) =>
  * only: NEW capture/panel/run authorization and input schemas keep the stricter `.uuid()`, and
  * identity MATCHING still requires a genuine locked+approved panel / approved run (an id that resolves
  * to no real entity stays `panelResolved: false` / excluded — the read grants no authority). */
-const PG_UUID_RE = /^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$/;
+// Semantic UUID identity lives in a shared leaf module (./pg-uuid) so the legacy answer-evidence intake
+// can reuse the SAME normalizer without a circular import. Re-exported for the P2 server/tests that
+// already import canonicalUuid/canonicalRun from this module.
+export { canonicalUuid, canonicalRun };
 const pgUuid = z.string().regex(PG_UUID_RE);
-
-/**
- * Canonical UUID identity for comparison and keying. PostgreSQL normalizes any accepted uuid spelling to
- * lowercase in its uuid COLUMNS (so brand-run/tombstone ids surfaced from columns are already lowercase),
- * but a uuid persisted inside an IMMUTABLE JSON document or captureContext keeps the client's ORIGINAL
- * spelling — which may be UPPERCASE/mixed-case. Comparing or keying those by raw string treats two
- * spellings of ONE uuid as different: a validly-admitted capture reads `panel_unresolved`, a duplicate
- * escapes a slot key, a correction chain fails to link, a brand run fails to group. Normalizing a
- * uuid-shaped value to its canonical PostgreSQL text (lowercase) makes identity SEMANTIC without rewriting
- * any stored document or hash. A non-uuid string (e.g. a grid questionId, or free text) is returned
- * UNCHANGED, so question-id/text case sensitivity is deliberately untouched. Use this at every P2 identity
- * comparison/derived-key boundary; never mutate the stored value itself.
- */
-export const canonicalUuid = (v: string): string => (PG_UUID_RE.test(v) ? v.toLowerCase() : v);
-export const canonicalRun = (v: string | null): string | null =>
-  v === null ? null : canonicalUuid(v);
 
 export const erasedSlotFactSchema = z
   .object({
@@ -368,6 +356,21 @@ export function resolveStoredCaptures(
     id: canonicalUuid(r.id),
     panelId: canonicalUuid(r.panelId),
   }));
+  // v1 permits exactly ONE locked+approved discovery baseline per project (spec §§2, 5.2, §5.3): one
+  // manual consumer surface, one immutable 10x4 discovery panel version. The lock guard now prevents
+  // creating a second, but a project with HISTORICAL multiple locked discovery baselines (pre-guard or a
+  // direct write) must NOT be presented as one valid v1 experiment. Distinct locked+approved discovery
+  // (panelId, version) pairs are counted — a different panel is a parallel experiment, a same-panel new
+  // locked version is a change mid-pilot; either makes >1. When ambiguous, every resolving discovery
+  // capture is flagged `discovery_baseline_ambiguous` and demoted from a would-be `complete`, so the raw
+  // data stays inspectable (never deleted) but never reads as a clean single-baseline measurement. Brand
+  // panels/runs are a separate opt-in and are unaffected.
+  const discoveryBaselines = new Set(
+    normPanels
+      .filter((p) => p.kind === "discovery" && p.status === "locked" && !!p.approval)
+      .map((p) => `${p.panelId}:${p.version}`),
+  );
+  const singleDiscoveryBaseline = discoveryBaselines.size <= 1;
   const out: ResolvedCapture[] = [];
   for (const answer of answers) {
     if (answer.captureContext === undefined || answer.captureContext === null) continue;
@@ -455,7 +458,10 @@ export function resolveStoredCaptures(
       (panel.questions.length === V1_DISCOVERY_QUESTIONS &&
         panel.rounds === V1_DISCOVERY_ROUNDS &&
         v1DiscoveryQuestionsDistinct(panel));
-    const eligible = approvedBeforeCapture && consumerSurface && gridValid;
+    // A discovery capture is only an eligible v1 measurement when the project has a SINGLE discovery
+    // baseline; an ambiguous (multi-baseline) project can never present a clean measurement.
+    const baselineOk = panel.kind !== "discovery" || singleDiscoveryBaseline;
+    const eligible = approvedBeforeCapture && consumerSurface && gridValid && baselineOk;
     out.push({
       answerId: answer.id,
       panelId: panel.panelId,
@@ -467,6 +473,7 @@ export function resolveStoredCaptures(
         ...(approvedBeforeCapture ? [] : ["panel_approved_after_capture"]),
         ...(consumerSurface ? [] : ["non_consumer_surface"]),
         ...(gridValid ? [] : ["panel_grid_invalid"]),
+        ...(baselineOk ? [] : ["discovery_baseline_ambiguous"]),
       ],
       panelResolved: true,
       brandRunResolved:

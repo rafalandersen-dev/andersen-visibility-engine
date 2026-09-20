@@ -732,11 +732,54 @@ and the report `runById`/`forVersion` grouping.
   uppercase original is accepted without double-charging; and an erased uppercase capture reconciles to an
   erased slot with consumed budget preserved.
 
+### Review round 21 — enforce ONE v1 discovery baseline + close the legacy-intake case bypass (P2 4057895762 / 4057895765)
+
+Two confirmed findings, one packet.
+
+- **One project-scoped v1 discovery baseline (4057895762).** Spec §§2/5.2/5.3 (lines 34/38/47/205/430):
+  v1 is exactly one manual consumer surface and ONE immutable approved 10×4 discovery panel version;
+  changing protocol mid-pilot is a methodology break. `lock_citation_panel` only serialized/checked the
+  chosen panel_id's own versions, so a project could lock a SECOND discovery baseline — a different
+  discovery panel_id (parallel experiment) or a new version of the same panel (change mid-pilot) — silently
+  authorizing a contradictory experiment. Fix (candidate SQL): under the account's `workspace_meta` lock
+  already held, `lock_citation_panel` now refuses a discovery lock when the project already holds ANY
+  locked discovery version (`document->>'kind'='discovery' AND document->>'status'='locked'`) →
+  `citation_discovery_baseline_exists`. Editable drafts and every prior locked version remain (immutable
+  audit history is never deleted); brand panels/runs are a separate opt-in and are exempt; an exact re-lock
+  is still caught earlier by the version check, so idempotent behavior is unchanged. Read-side honesty: a
+  project with HISTORICAL multiple locked+approved discovery baselines (pre-guard / direct writes) is NOT
+  presented as one valid experiment — `resolveStoredCaptures` counts distinct locked+approved discovery
+  `(panelId, version)` pairs and, when >1, flags every resolving discovery capture
+  `discovery_baseline_ambiguous` and demotes a would-be `complete`, so the raw data stays inspectable but
+  never reads as a clean single-baseline measurement. No new SQL object; rollback inventory unchanged. This
+  is the accepted single-baseline rule only — no owner-pilot approval is invented and no multi-experiment
+  platform is added.
+- **Legacy-intake case bypass (4057895765).** `answer-evidence.server.ts` predecessor find used raw
+  `a.id === input.supersedesId`; an UPPERCASE accepted-UUID `supersedesId` missed the canonical-lowercase
+  DB id, BYPASSING `evidence_capture_correction_requires_context` and letting a context-less legacy write
+  silently supersede (and, via the resolver, drop) a capture-bound observation. Fix: both the predecessor
+  find AND the prompt find now compare by semantic UUID value using a SHARED helper. To avoid a circular
+  import (importing from `citation-protocol.server.ts` would cycle through its `answer-evidence.server.ts`
+  dependency), `canonicalUuid`/`canonicalRun` moved to a new leaf module `src/lib/pg-uuid.ts` that both
+  `citation-protocol.ts` (re-exporting for its dependents) and `answer-evidence.server.ts` import. This is
+  a TypeScript-boundary fix per the RPC contract; no applied SQL. A legitimate legacy correction of a
+  legacy (context-less) row remains allowed, across case.
+- Tests: SQL — a second discovery baseline is refused at a different panel id, with a different surface,
+  and as a new locked version of the same panel (`citation_discovery_baseline_exists` via direct SQL,
+  generic via the wrapper); the single baseline plus separate brand panels is allowed; the rule is
+  per-owner/per-project (isolation); and a directly-inserted historical second baseline reads as
+  `discovery_baseline_ambiguous` with no complete observation. Pure resolver — >1 baseline flags/demotes,
+  a draft sibling is not a baseline. Legacy intake — an uppercase `supersedesId` of a capture-bound row is
+  refused, a legacy-of-legacy correction is allowed across case. The round-17 capacity tests are
+  unchanged and remain valid: they exercise the 200-row reservation with kind-less seed rows plus at most
+  one discovery lock and separate brand locks, consistent with v1/brand scope.
+
 ## Files
 
 | File | Change |
 | --- | --- |
-| `src/lib/citation-protocol.ts` | New. Pure storage contract: `panelDraftSchema`, `lockedPanelSchema`, `citationProtocolStateSchema`, `brandRunApprovalSchema`, `parseManualCaptureInput`, `resolveStoredCaptures`, `canonicalUuid`/`canonicalRun` (semantic uuid identity for comparison/keys), caps. Reuses PR137 schemas; never redefines them. |
+| `src/lib/pg-uuid.ts` | New (leaf, no imports). Shared semantic-UUID identity: `PG_UUID_RE`, `canonicalUuid`, `canonicalRun`. Imported by the citation-protocol layer and the legacy answer-evidence intake without a circular import. |
+| `src/lib/citation-protocol.ts` | New. Pure storage contract: `panelDraftSchema`, `lockedPanelSchema`, `citationProtocolStateSchema`, `brandRunApprovalSchema`, `parseManualCaptureInput`, `resolveStoredCaptures` (semantic-uuid identity throughout; discovery-baseline-ambiguity flag), caps. Re-exports `canonicalUuid`/`canonicalRun` from `./pg-uuid`. Reuses PR137 schemas; never redefines them. |
 | `src/lib/citation-protocol.server.ts` | New. Service RPC helpers: read, save draft, lock, approve brand run, import capture, read+resolve. Owner/time/approval derived server-side; network-free. |
 | `src/lib/citation-protocol.functions.ts` | New. Six `requireSupabaseAuth` endpoints, each refusing an owner mismatch and never accepting a client approval/reviewer/timestamp. |
 | `src/lib/citation-protocol.test.ts` | New. Pure-contract + mocked-server unit tests. |
@@ -744,7 +787,7 @@ and the report `runById`/`forVersion` grouping.
 | `src/lib/citation-protocol-migration.test.ts` | New. Real PGlite SQL round trips (isolation, auth, missing project, reference forgery, approval version, protocol binding, capacity, deletion, idempotency). |
 | `supabase/migrations/20260920190000_citation_protocol.sql` | New (one migration). Three tables (panels, brand runs, content-free capture tombstones) + five service-only SECURITY DEFINER RPCs + one internal `IMMUTABLE` helper (`citation_ctx_run`, semantic brandRunId identity, granted to no role) + an `AFTER DELETE` tombstone trigger on `ai_answer_evidence`; RLS on, project-scoped FKs, project-deletion cascade. |
 | `src/lib/answer-evidence.ts` | Additive only: optional opaque `captureContext` on `answerEvidenceSchema` so reads tolerate capture-bound records. Legacy documents are byte-identical (field absent). |
-| `src/lib/answer-evidence.server.ts` | Additive only: `importAnswerEvidence` refuses a capture context (legacy path stays capture-blind; captures must use the panel-aware path). |
+| `src/lib/answer-evidence.server.ts` | Additive only: `importAnswerEvidence` refuses a capture context (legacy path stays capture-blind; captures must use the panel-aware path), and now compares the predecessor and prompt by SEMANTIC uuid value (`canonicalUuid` from `./pg-uuid`) so an UPPERCASE `supersedesId` cannot bypass `evidence_capture_correction_requires_context`. |
 | `product/CITATION_PROTOCOL_IMPLEMENTATION_2026_09_19.md`, `evidence/citation-protocol-storage-2026-09-19.md` | New. This doc and the evidence record. |
 
 No other files were touched. `citation-panel.ts`, `citation-finding.ts`, `native-ai-*`, the P1
@@ -882,13 +925,24 @@ two new SQL helper calls were unqualified (unresolvable under `search_path=''`, 
 wrapper-masked `citation_protocol_unavailable`), and the released `slotOutcome` still compared a raw
 `answer.promptId`/question `promptId`. This packet schema-qualifies the calls and normalizes the
 panel/runs/answer promptId into the released helpers, and adds a direct-SQL admission assertion so a root
-SQL error is not masked.
-**That 180/47-FAIL run is a FAILED prior attempt of these edits, not a passing baseline. All prior PASS
-counts — including the pre-round-20 Codex run on 3c9c663f (220 focused / 6314 full PASS,
+SQL error is not masked. Round 21 (this turn) delivers two confirmed findings in one packet: (a) P2
+4057895762 — `lock_citation_panel` now enforces ONE project-scoped v1 discovery baseline
+(`citation_discovery_baseline_exists`) under the account lock, refusing a second discovery panel_id or a
+new locked version of the same panel, while drafts/history stay and brand runs are exempt; and
+`resolveStoredCaptures` flags a HISTORICAL multi-baseline project `discovery_baseline_ambiguous` (demoted,
+inspectable, never a clean measurement). (b) P2 4057895765 — the legacy `importAnswerEvidence` predecessor
+and prompt finds now compare by semantic uuid value via a shared leaf module `src/lib/pg-uuid.ts` (moved
+from `citation-protocol.ts`, re-exported there; no circular import), so an UPPERCASE `supersedesId` can no
+longer bypass `evidence_capture_correction_requires_context`. No new SQL object (rollback inventory
+unchanged); `citation-panel.ts` released contract untouched; questionId/text stay case-sensitive; no
+owner-pilot approval invented; candidate SQL + `citation-protocol.ts`/`.server.ts` +
+`answer-evidence.server.ts` + `pg-uuid.ts` + P2 tests + docs only.
+**That 180/47-FAIL run is a FAILED prior attempt of the round-20 edits, not a passing baseline. All prior
+PASS counts — including the latest Codex run on a5dea92c (227 focused / 6321 full PASS,
 types/lint/build PASS) — are a prior stage and do not carry over**; every check below, including the
 round-16 single-snapshot read tests, the round-17 capacity-reservation tests, the round-18
-erased-extra-attempt tests, the round-19 brandRunId-identity tests, and the round-20 semantic-UUID
-identity tests, is UNRUN in this worktree and must
+erased-extra-attempt tests, the round-19 brandRunId-identity tests, the round-20 semantic-UUID
+identity tests, and the round-21 single-baseline + legacy-intake tests, is UNRUN in this worktree and must
 be re-executed by Codex. No released SQL, released `citation-panel.ts`, global
 migration inventory, or P3/R09 file was touched (the last commit `777ee67f` — Codex's doc rollback
 inventory fix — is preserved); USD50/manual-free is unchanged. The prepared deploy SQL /

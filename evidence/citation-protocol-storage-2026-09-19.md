@@ -583,6 +583,39 @@ Against the renamed candidate `20260920190000_citation_protocol.sql` (old `…17
   without double-charging; an erased uppercase capture reconciles to an erased slot with consumed budget
   preserved. No multi-connection empirical proof claimed.
 
+## Review round 21 (ONE v1 discovery baseline + legacy-intake case bypass — P2 4057895762 / 4057895765)
+
+- Finding 1 (4057895762): spec §§2/5.2/5.3 require exactly ONE manual consumer surface and ONE immutable
+  approved 10x4 discovery baseline per project; `lock_citation_panel` only checked the chosen panel_id's
+  versions, so a project could lock a SECOND discovery baseline (a different panel_id = parallel
+  experiment; a new locked version of the same panel = change mid-pilot), silently authorizing a
+  contradictory experiment. Fix (candidate SQL): under the `workspace_meta` account lock already held,
+  `lock_citation_panel` refuses a discovery lock when a locked discovery version already exists
+  (`document->>'kind'='discovery' AND document->>'status'='locked'`) →
+  `citation_discovery_baseline_exists`. Drafts and every prior locked version remain (history not
+  deleted); brand panels/runs are exempt; an exact re-lock is still caught by the version check
+  (idempotency unchanged). Read-side honesty: `resolveStoredCaptures` counts distinct locked+approved
+  discovery `(panelId, version)` pairs and, when >1, flags every resolving discovery capture
+  `discovery_baseline_ambiguous` and demotes a would-be complete — historical multi-baseline data stays
+  inspectable but never reads as a valid single-v1 experiment. No new SQL object; rollback inventory
+  unchanged; no owner-pilot approval invented; no multi-experiment platform added.
+- Finding 2 (4057895765): `answer-evidence.server.ts` legacy intake compared the predecessor by raw
+  `a.id === input.supersedesId`, so an UPPERCASE accepted-UUID `supersedesId` missed the lowercase DB id
+  and BYPASSED `evidence_capture_correction_requires_context`, letting a context-less legacy write
+  silently supersede/drop a capture. Fix: the predecessor find AND the prompt find compare by semantic
+  uuid value via a shared leaf module `src/lib/pg-uuid.ts` (moved `canonicalUuid`/`canonicalRun` there,
+  re-exported from `citation-protocol.ts`; avoids the circular import that importing from
+  `citation-protocol.server.ts` would cause). TypeScript-boundary fix per the RPC contract; no applied
+  SQL. A legitimate legacy-of-legacy correction stays allowed, across case.
+- Tests: SQL — a second discovery baseline refused at a different panel id, with a different surface, and
+  as a new locked version of the same panel (`citation_discovery_baseline_exists` via direct SQL, generic
+  via wrapper); single baseline + separate brand allowed; per-owner/per-project isolation; a
+  directly-inserted historical second baseline reads `discovery_baseline_ambiguous` with no complete
+  observation. Pure resolver — >1 baseline flags/demotes; a draft sibling is not a baseline. Legacy
+  intake — uppercase `supersedesId` of a capture-bound row refused; legacy-of-legacy correction allowed
+  across case. The round-17 capacity tests are unchanged and stay valid (kind-less seed rows + at most one
+  discovery lock + separate brand locks).
+
 ## Checks (status: UNRUN — prepared for Codex)
 
 Prior stages: 143 (tsc failing) → 146 → 148/147-PASS-1-FAIL → 150 → 170/6081 → (round 5) read-ordering
@@ -787,3 +820,16 @@ Test commands (Codex runs; UNRUN here): `npx vitest run src/lib/citation-protoco
 ### Codex full semantic-identity verification — 20 September 2026
 
 After fixing the failed intermediate attempt, independently verified qualified helper calls under the preserved empty search path and normalized derived panel/question/run/answer inputs to released resolution helpers. Eight focused suites passed 227 tests (2.79s), TypeScript passed; full suite passed 6321 tests across 385 files (44.25s), scoped ESLint, production build and whitespace checks passed. Formatter-only Codex integration exception on four changed TypeScript files. Logs: /tmp/milo-p2-uuid-resolution-recheck-{focused,types}-20260920.log and /tmp/milo-p2-uuid-resolution-{format,lint,full,build}-20260920.log. Real storage tests admit and resolve mixed-case panel/run/prompt identities, corrections and erasures without rewriting immutable documents. No migration applied or production acceptance claimed; old guarded SQL and expected identity remain stale.
+
+## One v1 discovery baseline + legacy-intake case bypass — status UNRUN (P2 4057895762 / 4057895765)
+
+Round 21 fixes two confirmed findings. (1) `lock_citation_panel` (candidate SQL) now enforces ONE project-scoped v1 discovery baseline under the account lock: it refuses a discovery lock when a locked discovery version already exists (`citation_discovery_baseline_exists`), blocking both a second discovery panel_id (parallel experiment) and a new locked version of the same panel (change mid-pilot); drafts/history remain, brand runs are exempt, idempotent re-lock behavior is unchanged. `resolveStoredCaptures` additionally flags a HISTORICAL multi-baseline project `discovery_baseline_ambiguous` (demoted, inspectable, never a clean measurement). (2) `answer-evidence.server.ts` legacy intake now compares the predecessor and prompt by semantic uuid value via a new shared leaf module `src/lib/pg-uuid.ts` (`canonicalUuid`/`canonicalRun` moved there from `citation-protocol.ts`, which re-exports them; this avoids the circular import that importing from `citation-protocol.server.ts` would cause), so an UPPERCASE `supersedesId` can no longer bypass `evidence_capture_correction_requires_context`; a legitimate legacy-of-legacy correction stays allowed. No new SQL object (rollback inventory unchanged); `citation-panel.ts` released contract untouched; questionId/text stay case-sensitive; no owner-pilot approval invented; no multi-experiment platform. Edited only `supabase/migrations/20260920190000_citation_protocol.sql`, `src/lib/pg-uuid.ts`, `src/lib/citation-protocol.ts`, `src/lib/citation-protocol.server.ts`, `src/lib/answer-evidence.server.ts`, the two P2 test files and these docs.
+
+The last PASSING stage (Codex verification on a5dea92c: 227 focused / 6321 full PASS, 44.25s, types/lint/build PASS) does NOT carry over; every round-21 check is UNRUN in this worktree and must be re-executed by Codex under the recorded exception — this assistant did not run tests and claims no PASS. New checks: SQL — a second discovery baseline refused at a different panel id / different surface / new locked version of the same panel (`citation_discovery_baseline_exists` via direct SQL, generic via wrapper), single baseline + separate brand allowed, per-owner/per-project isolation, and a directly-inserted historical second baseline reads `discovery_baseline_ambiguous` with no complete observation; pure resolver — >1 baseline flags/demotes, a draft sibling is not a baseline; legacy intake — uppercase `supersedesId` of a capture-bound row refused, legacy-of-legacy correction allowed across case. Round-17 capacity tests unchanged and still valid. No multi-connection empirical proof claimed. Candidate `20260920190000` remains UNAPPLIED; prepared deploy SQL / expected-identity artifacts remain STALE (never executed); USD50 + manual-free budget unchanged; nothing is deployed.
+
+Test commands (Codex runs; UNRUN here): `npx vitest run src/lib/citation-protocol.test.ts src/lib/citation-protocol.functions.test.ts src/lib/citation-protocol-migration.test.ts src/lib/answer-evidence-migration.test.ts`; `npx tsc --noEmit`; and the repository lint/build tasks.
+
+
+### Codex baseline and legacy-intake verification — 20 September 2026
+
+Reviewed project-scoped discovery lock serialization, historical ambiguity reporting and shared leaf UUID comparisons in legacy intake. Four focused suites passed 135 tests (2.78s); TypeScript passed; full suite passed 6330 tests across 385 files (43.62s). Scoped ESLint on the five changed TypeScript files, production build and whitespace checks passed. Formatter-only Codex integration exception on these five files. Whole-repository `npm run lint` failed with 3790 errors and 14 warnings across the repository; this is not claimed as a clean global lint run and no unrelated mass formatting was performed. Logs: /tmp/milo-p2-baseline-legacy-{focused,types,format,lint,scoped-lint,full,build}-20260920.log. Candidate remains unapplied; no production or empirical multi-connection acceptance claimed. Release SQL and expected identity must be regenerated for the final approved commit.

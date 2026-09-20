@@ -612,6 +612,50 @@ describe("CI-2 manual capture resolution and binding", () => {
     // Historical approval so the 2026-09-08 fixture captures are legitimately post-approval.
     await backdatePanelApproval(discoveryPanelId);
   });
+  it("legacy intake: an UPPERCASE supersedesId cannot bypass the capture-correction guard; a legacy chain is allowed", async () => {
+    // A capture-bound row (carries captureContext), created via the panel-aware path; its DB id is
+    // canonical lowercase.
+    const captureId = await importManualCapture(scope, discoveryCapture(), rpc);
+    const legacyBase = {
+      ...answerBase,
+      promptId: discoveryPromptId,
+      promptRevision: 1,
+      capturedAt: "2026-09-08T10:00:00Z",
+    };
+    // A legacy (context-less) intake that supersedes the capture-bound row by its UPPERCASE spelling must
+    // be REFUSED. Pre-fix the raw `a.id === input.supersedesId` missed the lowercase id, so the guard was
+    // bypassed and the capture was silently superseded (then dropped by the resolver). Not resolver-only:
+    // this is the write-guard on the legacy path.
+    await expect(
+      importAnswerEvidence(
+        scope,
+        {
+          ...legacyBase,
+          rawAnswer: "legacy correction of a capture",
+          supersedesId: captureId.toUpperCase(),
+        },
+        rpc,
+      ),
+    ).rejects.toThrow(/evidence_capture_correction_requires_context/);
+    // A legitimate legacy correction of a legacy (context-less) row remains allowed, even across case.
+    const original = await importAnswerEvidence(
+      scope,
+      { ...legacyBase, capturedAt: "2026-09-08T11:00:00Z", rawAnswer: "legacy original" },
+      rpc,
+    );
+    const corrected = await importAnswerEvidence(
+      scope,
+      {
+        ...legacyBase,
+        capturedAt: "2026-09-08T11:00:00Z",
+        rawAnswer: "legacy corrected",
+        supersedesId: original.toUpperCase(),
+      },
+      rpc,
+    );
+    expect(corrected).toBeTypeOf("string");
+    expect(corrected).not.toBe(original);
+  });
   it("stores a discovery capture bound to the locked version and dedupes an identical import", async () => {
     const first = await importManualCapture(scope, discoveryCapture(), rpc);
     const again = await importManualCapture(scope, discoveryCapture(), rpc);
@@ -2244,6 +2288,128 @@ describe("CI-2 semantic UUID identity for mixed-case stored identifiers", () => 
       observed: 0,
       erased: 1,
     });
+  });
+});
+
+describe("CI-2 single v1 discovery baseline per project (spec §§2/5.2/5.3)", () => {
+  const lockedDiscovery = async () =>
+    (
+      await db.query<{ n: number }>(
+        "SELECT count(*)::int n FROM citation_panels WHERE user_id=$1 AND project_id='p' AND document->>'kind'='discovery' AND document->>'status'='locked'",
+        [user],
+      )
+    ).rows[0].n;
+  it("refuses a SECOND discovery baseline at a different panel id (no parallel experiment)", async () => {
+    await saveCitationPanelDraft(scope, discoveryPanelId, 0, draftDiscovery(), rpc);
+    await lockCitationPanel(scope, discoveryPanelId, 1, rpc); // the single v1 baseline (v2 locked)
+    await saveCitationPanelDraft(scope, uuid(700), 0, draftDiscovery({ panelId: uuid(700) }), rpc);
+    // Specific guard via direct SQL (surfaces under the account lock); public wrapper refuses generically.
+    await expect(
+      db.query("SELECT lock_citation_panel($1,'p',$2,$3)", [user, uuid(700), 1]),
+    ).rejects.toThrow(/citation_discovery_baseline_exists/);
+    await expect(lockCitationPanel(scope, uuid(700), 1, rpc)).rejects.toThrow();
+    expect(await lockedDiscovery()).toBe(1); // still exactly one locked discovery baseline
+    // The refused panel stays an editable draft (nothing locked, history not deleted).
+    expect(
+      (
+        await db.query<{ n: number }>(
+          "SELECT count(*)::int n FROM citation_panels WHERE user_id=$1 AND project_id='p' AND panel_id=$2",
+          [user, uuid(700)],
+        )
+      ).rows[0],
+    ).toEqual({ n: 1 });
+  });
+  it("refuses a second discovery baseline even with a DIFFERENT surface (no surface change mid-pilot)", async () => {
+    await saveCitationPanelDraft(scope, discoveryPanelId, 0, draftDiscovery(), rpc);
+    await lockCitationPanel(scope, discoveryPanelId, 1, rpc);
+    const otherSurface = { ...surface, service: "Gemini" }; // a different manual consumer surface
+    await saveCitationPanelDraft(
+      scope,
+      uuid(701),
+      0,
+      draftDiscovery({ panelId: uuid(701), surface: otherSurface }),
+      rpc,
+    );
+    await expect(
+      db.query("SELECT lock_citation_panel($1,'p',$2,$3)", [user, uuid(701), 1]),
+    ).rejects.toThrow(/citation_discovery_baseline_exists/);
+    expect(await lockedDiscovery()).toBe(1);
+  });
+  it("refuses a change mid-pilot: a NEW locked version of the SAME discovery panel", async () => {
+    await saveCitationPanelDraft(scope, discoveryPanelId, 0, draftDiscovery(), rpc);
+    await lockCitationPanel(scope, discoveryPanelId, 1, rpc); // v2 locked baseline
+    // Editing the baseline is fine as a DRAFT (v3), but locking it would create a second baseline.
+    await saveCitationPanelDraft(scope, discoveryPanelId, 2, draftDiscovery({ version: 3 }), rpc);
+    await expect(
+      db.query("SELECT lock_citation_panel($1,'p',$2,$3)", [user, discoveryPanelId, 3]),
+    ).rejects.toThrow(/citation_discovery_baseline_exists/);
+    await expect(lockCitationPanel(scope, discoveryPanelId, 3, rpc)).rejects.toThrow();
+    expect(await lockedDiscovery()).toBe(1); // still only the v2 baseline; v3 stays an editable draft
+  });
+  it("allows the single discovery baseline plus separate brand panels/runs", async () => {
+    await saveCitationPanelDraft(scope, discoveryPanelId, 0, draftDiscovery(), rpc);
+    expect(await lockCitationPanel(scope, discoveryPanelId, 1, rpc)).toMatchObject({
+      status: "locked",
+    });
+    // Brand is a separate opt-in and is exempt: locking a brand panel is allowed alongside the baseline.
+    await saveCitationPanelDraft(scope, brandPanelId, 0, draftBrand(), rpc);
+    expect(await lockCitationPanel(scope, brandPanelId, 1, rpc)).toMatchObject({
+      status: "locked",
+    });
+    expect(await lockedDiscovery()).toBe(1);
+  });
+  it("scopes the single-baseline rule per owner and project (isolation)", async () => {
+    await saveCitationPanelDraft(scope, discoveryPanelId, 0, draftDiscovery(), rpc);
+    await lockCitationPanel(scope, discoveryPanelId, 1, rpc); // baseline in user/p
+    // A DIFFERENT project of the same owner can lock its own first discovery baseline.
+    const qScope = { ownerId: user, projectId: "q" };
+    for (let i = 0; i < 10; i++)
+      await saveEvidencePrompt(qScope, uuid(101 + i), 0, promptData(discoveryQuestionText(i)), rpc);
+    await saveCitationPanelDraft(qScope, discoveryPanelId, 0, draftDiscovery(), rpc);
+    expect(await lockCitationPanel(qScope, discoveryPanelId, 1, rpc)).toMatchObject({
+      status: "locked",
+    });
+    // A DIFFERENT owner (same project id) can lock its own first baseline too.
+    const otherScope = { ownerId: other, projectId: "p" };
+    for (let i = 0; i < 10; i++)
+      await saveEvidencePrompt(
+        otherScope,
+        uuid(101 + i),
+        0,
+        promptData(discoveryQuestionText(i)),
+        rpc,
+      );
+    await saveCitationPanelDraft(otherScope, discoveryPanelId, 0, draftDiscovery(), rpc);
+    expect(await lockCitationPanel(otherScope, discoveryPanelId, 1, rpc)).toMatchObject({
+      status: "locked",
+    });
+  });
+  it("reads HISTORICAL multiple discovery baselines as ambiguous, never a valid single-v1 experiment", async () => {
+    // The lock guard prevents new second baselines, but pre-guard/direct-write projects may already hold
+    // two locked discovery baselines. Insert a second locked+approved discovery version DIRECTLY (bypassing
+    // the guard), alongside the legitimate one, then capture against the first. The read must keep the raw
+    // data inspectable yet flag it ambiguous and never present a clean complete measurement.
+    await saveCitationPanelDraft(scope, discoveryPanelId, 0, draftDiscovery(), rpc);
+    await lockCitationPanel(scope, discoveryPanelId, 1, rpc); // baseline A (v2 locked, approved via lock)
+    await backdatePanelApproval(discoveryPanelId);
+    const capture = await importManualCapture(scope, discoveryCapture(), rpc); // valid against baseline A
+    void capture;
+    // A SECOND locked+approved discovery baseline (different panel id), inserted directly.
+    const baselineB = {
+      ...draftDiscovery({ panelId: uuid(702), version: 2, status: "locked" }),
+      approval: { approvedBy: user, approvedAt: "2026-09-01T00:00:00.000Z" },
+    };
+    await db.query(
+      "INSERT INTO citation_panels(user_id,project_id,panel_id,version,document) VALUES($1,'p',$2,2,$3)",
+      [user, uuid(702), baselineB],
+    );
+    const { captures, reports } = await readResolvedCaptures(scope, rpc);
+    // The capture is still inspectable (resolved against its panel) but is NOT a clean measurement.
+    expect(captures[0]).toMatchObject({ panelResolved: true, outcome: "protocol_deviant" });
+    expect(captures[0].deviations).toContain("discovery_baseline_ambiguous");
+    // No discovery report presents a complete observation while the project is ambiguous.
+    for (const r of reports.filter((x) => x.kind === "discovery"))
+      expect(r.outcomes.complete).toBe(0);
   });
 });
 

@@ -290,6 +290,19 @@ BEGIN
         AND pr.id=(q->>'promptId')::uuid AND pr.revision=(q->>'promptRevision')::integer
         AND pr.data->>'prompt'=q->>'text')
   ) THEN RAISE EXCEPTION 'citation_question_unbound'; END IF;
+  -- v1 is ONE immutable approved discovery baseline per project (spec §§2, 5.2, §5.3): a single manual
+  -- consumer surface and a single locked 10x4 discovery panel version. Locking a SECOND locked discovery
+  -- version — whether a DIFFERENT discovery panel_id (a parallel experiment) or a NEW version of this same
+  -- panel (a change mid-pilot) — would silently authorize a second, contradictory baseline, so it fails
+  -- closed here. Editable drafts and every prior locked version remain (immutable audit history is never
+  -- deleted); brand panels/runs are a separate opt-in and are exempt. Serialized by the workspace_meta row
+  -- lock held above, so two concurrent discovery locks cannot both pass. An exact re-lock is already
+  -- refused earlier by the version check, so this never blocks an idempotent retry.
+  IF draft->>'kind'='discovery' AND EXISTS (
+    SELECT 1 FROM public.citation_panels
+    WHERE user_id=p_user AND project_id=p_project
+      AND document->>'kind'='discovery' AND document->>'status'='locked'
+  ) THEN RAISE EXCEPTION 'citation_discovery_baseline_exists'; END IF;
   -- Locking CONSUMES this pending head's reserved slot (row +1, pending head -1), so the row count plus
   -- outstanding reservations is unchanged and never grows. The draft-time reservation in
   -- save_citation_panel_draft guarantees the row count is at most 199 whenever a pending head exists, so a

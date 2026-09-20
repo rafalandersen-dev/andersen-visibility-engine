@@ -228,6 +228,42 @@ describe("citation protocol pure contract", () => {
       brandRunResolved: null,
     });
   });
+  it("flags a discovery capture as ambiguous when the project has more than one locked discovery baseline", () => {
+    // v1 permits ONE locked discovery baseline. Two locked+approved discovery versions (here two panel
+    // ids) is a parallel/change-midpilot ambiguity: the capture stays inspectable (resolved) but is never
+    // a clean complete measurement.
+    const cap = {
+      id: uuid(900),
+      status: "complete" as const,
+      promptId: uuid(101),
+      promptRevision: 1,
+      supersedesId: null,
+      captureContext: context(),
+    };
+    const [r] = resolveStoredCaptures(
+      [cap],
+      [discoveryPanel(), discoveryPanel({ panelId: uuid(3) })],
+      [],
+    );
+    expect(r.panelResolved).toBe(true);
+    expect(r.outcome).toBe("protocol_deviant");
+    expect(r.deviations).toContain("discovery_baseline_ambiguous");
+  });
+  it("keeps a discovery capture eligible with exactly one locked baseline (a draft sibling is not a baseline)", () => {
+    const cap = {
+      id: uuid(901),
+      status: "complete" as const,
+      promptId: uuid(101),
+      promptRevision: 1,
+      supersedesId: null,
+      captureContext: context(),
+    };
+    // A DRAFT sibling discovery panel is not a baseline, so the single-baseline capture stays complete.
+    const draftSibling = discoveryPanel({ panelId: uuid(3), status: "draft", approval: null });
+    const [r] = resolveStoredCaptures([cap], [discoveryPanel(), draftSibling], []);
+    expect(r).toMatchObject({ outcome: "complete" });
+    expect(r.deviations).not.toContain("discovery_baseline_ambiguous");
+  });
   it("keeps a capture collected before the panel approval inspectable but never eligible", () => {
     // The panel's fixture approval instant is 2026-09-01; a 2026-08-15 capture predates the approved
     // protocol, so it resolves (inspectable) but is demoted from complete and flagged, not eligible.
