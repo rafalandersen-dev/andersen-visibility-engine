@@ -49,8 +49,16 @@ const releasedConversationPacket = [
   "20260914090000_milo_account_conversations.sql",
   "20260914120000_milo_provider_check_consent.sql",
   "20260914150000_project_team_seats.sql",
+  // Diagnostics migration: reviewed and applied to production on 19 September (see
+  // evidence/conversation-contention-release-2026-09-20.md — "diagnostics160000 already
+  // applied exactly once"). It depends on the conversations table above, so it belongs
+  // here (applied after the packet) rather than in releasedAfterCutoff.
+  "20260919160000_milo_conversation_diagnostics.sql",
 ];
-const candidates = ["20260919160000_milo_conversation_diagnostics.sql"];
+// The only unapplied candidate in this worktree: the executor-only bounded checkpoint
+// lock wait. It redefines claim/advance/check_execution (service_role-only) and adds the
+// internal assert_milo_conversation_execution helper (ungranted); both are asserted below.
+const candidates = ["20260920180000_milo_conversation_checkpoint_lock_wait.sql"];
 const allowed = async (role: string, fn: string) =>
   (
     await db.query<{ allowed: boolean }>("SELECT has_function_privilege($1,$2,'EXECUTE') allowed", [
@@ -119,6 +127,10 @@ describe("candidate migration chain", () => {
     "count_project_team_seats(uuid,text)",
     "create_project_team_invitation(uuid,uuid,text,uuid,text,text,integer,integer)",
     "change_project_team_member(uuid,uuid,text,uuid,bigint,text,boolean,integer,integer)",
+    // Redefined by candidate 20260920180000 (CREATE OR REPLACE keeps service_role-only).
+    "claim_milo_conversation_turn(uuid,uuid,text,uuid,uuid)",
+    "advance_milo_conversation_turn(uuid,uuid,text,uuid,uuid,uuid,integer,jsonb,text)",
+    "check_milo_conversation_execution(uuid,uuid,text,uuid,uuid,uuid)",
   ])("%s is executable by service_role only", async (fn) => {
     expect(await allowed("service_role", fn)).toBe(true);
     for (const role of ["anon", "authenticated", "public"])
@@ -128,6 +140,9 @@ describe("candidate migration chain", () => {
     "milo_conversation_turn_view(public.milo_conversation_turns)",
     "assert_milo_conversation_access(uuid,uuid,text)",
     "assert_project_team_seat(uuid,text,text,text,integer,integer)",
+    // New internal helper added by candidate 20260920180000: the executor-only bounded
+    // access assert, granted to no role and reachable only from the definer RPCs.
+    "assert_milo_conversation_execution(uuid,uuid,text)",
   ])("%s is reachable only from definer functions", async (fn) => {
     for (const role of ["anon", "authenticated", "service_role", "public"])
       expect(await allowed(role, fn)).toBe(false);
@@ -137,6 +152,13 @@ describe("candidate migration chain", () => {
       "begin_milo_conversation_turn",
       "create_project_team_invitation",
       "change_project_team_member",
+      // Candidate 20260920180000 CREATE OR REPLACEs these with identical signatures — it
+      // must not fork a second overload (a signature typo would leave the old NOWAIT body
+      // live alongside the new one).
+      "claim_milo_conversation_turn",
+      "advance_milo_conversation_turn",
+      "check_milo_conversation_execution",
+      "assert_milo_conversation_execution",
     ]) {
       const { rows } = await db.query<{ n: string }>(
         "SELECT count(*)::text n FROM pg_proc p JOIN pg_namespace s ON s.oid=p.pronamespace WHERE s.nspname='public' AND p.proname=$1",

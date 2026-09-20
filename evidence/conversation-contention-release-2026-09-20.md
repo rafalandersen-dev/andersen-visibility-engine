@@ -1,0 +1,11 @@
+# Conversation contention repair release — 20 September 2026
+
+PR147 reviewed c5b1b989e208edb48132bb31892261a6601da28e: code clean5746072689, security clean5746071599, all CI passed. Normal merge2e4d7268350a53b09bc75016e59980865afca0fd has identical tree. Lovable synced exact merge before single deployeee0e5fc-97e9-4185-b182-18983b0b1b01. Live build1789860333315, fingerprint593388af3d95943b1c0d4a3d6d537bc6b9f7189b45ce9c5a81dd05022ecf2f22, all components match, modified=false. Unauthenticated POST/api/milo/run401. No new SQL; diagnostics160000 already applied exactly once.
+
+Preflight: dispatch/cron OFF, no pending or unexpired-running turns, one historical expired-running turn, global and owner September capsUSD50, reservedUSD3.00, recordedspent0. Guarded temporary control enable with cronOFF. ONE new ownerUIquestion explicitly disallowed drafting/checks/publication; capability checkboxes0.
+
+Conversationb24cb14b-2a16-41b1-9821-abc357d5bbe0, turnc60ef4f2-cc18-45c4-832b-5ca8a1462ce6, created2026-09-19T23:27:46.746055Z, updated23:27:52.265096Z. Persisted events: project_brief tool_started/tool_result, analysing, handoff, execution_unknown. Actual stored stateUNKNOWN (terminal persisted); UI reload confirms handoff and unknown. No responding event or assistant answer. Diagnosticstage reply_model, SQLSTATE55P03, error_classunknown/nameother, terminal provenance, operation7421dd17-912e-4752-be9b-163148a507df. Stage includes status checkpoint before model: absent responding supports pre-model checkpoint failure, but diagnostic alone is not a more precise substage trace.
+
+Handoff and terminal persistence now worked in this attempt; complete conversational acceptance still FAILED. No inferred lock-holder identity. Control restoredOFF immediately after result, cronOFF. No replay/refund/forced historical mutation. Global/owner reservedUSD3.00→3.50, recordedspent0 is not proof of actual zero provider cost. No article, site check or publication requested/performed by this test.
+
+Next: Claude investigate remaining sustained checkpoint contention from real lock/auth/RPC paths and prepare bounded repair/evidence, preserving authorization, leases and no model/tool replay. Do not merely multiply retries without explaining underlying contention. No more provider test before review/release.
