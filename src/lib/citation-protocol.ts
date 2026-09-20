@@ -150,6 +150,16 @@ export const lockedPanelSchema = panelProtocolSchema.superRefine((panel, ctx) =>
 // can reuse the SAME normalizer without a circular import. Re-exported for the P2 server/tests that
 // already import canonicalUuid/canonicalRun from this module.
 export { canonicalUuid, canonicalRun };
+/**
+ * The per-version erasure-metadata key. The SQL producer of that metadata keys by CANONICAL uuid columns
+ * while a panel DOCUMENT keeps the client's original panelId spelling (possibly UPPERCASE), so both the
+ * server (which builds `excludedByVersion`/`coverageCompleteByVersion`/`extraAttemptsByVersion` and the
+ * received-count map) and `citationReport` (which reads them) MUST derive this key identically — via
+ * `canonicalUuid` — or an uppercase panel drops its excluded/extra counts and defaults coverage to a
+ * false-definitive `neverObserved`. One shared helper prevents that divergence.
+ */
+export const panelVersionKey = (panelId: string, version: number): string =>
+  `${canonicalUuid(panelId)}:${version}`;
 const pgUuid = z.string().regex(PG_UUID_RE);
 
 export const erasedSlotFactSchema = z
@@ -790,7 +800,9 @@ export function citationReport(
     if (panel.kind === "brand" && eRun) runErased.set(eRun, (runErased.get(eRun) ?? 0) + 1);
   }
   // Malformed historical tombstones for this version are already a content-free count — surface them.
-  const versionKey = `${panel.panelId}:${panel.version}`;
+  // The key is canonicalized (shared helper) so an UPPERCASE panel document still matches the SQL
+  // producer's lowercase-column keys; otherwise excluded/extra would drop and coverage would default true.
+  const versionKey = panelVersionKey(panel.panelId, panel.version);
   excluded += erasure.excludedByVersion[versionKey] ?? 0;
   // Additional erased attempts at already-recorded grid slots (duplicate/extra historical practice) come
   // from the EXACT SQL aggregate, so a truncated tombstone transmit never hides one; `erased` stays

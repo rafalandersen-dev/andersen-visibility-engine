@@ -641,6 +641,33 @@ Against the renamed candidate `20260920190000_citation_protocol.sql` (old `…17
   owner-receipt of the same uuid spelled differently accepted, a different owner still mismatches. Failing
   SQL asserted directly, not only via the wrapper's generic error.
 
+## Review round 23 (key per-version erasure metadata by CANONICAL uuid; uppercase panel — P2 4058000378)
+
+- Confirmed: `citationReport`'s per-version `versionKey` was `` `${panel.panelId}:${panel.version}` `` from
+  the raw panel DOCUMENT panelId — UPPERCASE since round 22 — while the read RPC produces the per-version
+  erasure metadata (`excludedByVersion` / `coverageCompleteByVersion` / `extraAttemptsByVersion`, and the
+  received-count map that decides coverage) keyed by the canonical lowercase `panel_id` COLUMN (the delete
+  trigger casts `captureContext.panelId` into a uuid column). So for an uppercase panel every lookup missed:
+  `excluded` and `erasedExtra` dropped to 0 and `coverageComplete` defaulted true → a **false definitive
+  `neverObserved`** instead of null.
+- Fix: one shared narrow helper `panelVersionKey(panelId, version)` in `citation-protocol.ts` returns
+  `` `${canonicalUuid(panelId)}:${version}` ``, used by BOTH the server producer (`readResolvedCaptures` —
+  the `receivedByVersion` / `excludedByVersion` / `coverageCompleteByVersion` / `extraAttemptsByVersion` key
+  builders) and the report consumer (`citationReport`'s `versionKey`), so the keys cannot diverge. Producer
+  ids come from uuid columns (already lowercase → no-op); the fix bites on the report's document id. The
+  `discoveryBaselines` key (baseline identity from the already-canonical `normPanels`, independent of the
+  erasure maps) is unchanged. Immutable document/hash, exact counts/truncation/no-invented-coverage and
+  case-sensitive questionId/text preserved; a different uuid/version stays a separate report. No SQL change
+  (rollback inventory unchanged).
+- Tests: pure report — an UPPERCASE panel document with lowercase-keyed SQL erasure metadata counts
+  `excluded` (malformed) and `erasedExtra` (duplicate) and reads `coverageComplete true`; with the coverage
+  key incomplete for the uppercase panel, `neverObserved` is null (no false definitive). Real storage — a
+  stored-UPPERCASE discovery panel with two same-slot originals erased (one distinct erased slot + one
+  duplicate) plus two malformed tombstones, read end-to-end (`readResolvedCaptures → citationReport`): the
+  exact SQL aggregate is `gridRows 2 / duplicateRows 1 / excludedRows 2`, and the report attributes
+  `erased 1`, `erasedExtra 1`, `excluded 2`, `coverageComplete true`, `neverObserved 39` to the uppercase
+  panel version.
+
 ## Checks (status: UNRUN — prepared for Codex)
 
 Prior stages: 143 (tsc failing) → 146 → 148/147-PASS-1-FAIL → 150 → 170/6081 → (round 5) read-ordering
@@ -871,3 +898,16 @@ Test commands (Codex runs; UNRUN here): `npx vitest run src/lib/citation-protoco
 ### Codex draft/admission UUID verification — 20 September 2026
 
 Reviewed semantic UUID comparison of draft document and request identity, lock/brand owner receipts and historical brand retry. Stored documents remain verbatim and mismatching UUIDs remain rejected. Four focused suites passed 141 tests (2.90s); TypeScript passed. Full suite passed 6336 tests across 385 files (45.17s), scoped ESLint, production build and whitespace checks passed. Formatter-only Codex integration exception on three changed TypeScript files. Logs: /tmp/milo-p2-draft-uuid-{focused,types,format,lint,full,build}-20260920.log. The previously recorded whole-repository lint failure remains open; no global lint pass is claimed. Candidate remains unapplied, prepared release SQL/identity stale; no production acceptance or multi-connection experiment claimed.
+
+## Per-version erasure metadata keyed by CANONICAL uuid (uppercase panel) — status UNRUN (P2 4058000378)
+
+Round 23 closes the last un-normalized per-version key. Confirmed: `citationReport`'s `versionKey` was built from the raw panel DOCUMENT panelId — UPPERCASE since round 22 admitted uppercase panel documents — while `readResolvedCaptures` builds the per-version erasure metadata (`excludedByVersion`, `coverageCompleteByVersion`, `extraAttemptsByVersion`, and the `receivedByVersion` count that decides coverage completeness) keyed by the canonical lowercase `panel_id` COLUMN (the `AFTER DELETE` trigger casts `captureContext.panelId` into a uuid column). So for an uppercase panel every lookup missed: `excluded` and `erasedExtra` dropped to 0 and `coverageComplete` defaulted true, producing a false definitive `neverObserved` instead of null. Fix: one shared narrow helper `panelVersionKey(panelId, version)` in `citation-protocol.ts` (`` `${canonicalUuid(panelId)}:${version}` ``), used by BOTH the server producer (the four key builders in `readResolvedCaptures`) and the report consumer (`citationReport`'s `versionKey`), so the keys cannot diverge again. Producer ids come from uuid columns (already lowercase → no-op); the fix bites on the report's document id. The `discoveryBaselines` key (baseline identity built from the already-canonical `normPanels`, independent of the erasure maps) is unchanged. Immutable document/hash, exact counts/truncation/no-invented-coverage and case-sensitive questionId/text are preserved; a different uuid/version stays a separate report. No SQL change (rollback inventory unchanged); released `citation-panel.ts` untouched. Edited only `src/lib/citation-protocol.ts`, `src/lib/citation-protocol.server.ts`, the two P2 test files and these docs.
+
+The last PASSING stage (Codex verification on 9cc5b971: 141 focused / 6336 full across 385 files PASS, 45.17s, types/scoped-lint/build PASS; whole-repo lint separately RED with ~3790 errors, pre-existing and NOT this packet's) does NOT carry over; every round-23 check is UNRUN in this worktree and must be re-executed by Codex under the recorded exception — this assistant did not run tests and claims no PASS. This packet does NOT mass-format or claim a global-lint pass; only scoped lint on the touched P2 files applies. New checks: pure report — an UPPERCASE panel document with lowercase-keyed SQL erasure metadata counts `excluded` (malformed) and `erasedExtra` (duplicate) and reads `coverageComplete true`; with the coverage key incomplete for the uppercase panel, `neverObserved` is null (no false definitive). Real storage — a stored-UPPERCASE discovery panel with two same-slot originals erased (one distinct erased slot + one duplicate) plus two malformed tombstones, read end-to-end (`readResolvedCaptures → citationReport`): the exact SQL aggregate is `gridRows 2 / duplicateRows 1 / excludedRows 2`, and the report attributes `erased 1`, `erasedExtra 1`, `excluded 2`, `coverageComplete true`, `neverObserved 39` to the uppercase panel version. Candidate `20260920190000` remains UNAPPLIED; prepared deploy SQL / expected-identity artifacts remain STALE (never executed); USD50 + manual-free budget unchanged; nothing is deployed.
+
+Test commands (Codex runs; UNRUN here): `npx vitest run src/lib/citation-protocol.test.ts src/lib/citation-protocol.functions.test.ts src/lib/citation-protocol-migration.test.ts`; `npx tsc --noEmit`; and the SCOPED lint on the touched files (the repo-wide lint is separately red and pre-existing).
+
+
+### Codex erasure metadata key verification — 20 September 2026
+
+Reviewed the shared canonical panelVersionKey used by erasure metadata producers and report lookups. Four focused suites passed 144 tests (3.09s), TypeScript passed. Full suite passed 6339 tests across 385 files (50.62s), scoped ESLint, production build and whitespace checks passed. Formatter-only Codex integration exception on four changed TypeScript files. Logs: /tmp/milo-p2-erasure-key-{focused,types,format,lint,full,build}-20260920.log. Tests include a stored uppercase panel with actual erased duplicate and malformed rows, plus incomplete coverage retaining unknown neverObserved. No SQL change in this correction; candidate remains unapplied and release artifacts must be regenerated. Previously recorded whole-repository lint limitation remains open; no production or concurrent database proof is claimed.

@@ -2450,6 +2450,75 @@ describe("CI-2 admission UUID identity boundaries (mixed-case panel / owner / ru
     expect(captures.map((c) => c.answerId)).toEqual([capture]);
     expect(captures[0]).toMatchObject({ panelResolved: true, outcome: "complete" });
   });
+  it("attributes erased/erasedExtra/excluded/coverage to an UPPERCASE panel document via the canonical version key", async () => {
+    // Round 23: read_citation_protocol produces the per-version erasure metadata keyed by the CANONICAL
+    // (lowercase) panel_id COLUMN (the delete trigger casts captureContext.panelId into a uuid column),
+    // while citationReport reads the immutable panel DOCUMENT whose panelId keeps the UPPERCASE client
+    // spelling. Both must derive the version key identically (panelVersionKey/canonicalUuid) or the
+    // uppercase panel drops its excluded/extra counts and defaults coverage true — a false definitive
+    // neverObserved. Exercise the real producer→consumer (readResolvedCaptures → citationReport) with a
+    // stored-uppercase panel and real deletions, not only isolated keys.
+    const pl = "0000abcd-0000-4000-8000-0000000000d7";
+    await saveCitationPanelDraft(
+      scope,
+      pl.toUpperCase(),
+      0,
+      draftDiscovery({ panelId: pl.toUpperCase() }),
+      rpc,
+    );
+    await lockCitationPanel(scope, pl.toUpperCase(), 1, rpc); // the single discovery baseline
+    await backdatePanelApproval(pl); // the panel_id COLUMN is canonical lowercase
+    // A legitimate capture at SY-D01 r1 against the UPPERCASE panel.
+    const o1 = await importManualCapture(
+      scope,
+      discoveryCapture({ panelId: pl.toUpperCase() }),
+      rpc,
+    );
+    // A second historical ORIGINAL at the SAME slot (predates the one-per-slot guard), carrying the same
+    // UPPERCASE-panel captureContext, inserted directly. Both erased → 2 grid tombstones at SY-D01
+    // (gridRows 2, duplicateRows 1); each tombstone's panel_id column is canonical lowercase via ::uuid.
+    const doc = (await readAnswerEvidence(scope, rpc)).answers[0];
+    await db.query(
+      "INSERT INTO ai_answer_evidence(user_id,project_id,id,prompt_id,prompt_revision,document_hash,document,supersedes_id) VALUES($1,'p',$2,$3,1,$4,$5,NULL)",
+      [
+        user,
+        uuid(726),
+        discoveryPromptId,
+        "hist-726",
+        { input: doc.input, prompt: doc.prompt, analysis: doc.analysis },
+      ],
+    );
+    await removeAnswerEvidence(scope, "answer", o1, rpc);
+    await removeAnswerEvidence(scope, "answer", uuid(726), rpc);
+    // Two malformed content-free tombstones for the SAME version, keyed by the canonical lowercase column.
+    for (const m of [
+      { id: uuid(727), q: "" },
+      { id: uuid(728), q: "arbitrary erased content" },
+    ])
+      await db.query(
+        "INSERT INTO citation_capture_tombstones(user_id,project_id,answer_id,panel_id,panel_version,brand_run_id,question_id,round) VALUES($1,'p',$2,$3,2,NULL,$4,0)",
+        [user, m.id, pl, m.q],
+      );
+    // The exact SQL aggregate over the canonical column (confirms the producer keys lowercase).
+    const v = (await readCitationProtocol(scope, rpc)).erasureByVersion.find(
+      (x) => x.panelId === pl && x.panelVersion === 2,
+    );
+    expect(v).toMatchObject({ gridRows: 2, duplicateRows: 1, excludedRows: 2 });
+    const { erasedSlots, reports } = await readResolvedCaptures(scope, rpc);
+    expect(erasedSlots.map((s) => s.questionId)).toEqual(["SY-D01"]); // ONE distinct erased grid slot
+    const r = reports.find((x) => x.panelId === pl.toUpperCase() && x.panelVersion === 2);
+    expect(r).toBeDefined();
+    // Pre-fix the uppercase document key missed the lowercase-keyed maps → excluded 0, erasedExtra 0 and
+    // coverage defaulting true. The canonical version key attributes all of them to the uppercase panel.
+    expect(r).toMatchObject({
+      observed: 0,
+      erased: 1, // one distinct erased slot, counted once for planned coverage
+      erasedExtra: 1, // the additional erased attempt at that slot, surfaced not hidden
+      excluded: 2, // the malformed rows, visible not dropped
+      coverageComplete: true, // 2 grid rows transmitted == 2 true grid rows
+      neverObserved: 39, // definitive ONLY because coverage is complete: 40 − 0 observed − 1 erased
+    });
+  });
   it("accepts the same panel uuid spelled differently in the document vs the argument (both directions)", async () => {
     const a = "0000abcd-0000-4000-8000-0000000000d3";
     const b = "0000abcd-0000-4000-8000-0000000000d4";

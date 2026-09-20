@@ -9,6 +9,7 @@ import {
   citationReports,
   lockedPanelSchema,
   panelDraftSchema,
+  panelVersionKey,
   parseManualCaptureInput,
   resolveErasedSlots,
   resolveStoredCaptures,
@@ -289,7 +290,7 @@ export async function readResolvedCaptures(raw: z.infer<typeof scope>, rpc?: Kno
   // per version against `gridRows` detects the LIMIT truncation exactly.
   const receivedByVersion: Record<string, number> = {};
   for (const t of protocol.tombstones) {
-    const k = `${t.panelId}:${t.panelVersion}`;
+    const k = panelVersionKey(t.panelId, t.panelVersion);
     receivedByVersion[k] = (receivedByVersion[k] ?? 0) + 1;
   }
   const coverageCompleteByVersion: Record<string, boolean> = {};
@@ -298,7 +299,7 @@ export async function readResolvedCaptures(raw: z.infer<typeof scope>, rpc?: Kno
   // surfaced (report `erasedExtra`) even when the read truncated the per-row tombstones.
   const extraAttemptsByVersion: Record<string, number> = {};
   for (const v of protocol.erasureByVersion) {
-    const k = `${v.panelId}:${v.panelVersion}`;
+    const k = panelVersionKey(v.panelId, v.panelVersion);
     excludedByVersion[k] = (excludedByVersion[k] ?? 0) + v.excludedRows;
     coverageCompleteByVersion[k] = (receivedByVersion[k] ?? 0) >= v.gridRows;
     extraAttemptsByVersion[k] = (extraAttemptsByVersion[k] ?? 0) + v.duplicateRows;

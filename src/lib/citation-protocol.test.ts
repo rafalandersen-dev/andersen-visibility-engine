@@ -936,6 +936,67 @@ describe("citation canonical report folds live + trusted erasure facts (final co
   });
 });
 
+describe("citation report keys per-version erasure metadata by CANONICAL uuid (uppercase panel document)", () => {
+  // A panel DOCUMENT keeps the client's original panelId spelling (uppercase is a valid uuid), while the
+  // SQL producer of the per-version erasure metadata keys it by the CANONICAL (lowercase) panel_id column.
+  // citationReport must derive the same version key via `panelVersionKey`/`canonicalUuid`, or an uppercase
+  // panel silently drops its excluded/extra counts and defaults coverage `true` — a false definitive
+  // `neverObserved`. All-digit uuid(n) fixtures cannot exercise case, so use a letter-bearing id.
+  const UP = "0000ABCD-0000-4000-8000-000000000001"; // stored panel-document id (client spelling)
+  const LO = "0000abcd-0000-4000-8000-000000000001"; // the SAME uuid as a canonical DB column value
+  const key = `${LO}:1`; // exactly what the server producer emits from the lowercase panel_id column
+  const erasedSlot = (over: Partial<ErasedSlot> = {}): ErasedSlot => ({
+    answerId: uuid(701),
+    panelId: LO, // erased-slot facts come from uuid columns → canonical lowercase
+    panelVersion: 1,
+    brandRunId: null,
+    questionId: "SY-D01",
+    round: 1,
+    panelResolved: true,
+    brandRunResolved: null,
+    ...over,
+  });
+  it("attributes excluded (malformed) and erasedExtra (duplicate) to the uppercase panel; coverage complete", () => {
+    const report = citationReport(discoveryPanel({ panelId: UP }), [], {
+      slots: [erasedSlot()], // one distinct erased grid slot (SY-D01 r1)
+      consumedByRun: {},
+      excludedByVersion: { [key]: 2 }, // two malformed (non-grid) historical tombstones
+      coverageCompleteByVersion: { [key]: true },
+      extraAttemptsByVersion: { [key]: 1 }, // one additional erased attempt at an already-recorded slot
+    });
+    // Pre-fix the uppercase document key missed all three lowercase-keyed maps → excluded 0, erasedExtra 0
+    // and coverage defaulting true. The canonical version key must resolve all three for the uppercase panel.
+    expect(report).toMatchObject({
+      panelId: UP, // the report echoes the immutable document id verbatim
+      panelVersion: 1,
+      observed: 0,
+      erased: 1, // one distinct erased slot — planned coverage counted once
+      erasedExtra: 1, // the duplicate/extra historical practice, surfaced not dropped
+      excluded: 2, // the malformed tombstones, surfaced
+      coverageComplete: true,
+      neverObserved: 39, // 40 planned − 0 observed − 1 erased; the extra attempt is not a planned slot
+    });
+  });
+  it("reads coverageComplete=false for the uppercase panel so neverObserved is null (no false definitive)", () => {
+    const report = citationReport(discoveryPanel({ panelId: UP }), [], {
+      slots: [erasedSlot()], // an erased floor exists but the read LIMIT truncated this version's rows
+      consumedByRun: {},
+      excludedByVersion: {},
+      coverageCompleteByVersion: { [key]: false },
+      extraAttemptsByVersion: {},
+    });
+    // Pre-fix the uppercase key missed the lowercase coverage key and defaulted true → a definitive
+    // neverObserved = 39. With the canonical key the incomplete coverage is read and neverObserved is null.
+    expect(report).toMatchObject({
+      panelId: UP,
+      coverageComplete: false,
+      neverObserved: null,
+      observed: 0,
+      erased: 1, // still a floor
+    });
+  });
+});
+
 describe("citation protocol server, no provider or URL calls", () => {
   const scope = { ownerId: owner, projectId: "p" };
   it("validates owner and project before any RPC", async () => {

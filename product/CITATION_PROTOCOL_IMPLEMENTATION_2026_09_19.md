@@ -806,13 +806,46 @@ the panel-draft/lock/brand-approve admission boundaries.
   same uuid spelled differently is accepted, a different owner still mismatches. Failing SQL is asserted
   directly, not only through the wrapper's generic error.
 
+### Review round 23 — key per-version erasure metadata by CANONICAL uuid (uppercase panel) (P2 4058000378)
+
+Round 22 admitted an UPPERCASE panel DOCUMENT (stored verbatim; only the `panel_id` column is canonical).
+This round closes the last un-normalized per-version key, so an uppercase panel's erased/excluded facts are
+not silently dropped in the report.
+
+- **Confirmed: `citationReport` per-version `versionKey` used the raw document panelId.** The read RPC
+  produces the per-version erasure metadata (`excludedByVersion`, `coverageCompleteByVersion`,
+  `extraAttemptsByVersion`, and the received-count map that decides coverage completeness) keyed by the
+  CANONICAL lowercase `panel_id` column (the delete trigger casts `captureContext.panelId` into a uuid
+  column), while `citationReport` built its lookup key from the raw panel DOCUMENT panelId — UPPERCASE since
+  round 22. So for an uppercase panel every lookup missed: `excluded` and `erasedExtra` dropped to 0 and
+  `coverageComplete` defaulted `true`, yielding a **false definitive `neverObserved`** instead of `null`.
+- **Fix (one shared narrow helper, applied on both sides).** A new `panelVersionKey(panelId, version)` in
+  `citation-protocol.ts` returns `` `${canonicalUuid(panelId)}:${version}` ``. Both the producer
+  (`readResolvedCaptures` — the `receivedByVersion`, `excludedByVersion`, `coverageCompleteByVersion` and
+  `extraAttemptsByVersion` key builders) and the consumer (`citationReport`'s `versionKey`) now derive the
+  key through this one helper, so the keys can never diverge again. The producer's `panelId`/`v.panelId`
+  come from uuid columns (already lowercase) so the helper is a no-op there; the fix bites on the report
+  side, where the document id may be uppercase. The `discoveryBaselines` key (a baseline-identity set built
+  from the already-canonical `normPanels`, independent of the erasure maps) is unchanged. questionId and
+  question TEXT stay case-sensitive; the immutable panel document/hash and the exact
+  counts/truncation/no-invented-coverage semantics are preserved; a different uuid or version stays a
+  separate report.
+- Tests: pure report — an UPPERCASE panel document with lowercase-keyed SQL erasure metadata now counts
+  `excluded` (malformed) and `erasedExtra` (duplicate) and reads `coverageComplete: true`; and with the
+  coverage key flagged incomplete for the uppercase panel, `neverObserved` is `null` (never a false
+  definitive). Real storage — a stored-UPPERCASE discovery panel with two same-slot originals erased (one
+  distinct erased slot + one duplicate) plus two malformed tombstones is read end-to-end
+  (`readResolvedCaptures → citationReport`): the exact SQL aggregate is `gridRows 2 / duplicateRows 1 /
+  excludedRows 2`, and the report attributes `erased 1`, `erasedExtra 1`, `excluded 2`,
+  `coverageComplete true`, `neverObserved 39` to the uppercase panel version.
+
 ## Files
 
 | File | Change |
 | --- | --- |
 | `src/lib/pg-uuid.ts` | New (leaf, no imports). Shared semantic-UUID identity: `PG_UUID_RE`, `canonicalUuid`, `canonicalRun`. Imported by the citation-protocol layer and the legacy answer-evidence intake without a circular import. |
-| `src/lib/citation-protocol.ts` | New. Pure storage contract: `panelDraftSchema`, `lockedPanelSchema`, `citationProtocolStateSchema`, `brandRunApprovalSchema`, `parseManualCaptureInput`, `resolveStoredCaptures` (semantic-uuid identity throughout; discovery-baseline-ambiguity flag), caps. Re-exports `canonicalUuid`/`canonicalRun` from `./pg-uuid`. Reuses PR137 schemas; never redefines them. |
-| `src/lib/citation-protocol.server.ts` | New. Service RPC helpers: read, save draft, lock, approve brand run, import capture, read+resolve. Owner/time/approval derived server-side; network-free. Draft panelId, prompt binding and the lock/brand owner-receipt checks compare by SEMANTIC uuid value (`canonicalUuid`). |
+| `src/lib/citation-protocol.ts` | New. Pure storage contract: `panelDraftSchema`, `lockedPanelSchema`, `citationProtocolStateSchema`, `brandRunApprovalSchema`, `parseManualCaptureInput`, `resolveStoredCaptures` (semantic-uuid identity throughout; discovery-baseline-ambiguity flag), `citationReport`/`citationReports`, caps. Exports the shared `panelVersionKey(panelId, version)` (canonicalizes the panelId) so the report keys the per-version erasure metadata exactly as the server producer does. Re-exports `canonicalUuid`/`canonicalRun` from `./pg-uuid`. Reuses PR137 schemas; never redefines them. |
+| `src/lib/citation-protocol.server.ts` | New. Service RPC helpers: read, save draft, lock, approve brand run, import capture, read+resolve. Owner/time/approval derived server-side; network-free. Draft panelId, prompt binding and the lock/brand owner-receipt checks compare by SEMANTIC uuid value (`canonicalUuid`); the per-version erasure-metadata maps are keyed via the shared `panelVersionKey`. |
 | `src/lib/citation-protocol.functions.ts` | New. Six `requireSupabaseAuth` endpoints, each refusing an owner mismatch and never accepting a client approval/reviewer/timestamp. |
 | `src/lib/citation-protocol.test.ts` | New. Pure-contract + mocked-server unit tests. |
 | `src/lib/citation-protocol.functions.test.ts` | New. Endpoint authentication/validation tests. |
@@ -977,12 +1010,22 @@ the lock/brand owner-receipt checks and the brand-run retry compared raw. All no
 documents verbatim and keeping authorization / strict NEW-uuid schemas / version concurrency /
 single-discovery-baseline / caps intact; question ids/text stay case-sensitive; no new SQL object
 (rollback inventory unchanged) — candidate SQL + `citation-protocol.server.ts` + P2 tests + docs only.
-**All prior PASS counts — including the latest Codex run on 14b20dc9 (135 focused / 6330 full PASS,
-types/scoped-lint/build PASS) — are a prior stage and do not carry over**; every check below, including the
+Round 23 (this turn) fixes P2 4058000378: `citationReport` keyed the per-version erasure metadata
+(`excludedByVersion` / `coverageCompleteByVersion` / `extraAttemptsByVersion` / the received-count map) by
+the raw panel DOCUMENT panelId — UPPERCASE since round 22 — while the read RPC produces that metadata keyed
+by the canonical lowercase `panel_id` column, so an uppercase panel dropped its `excluded`/`erasedExtra`
+counts and defaulted `coverageComplete` true (a false definitive `neverObserved`). A single shared
+`panelVersionKey(panelId, version)` (canonicalizing the panelId) is now used by BOTH the server producer
+and the report consumer so the keys cannot diverge; the immutable document/hash, exact
+counts/truncation/no-invented-coverage and case-sensitive question ids/text are preserved, and a different
+uuid/version stays a separate report — `citation-protocol.ts` + `citation-protocol.server.ts` + P2 tests +
+docs only (no SQL change, rollback inventory unchanged).
+**All prior PASS counts — including the latest Codex run on 9cc5b971 (141 focused / 6336 full PASS,
+types/scoped-lint/build PASS, 45.17s) — are a prior stage and do not carry over**; every check below, including the
 round-16 single-snapshot read tests, the round-17 capacity-reservation tests, the round-18
 erased-extra-attempt tests, the round-19 brandRunId-identity tests, the round-20 semantic-UUID
-identity tests, the round-21 single-baseline + legacy-intake tests, and the round-22 admission-boundary
-identity tests, is UNRUN in this worktree and must
+identity tests, the round-21 single-baseline + legacy-intake tests, the round-22 admission-boundary
+identity tests, and the round-23 per-version erasure-key canonicalization tests, is UNRUN in this worktree and must
 be re-executed by Codex. The repository-wide lint is separately RED (~3790 errors / 14 warnings, pre-existing across the repo); this packet does NOT mass-format or claim a global-lint pass — only the SCOPED lint on the touched P2 files applies. No released SQL, released `citation-panel.ts`, global
 migration inventory, or P3/R09 file was touched (the last commit `777ee67f` — Codex's doc rollback
 inventory fix — is preserved); USD50/manual-free is unchanged. The prepared deploy SQL /
