@@ -1,6 +1,8 @@
 import { z } from "zod";
 import { evidenceProjectId } from "./answer-evidence";
+import { findingSchema } from "./citation-finding";
 import {
+  citationFindingDetailEnvelopeSchema,
   citationFindingDetailSchema,
   citationFindingStageSchema,
   citationFindingSummarySchema,
@@ -85,12 +87,22 @@ export async function getCitationFinding(
   rpc?: KnowledgeRpc,
 ) {
   const s = scope.parse(raw);
-  return citationFindingDetailSchema.parse(
+  // Parse the envelope with the record as BOUNDED JSON (depth/size-capped, never `unknown`), so a
+  // legacy/malformed stored record yields an honest detail the owner can inspect and delete rather than a
+  // crash, and a pathologically deep/oversized record is refused. A well-formed record is then re-validated
+  // against the exact strict `findingSchema` to pick the discriminated `recordValid` branch.
+  const env = citationFindingDetailEnvelopeSchema.parse(
     await call(
       "read_ai_citation_finding",
       { p_user: s.ownerId, p_project: s.projectId, p_id: z.string().uuid().parse(id) },
       rpc,
     ),
+  );
+  const asFinding = findingSchema.safeParse(env.record);
+  return citationFindingDetailSchema.parse(
+    asFinding.success
+      ? { ...env, recordValid: true, record: asFinding.data }
+      : { ...env, recordValid: false },
   );
 }
 export async function removeCitationFinding(

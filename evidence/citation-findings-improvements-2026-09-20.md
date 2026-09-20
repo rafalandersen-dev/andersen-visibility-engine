@@ -8,10 +8,11 @@ this packet does NOT depend on or guess it. Conversation repair is another workt
 the single additive candidate `20260920200000_citation_findings_improvements.sql`, **UNAPPLIED**. No
 git/DB-apply/network/provider/deploy/paid action; USD50-global / manual-free unchanged.
 
-**This packet is storage + server boundary + a structured publication/approval binding. It is NOT the
-complete P3 workflow and is NOT production-accepted.** It does not perform, and never claims, an
-independent/system check that a destination actually shows the approved content, and it makes no causal
-claim.
+**This work is storage + server boundary + a structured publication/approval binding + dated
+owner-confirmed business facts with an accuracy→fact binding. It is NOT the complete P3 workflow and is NOT
+production-accepted.** It does not perform, and never claims, an independent/system check that a destination
+actually shows the approved content; it makes no causal claim; and a stored fact is never treated as
+automatic proof that a human accuracy judgement is correct.
 
 ## Owned NEW files (disjoint from released P1, the P2 branch, the conversation-repair worktree)
 
@@ -29,8 +30,12 @@ claim.
   `CITATION_VERIFICATION_STATUSES` enum.
 - `src/lib/citation-record.server.ts`, `src/lib/citation-record.functions.ts` — the `call()` wrapper
   (branded-error normalization) and the eight `requireSupabaseAuth` + `expectedOwnerId` endpoints.
-- `src/lib/citation-record-migration.test.ts`, `src/lib/citation-record.functions.test.ts` — real-PGlite
-  SQL + endpoint tests.
+- `src/lib/citation-business-fact.ts` / `.server.ts` / `.functions.ts` — dated business-fact client schema,
+  authenticated server boundary, and endpoints (facts + the accuracy→fact resolution read).
+- `src/lib/citation-finding.ts` — narrow additive `factVersion` + `answerCapturedAt` on `accuracySchema`
+  only (fact-version/dated provenance); the pure schema framework is unchanged.
+- `src/lib/citation-record-migration.test.ts`, `src/lib/citation-business-fact-migration.test.ts`,
+  `src/lib/citation-record.functions.test.ts` — real-PGlite SQL + endpoint tests.
 
 ## Publication/approval binding and the verification-status ladder
 
@@ -104,15 +109,74 @@ new version pinning the current correction instead of silently returning the sta
   invalidation.** No provider calls, auto-approval or publication; no shared released SQL or provider
   client changed.
 
-## Remaining wiring (NOT implemented; storage/binding-only is not complete P3)
+## Dated owner-confirmed business facts + accuracy binding (this packet)
+
+New PRIVATE, per-owner/project versioned fact storage (`ai_citation_business_facts` in the same UNAPPLIED
+candidate) plus authenticated endpoints and a pure client schema in NEW `citation-business-fact.ts` /
+`.server.ts` / `.functions.ts`. It reuses the accepted `businessFactSchema` verbatim; there is no shared
+cross-client corpus.
+
+- **Server-derived confirmation; declared validity.** `confirmedBy` must be the authenticated owner (a
+  foreign confirmer is refused) and `confirmedAt` is stamped from the authenticated action; the declared
+  `[validFrom, validUntil)` interval is owner-supplied but validated finite and ordered, and is kept
+  distinct from the confirmation instant. The idempotency digest binds the NORMALIZED declared meaning
+  (`factId, kind, value` + canonical validity computed from the parsed instants, NOT the raw date text), so
+  re-confirming identical content — even restaged as `Z` vs `+00:00` — neither mints a fake correction
+  version nor moves the recorded confirmation time; `confirmedBy`/`confirmedAt` are excluded.
+- **One consistent precision, no silent truncation.** Validity is represented at the database's native
+  MICROSECOND resolution everywhere — accepted input, stored columns, export and digest all agree at
+  canonical `.US` ISO-8601, so `…100100Z` and `…100900Z` stay distinct (they no longer collapse to one
+  digest, and a sub-microsecond interval keeps distinct endpoints). Precision beyond microseconds
+  (>6 fractional digits) is REFUSED at BOTH the client boundary (a `boundedBusinessFact` refine) and the SQL
+  RPC rather than silently truncated.
+- **Immutable, dated versions.** A later price change is a NEW version that supersedes the head; it never
+  retroactively rewrites an older version's meaning (spec §4.2 / CI11-T28). The stored record is
+  reconstructed from canonical strict keys, so an accepted direct-SQL record round-trips the strict client
+  schema. Deletion/export/retention are supported (delete unlinks successors + marks the gap, retaining no
+  deleted content); there is no auto-confirmation.
+- **Accuracy → the immutable fact ROW, recomputed on read, wired into the canonical consumers.**
+  `accuracySchema` gains three narrow, back-compatible provenance fields (`factRowId`, `factVersion`,
+  `captureEvidenceId`; the pure framework/superRefine is unchanged). An assessed entry pins the exact
+  immutable fact **row UUID** (not the reusable numeric version — a deleted-then-recreated fact reuses the
+  version but never the row id, so the old assessment stays `fact_missing` with no silent rebind), verified
+  to agree with its logical id / version / kind. The capture instant is resolved server-side from the SAVED
+  answer-evidence record named by `captureEvidenceId` (which must be one of the finding's OWN answer
+  references), read from the ACTUAL saved contract `document.input.capturedAt` (the shape
+  `importAnswerEvidence` writes) — never owner free-text, and a fake TOP-LEVEL `document.capturedAt` does
+  not resolve; a native-only or unbound/missing/deleted reference is `capture_unresolved`. Its casts are
+  staged behind regex/shape guards (a malformed uuid/decimal/huge version cannot crash the read), the audit
+  echo NORMALIZES any non-canonical pin to null, and the read-back audit fields use a READ-ONLY canonical
+  (hex `pgUuid`) type so a legacy NON-RFC identifier already in storage echoes through instead of failing
+  `z.string().uuid()` (the write-side contract keeps the strict `.uuid()`). A malformed/legacy stored entry
+  therefore reads as explicit `unpinned` without failing the strict response, and the DETAIL is a
+  discriminated union on a server-derived `recordValid`: a well-formed finding returns the EXACT strict
+  `findingSchema` record (`recordValid:true`), a legacy/malformed one returns the raw record as a bounded,
+  JSON-serializable value (`recordValid:false`) — depth-capped and byte-capped to the finding storage
+  budget, a concrete transport-safe type (never `unknown`) so it satisfies the server-function contract —
+  so a malformed finding stays inspectable and deletable rather than crashing the detail, and a
+  pathologically deep/oversized record is refused (fails closed) rather than returned. A single shared
+  helper (`citation_accuracy_resolve`) returns a distinct status —
+  `not_assessed` / `unpinned` / `capture_unresolved` / `fact_missing` / `wrong_kind` / `out_of_period` /
+  `ambiguous` / `superseded_correction` / `resolved` — and is reused by the standalone read, the **canonical
+  finding reads** (`accuracyStatus` on the list, full `accuracy` entries on the detail) and the
+  **improvement eligibility gate** (a bound finding with unresolved accuracy drops the improvement's
+  `owner_attested` before/after claim to `connector_receipt`), so deleting a bound fact downgrades those
+  consumers, not only the standalone endpoint. Temporal-change vs correction is explicit: a newer
+  NON-overlapping version preserves the old observation's dated meaning (`resolved`), while a newer
+  OVERLAPPING correction of the same fact is surfaced (`superseded_correction`) and a conflicting DISTINCT
+  fact of the same kind — any version, so a later non-overlapping version cannot hide a historical conflict
+  — is `ambiguous` (needs review, never first-match). **A fact existing is not proof the claim is true** —
+  the human accuracy `status` is preserved as `humanStatus` history; the resolution reports only binding
+  integrity.
+
+## Remaining wiring (NOT implemented; not complete P3)
 
 - **Independent destination content check.** No trusted record proves a destination shows the approved
-  content; `owner_attested` is the strongest status and is an owner attestation, not a system check. A
-  future packet would need an authenticated independent check to go beyond it.
-- **Two-person / independent reviewer authentication** (P3 accepts only self-attested findings),
-  **dated business-fact resolution** (`accuracy[].factId` is a declared reference; no fact table yet), and
-  **panel authentication** (panel/client scope stays owner-declared until the P2 `citation_panels`
-  contract exists) all remain unresolved and are documented here rather than guessed.
+  content; `owner_attested` is the strongest status and is an owner attestation, not a system check.
+- **Two-person / independent reviewer authentication** (P3 accepts only self-attested findings and
+  self-confirmed facts) and **panel authentication** (panel/client scope stays owner-declared until the P2
+  `citation_panels` contract exists) remain unresolved and are documented here rather than guessed. The UI
+  surface for facts/accuracy is also later work.
 
 ## Review history (short note; superseded, not erased)
 
@@ -130,7 +194,36 @@ publication and approval, non-future); declared `change.approvedVersion/approved
 bound approval (now reconciled or refused); the detail read omitted the pinned binding/finding rows (now
 returned for audit/export); and the idempotency digest excluded the resolved pinned rows (now folded in, so
 a superseded finding yields a new version rather than a silent stale rebind). Earlier `verified`-boolean
-and `unresolved`-status descriptions are superseded by the two axes above.
+and `unresolved`-status descriptions are superseded by the two axes above. A subsequent packet added dated
+business-fact storage and the accuracy→fact binding (above) and fixed two further guard gaps in the same
+candidate: `citation_improvement_evidence` could fall through three-valued on a MISSING `baselineCaptureIds`
+and wrongly earn `baseline_recorded` (now explicit `IS DISTINCT FROM` + separate non-empty guard), and a
+non-null non-object `p_binding` was ignored until the table CHECK (now refused explicitly at the save RPC
+boundary; SQL NULL alone means "no binding"). A later real-contract review then found the accuracy→fact
+work still had concrete gaps, all fixed in this batch: (1) the resolver read the capture time from the
+WRONG path `document.capturedAt` while the tests invented that same top-level shape, so every genuinely
+saved answer would have been `capture_unresolved` behind green tests — it now reads the actual
+`document.input.capturedAt`, both accuracy test suites seed answers through the released
+`saveEvidencePrompt`/`importAnswerEvidence` service, and a test proves a fake top-level date does not
+resolve; (2) the audit echo passed malformed pins through, so a legacy/direct-SQL malformed entry could
+fail the strict response on `getCitationFinding` — casts are now staged behind guards and invalid pins are
+normalized to null (explicit `unpinned`) with resilience tested through the list and standalone service
+reads; (3) the canonical stored validity truncated sub-seconds and the digest hashed raw date text — it
+now preserves millisecond precision and hashes the normalized meaning, so a sub-second boundary is kept and
+an equivalent `Z`/`+00:00` restage is idempotent (no fake correction). A final boundary review then found
+three residual precision/schema gaps, fixed in this batch: (A) the stored/digest representation still
+truncated to milliseconds while the columns kept microseconds (so `…100100Z`/`…100900Z` collapsed to one
+digest and a sub-millisecond interval exported equal endpoints) — validity is now represented at one
+consistent MICROSECOND precision across input, columns, export and digest, with sub-microsecond input
+REFUSED (not truncated) at both the TS and SQL boundaries; (B1) the accuracy audit echo used a hex regex
+that accepts a non-RFC identifier which `z.string().uuid()` rejects — the read-back audit pins now use a
+read-only canonical (hex `pgUuid`) type matching what the database echoes, so a legacy non-RFC id round-
+trips instead of crashing the read (the write path keeps strict `.uuid()`); and (B2) `getCitationFinding`
+still strict-parsed a malformed `record` and would crash despite the doc claiming it inspectable — it now
+returns `recordValid:false` with the raw record present (valid records stay strictly typed), so a
+legacy/malformed finding is inspectable and deletable, tested through the actual `getCitationFinding`. The
+prior focused run does not carry over — the precision representation, read schemas, detail contract and
+tests all changed.
 
 ## Tests prepared (offline, synthetic; NOT RUN here — Codex runs them)
 
@@ -153,18 +246,50 @@ is superseded records a new version pinning the new head**; live invalidation on
 publication/approval/asset/finding removal (record preserved but status downgraded); owner/project
 isolation; fail-closed status helper; RLS closes tables + internal helpers to every client role while
 `service_role` may call the list RPC. `citation-record.functions.test.ts`: the eight endpoints require
-auth, bind to the owner, and refuse off-contract records.
+auth, bind to the owner, and refuse off-contract records. Two guard-gap tests were added: the evidence axis
+never earns `baseline_recorded` from a missing/malformed/empty `baselineCaptureIds`, and a non-object
+binding (array/scalar/json null) is refused at the save RPC boundary.
 
-No pass counts are claimed; single-connection PGlite verifies logical guards, not true concurrency.
+`citation-business-fact-migration.test.ts` (real PGlite over the same chain; **answers are seeded through
+the released `saveEvidencePrompt`/`importAnswerEvidence` service**, so the accuracy tests run against the
+actual saved `document.input.capturedAt` shape): server-stamped confirmedBy/confirmedAt with a full-record
+export; a forged confirmer refused; a submitted confirmedAt ignored (idempotent re-save, first stamp
+preserved); owner/project isolation; immutable version supersession; direct-SQL malformed/null input
+refused AND an accepted non-canonical direct-SQL record normalized so it round-trips the strict schema; an
+equivalent `Z`/`+00:00` restage is idempotent (no fake correction), a microsecond validity boundary is
+preserved (`…100000Z`/`…900000Z`), `…100100Z` vs `…100900Z` stay distinct versions (no collapsed digest),
+and sub-microsecond precision (>6 fractional digits) is refused at both the client and SQL boundaries; and
+the accuracy→fact resolution — `resolved` (preserved across a later non-overlapping change),
+`superseded_correction` (newer overlapping correction), `ambiguous` (a conflicting distinct fact whose HEAD
+later moves off the instant still conflicts), `out_of_period`, `wrong_kind`, `unpinned`, `not_assessed`,
+`capture_unresolved` (unbound reference, a fake TOP-LEVEL `document.capturedAt`, and after the bound answer
+is deleted), `fact_missing` (delete-then-recreate same content stays `fact_missing`, no numeric rebind), a
+malformed/legacy stored pin staying inspectable as explicit `unpinned` (normalized to null) through the
+list, standalone AND `getCitationFinding` reads (whose detail discriminates on `recordValid`: a valid
+record stays strict `recordValid:true`, a malformed one returns `recordValid:false` with the raw record
+still present as a bounded JSON-serializable value — no whole-list or detail crash), a record nested beyond
+the bounded depth being refused (fails closed) rather than crashing the detail while its list row still
+reads `accuracyStatus:'none'`, a legacy NON-RFC hex pin echoing through the canonical
+reads without failing the schema, and the **canonical-read downgrade** (`accuracyStatus` on
+`readCitationFindings` and `resolution` on `getCitationFinding` flip when the bound fact is deleted, with
+`humanStatus` preserved). `citation-record-migration.test.ts` additionally shows a bound finding's
+unresolved accuracy downgrading a dependent improvement from `owner_attested` to `connector_receipt`
+through the EXISTING `readCitationImprovements`. `citation-business-fact.functions.test.ts`: the five fact
+endpoints require auth, bind to the owner (mismatch → `evidence_owner_changed`), and refuse a wrong
+project, an off-contract fact and malformed ids.
+
+No pass counts are claimed and the earlier focused run does not carry over — the schema, canonical reads,
+improvement gate, storage and tests all changed and must be re-run. Single-connection PGlite verifies
+logical guards, not true concurrency.
 
 ## Prepared commands — UNRUN (Codex executes)
 
 ```
-npx vitest run src/lib/citation-record-migration.test.ts src/lib/citation-record.functions.test.ts
+npx vitest run src/lib/citation-record-migration.test.ts src/lib/citation-business-fact-migration.test.ts src/lib/citation-record.functions.test.ts src/lib/citation-business-fact.functions.test.ts
 npx vitest run
 npx tsc --noEmit
-npx eslint src/lib/citation-record.ts src/lib/citation-record.server.ts src/lib/citation-record.functions.ts src/lib/citation-record-migration.test.ts src/lib/citation-record.functions.test.ts
-npx prettier --check "src/lib/citation-record*.ts" supabase/migrations/20260920200000_citation_findings_improvements.sql
+npx eslint src/lib/citation-record.ts src/lib/citation-record.server.ts src/lib/citation-record.functions.ts src/lib/citation-business-fact.ts src/lib/citation-business-fact.server.ts src/lib/citation-business-fact.functions.ts src/lib/citation-finding.ts src/lib/citation-record-migration.test.ts src/lib/citation-business-fact-migration.test.ts src/lib/citation-record.functions.test.ts src/lib/citation-business-fact.functions.test.ts
+npx prettier --check "src/lib/citation-record*.ts" "src/lib/citation-business-fact*.ts" src/lib/citation-finding.ts supabase/migrations/20260920200000_citation_findings_improvements.sql
 npm run build
 ```
 
@@ -176,3 +301,8 @@ pilot, independent destination proof) remain.
 ## Codex checkpoint — 20 September, binding corrections
 
 The corrected packet was independently inspected against the released publication contracts. Focused SQL/server tests: 35 passed across two files (1.39s); TypeScript passed. ESLint and git diff --check passed after a formatter-only Codex integration exception on the five citation-record TypeScript files. Logs: /tmp/milo-p3-binding-recheck-focused-20260920.log and /tmp/milo-p3-binding-recheck-types-20260920.log. No full-suite, deployment, destination or real-use acceptance is claimed by this checkpoint. Remaining fact resolution, reviewer authentication and panel integration stay open.
+
+
+### Business-fact boundary verification checkpoint, 2026-09-20
+
+Codex independently checked the completed correction packet: actual saved capture date binding, microsecond normalization, historical read identities, and discriminated bounded JSON detail. Focused tests: 67 passed across four files (2.08s); TypeScript passed. ESLint and git diff --check passed after a formatter-only Codex integration exception. Logs: /tmp/milo-p3-serializable-focused-20260920.log, /tmp/milo-p3-serializable-types-20260920.log, /tmp/milo-p3-facts-lint-20260920.log. This is a local checkpoint; full integration checks, reviewer authorization, panel binding, destination proof, release and real-use acceptance remain open.

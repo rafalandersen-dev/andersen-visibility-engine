@@ -9,13 +9,16 @@ import {
   saveCitationFinding,
   saveCitationImprovement,
 } from "./citation-record.server";
+import { importAnswerEvidence, saveEvidencePrompt } from "./answer-evidence.server";
 import type { KnowledgeRpc } from "./project-knowledge.server";
 let db: PGlite;
 const user = "00000000-0000-4000-8000-000000000001",
   other = "00000000-0000-4000-8000-000000000002";
 const scope = { ownerId: user, projectId: "p" };
-const ANSWER = "10000000-0000-4000-8000-000000000001";
-const BASELINE = "10000000-0000-4000-8000-000000000002"; // a distinct answer used only as an improvement baseline
+// Answer-evidence ids come from the RELEASED importAnswerEvidence service (real saved shape), assigned in
+// beforeEach. ANSWER anchors accuracy capture (capturedAt = ACC_CAP); BASELINE is a distinct baseline.
+let ANSWER: string;
+let BASELINE: string;
 const PROMPT = "20000000-0000-4000-8000-000000000001";
 const SOURCE = "80000000-0000-4000-8000-000000000001";
 const ACTION = "50000000-0000-4000-8000-000000000001"; // Plan action id == improvement.taskId
@@ -137,11 +140,58 @@ const findingCount = async () =>
   Number(
     (await db.query<{ n: number }>("SELECT count(*)::int n FROM ai_citation_findings")).rows[0].n,
   );
-const seedAnswer = async (id: string) =>
-  db.query(
-    "INSERT INTO ai_answer_evidence(user_id,project_id,id,prompt_id,prompt_revision,document_hash,document) VALUES($1,'p',$2,$3,1,$4,'{}'::jsonb)",
-    [user, id, PROMPT, "hash-" + id],
+const ACC_CAP = "2024-03-01T00:00:00Z"; // ANSWER's real capture instant (past, <= runner now); anchors accuracy
+const promptData = {
+  prompt: "Where can I book a massage in Malmö?",
+  intent: "discovery",
+  source: "manual" as const,
+  market: "Sweden",
+  language: "sv-SE",
+  brand: "Acme Massage",
+  websiteUrl: "https://acme.example.com/",
+  competitorUrls: [] as string[],
+  active: true,
+};
+// Import a REAL answer through the released service so document.input.capturedAt is the actual saved shape.
+const importReal = (capturedAt: string, rawAnswer: string) =>
+  importAnswerEvidence(
+    scope,
+    {
+      promptId: PROMPT,
+      promptRevision: 1,
+      surface: "ChatGPT web",
+      mode: "search" as const,
+      method: "manual consumer session",
+      modelVersion: null,
+      capturedAt,
+      status: "complete" as const,
+      rawAnswer,
+      citations: [] as string[],
+      citationsComplete: true,
+      failure: null,
+      reportedCostUsd: null,
+      sourceUrl: null,
+      supersedesId: null,
+    },
+    rpc,
   );
+// Seed a dated business fact via its real RPC; returns the saved row id + version for pinning.
+const seedFact = async (factId: string, validFrom: string, validUntil: string | null) => {
+  const r = await rpc("save_ai_citation_business_fact", {
+    p_user: user,
+    p_project: "p",
+    p_record: {
+      factId,
+      kind: "price",
+      value: "500 SEK",
+      confirmedBy: user,
+      confirmedAt: "2026-01-02T00:00:00Z",
+      validFrom,
+      validUntil,
+    },
+  });
+  return r.data as { id: string; version: number };
+};
 // An ISO-8601 UTC instant relative to the DB clock, so temporal fixtures (observed/publication/approval
 // times) stay coherent on any runner wall clock instead of hardcoding a calendar date. `delta` is a SQL
 // interval expression, e.g. "- interval '1 hour'".
@@ -212,12 +262,9 @@ beforeEach(async () => {
     "INSERT INTO workspace_entities(user_id,collection,entity_id,data) VALUES($1,'content',$2,jsonb_build_object('projectId','p'))",
     [user, ASSET],
   );
-  await db.query(
-    "INSERT INTO ai_visibility_prompts(user_id,project_id,id,revision,data) VALUES($1,'p',$2,1,'{}'::jsonb)",
-    [user, PROMPT],
-  );
-  await seedAnswer(ANSWER);
-  await seedAnswer(BASELINE);
+  await saveEvidencePrompt(scope, PROMPT, 0, promptData, rpc);
+  ANSWER = await importReal(ACC_CAP, "Acme Massage in Malmö is a good option to book.");
+  BASELINE = await importReal("2024-04-01T00:00:00Z", "Acme Massage in Malmö is worth comparing.");
   await db.exec("DELETE FROM public.project_knowledge_sources");
   await db.query(
     "INSERT INTO project_knowledge_sources(user_id,project_id,id,revision,payload) VALUES($1,'p',$2,1,'{}'::jsonb)",
@@ -634,5 +681,92 @@ describe("isolation and access boundaries", () => {
         ).toEqual({ data: { findings: [] } });
       await db.exec("RESET ROLE");
     }
+  });
+});
+describe("guard gaps: evidence axis and binding-shape are fail-closed", () => {
+  const ev = async (record: unknown) =>
+    (
+      await db.query<{ s: string }>(
+        "SELECT public.citation_improvement_evidence($1::uuid,'p',$2::jsonb) s",
+        [user, JSON.stringify(record)],
+      )
+    ).rows[0].s;
+  const V = { method: "owner_inspection" };
+  it("never earns baseline_recorded from a missing/malformed/empty baselineCaptureIds", async () => {
+    expect(await ev({ verification: V })).toBe("baseline_missing"); // key absent (the fixed fall-through)
+    expect(await ev({ verification: V, baselineCaptureIds: "x" })).toBe("baseline_missing"); // not an array
+    expect(await ev({ verification: V, baselineCaptureIds: [] })).toBe("baseline_missing"); // empty
+    expect(await ev({})).toBe("baseline_absent"); // no verification block
+    expect(await ev({ verification: V, baselineCaptureIds: [ANSWER] })).toBe("baseline_recorded");
+  });
+  it("refuses a non-null, non-object binding (array / scalar / json null) at the save RPC boundary", async () => {
+    const badBinding = async (lit: string) => {
+      try {
+        await db.query(
+          `SELECT public.save_ai_citation_improvement($1::uuid,'p',$2::jsonb,$3::jsonb,${lit})`,
+          [user, JSON.stringify({}), JSON.stringify(panelScope)],
+        );
+        return null;
+      } catch (error) {
+        return error;
+      }
+    };
+    for (const lit of ["'[]'::jsonb", "'5'::jsonb", "'\"x\"'::jsonb", "'null'::jsonb"])
+      expect(await badBinding(lit)).not.toBeNull();
+  });
+});
+describe("a bound finding's unresolved accuracy downgrades the dependent improvement", () => {
+  const FACTX = "a1000000-0000-4000-8000-000000000001";
+  const accFindingId = "60000000-0000-4000-8000-0000000000a1";
+  it("reports unresolved accuracy through readCitationImprovements instead of retaining owner_attested", async () => {
+    const f = await seedFact(FACTX, "2024-01-01T00:00:00Z", null); // validity covers ACC_CAP (2024-03-01)
+    // A recommendation_accuracy finding whose assessed accuracy binds to the dated fact (resolves now).
+    await saveF({
+      findingId: accFindingId,
+      family: "recommendation_accuracy" as const,
+      evidence: [{ kind: "answer" as const, id: ANSWER }],
+      entityMatch: "confirmed" as const,
+      capture: { answerComplete: true, citationsComplete: true },
+      observation: "The answer states a price to check against dated facts.",
+      hypothesis: null,
+      competitorCited: null,
+      ownCited: null,
+      recommendation: null,
+      support: [],
+      accuracy: [
+        {
+          claimSpan: "The price is 500 SEK.",
+          factKind: "price" as const,
+          status: "accurate_at_capture" as const,
+          factId: FACTX,
+          factVersion: f.version,
+          factRowId: f.id,
+          captureEvidenceId: ANSWER,
+          review: { reviewer: user, reviewedAt: now },
+        },
+      ],
+      priority: {
+        harm: "medium" as const,
+        relevance: "medium" as const,
+        fixability: "medium" as const,
+      },
+      decision: "needs_second_review" as const,
+      review: { reviewer: user, reviewedAt: now },
+      secondReview: null,
+      linkedTaskId: null,
+    });
+    const observedAt = await isoAt("- interval '1 hour'");
+    const imp = await saveI(
+      improvement("70000000-0000-4000-8000-0000000000a1", accFindingId, { verified: true }),
+      binding({ inspection: { checkResult: "shows_approved_content", observedAt } }),
+    );
+    expect(imp.verificationStatus).toBe("owner_attested");
+    // Delete the bound fact -> the finding's accuracy no longer binds -> the improvement must drop the
+    // before/after owner-attested claim, visible through the EXISTING list read (not just a helper).
+    await rpc("remove_ai_citation_business_fact", { p_user: user, p_project: "p", p_id: f.id });
+    const status = (await readCitationImprovements(scope, rpc)).improvements.find(
+      (r) => r.id === imp.id,
+    )?.verificationStatus;
+    expect(status).toBe("connector_receipt");
   });
 });

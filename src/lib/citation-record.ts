@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { GAP_FAMILIES, findingSchema, improvementSchema } from "./citation-finding";
+import { citationAccuracyResolutionSchema } from "./citation-business-fact";
 /**
  * Citation Intelligence v1, P3 — client-safe schemas and bounds for the findings/improvements STORAGE
  * boundary (product/CITATION_WORKFLOW_IMPLEMENTATION_2026_09_19.md §2.5, §3). This layer reuses the
@@ -84,9 +85,13 @@ export const citationImprovementStageSchema = z
   })
   .strict();
 /** Server-attributed finding view (metadata only in the list). `actorId`/`reviewerId`, `version`,
- * `supersedesId`, `predecessorDeleted`, `createdAt` and `sourceAvailable` are set/derived by the server
- * and validated back here, never imported. `sourceAvailable` is false once a cited answer/native source
- * has been deleted, marking the finding's claim explicitly unavailable. */
+ * `supersedesId`, `predecessorDeleted`, `createdAt`, `sourceAvailable` and `accuracyStatus` are
+ * set/derived by the server and validated back here, never imported. `sourceAvailable` is false once a
+ * cited answer/native source has been deleted; `accuracyStatus` is the authoritative business-fact
+ * binding of this finding's assessed accuracy entries, recomputed live on the canonical read so a deleted
+ * or superseded fact downgrades it (`none` = no assessed entries, `resolved` = all bound, `unresolved` =
+ * at least one assessed entry no longer binds). It reports binding integrity, never that a claim is true. */
+export const CITATION_FINDING_ACCURACY_STATUSES = ["none", "resolved", "unresolved"] as const;
 export const citationFindingSummarySchema = z
   .object({
     id: uuid,
@@ -103,11 +108,56 @@ export const citationFindingSummarySchema = z
     predecessorDeleted: z.boolean(),
     createdAt: z.string(),
     sourceAvailable: z.boolean(),
+    accuracyStatus: z.enum(CITATION_FINDING_ACCURACY_STATUSES),
   })
   .strict();
 export type CitationFindingSummary = z.infer<typeof citationFindingSummarySchema>;
-export const citationFindingDetailSchema = citationFindingSummarySchema
-  .extend({ record: findingSchema })
+/** A bounded, JSON-serializable value: the raw stored record of a legacy/malformed finding, exposed
+ * read-only so its owner can inspect (and then delete) it. It is depth-capped so its Zod parse cannot
+ * recurse unboundedly, and byte-capped to the finding storage budget; a value deeper than the cap, larger
+ * than the cap, or not JSON (undefined/function/etc.) is REJECTED rather than returned. It is a concrete
+ * serializable type — never `unknown` — so it satisfies the server-function transport contract. */
+export type CitationJsonValue =
+  string | number | boolean | null | CitationJsonValue[] | { [key: string]: CitationJsonValue };
+const MAX_RAW_RECORD_DEPTH = 32;
+const jsonScalar = z.union([z.string(), z.number(), z.boolean(), z.null()]);
+// `inner` is computed ONCE per level (shared by the array and record branches) so building the
+// depth-bounded schema stays linear, not exponential, in the depth.
+const jsonAtDepth = (remaining: number): z.ZodType<CitationJsonValue> => {
+  if (remaining <= 0) return jsonScalar;
+  const inner = jsonAtDepth(remaining - 1);
+  return z.union([jsonScalar, z.array(inner), z.record(z.string(), inner)]);
+};
+const citationRawRecordSchema = z
+  .record(z.string(), jsonAtDepth(MAX_RAW_RECORD_DEPTH))
+  .superRefine((v, ctx) => {
+    if (utf8Bytes(v) > MAX_CITATION_FINDING_BYTES)
+      ctx.addIssue({
+        code: "custom",
+        path: [],
+        message: "raw record exceeds the finding storage cap",
+      });
+  });
+/** The detail read carries the live fact resolution (`accuracy`) alongside the record. It is a
+ * discriminated union on the server-derived `recordValid`: a well-formed finding returns the EXACT strict
+ * `findingSchema` record (`recordValid: true`); a legacy/malformed finding returns the bounded raw record
+ * (`recordValid: false`), so the owner can inspect and delete it — no fabricated valid data, and a
+ * pathologically deep/oversized record is refused (see `citationRawRecordSchema`). */
+const citationFindingDetailBaseSchema = citationFindingSummarySchema.extend({
+  accuracy: z.array(citationAccuracyResolutionSchema).max(20),
+});
+export const citationFindingDetailSchema = z.discriminatedUnion("recordValid", [
+  citationFindingDetailBaseSchema
+    .extend({ recordValid: z.literal(true), record: findingSchema })
+    .strict(),
+  citationFindingDetailBaseSchema
+    .extend({ recordValid: z.literal(false), record: citationRawRecordSchema })
+    .strict(),
+]);
+/** What the SQL returns (no discriminator): summary + accuracy + the raw record parsed as bounded JSON.
+ * The server validates it against `findingSchema` to pick the `recordValid` branch. */
+export const citationFindingDetailEnvelopeSchema = citationFindingDetailBaseSchema
+  .extend({ record: citationRawRecordSchema })
   .strict();
 export const citationFindingsStateSchema = z
   .object({ findings: z.array(citationFindingSummarySchema).max(200) })

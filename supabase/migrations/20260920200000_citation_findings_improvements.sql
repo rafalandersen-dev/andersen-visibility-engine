@@ -167,8 +167,13 @@ RETURNS text LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path='' AS $$
 DECLARE v jsonb; cid text;
 BEGIN
   v := p_record->'verification';
-  IF v IS NULL OR jsonb_typeof(v)<>'object' THEN RETURN 'baseline_absent'; END IF;
-  IF jsonb_typeof(p_record->'baselineCaptureIds')<>'array' OR jsonb_array_length(p_record->'baselineCaptureIds')=0 THEN
+  IF v IS NULL OR jsonb_typeof(v) IS DISTINCT FROM 'object' THEN RETURN 'baseline_absent'; END IF;
+  -- Explicit IS DISTINCT FROM + a separately guarded non-empty check: a MISSING baselineCaptureIds key
+  -- (jsonb_typeof NULL) must earn 'baseline_missing', never fall through three-valued to 'baseline_recorded'.
+  IF jsonb_typeof(p_record->'baselineCaptureIds') IS DISTINCT FROM 'array' THEN
+    RETURN 'baseline_missing';
+  END IF;
+  IF jsonb_array_length(p_record->'baselineCaptureIds')=0 THEN
     RETURN 'baseline_missing';
   END IF;
   FOR cid IN SELECT jsonb_array_elements_text(p_record->'baselineCaptureIds') LOOP
@@ -205,15 +210,21 @@ CREATE FUNCTION public.citation_improvement_status(p_user uuid,p_project text,p_
 RETURNS text LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path='' AS $$
 DECLARE frec jsonb; i integer; pub public.publication_evidence%ROWTYPE;
   b_asset text; b_vhash text; live_url text; insp jsonb; status text; appr_at timestamptz; obs timestamptz;
+  acc_unresolved boolean := false;
 BEGIN
   IF p_binding IS NULL OR jsonb_typeof(p_binding)<>'object' THEN RETURN 'unverified'; END IF;
-  -- Every PINNED finding version row must still exist with resolvable in-scope sources.
+  -- Every PINNED finding version row must still exist with resolvable in-scope sources. A bound finding
+  -- whose assessed business-fact accuracy no longer binds (deleted/superseded/ambiguous/out-of-period fact)
+  -- keeps the finding available but forfeits the owner_attested before/after claim below.
   IF coalesce(array_length(p_bound,1),0)=0 THEN RETURN 'unverified'; END IF;
   FOR i IN 1..array_length(p_bound,1) LOOP
     SELECT record INTO frec FROM public.ai_citation_findings
       WHERE user_id=p_user AND project_id=p_project AND id=p_bound[i];
     IF frec IS NULL OR NOT public.citation_finding_sources_available(p_user,p_project,frec) THEN
       RETURN 'unverified';
+    END IF;
+    IF public.citation_finding_accuracy_status(p_user,p_project,frec)='unresolved' THEN
+      acc_unresolved := true;
     END IF;
   END LOOP;
   b_asset := p_binding->>'assetId'; b_vhash := p_binding->>'versionHash';
@@ -244,6 +255,7 @@ BEGIN
        AND (insp->>'checkResult') = 'shows_approved_content'
        AND (insp->>'observedUrl') = live_url
        AND pub.finished_at IS NOT NULL
+       AND NOT acc_unresolved
        AND public.citation_improvement_evidence(p_user,p_project,p_record)='baseline_recorded' THEN
       BEGIN obs := (insp->>'observedAt')::timestamptz; EXCEPTION WHEN others THEN obs := NULL; END;
       IF obs IS NOT NULL AND isfinite(obs)
@@ -319,7 +331,7 @@ BEGIN
       'client',jsonb_build_object('name',client_name,'market',client_market),
       'actorId',actor_id,'reviewerId',reviewer_id,'supersedesId',supersedes_id,
       'predecessorDeleted',predecessor_deleted,'createdAt',created_at,
-      'sourceAvailable',public.citation_finding_sources_available(p_user,p_project,record))
+      'sourceAvailable',public.citation_finding_sources_available(p_user,p_project,record),'accuracyStatus',public.citation_finding_accuracy_status(p_user,p_project,record))
       FROM public.ai_citation_findings WHERE user_id=p_user AND project_id=p_project AND id=existing);
   END IF;
   IF (SELECT count(*) FROM public.ai_citation_findings WHERE user_id=p_user AND project_id=p_project)>=200 THEN
@@ -343,7 +355,7 @@ BEGIN
     'client',jsonb_build_object('name',client_name,'market',client_market),
     'actorId',actor_id,'reviewerId',reviewer_id,'supersedesId',supersedes_id,
     'predecessorDeleted',predecessor_deleted,'createdAt',created_at,
-    'sourceAvailable',public.citation_finding_sources_available(p_user,p_project,record))
+    'sourceAvailable',public.citation_finding_sources_available(p_user,p_project,record),'accuracyStatus',public.citation_finding_accuracy_status(p_user,p_project,record))
     FROM public.ai_citation_findings WHERE user_id=p_user AND project_id=p_project AND id=new_id);
 END; $$;
 
@@ -357,7 +369,7 @@ BEGIN
     'client',jsonb_build_object('name',client_name,'market',client_market),
     'actorId',actor_id,'reviewerId',reviewer_id,'supersedesId',supersedes_id,
     'predecessorDeleted',predecessor_deleted,'createdAt',created_at,
-    'sourceAvailable',public.citation_finding_sources_available(p_user,p_project,record))
+    'sourceAvailable',public.citation_finding_sources_available(p_user,p_project,record),'accuracyStatus',public.citation_finding_accuracy_status(p_user,p_project,record))
     ORDER BY created_at DESC,id DESC)
     FROM public.ai_citation_findings WHERE user_id=p_user AND project_id=p_project),'[]'::jsonb));
 END; $$;
@@ -373,7 +385,9 @@ BEGIN
     'client',jsonb_build_object('name',client_name,'market',client_market),
     'actorId',actor_id,'reviewerId',reviewer_id,'supersedesId',supersedes_id,
     'predecessorDeleted',predecessor_deleted,'createdAt',created_at,'record',record,
-    'sourceAvailable',public.citation_finding_sources_available(p_user,p_project,record)) INTO result
+    'sourceAvailable',public.citation_finding_sources_available(p_user,p_project,record),
+    'accuracyStatus',public.citation_finding_accuracy_status(p_user,p_project,record),
+    'accuracy',public.citation_finding_accuracy(p_user,p_project,record)) INTO result
     FROM public.ai_citation_findings WHERE user_id=p_user AND project_id=p_project AND id=p_id;
   IF result IS NULL THEN RAISE EXCEPTION 'citation_finding_unavailable' USING ERRCODE='22023'; END IF;
   RETURN result;
@@ -407,6 +421,12 @@ BEGIN
   PERFORM public.citation_lock_account(p_user);
   IF p_record IS NULL OR jsonb_typeof(p_record)<>'object' OR octet_length(p_record::text)>20000
      OR p_scope IS NULL OR jsonb_typeof(p_scope)<>'object' THEN
+    RAISE EXCEPTION 'invalid_citation_improvement' USING ERRCODE='22023';
+  END IF;
+  -- A non-null binding must be a JSON object. A JSON array/scalar/`null` is refused HERE, consistently at
+  -- the RPC boundary, rather than being silently ignored until the table CHECK — SQL NULL alone means
+  -- "no binding".
+  IF p_binding IS NOT NULL AND jsonb_typeof(p_binding) IS DISTINCT FROM 'object' THEN
     RAISE EXCEPTION 'invalid_citation_improvement' USING ERRCODE='22023';
   END IF;
   IF jsonb_typeof(p_record->'improvementId') IS DISTINCT FROM 'string' OR (p_record->>'improvementId') !~ '^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$'
@@ -633,6 +653,325 @@ BEGIN
   DELETE FROM public.ai_citation_improvements WHERE user_id=p_user AND project_id=p_project AND id=p_id;
   RETURN true;
 END; $$;
+
+-- Dated owner-confirmed business facts (spec §4.5, §8). PRIVATE per owner/project — never a shared
+-- cross-client corpus. Confirmation identity/time are SERVER-derived from the authenticated action
+-- (confirmed_by is the owner; confirmed_at is the server clock at save); the DECLARED validity interval
+-- [valid_from, valid_until) is owner-supplied but must be finite and ordered, and is kept DISTINCT from
+-- the confirmation time. Versions are immutable and dated: a later price change is a NEW version, and it
+-- never retroactively rewrites the meaning of an older version (spec §4.2 / CI11-T28).
+CREATE TABLE public.ai_citation_business_facts (
+  user_id uuid NOT NULL, project_id text NOT NULL, id uuid NOT NULL DEFAULT gen_random_uuid(),
+  project_collection text NOT NULL DEFAULT 'projects' CHECK(project_collection='projects'),
+  fact_id uuid NOT NULL,
+  version integer NOT NULL CHECK(version BETWEEN 1 AND 10000),
+  kind text NOT NULL CHECK(kind IN ('entity','location','service','duration','price','offer','hours','booking','cancellation','credential')),
+  value text NOT NULL CHECK(octet_length(value) BETWEEN 1 AND 3000),
+  record jsonb NOT NULL CHECK(jsonb_typeof(record)='object' AND octet_length(record::text)<=8000),
+  record_sha256 text NOT NULL CHECK(record_sha256 ~ '^[a-f0-9]{64}$'),
+  -- Server-derived: the confirming owner and the authenticated confirmation instant.
+  confirmed_by uuid NOT NULL, confirmed_at timestamptz NOT NULL DEFAULT clock_timestamp(),
+  -- Declared business validity interval; finite and ordered (validity is not the confirmation time).
+  valid_from timestamptz NOT NULL CHECK(isfinite(valid_from)),
+  valid_until timestamptz CHECK(valid_until IS NULL OR (isfinite(valid_until) AND valid_until>valid_from)),
+  supersedes_id uuid,
+  predecessor_deleted boolean NOT NULL DEFAULT false,
+  created_at timestamptz NOT NULL DEFAULT clock_timestamp(),
+  PRIMARY KEY(user_id,project_id,id),
+  UNIQUE(user_id,project_id,fact_id,version),
+  UNIQUE(user_id,project_id,record_sha256),
+  UNIQUE(user_id,project_id,supersedes_id),
+  FOREIGN KEY(user_id,project_collection,project_id) REFERENCES public.workspace_entities(user_id,collection,entity_id) ON DELETE CASCADE,
+  FOREIGN KEY(user_id,project_id,supersedes_id) REFERENCES public.ai_citation_business_facts(user_id,project_id,id)
+);
+ALTER TABLE public.ai_citation_business_facts ENABLE ROW LEVEL SECURITY;
+REVOKE ALL ON public.ai_citation_business_facts FROM PUBLIC,anon,authenticated,service_role;
+
+CREATE FUNCTION public.save_ai_citation_business_fact(p_user uuid,p_project text,p_record jsonb)
+RETURNS jsonb LANGUAGE plpgsql SECURITY DEFINER SET search_path='' AS $$
+DECLARE digest text; existing uuid; head uuid; new_id uuid; next_version integer;
+  fid uuid; fkind text; fval text; vfrom timestamptz; vuntil timestamptz;
+  v_confirmed timestamptz := clock_timestamp(); v_iso text; v_from_iso text; v_until_iso text; stored jsonb;
+BEGIN
+  PERFORM public.assert_knowledge_project(p_user,p_project,true);
+  PERFORM public.citation_lock_account(p_user);
+  IF p_record IS NULL OR jsonb_typeof(p_record)<>'object' OR octet_length(p_record::text)>8000 THEN
+    RAISE EXCEPTION 'invalid_citation_business_fact' USING ERRCODE='22023';
+  END IF;
+  IF jsonb_typeof(p_record->'factId') IS DISTINCT FROM 'string' OR (p_record->>'factId') !~ '^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$'
+     OR jsonb_typeof(p_record->'kind') IS DISTINCT FROM 'string'
+     OR (p_record->>'kind') NOT IN ('entity','location','service','duration','price','offer','hours','booking','cancellation','credential')
+     OR jsonb_typeof(p_record->'value') IS DISTINCT FROM 'string'
+     OR public.native_artifact_utf16_length(p_record->>'value') NOT BETWEEN 1 AND 1000 THEN
+    RAISE EXCEPTION 'invalid_citation_business_fact' USING ERRCODE='22023';
+  END IF;
+  -- Confirmation identity is server-derived: the caller may only claim itself (the authenticated owner) as
+  -- the confirmer; a foreign confirmedBy is a forged provenance claim and is refused. confirmedAt is not
+  -- trusted from the client at all — it is stamped from the authenticated action below.
+  IF jsonb_typeof(p_record->'confirmedBy') IS DISTINCT FROM 'string' OR (p_record->>'confirmedBy') IS DISTINCT FROM p_user::text THEN
+    RAISE EXCEPTION 'citation_business_fact_confirmer_mismatch' USING ERRCODE='22023';
+  END IF;
+  -- Declared validity interval: finite and ordered, and separate from the confirmation instant. Precision
+  -- beyond the database's microsecond resolution (>6 fractional digits) is REFUSED rather than silently
+  -- truncated, so accepted input, the stored columns, the export and the digest all agree at one precision.
+  IF jsonb_typeof(p_record->'validFrom') IS DISTINCT FROM 'string' OR (p_record->>'validFrom') ~ '\.[0-9]{7,}' THEN
+    RAISE EXCEPTION 'invalid_citation_business_fact' USING ERRCODE='22023';
+  END IF;
+  BEGIN vfrom := (p_record->>'validFrom')::timestamptz;
+  EXCEPTION WHEN others THEN RAISE EXCEPTION 'invalid_citation_business_fact' USING ERRCODE='22023'; END;
+  IF NOT isfinite(vfrom) THEN RAISE EXCEPTION 'invalid_citation_business_fact' USING ERRCODE='22023'; END IF;
+  IF p_record->'validUntil' IS NULL OR jsonb_typeof(p_record->'validUntil')='null' THEN
+    vuntil := NULL;
+  ELSIF jsonb_typeof(p_record->'validUntil')='string' THEN
+    IF (p_record->>'validUntil') ~ '\.[0-9]{7,}' THEN RAISE EXCEPTION 'invalid_citation_business_fact' USING ERRCODE='22023'; END IF;
+    BEGIN vuntil := (p_record->>'validUntil')::timestamptz;
+    EXCEPTION WHEN others THEN RAISE EXCEPTION 'invalid_citation_business_fact' USING ERRCODE='22023'; END;
+    IF NOT isfinite(vuntil) OR vuntil<=vfrom THEN RAISE EXCEPTION 'invalid_citation_business_fact' USING ERRCODE='22023'; END IF;
+  ELSE
+    RAISE EXCEPTION 'invalid_citation_business_fact' USING ERRCODE='22023';
+  END IF;
+  fid := (p_record->>'factId')::uuid; fkind := p_record->>'kind'; fval := p_record->>'value';
+  -- Canonical, MILLISECOND-precision UTC representations of the DECLARED validity, computed from the parsed
+  -- instants so equivalent inputs normalize identically (a 'Z' vs '+00:00', or differing sub-second text,
+  -- must not diverge) while a real sub-second boundary is preserved (…100Z vs …900Z stay distinct).
+  v_from_iso := to_char(vfrom AT TIME ZONE 'UTC','YYYY-MM-DD"T"HH24:MI:SS.US"Z"');
+  v_until_iso := CASE WHEN vuntil IS NULL THEN NULL ELSE to_char(vuntil AT TIME ZONE 'UTC','YYYY-MM-DD"T"HH24:MI:SS.US"Z"') END;
+  -- Idempotency binds the NORMALIZED declared meaning (factId, kind, value, canonical validity) — NOT the
+  -- raw date text — so an equivalent timezone/precision restage does not mint a fake correction version;
+  -- the server-derived confirmedBy/confirmedAt are excluded so re-confirming identical content is idempotent.
+  digest := encode(sha256(convert_to(jsonb_build_array(fid,fkind,fval,v_from_iso,coalesce(to_jsonb(v_until_iso),'null'::jsonb))::text,'UTF8')),'hex');
+  -- Store a CANONICAL record: exactly the strict businessFact keys, server-authoritative confirmation
+  -- identity/time, and validity normalized to canonical millisecond ISO-8601 UTC. This guarantees the
+  -- stored record round-trips the strict client schema even for a direct-SQL caller whose input carried
+  -- extra keys or a non-canonical (but castable) validFrom — the client `.strict()` is not a DB guarantee.
+  v_iso := to_char(v_confirmed AT TIME ZONE 'UTC','YYYY-MM-DD"T"HH24:MI:SS.US"Z"');
+  stored := jsonb_build_object(
+    'factId',fid::text,'kind',fkind,'value',fval,
+    'confirmedBy',p_user::text,'confirmedAt',v_iso,
+    'validFrom',v_from_iso,
+    'validUntil',coalesce(to_jsonb(v_until_iso),'null'::jsonb));
+  SELECT id INTO existing FROM public.ai_citation_business_facts
+    WHERE user_id=p_user AND project_id=p_project AND record_sha256=digest;
+  IF existing IS NOT NULL THEN
+    RETURN (SELECT jsonb_build_object('id',id,'version',version,'supersedesId',supersedes_id,
+      'predecessorDeleted',predecessor_deleted,'createdAt',created_at,'record',record)
+      FROM public.ai_citation_business_facts WHERE user_id=p_user AND project_id=p_project AND id=existing);
+  END IF;
+  IF (SELECT count(*) FROM public.ai_citation_business_facts WHERE user_id=p_user AND project_id=p_project)>=300 THEN
+    RAISE EXCEPTION 'citation_business_fact_capacity' USING ERRCODE='22023';
+  END IF;
+  SELECT a.id INTO head FROM public.ai_citation_business_facts a
+    WHERE a.user_id=p_user AND a.project_id=p_project AND a.fact_id=fid
+      AND NOT EXISTS(SELECT 1 FROM public.ai_citation_business_facts b
+        WHERE b.user_id=p_user AND b.project_id=p_project AND b.supersedes_id=a.id)
+    ORDER BY a.version DESC,a.created_at DESC,a.id DESC LIMIT 1;
+  SELECT coalesce(max(version),0)+1 INTO next_version FROM public.ai_citation_business_facts
+    WHERE user_id=p_user AND project_id=p_project AND fact_id=fid;
+  INSERT INTO public.ai_citation_business_facts
+    (user_id,project_id,fact_id,version,kind,value,record,record_sha256,confirmed_by,confirmed_at,valid_from,valid_until,supersedes_id)
+    VALUES(p_user,p_project,fid,next_version,fkind,fval,stored,digest,p_user,v_confirmed,vfrom,vuntil,head)
+    RETURNING id INTO new_id;
+  RETURN (SELECT jsonb_build_object('id',id,'version',version,'supersedesId',supersedes_id,
+    'predecessorDeleted',predecessor_deleted,'createdAt',created_at,'record',record)
+    FROM public.ai_citation_business_facts WHERE user_id=p_user AND project_id=p_project AND id=new_id);
+END; $$;
+
+CREATE FUNCTION public.read_ai_citation_business_facts(p_user uuid,p_project text)
+RETURNS jsonb LANGUAGE plpgsql SECURITY DEFINER SET search_path='' AS $$
+BEGIN
+  PERFORM public.assert_knowledge_project(p_user,p_project);
+  RETURN jsonb_build_object('facts',coalesce((SELECT jsonb_agg(jsonb_build_object(
+    'id',id,'version',version,'supersedesId',supersedes_id,'predecessorDeleted',predecessor_deleted,
+    'createdAt',created_at,'record',record) ORDER BY created_at DESC,id DESC)
+    FROM public.ai_citation_business_facts WHERE user_id=p_user AND project_id=p_project),'[]'::jsonb));
+END; $$;
+
+CREATE FUNCTION public.read_ai_citation_business_fact(p_user uuid,p_project text,p_id uuid)
+RETURNS jsonb LANGUAGE plpgsql SECURITY DEFINER SET search_path='' AS $$
+DECLARE result jsonb;
+BEGIN
+  PERFORM public.assert_knowledge_project(p_user,p_project);
+  IF p_id IS NULL THEN RAISE EXCEPTION 'invalid_citation_business_fact' USING ERRCODE='22023'; END IF;
+  SELECT jsonb_build_object('id',id,'version',version,'supersedesId',supersedes_id,
+    'predecessorDeleted',predecessor_deleted,'createdAt',created_at,'record',record) INTO result
+    FROM public.ai_citation_business_facts WHERE user_id=p_user AND project_id=p_project AND id=p_id;
+  IF result IS NULL THEN RAISE EXCEPTION 'citation_business_fact_unavailable' USING ERRCODE='22023'; END IF;
+  RETURN result;
+END; $$;
+
+CREATE FUNCTION public.remove_ai_citation_business_fact(p_user uuid,p_project text,p_id uuid)
+RETURNS boolean LANGUAGE plpgsql SECURITY DEFINER SET search_path='' AS $$
+BEGIN
+  PERFORM public.assert_knowledge_project(p_user,p_project,true);
+  PERFORM public.citation_lock_account(p_user);
+  IF p_id IS NULL THEN RAISE EXCEPTION 'invalid_citation_business_fact' USING ERRCODE='22023'; END IF;
+  -- Deleting a fact version breaks the pinned dependency of any accuracy assessment that named it: that
+  -- assessment resolves to 'fact_missing' on read rather than silently rebinding to another version.
+  UPDATE public.ai_citation_business_facts SET supersedes_id=NULL, predecessor_deleted=true
+    WHERE user_id=p_user AND project_id=p_project AND supersedes_id=p_id;
+  DELETE FROM public.ai_citation_business_facts WHERE user_id=p_user AND project_id=p_project AND id=p_id;
+  RETURN true;
+END; $$;
+
+-- Resolve ONE assessed accuracy entry, LIVE, against the dated facts — the single source of truth reused by
+-- the standalone read, the canonical finding reads and the improvement eligibility gate. It pins the
+-- immutable fact ROW UUID (verifying its logical id / version / kind agree) and anchors the comparison to
+-- the SAVED capture time of one of the finding's OWN answer-evidence references (never owner free-text). A
+-- fact existing is NOT proof the claim is true (the human `status` carries that judgement); this reports
+-- only the integrity of the binding, returning {resolution, capturedAt}:
+--   'not_assessed'          human status is not_checked/unclear.
+--   'unpinned'              missing/malformed factRowId / factId / factVersion (1..10000) / factKind /
+--                           captureEvidenceId.
+--   'capture_unresolved'    the captureEvidenceId is not one of this finding's bound answer references, or
+--                           that answer evidence is missing/deleted/foreign, or its saved capturedAt is
+--                           absent/non-finite (a native-only finding has no answer-at-capture anchor).
+--   'fact_missing'          the pinned ROW is absent, or its fact_id/version disagree with the entry (a
+--                           deleted-then-recreated fact reuses the numeric version but NOT the row UUID).
+--   'wrong_kind'            the pinned row's kind is not the entry's factKind.
+--   'out_of_period'         the pinned row's [validFrom,validUntil) does not cover the capture instant.
+--   'ambiguous'             another DISTINCT logical fact of the same kind has ANY version covering the
+--                           instant (a historical conflict is not hidden by a later non-overlapping version)
+--                           — needs review, never a first arbitrary match.
+--   'superseded_correction' a NEWER version of the SAME fact also covers the instant (an overlapping
+--                           correction) — the pinned version is stale for that instant; surfaced, not
+--                           silently 'resolved'. A newer NON-overlapping version (temporal change) does not
+--                           trigger this, preserving the old observation's dated meaning.
+--   'resolved'              the pinned row exists and agrees, covers the instant, and is the sole logical
+--                           fact of its kind covering it with no newer overlapping correction.
+CREATE FUNCTION public.citation_accuracy_resolve(p_user uuid,p_project text,p_record jsonb,a jsonb)
+RETURNS jsonb LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path='' AS $$
+DECLARE hstatus text; cap_text text; cap timestamptz; fr public.ai_citation_business_facts%ROWTYPE;
+BEGIN
+  hstatus := a->>'status';
+  IF hstatus IS NULL OR hstatus IN ('not_checked','unclear') THEN
+    RETURN jsonb_build_object('resolution','not_assessed','capturedAt',NULL::text);
+  END IF;
+  -- STAGE 1 — shape only, NO casts, so a malformed value can never reach a cast (PostgreSQL does not
+  -- guarantee OR short-circuit, so regex-guard and cast must be in separate stages).
+  IF jsonb_typeof(a->'factRowId') IS DISTINCT FROM 'string' OR (a->>'factRowId') !~ '^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$'
+     OR jsonb_typeof(a->'factId') IS DISTINCT FROM 'string' OR (a->>'factId') !~ '^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$'
+     OR jsonb_typeof(a->'factVersion') IS DISTINCT FROM 'number' OR (a->>'factVersion') !~ '^[0-9]{1,5}$'
+     OR jsonb_typeof(a->'factKind') IS DISTINCT FROM 'string'
+     OR jsonb_typeof(a->'captureEvidenceId') IS DISTINCT FROM 'string' OR (a->>'captureEvidenceId') !~ '^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$' THEN
+    RETURN jsonb_build_object('resolution','unpinned','capturedAt',NULL::text);
+  END IF;
+  -- STAGE 2 — the factVersion cast is now safe (1..5 digits guaranteed by stage 1).
+  IF (a->>'factVersion')::integer NOT BETWEEN 1 AND 10000 THEN
+    RETURN jsonb_build_object('resolution','unpinned','capturedAt',NULL::text);
+  END IF;
+  -- The capture evidence must be one of THIS finding's own answer references.
+  IF NOT EXISTS(SELECT 1 FROM jsonb_array_elements(
+      CASE WHEN jsonb_typeof(p_record->'evidence')='array' THEN p_record->'evidence' ELSE '[]'::jsonb END) e
+      WHERE e->>'kind'='answer' AND e->>'id'=(a->>'captureEvidenceId')) THEN
+    RETURN jsonb_build_object('resolution','capture_unresolved','capturedAt',NULL::text);
+  END IF;
+  -- Resolve the capture instant from the ACTUAL saved answer contract: the owner-supplied answer document
+  -- stores the capture time at document.input.capturedAt (see importAnswerEvidence / answerEvidenceSchema).
+  -- A fake top-level `capturedAt` on the document does NOT resolve.
+  SELECT document->'input'->>'capturedAt' INTO cap_text FROM public.ai_answer_evidence
+    WHERE user_id=p_user AND project_id=p_project AND id=(a->>'captureEvidenceId')::uuid;
+  IF cap_text IS NULL THEN RETURN jsonb_build_object('resolution','capture_unresolved','capturedAt',NULL::text); END IF;
+  BEGIN cap := cap_text::timestamptz; EXCEPTION WHEN others THEN cap := NULL; END;
+  IF cap IS NULL OR NOT isfinite(cap) THEN RETURN jsonb_build_object('resolution','capture_unresolved','capturedAt',NULL::text); END IF;
+  -- Resolve the pinned immutable ROW and verify its identity agrees with the declared cross-checks.
+  SELECT * INTO fr FROM public.ai_citation_business_facts
+    WHERE user_id=p_user AND project_id=p_project AND id=(a->>'factRowId')::uuid;
+  IF fr.id IS NULL OR fr.fact_id IS DISTINCT FROM (a->>'factId')::uuid OR fr.version IS DISTINCT FROM (a->>'factVersion')::integer THEN
+    RETURN jsonb_build_object('resolution','fact_missing','capturedAt',cap_text);
+  END IF;
+  IF fr.kind IS DISTINCT FROM (a->>'factKind') THEN
+    RETURN jsonb_build_object('resolution','wrong_kind','capturedAt',cap_text);
+  END IF;
+  IF NOT (fr.valid_from<=cap AND (fr.valid_until IS NULL OR fr.valid_until>cap)) THEN
+    RETURN jsonb_build_object('resolution','out_of_period','capturedAt',cap_text);
+  END IF;
+  IF EXISTS(SELECT 1 FROM public.ai_citation_business_facts g
+      WHERE g.user_id=p_user AND g.project_id=p_project AND g.kind=(a->>'factKind')
+        AND g.fact_id<>fr.fact_id
+        AND g.valid_from<=cap AND (g.valid_until IS NULL OR g.valid_until>cap)) THEN
+    RETURN jsonb_build_object('resolution','ambiguous','capturedAt',cap_text);
+  END IF;
+  IF EXISTS(SELECT 1 FROM public.ai_citation_business_facts c
+      WHERE c.user_id=p_user AND c.project_id=p_project AND c.fact_id=fr.fact_id AND c.id<>fr.id
+        AND c.version>fr.version
+        AND c.valid_from<=cap AND (c.valid_until IS NULL OR c.valid_until>cap)) THEN
+    RETURN jsonb_build_object('resolution','superseded_correction','capturedAt',cap_text);
+  END IF;
+  RETURN jsonb_build_object('resolution','resolved','capturedAt',cap_text);
+END; $$;
+REVOKE ALL ON FUNCTION public.citation_accuracy_resolve(uuid,text,jsonb,jsonb) FROM PUBLIC,anon,authenticated,service_role;
+
+-- The audit view: every accuracy entry with its echoed pins, the resolved capture date/identity and its
+-- live resolution. Malformed pins are echoed defensively so a bad stored record stays inspectable.
+CREATE FUNCTION public.citation_finding_accuracy(p_user uuid,p_project text,p_record jsonb)
+RETURNS jsonb LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path='' AS $$
+DECLARE a jsonb; r jsonb; entries jsonb := '[]'::jsonb;
+BEGIN
+  IF jsonb_typeof(p_record->'accuracy')<>'array' THEN RETURN '[]'::jsonb; END IF;
+  FOR a IN SELECT jsonb_array_elements(p_record->'accuracy') LOOP
+    r := public.citation_accuracy_resolve(p_user,p_project,p_record,a);
+    -- Audit pins are NORMALIZED to null unless well-formed, so a malformed/legacy stored entry yields an
+    -- explicit `unpinned` resolution WITHOUT failing the strict response schema (uuid|null, int|null); the
+    -- raw entry is still available verbatim in the detail read's `record`.
+    entries := entries || jsonb_build_object(
+      'claimSpan',coalesce(a->>'claimSpan',''),'factKind',coalesce(a->>'factKind',''),
+      'factId',CASE WHEN jsonb_typeof(a->'factId')='string' AND (a->>'factId') ~ '^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$' THEN a->'factId' ELSE 'null'::jsonb END,
+      'factVersion',CASE WHEN jsonb_typeof(a->'factVersion')='number' AND (a->>'factVersion') ~ '^[0-9]{1,5}$' THEN a->'factVersion' ELSE 'null'::jsonb END,
+      'factRowId',CASE WHEN jsonb_typeof(a->'factRowId')='string' AND (a->>'factRowId') ~ '^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$' THEN a->'factRowId' ELSE 'null'::jsonb END,
+      'captureEvidenceId',CASE WHEN jsonb_typeof(a->'captureEvidenceId')='string' AND (a->>'captureEvidenceId') ~ '^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$' THEN a->'captureEvidenceId' ELSE 'null'::jsonb END,
+      'capturedAt',coalesce(r->'capturedAt','null'::jsonb),
+      'humanStatus',coalesce(a->>'status',''),'resolution',r->>'resolution');
+  END LOOP;
+  RETURN entries;
+END; $$;
+REVOKE ALL ON FUNCTION public.citation_finding_accuracy(uuid,text,jsonb) FROM PUBLIC,anon,authenticated,service_role;
+
+-- Aggregate binding status for a finding: 'none' (no assessed accuracy), 'resolved' (all bound) or
+-- 'unresolved' (at least one assessed entry no longer binds). Used by the canonical finding reads and the
+-- improvement eligibility gate so a deleted/superseded fact downgrades those consumers, not only the
+-- standalone endpoint.
+CREATE FUNCTION public.citation_finding_accuracy_status(p_user uuid,p_project text,p_record jsonb)
+RETURNS text LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path='' AS $$
+DECLARE a jsonb; res text; any_assessed boolean := false; any_unresolved boolean := false;
+BEGIN
+  IF jsonb_typeof(p_record->'accuracy')<>'array' THEN RETURN 'none'; END IF;
+  FOR a IN SELECT jsonb_array_elements(p_record->'accuracy') LOOP
+    res := (public.citation_accuracy_resolve(p_user,p_project,p_record,a))->>'resolution';
+    IF res<>'not_assessed' THEN
+      any_assessed := true;
+      IF res<>'resolved' THEN any_unresolved := true; END IF;
+    END IF;
+  END LOOP;
+  IF NOT any_assessed THEN RETURN 'none'; END IF;
+  IF any_unresolved THEN RETURN 'unresolved'; END IF;
+  RETURN 'resolved';
+END; $$;
+REVOKE ALL ON FUNCTION public.citation_finding_accuracy_status(uuid,text,jsonb) FROM PUBLIC,anon,authenticated,service_role;
+
+CREATE FUNCTION public.read_ai_citation_finding_accuracy(p_user uuid,p_project text,p_id uuid)
+RETURNS jsonb LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path='' AS $$
+DECLARE frec jsonb;
+BEGIN
+  PERFORM public.assert_knowledge_project(p_user,p_project);
+  IF p_id IS NULL THEN RAISE EXCEPTION 'invalid_citation_finding' USING ERRCODE='22023'; END IF;
+  SELECT record INTO frec FROM public.ai_citation_findings WHERE user_id=p_user AND project_id=p_project AND id=p_id;
+  IF frec IS NULL THEN RAISE EXCEPTION 'citation_finding_unavailable' USING ERRCODE='22023'; END IF;
+  RETURN jsonb_build_object('entries',public.citation_finding_accuracy(p_user,p_project,frec));
+END; $$;
+REVOKE ALL ON FUNCTION
+  public.save_ai_citation_business_fact(uuid,text,jsonb),
+  public.read_ai_citation_business_facts(uuid,text),
+  public.read_ai_citation_business_fact(uuid,text,uuid),
+  public.remove_ai_citation_business_fact(uuid,text,uuid),
+  public.read_ai_citation_finding_accuracy(uuid,text,uuid)
+  FROM PUBLIC,anon,authenticated;
+GRANT EXECUTE ON FUNCTION
+  public.save_ai_citation_business_fact(uuid,text,jsonb),
+  public.read_ai_citation_business_facts(uuid,text),
+  public.read_ai_citation_business_fact(uuid,text,uuid),
+  public.remove_ai_citation_business_fact(uuid,text,uuid),
+  public.read_ai_citation_finding_accuracy(uuid,text,uuid)
+  TO service_role;
 
 REVOKE ALL ON FUNCTION
   public.save_ai_citation_finding(uuid,text,jsonb,jsonb),

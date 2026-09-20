@@ -111,8 +111,19 @@ export const accuracySchema = z
     claimSpan: text(4000),
     factKind: businessFactSchema.shape.kind,
     status: z.enum(ACCURACY_STATES),
-    /** The dated fact the claim was compared with; required for assessed states. */
+    /** The dated fact the claim was compared with (logical id); required for assessed states. */
     factId: uuid.nullable(),
+    /** The EXACT immutable stored fact ROW id (not the reusable numeric version) the reviewer compared
+     * against, so a deleted-then-recreated fact cannot silently rebind; the server verifies its
+     * logical id / version / kind agree. Optional/back-compatible; the accuracy resolution reports
+     * `unpinned` when it (or the cross-checks) are absent for an assessed state. */
+    factRowId: uuid.nullish(),
+    /** Cross-check of the pinned fact's numeric version (verified to agree with the pinned row). */
+    factVersion: z.number().int().min(1).max(10000).nullish(),
+    /** The finding's OWN answer-evidence reference whose SAVED capture time anchors the comparison. The
+     * capture instant is resolved server-side from that scoped saved record (never accepted as owner
+     * free-text); a native-only finding has no such anchor and stays unresolved for answer-at-capture. */
+    captureEvidenceId: uuid.nullish(),
     review: reviewer.nullable(),
   })
   .strict()
