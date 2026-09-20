@@ -508,6 +508,35 @@ Against the renamed candidate `20260920190000_citation_protocol.sql` (old `…17
   the exact duplicateRows/gridRows aggregate; correction chain → erasedExtra 0; mixed live/erased → deviant
   outcome, erasedExtra 0). No unproven concurrency/truncation claims.
 
+## Review round 19 (compare brandRunId by UUID value, not raw text — P2 4057741410)
+
+- `save_citation_capture` casts `captureContext.brandRunId` to a uuid (`v_run`) for FK resolution but
+  persists the client's ORIGINAL document verbatim, so the stored brandRunId keeps its spelling (possibly
+  UPPERCASE / mixed-case). The budget count and `runConsumed` compared that raw text to `run_id::text`
+  (canonical LOWERCASE), so an uppercase original escaped the count — evading the observation budget and
+  under-reporting consumed — and the raw-text same-slot and correction checks could mis-judge identity.
+- Fix (candidate SQL only): a new internal `IMMUTABLE` helper `public.citation_ctx_run(text)` returns the
+  NORMALIZED uuid value for any castable uuid spelling and NULL for a malformed/absent one
+  (`RETURN p_text::uuid; EXCEPTION WHEN invalid_text_representation THEN RETURN NULL`), so a read never
+  throws on bad history and a malformed run identity fails closed (matches nothing). All four brandRunId
+  identity comparisons now use it: `runConsumed` (read) and the budget count match live originals by
+  `citation_ctx_run(...) = r.run_id` / `= v_run`; the same-slot guard and correction identity compare
+  `citation_ctx_run(...) IS [NOT] DISTINCT FROM v_run`; the tombstone side already stored a normalized
+  `brand_run_id` uuid column (now compared to `v_run` directly). Fixes already-persisted mixed-case data by
+  comparison-time normalization — no immutable document or hash is rewritten.
+- Untouched: no document/hash rewrite; questionId stays compared as EXACT text (case sensitivity
+  unchanged); the write RPC's authoritative `v_run := (ctx->>'brandRunId')::uuid` still rejects a malformed
+  brandRunId on a NEW write (fail closed); the tombstone trigger's regex-guarded cast, the atomic
+  single-statement read, tombstone count/privacy, ownership scoping and the read-only `pgUuid` guard are
+  unchanged. The helper is granted to no role (called only by the P2 SECURITY DEFINER functions as owner);
+  RPC signatures unchanged, rollback inventory gains one internal function dropped after its callers.
+- Tests (real PGlite; run id with hex LETTERS so upper/lower differ as text but are one uuid value; the
+  uppercase originals inserted directly since the write RPC normalizes): consumed counts an uppercase
+  historical original before AND after deletion; the budget refuses a new capture once an uppercase
+  original consumed it (specific `brand_run_budget_exceeded` via direct SQL, generic via the wrapper); the
+  same-slot guard refuses a lowercase duplicate of an uppercase original (`citation_slot_occupied`); a
+  correction whose predecessor differs only in brandRunId case is accepted. No multi-connection claim.
+
 ## Checks (status: UNRUN — prepared for Codex)
 
 Prior stages: 143 (tsc failing) → 146 → 148/147-PASS-1-FAIL → 150 → 170/6081 → (round 5) read-ordering
@@ -686,3 +715,15 @@ The prior stage (Codex round-17 verification on 175851ac: 141 focused / 6305 ful
 ### Round 18 independent verification, 2026-09-20
 
 Codex reviewed the full-tombstone SQL duplicate aggregate and its separate erasedExtra report field, preserving distinct planned-slot coverage and brand consumption. Focused146 tests/4 files PASS (2.56s); full6310 tests/385 files PASS (47.52s); TypeScript/scoped ESLint/production build/git diff --check PASS. Formatter-only Codex integration exception on four P2 TypeScript files. Logs:/tmp/milo-p2-erasedduplicates-{focused,types,lint,full,build}-20260920.log. SQL semantics provide the full-set aggregate; no empirical multi-connection or large truncation experiment is claimed. Candidate remains unapplied, and prepared release SQL/identity must be regenerated for the approved final commit.
+
+## Semantic brandRunId identity — status UNRUN (P2 4057741410)
+
+Round 19 fixes a budget/consumed evasion: `save_citation_capture` casts `captureContext.brandRunId` to `v_run` but persists the client's ORIGINAL spelling, so the budget count and `runConsumed` compared raw (possibly UPPERCASE) text to the canonical-lowercase `run_id::text` — an uppercase original escaped the count (evading the observation budget, under-reporting consumed), and the raw-text same-slot and correction checks could mis-judge identity. A new internal `IMMUTABLE` helper `public.citation_ctx_run(text)` normalizes any castable uuid spelling to its VALUE (NULL for malformed, so reads never throw and a bad run identity fails closed); all four brandRunId comparisons — budget count, `runConsumed`, the same-slot guard and correction identity — now match by uuid value. Already-persisted mixed-case data is handled by comparison-time normalization: no immutable document or hash is rewritten, questionId case sensitivity is unchanged, the write RPC's authoritative `(ctx->>'brandRunId')::uuid` still rejects a malformed NEW brandRunId, and the atomic read / tombstone privacy / ownership / read-only `pgUuid` guards are unchanged. The helper is granted to no role; RPC signatures are unchanged; the rollback inventory gains one internal function (`citation_ctx_run`, dropped after its callers). Edited only `supabase/migrations/20260920190000_citation_protocol.sql`, `src/lib/citation-protocol-migration.test.ts` and these docs.
+
+The prior stage (Codex round-18 verification on db5ae6f8: 146 focused / 6310 full PASS, 47.52s, types/lint/build PASS) does NOT carry over; every round-19 check is UNRUN in this worktree and must be re-executed by Codex under the recorded exception — this assistant did not run tests and claims no PASS. New checks (real PGlite; a run id with hex LETTERS so upper/lower differ as text but are one uuid; uppercase originals inserted directly): consumed counts an uppercase historical original before AND after deletion; the budget refuses a new capture once an uppercase original consumed it (specific `brand_run_budget_exceeded` via direct SQL, generic via the wrapper); the same-slot guard refuses a lowercase duplicate of an uppercase original (`citation_slot_occupied`); a correction whose predecessor differs only in brandRunId case is accepted. No multi-connection empirical proof claimed. Candidate `20260920190000` remains UNAPPLIED; prepared deploy SQL / expected-identity artifacts remain STALE (never executed); USD50 + manual-free budget unchanged; nothing is deployed.
+
+Test commands (Codex runs; UNRUN here): `npx vitest run src/lib/citation-protocol-migration.test.ts`; `npx vitest run src/lib/citation-protocol.test.ts src/lib/citation-protocol.functions.test.ts`; `npx tsc --noEmit`; and the repository lint/build tasks.
+
+### Codex semantic run identity verification — 20 September 2026
+
+Independently reviewed UUID-value comparisons for existing mixed-case run references across admission, consumed reporting, occupied slots and correction identity. Eight focused suites passed 220 tests (2.76s); TypeScript passed. Full suite passed 6314 tests across 385 files (44.37s), with scoped ESLint, production build and git diff --check passing. Logs: /tmp/milo-p2-uuid-budget-{focused,types,format,lint,full,build}-20260920.log. Codex integration exceptions: formatting the changed test file and correcting its explanatory comment; no application behavior authored by Codex. Single-connection tests do not establish empirical multi-connection acceptance. Candidate migration remains UNAPPLIED; prior guarded SQL and expected identity remain stale. Exact-head external reviews and live release verification remain outstanding.

@@ -640,6 +640,41 @@ grid slot read as `erased 1, excluded 0`, hiding the second attempt entirely.
   erased correction chain → `erasedExtra 0`; and a mixed live/erased sibling → deviant outcome with
   `erasedExtra 0`. No unproven concurrency/truncation claims.
 
+### Review round 19 — compare brandRunId by UUID value, not raw text (P2 4057741410)
+
+`save_citation_capture` casts `captureContext.brandRunId` to a uuid (`v_run`) for FK resolution but
+persists the client's ORIGINAL document verbatim, so the stored brandRunId string keeps its original
+spelling (possibly UPPERCASE / mixed-case). Yet the budget count and `runConsumed` compared that raw
+text to `run_id::text`, which Postgres renders as canonical LOWERCASE. An uppercase original therefore
+escaped the count — evading the observation budget and under-reporting consumed — and the raw-text
+same-slot and correction comparisons could likewise mis-judge identity (a duplicate slipping through, a
+legitimate correction wrongly rejected).
+
+- **Fix (candidate SQL only).** A new internal `IMMUTABLE` helper `public.citation_ctx_run(text)` returns
+  the NORMALIZED uuid value for any Postgres-castable uuid spelling and `NULL` for a malformed/absent one
+  (`RETURN p_text::uuid; EXCEPTION WHEN invalid_text_representation THEN RETURN NULL`), so a read never
+  throws on bad history and a malformed run identity fails closed (matches nothing). All four brandRunId
+  identity comparisons now use it: `runConsumed` (read) and the budget count (`save_citation_capture`)
+  match live originals by `citation_ctx_run(...) = r.run_id`/`= v_run`; the same-slot guard and the
+  correction-identity check compare `citation_ctx_run(...) IS [NOT] DISTINCT FROM v_run`. The tombstone
+  side already stored a normalized `brand_run_id` uuid column and now compares to `v_run` directly. This
+  fixes already-persisted mixed-case data (comparison-time normalization) without rewriting any immutable
+  document or hash.
+- **Untouched.** No document/hash rewrite; question-id case sensitivity is unchanged (`questionId` stays
+  compared as exact text); the write RPC's authoritative `v_run := (ctx->>'brandRunId')::uuid` still
+  rejects a malformed brandRunId on a NEW write (fail closed); the tombstone trigger's regex-guarded cast,
+  the atomic single-statement read, tombstone count/privacy, ownership scoping and the read-only `pgUuid`
+  guard are unchanged. The helper is granted to no role (called only by the P2 SECURITY DEFINER functions
+  as owner). The RPC signatures are unchanged; the rollback inventory gains one internal function
+  (`citation_ctx_run`), dropped after its callers.
+- Tests (real PGlite, run id with hex letters so upper/lower differ as text but are one uuid value; the
+  uppercase originals inserted directly, since the write RPC normalizes): consumed counts an uppercase
+  historical original before AND after deletion (its tombstone keeps it counted); the budget refuses a new
+  capture once an uppercase original consumed it (specific `brand_run_budget_exceeded` via direct SQL,
+  generic via the wrapper); the same-slot guard refuses a lowercase duplicate of an uppercase original
+  (`citation_slot_occupied`); and a correction whose predecessor differs only in brandRunId case is
+  accepted. No multi-connection claim.
+
 ## Files
 
 | File | Change |
@@ -650,7 +685,7 @@ grid slot read as `erased 1, excluded 0`, hiding the second attempt entirely.
 | `src/lib/citation-protocol.test.ts` | New. Pure-contract + mocked-server unit tests. |
 | `src/lib/citation-protocol.functions.test.ts` | New. Endpoint authentication/validation tests. |
 | `src/lib/citation-protocol-migration.test.ts` | New. Real PGlite SQL round trips (isolation, auth, missing project, reference forgery, approval version, protocol binding, capacity, deletion, idempotency). |
-| `supabase/migrations/20260920190000_citation_protocol.sql` | New (one migration). Three tables (panels, brand runs, content-free capture tombstones) + five service-only SECURITY DEFINER RPCs + an `AFTER DELETE` tombstone trigger on `ai_answer_evidence`; RLS on, project-scoped FKs, project-deletion cascade. |
+| `supabase/migrations/20260920190000_citation_protocol.sql` | New (one migration). Three tables (panels, brand runs, content-free capture tombstones) + five service-only SECURITY DEFINER RPCs + one internal `IMMUTABLE` helper (`citation_ctx_run`, semantic brandRunId identity, granted to no role) + an `AFTER DELETE` tombstone trigger on `ai_answer_evidence`; RLS on, project-scoped FKs, project-deletion cascade. |
 | `src/lib/answer-evidence.ts` | Additive only: optional opaque `captureContext` on `answerEvidenceSchema` so reads tolerate capture-bound records. Legacy documents are byte-identical (field absent). |
 | `src/lib/answer-evidence.server.ts` | Additive only: `importAnswerEvidence` refuses a capture context (legacy path stays capture-blind; captures must use the panel-aware path). |
 | `product/CITATION_PROTOCOL_IMPLEMENTATION_2026_09_19.md`, `evidence/citation-protocol-storage-2026-09-19.md` | New. This doc and the evidence record. |
@@ -764,14 +799,22 @@ rows − distinct question/round/run slots, over the FULL tombstone set, not the
 exactly, not hidden — corrections (root = one attempt) and a live+erased sibling (deviant outcome)
 contribute 0, brand `consumed` is unchanged, deleted content is never returned, and the `pgUuid`/ownership
 guards and new-capture one-per-slot write guard are unchanged. The `read_citation_protocol(uuid,text)`
-signature is unchanged, so the rollback inventory is unaffected.
-**All prior counts — including the latest Codex round-17 run on 175851ac (141 focused / 6305 full PASS,
+signature is unchanged, so the rollback inventory is unaffected. Round 19 (this turn) fixes P2 4057741410:
+`save_citation_capture` cast `captureContext.brandRunId` to a uuid but persisted the ORIGINAL spelling, so
+the budget count and `runConsumed` compared raw (possibly UPPERCASE) text to the canonical-lowercase
+`run_id::text` — an uppercase original escaped the count (evading the budget, under-reporting consumed) and
+the raw-text same-slot / correction checks could mis-judge identity. A new internal `IMMUTABLE` helper
+`citation_ctx_run(text)` normalizes any castable uuid spelling to its value (NULL for malformed, so reads
+never throw and a bad run identity fails closed); all four brandRunId comparisons (budget, `runConsumed`,
+same-slot guard, correction identity) now match by uuid VALUE. No document/hash rewrite, questionId case
+sensitivity unchanged, atomic read / tombstone privacy / ownership guards unchanged; the RPC signatures are
+unchanged and the rollback inventory gains one internal helper dropped after its callers — candidate SQL +
+P2 migration tests + docs only.
+**All prior counts — including the latest Codex run on db5ae6f8 (146 focused / 6310 full PASS,
 types/lint/build PASS) — are a prior stage and do not carry over**; every check below, including the
-round-16 single-snapshot read tests, the round-17 capacity-reservation tests, and the round-18
-erased-extra-attempt tests, is UNRUN in this worktree and must be re-executed by Codex. No released SQL, released `citation-panel.ts`, global
-migration inventory, or P3/R09 file was touched (the last commit `777ee67f` — Codex's doc rollback
-inventory fix — is preserved); USD50/manual-free is unchanged. The prepared deploy SQL /
-expected-identity artifacts are STALE — never execute them; nothing here is deployed. No released SQL, released `citation-panel.ts`, global
+round-16 single-snapshot read tests, the round-17 capacity-reservation tests, the round-18
+erased-extra-attempt tests, and the round-19 brandRunId-identity tests, is UNRUN in this worktree and must
+be re-executed by Codex. No released SQL, released `citation-panel.ts`, global
 migration inventory, or P3/R09 file was touched (the last commit `777ee67f` — Codex's doc rollback
 inventory fix — is preserved); USD50/manual-free is unchanged. The prepared deploy SQL /
 expected-identity artifacts are STALE — never execute them; nothing here is deployed.
@@ -788,7 +831,7 @@ so it validates the new SQL against the actual prior schema without applying any
 
 ## Migration / rollback
 
-One new, **unapplied** migration adds three tables, six functions and one trigger. It depends on existing `assert_knowledge_project`, `ai_visibility_prompts`, `ai_answer_evidence`, `workspace_entities` and the account serialization row. It does not alter or replay released migrations. P1 artifact staging is already released; it is outside this rollback.
+One new, **unapplied** migration adds three tables, seven functions and one trigger. It depends on existing `assert_knowledge_project`, `ai_visibility_prompts`, `ai_answer_evidence`, `workspace_entities` and the account serialization row. It does not alter or replay released migrations. P1 artifact staging is already released; it is outside this rollback.
 
 If rollback becomes necessary, first disable or roll back callers of these P2 RPCs and inspect later dependencies. Preserve any owner-required evidence before considering table removal: dropping these tables destroys panel approvals, run budgets and content-free erasure history. This is a rollback inventory, not an executed or pre-authorized destructive operation.
 
@@ -796,9 +839,9 @@ Remove objects in dependency order, using explicit names and signatures, without
 
 1. Drop trigger `tombstone_citation_capture` **ON `public.ai_answer_evidence`**. This detaches the new behavior from the existing answer-evidence table.
 2. Drop the five service RPCs: `public.read_citation_protocol(uuid,text)`, `public.save_citation_panel_draft(uuid,text,uuid,integer,jsonb)`, `public.lock_citation_panel(uuid,text,uuid,integer)`, `public.approve_citation_brand_run(uuid,text,uuid,uuid,integer,integer,integer)`, and `public.save_citation_capture(uuid,text,jsonb)`.
-3. Drop internal trigger function `public.tombstone_citation_capture()`.
+3. Drop the internal trigger function `public.tombstone_citation_capture()` and the internal helper `public.citation_ctx_run(text)` (a content-free `IMMUTABLE` uuid normalizer the read RPC and `save_citation_capture` call for semantic brandRunId identity; it is granted to no role and referenced only by the P2 functions dropped in step 2, so it is removed after them).
 4. Drop `public.citation_brand_runs` before its referenced `public.citation_panels` table, and drop `public.citation_capture_tombstones` as well. These are all three tables created by this candidate.
-5. Verify that all six functions, all three tables and the trigger are absent, and that the legacy answer/knowledge objects and their existing triggers remain present. Reconcile the migration journal through the established release procedure; never edit an applied migration or silently reapply it.
+5. Verify that all seven functions, all three tables and the trigger are absent, and that the legacy answer/knowledge objects and their existing triggers remain present. Reconcile the migration journal through the established release procedure; never edit an applied migration or silently reapply it.
 
 If later released objects depend on P2, stop the removal and plan their compatible rollback first. Removing P2 does not reverse already stored answer evidence, and loss of erasure history means previous consumed-slot guarantees cannot be assumed after a future reinstall.
 

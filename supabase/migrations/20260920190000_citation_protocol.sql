@@ -85,6 +85,23 @@ REVOKE ALL ON FUNCTION public.tombstone_citation_capture() FROM PUBLIC,anon,auth
 CREATE TRIGGER tombstone_citation_capture AFTER DELETE ON public.ai_answer_evidence
   FOR EACH ROW EXECUTE FUNCTION public.tombstone_citation_capture();
 
+-- Semantic brandRunId identity. save_citation_capture persists the client's ORIGINAL captureContext JSON
+-- verbatim (immutable — the document and its hash are never rewritten), so a historical brandRunId string
+-- may be UPPERCASE or mixed-case (or, for pre-guard data, malformed). Budget enforcement, consumed
+-- reporting, the same-slot guard and correction identity must therefore compare by UUID VALUE, not by raw
+-- text: a run id rendered as text (`run_id::text`) is canonical LOWERCASE, so an uppercase original
+-- silently escapes a text compare — evading the budget count, the duplicate-slot guard and the correction
+-- match. This returns the NORMALIZED uuid value for any Postgres-castable uuid spelling (case- and
+-- form-insensitive) and NULL for a malformed or absent one, so a read never throws on bad history and a
+-- malformed/absent run identity fails closed (matches nothing, is counted nowhere). Pure and content-free:
+-- it reads and rewrites no row and touches no document text.
+CREATE FUNCTION public.citation_ctx_run(p_text text) RETURNS uuid LANGUAGE plpgsql IMMUTABLE SET search_path='' AS $$
+BEGIN
+  RETURN p_text::uuid;
+EXCEPTION WHEN invalid_text_representation THEN RETURN NULL;
+END; $$;
+REVOKE ALL ON FUNCTION public.citation_ctx_run(text) FROM PUBLIC,anon,authenticated;
+
 CREATE FUNCTION public.read_citation_protocol(p_user uuid,p_project text)
 RETURNS jsonb LANGUAGE plpgsql SECURITY DEFINER SET search_path='' AS $$
 BEGIN
@@ -116,13 +133,15 @@ BEGIN
         ORDER BY created_at DESC,answer_id LIMIT 10000) s),'[]'::jsonb),
     -- AUTHORITATIVE per-approved-run consumed budget, computed here with the EXACT predicate the write
     -- gate uses (save_citation_capture): every live ORIGINAL (supersedes null) bound to the run by
-    -- captureContext->>'brandRunId' (so a malformed-context original still counts, exactly as the gate
-    -- counts it) PLUS each tombstone row for the run. One snapshot, owner/project scoped, bounded to the
-    -- ≤20 approved runs — never reconstructed from the LIMIT-bounded or slot-collapsed coverage above.
+    -- captureContext.brandRunId, matched by UUID VALUE via citation_ctx_run (so an UPPERCASE/mixed-case
+    -- historical brandRunId still counts — a raw-text compare to the lowercase run_id would miss it — while
+    -- a malformed context counts nowhere, failing closed) PLUS each tombstone row for the run (its
+    -- brand_run_id column is already normalized). One snapshot, owner/project scoped, bounded to the ≤20
+    -- approved runs — never reconstructed from the LIMIT-bounded or slot-collapsed coverage above.
     'runConsumed',coalesce((SELECT jsonb_agg(jsonb_build_object('runId',r.run_id,'consumed',
         (SELECT count(*) FROM public.ai_answer_evidence e
            WHERE e.user_id=p_user AND e.project_id=p_project AND e.supersedes_id IS NULL
-             AND e.document->'input'->'captureContext'->>'brandRunId'=r.run_id::text)
+             AND public.citation_ctx_run(e.document->'input'->'captureContext'->>'brandRunId')=r.run_id)
       + (SELECT count(*) FROM public.citation_capture_tombstones tb
            WHERE tb.user_id=p_user AND tb.project_id=p_project AND tb.brand_run_id=r.run_id)))
       FROM public.citation_brand_runs r WHERE r.user_id=p_user AND r.project_id=p_project),'[]'::jsonb),
@@ -428,7 +447,11 @@ BEGIN
     IF jsonb_typeof(pred_ctx)<>'object'
       OR pred_ctx->>'panelId' IS DISTINCT FROM ctx->>'panelId'
       OR pred_ctx->>'panelVersion' IS DISTINCT FROM ctx->>'panelVersion'
-      OR pred_ctx->>'brandRunId' IS DISTINCT FROM ctx->>'brandRunId'
+      -- brand run identity by UUID VALUE (v_run is the new capture's normalized run), so an UPPERCASE
+      -- historical predecessor still matches its lowercase correction — a raw-text compare would wrongly
+      -- reject a legitimate same-observation correction; a malformed predecessor run resolves to NULL and
+      -- is DISTINCT from a real run, so it is not a valid correction predecessor (fails closed).
+      OR public.citation_ctx_run(pred_ctx->>'brandRunId') IS DISTINCT FROM v_run
       OR pred_ctx->'slot'->>'questionId' IS DISTINCT FROM ctx->'slot'->>'questionId'
       OR pred_ctx->'slot'->>'round' IS DISTINCT FROM ctx->'slot'->>'round'
       OR pred_ctx->'time'->>'capturedAt' IS DISTINCT FROM ctx->'time'->>'capturedAt'
@@ -456,14 +479,17 @@ BEGIN
         AND document->'input'->'captureContext'->>'panelVersion'=ctx->>'panelVersion'
         AND document->'input'->'captureContext'->'slot'->>'questionId'=ctx->'slot'->>'questionId'
         AND document->'input'->'captureContext'->'slot'->>'round'=ctx->'slot'->>'round'
-        AND document->'input'->'captureContext'->>'brandRunId' IS NOT DISTINCT FROM ctx->>'brandRunId'
+        -- brand run identity by UUID VALUE (v_run is this capture's normalized run), so an UPPERCASE
+        -- historical original at the same slot is still detected — a raw-text compare would treat it as a
+        -- different slot and let a duplicate original through (later making panelCounts unreportable).
+        AND public.citation_ctx_run(document->'input'->'captureContext'->>'brandRunId') IS NOT DISTINCT FROM v_run
     )
     OR EXISTS (
       SELECT 1 FROM public.citation_capture_tombstones
       WHERE user_id=p_user AND project_id=p_project
         AND panel_id=(ctx->>'panelId')::uuid AND panel_version=(ctx->>'panelVersion')::integer
         AND question_id=ctx->'slot'->>'questionId' AND round=(ctx->'slot'->>'round')::integer
-        AND brand_run_id IS NOT DISTINCT FROM (ctx->>'brandRunId')::uuid
+        AND brand_run_id IS NOT DISTINCT FROM v_run
     )
   ) THEN
     RAISE EXCEPTION 'citation_slot_occupied';
@@ -479,7 +505,10 @@ BEGIN
   IF panel_kind<>'discovery' AND replaced IS NULL AND (
     (SELECT count(*) FROM public.ai_answer_evidence
       WHERE user_id=p_user AND project_id=p_project AND supersedes_id IS NULL
-        AND document->'input'->'captureContext'->>'brandRunId'=v_run::text)
+        -- Match live originals to this run by UUID VALUE, so an UPPERCASE/mixed-case historical brandRunId
+        -- still counts against the budget — a raw-text compare to the lowercase v_run::text would miss it
+        -- and let the run exceed its approved budget. Mirrors runConsumed's read-side aggregate exactly.
+        AND public.citation_ctx_run(document->'input'->'captureContext'->>'brandRunId')=v_run)
     + (SELECT count(*) FROM public.citation_capture_tombstones
         WHERE user_id=p_user AND project_id=p_project AND brand_run_id=v_run)
   )>=(run_doc->>'observationBudget')::integer THEN

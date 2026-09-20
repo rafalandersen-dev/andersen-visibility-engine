@@ -25,6 +25,10 @@ let db: PGlite;
 const user = "00000000-0000-4000-8000-000000000001",
   other = "00000000-0000-4000-8000-000000000002";
 const uuid = (n: number) => `00000000-0000-4000-8000-${String(n).padStart(12, "0")}`;
+// A run id containing hex LETTERS, so its canonical (lowercase) spelling and an UPPERCASE spelling differ
+// as text but are the SAME uuid value — exactly the case the raw-text brandRunId compare mishandled.
+const runLower = "0000abcd-0000-4000-8000-0000000000ab";
+const runUpper = "0000ABCD-0000-4000-8000-0000000000AB";
 const scope = { ownerId: user, projectId: "p" };
 const discoveryPromptId = uuid(101),
   brandPromptId = uuid(201);
@@ -987,6 +991,141 @@ describe("CI-2 brand capture budget and prospective approval", () => {
     await expect(
       importManualCapture(scope, brandCapture({ slot: { round: 3, questionId: "SY-B01" } }), rpc),
     ).rejects.toThrow();
+  });
+  // Semantic brandRunId identity (P2 4057410893 / 4057741410): save_citation_capture persists the
+  // client's ORIGINAL brandRunId spelling verbatim, so a historical UPPERCASE / mixed-case one differs as
+  // text from the canonical lowercase run id yet is the SAME uuid value. Budget, consumed reporting, the
+  // same-slot guard and correction identity must all compare by uuid VALUE. The uppercase originals below
+  // are inserted directly to reproduce persisted historical spelling, reusing a real
+  // captured document's prompt/analysis so each still parses on read. A mixed-case spelling behaves
+  // identically (same uuid value), so uppercase is the representative case.
+  it("counts an UPPERCASE historical brand original against consumed budget, before and after deletion", async () => {
+    await insertBrandRun(runLower, { observationBudget: 5, rounds: 2 });
+    const o1 = await importManualCapture(scope, brandCapture({ brandRunId: runLower }), rpc); // lower, r1
+    const base = (await readAnswerEvidence(scope, rpc)).answers[0];
+    const upperInput = brandCapture(
+      { brandRunId: runUpper, slot: { round: 2, questionId: "SY-B01" } },
+      { rawAnswer: "UPPER historical original" },
+    );
+    await db.query(
+      "INSERT INTO ai_answer_evidence(user_id,project_id,id,prompt_id,prompt_revision,document_hash,document,supersedes_id) VALUES($1,'p',$2,$3,1,$4,$5,NULL)",
+      [
+        user,
+        uuid(760),
+        brandPromptId,
+        "hist-upper-760",
+        { input: upperInput, prompt: base.prompt, analysis: base.analysis },
+      ],
+    );
+    const consumed = async () =>
+      (await readResolvedCaptures(scope, rpc)).reports.find((x) => x.panelId === brandPanelId)
+        ?.brandRuns[0];
+    expect(await consumed()).toMatchObject({ runId: runLower, consumed: 2 }); // both count (pre-fix: 1)
+    await removeAnswerEvidence(scope, "answer", uuid(760), rpc); // erase the uppercase original
+    expect(await consumed()).toMatchObject({ consumed: 2 }); // its content-free tombstone still counts
+    await removeAnswerEvidence(scope, "answer", o1, rpc);
+    expect(await consumed()).toMatchObject({ consumed: 2 }); // two tombstones; budget stays consumed
+  });
+  it("enforces the observation budget against an UPPERCASE historical original (no evasion)", async () => {
+    await insertBrandRun(uuid(50), { observationBudget: 5, rounds: 2 }); // helper run to harvest a doc
+    await importManualCapture(scope, brandCapture(), rpc); // run uuid(50), r1
+    const base = (await readAnswerEvidence(scope, rpc)).answers[0];
+    await insertBrandRun(runLower, { observationBudget: 1, rounds: 2 }); // constrained run, budget 1
+    const upperInput = brandCapture(
+      { brandRunId: runUpper, slot: { round: 1, questionId: "SY-B01" } },
+      { rawAnswer: "UPPER consumes the single budget" },
+    );
+    await db.query(
+      "INSERT INTO ai_answer_evidence(user_id,project_id,id,prompt_id,prompt_revision,document_hash,document,supersedes_id) VALUES($1,'p',$2,$3,1,$4,$5,NULL)",
+      [
+        user,
+        uuid(761),
+        brandPromptId,
+        "hist-upper-761",
+        { input: upperInput, prompt: base.prompt, analysis: base.analysis },
+      ],
+    );
+    // The budget of one is consumed by the uppercase original (matched by uuid value). A NEW lowercase
+    // capture at a distinct valid slot (r2) is refused — pre-fix it evaded the budget. Specific guard via
+    // direct SQL; the public wrapper refuses generically.
+    const next = brandCapture(
+      { brandRunId: runLower, slot: { round: 2, questionId: "SY-B01" } },
+      { rawAnswer: "over budget" },
+    );
+    await expect(
+      db.query("SELECT save_citation_capture($1,'p',$2)", [
+        user,
+        { input: next, prompt: base.prompt, analysis: base.analysis },
+      ]),
+    ).rejects.toThrow(/brand_run_budget_exceeded/);
+    await expect(importManualCapture(scope, next, rpc)).rejects.toThrow();
+  });
+  it("detects an UPPERCASE historical original when refusing a duplicate at the same brand slot", async () => {
+    await insertBrandRun(uuid(50), { observationBudget: 5, rounds: 2 });
+    await importManualCapture(scope, brandCapture(), rpc);
+    const base = (await readAnswerEvidence(scope, rpc)).answers[0];
+    await insertBrandRun(runLower, { observationBudget: 5, rounds: 2 }); // ample budget: the slot guard fires, not budget
+    const upperInput = brandCapture(
+      { brandRunId: runUpper, slot: { round: 1, questionId: "SY-B01" } },
+      { rawAnswer: "UPPER original at r1" },
+    );
+    await db.query(
+      "INSERT INTO ai_answer_evidence(user_id,project_id,id,prompt_id,prompt_revision,document_hash,document,supersedes_id) VALUES($1,'p',$2,$3,1,$4,$5,NULL)",
+      [
+        user,
+        uuid(762),
+        brandPromptId,
+        "hist-upper-762",
+        { input: upperInput, prompt: base.prompt, analysis: base.analysis },
+      ],
+    );
+    // A distinct NEW lowercase original at the SAME run/slot must be refused as occupied — pre-fix the raw
+    // text compare treated the uppercase original as a different run and let the duplicate through.
+    const dup = brandCapture(
+      { brandRunId: runLower, slot: { round: 1, questionId: "SY-B01" } },
+      { rawAnswer: "lowercase duplicate at r1" },
+    );
+    await expect(
+      db.query("SELECT save_citation_capture($1,'p',$2)", [
+        user,
+        { input: dup, prompt: base.prompt, analysis: base.analysis },
+      ]),
+    ).rejects.toThrow(/citation_slot_occupied/);
+    await expect(importManualCapture(scope, dup, rpc)).rejects.toThrow();
+  });
+  it("accepts a correction whose UPPERCASE-run predecessor differs only in brandRunId case", async () => {
+    await insertBrandRun(uuid(50), { observationBudget: 5, rounds: 2 });
+    await importManualCapture(scope, brandCapture(), rpc);
+    const base = (await readAnswerEvidence(scope, rpc)).answers[0];
+    await insertBrandRun(runLower, { observationBudget: 5, rounds: 2 });
+    const predInput = brandCapture(
+      { brandRunId: runUpper, slot: { round: 1, questionId: "SY-B01" } },
+      { rawAnswer: "UPPER original to be corrected" },
+    );
+    await db.query(
+      "INSERT INTO ai_answer_evidence(user_id,project_id,id,prompt_id,prompt_revision,document_hash,document,supersedes_id) VALUES($1,'p',$2,$3,1,$4,$5,NULL)",
+      [
+        user,
+        uuid(763),
+        brandPromptId,
+        "hist-upper-763",
+        { input: predInput, prompt: base.prompt, analysis: base.analysis },
+      ],
+    );
+    // A same-observation correction (supersedes the predecessor) with a LOWERCASE brandRunId must be
+    // accepted — the run identity matches by uuid value. Pre-fix the raw text compare wrongly rejected it
+    // as an identity mismatch. Raw history is preserved (predecessor + correction both stored).
+    const correction = brandCapture(
+      { brandRunId: runLower, slot: { round: 1, questionId: "SY-B01" } },
+      { supersedesId: uuid(763), rawAnswer: "lowercase correction, same observation" },
+    );
+    const id = await importManualCapture(scope, correction, rpc);
+    expect(id).toBeTypeOf("string");
+    expect(
+      (await readAnswerEvidence(scope, rpc)).answers
+        .map((a) => a.input.supersedesId)
+        .filter(Boolean),
+    ).toContain(uuid(763));
   });
   it("fails closed when the account workspace_meta row is missing, before any budget insert", async () => {
     await insertBrandRun(uuid(50), { rounds: 2 }); // valid approved run retained (budget 2, rounds 2)
