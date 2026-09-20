@@ -223,13 +223,17 @@ BEGIN
       RETURN false; -- native (opaque) or unknown kind: never a completed independent inspection
     END IF;
   END LOOP;
+  -- An independent inspection is only COMPLETE when every ASSESSED accuracy entry actually binds. Reuse the
+  -- single canonical resolver (the same one the finding reads and the improvement gate use) — never a second
+  -- partial existence check: an assessed entry that is unpinned / capture_unresolved / fact_missing /
+  -- wrong_kind / out_of_period / ambiguous / superseded_correction (this includes a MISSING or MALFORMED pin,
+  -- which the resolver reports as 'unpinned') is not resolved, so the inspection cannot be marked complete.
+  -- Legitimately unassessed entries (not_checked / unclear, which the resolver reports as 'not_assessed') are
+  -- exempt, consistent with the finding schema.
   IF jsonb_typeof(p_record->'accuracy')='array' THEN
     FOR e IN SELECT jsonb_array_elements(p_record->'accuracy') LOOP
-      IF jsonb_typeof(e->'factRowId')='string'
-         AND (e->>'factRowId') ~ '^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$' THEN
-        IF NOT EXISTS(SELECT 1 FROM public.ai_citation_business_facts
-          WHERE user_id=p_user AND project_id=p_project AND id=(e->>'factRowId')::uuid) THEN RETURN false; END IF;
-      END IF;
+      IF (public.citation_accuracy_resolve(p_user,p_project,p_record,e))->>'resolution'
+         NOT IN ('resolved','not_assessed') THEN RETURN false; END IF;
     END LOOP;
   END IF;
   RETURN true;
@@ -270,13 +274,16 @@ END; $$;
 REVOKE ALL ON FUNCTION public.citation_finding_review_status(uuid,text,uuid) FROM PUBLIC,anon,authenticated,service_role;
 
 -- Are every source a finding cites still present as a TRUSTED in-scope record? evidence[] of kind:
---   'source' -> public.project_knowledge_sources (the trusted in-scope source; NOT inline, the record
---               carries only an id, so a missing source is unavailable — never "always available");
+--   'source' -> public.project_knowledge_sources, required still ACTIVE (NOT inline — the record carries
+--               only an id; a missing OR revoked source is unavailable, never "always available");
 --   'answer' -> public.ai_answer_evidence   (owner-supplied, unverified — presence only, not proof);
 --   'native' -> public.ai_native_report_artifacts (opaque staged bytes; presence only, NEVER measurement).
--- A missing referenced record means the finding's inspectable claim can no longer be substantiated, so it
--- is reported unavailable — this is how a source deletion (which P3 cannot trigger on a released table)
--- renders the dependent claim unverified. An unknown/malformed reference fails closed. Internal-only.
+-- A missing referenced record — or a source whose released-side revoke flipped it out of 'active' (its row
+-- survives with payload.status='revoked' and its bytes cleared) — means the finding's inspectable claim can
+-- no longer be substantiated, so it is reported unavailable. A revoke or deletion (which P3 cannot itself
+-- trigger on a released table) renders the dependent claim unverified. An unknown/malformed reference fails
+-- closed. This is the CURRENT-validity signal only; a stored historical review receipt is never rewritten
+-- by it. Internal-only.
 CREATE FUNCTION public.citation_finding_sources_available(p_user uuid,p_project text,p_record jsonb)
 RETURNS boolean LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path='' AS $$
 DECLARE e jsonb; kind text; ref uuid;
@@ -297,8 +304,12 @@ BEGIN
       IF NOT EXISTS(SELECT 1 FROM public.ai_native_report_artifacts
         WHERE user_id=p_user AND project_id=p_project AND id=ref) THEN RETURN false; END IF;
     ELSIF kind='source' THEN
+      -- A source row SURVIVES a released-side revoke (payload.status flips to 'revoked' and its bytes are
+      -- cleared), so mere existence is NOT current availability. Require the source still ACTIVE — mirroring
+      -- the inspectable gate — so a revoked source correctly renders the dependent claim unavailable while its
+      -- reason ('revoked') stays visible in the per-item review detail.
       IF NOT EXISTS(SELECT 1 FROM public.project_knowledge_sources
-        WHERE user_id=p_user AND project_id=p_project AND id=ref) THEN RETURN false; END IF;
+        WHERE user_id=p_user AND project_id=p_project AND id=ref AND payload->>'status'='active') THEN RETURN false; END IF;
     ELSE
       RETURN false; -- unknown evidence kind fails closed
     END IF;
@@ -1259,10 +1270,34 @@ END; $$;
 -- mutate review state — but current MEMBERSHIP is NOT required: a reviewer whose membership was later revoked
 -- may still retract their own historical attestation (current permission vs historical review are distinct).
 CREATE FUNCTION public.remove_ai_citation_finding_review(p_actor uuid,p_owner uuid,p_project text,p_id uuid)
-RETURNS boolean LANGUAGE plpgsql SECURITY DEFINER SET search_path='' AS $$
-DECLARE updated uuid;
+RETURNS boolean LANGUAGE plpgsql SECURITY DEFINER SET search_path='' SET lock_timeout='1500ms' AS $$
+DECLARE updated uuid; already boolean;
 BEGIN
   IF p_actor IS NULL OR p_owner IS NULL OR p_id IS NULL THEN RAISE EXCEPTION 'citation_review_invalid' USING ERRCODE='22023'; END IF;
+  -- OPTIMISTIC ownership BEFORE any victim-scoped blocking lock: only the receipt's OWN reviewer may withdraw
+  -- it, so a random, foreign or non-existent id (and the owner trying to erase another reviewer's decision)
+  -- is refused by this lock-free read. This is the fix for the queue-a-write vector: an authenticated outsider
+  -- who merely knows owner+project can no longer reach the owner's workspace lock with a guessed receipt id.
+  SELECT withdrawn INTO already FROM public.ai_citation_finding_reviews
+    WHERE user_id=p_owner AND project_id=p_project AND id=p_id AND reviewer_id=p_actor;
+  IF NOT FOUND THEN RAISE EXCEPTION 'citation_review_forbidden' USING ERRCODE='22023'; END IF;
+  -- Current-account admission for the acting session AND the owner via the released assert_project_team_account
+  -- (a FOR SHARE NOWAIT probe of auth.users — fail-fast, NEVER a wait, and NOT the victim workspace lock): a
+  -- suspended/deleted/banned session cannot mutate review state. Current MEMBERSHIP is deliberately NOT
+  -- required — a reviewer whose membership was later revoked may still retract their OWN historical receipt.
+  PERFORM public.assert_project_team_account(p_owner);
+  PERFORM public.assert_project_team_account(p_actor);
+  -- Idempotent: an already-withdrawn own receipt is a content-free no-op — return WITHOUT ever taking the
+  -- victim workspace blocking lock at all (proven by the missing-workspace tripwire regression).
+  IF already THEN RETURN true; END IF;
+  -- Only a genuinely-pending own withdrawal serializes under the OWNER account + workspace locks. The released
+  -- assert_knowledge_project(...,true) and citation_lock_account each take a BLOCKING FOR UPDATE with no NOWAIT
+  -- and no timeout of their own; this RPC bounds every such wait with its own SET lock_timeout='1500ms' (the
+  -- released checkpoint-migration convention, mirrored here — the released helpers are NOT edited). lock_timeout
+  -- is PER LOCK ACQUISITION, not a whole-RPC deadline; an exceeded wait raises 55P03 BEFORE any mutation, so a
+  -- contended withdrawal fails cleanly and the receipt is preserved (never a partial tombstone). The
+  -- account-first lock ORDER matches the other write RPCs, so the added blocking waits add no new deadlock
+  -- cycle. Under the lock, RE-CHECK the account admission and RE-SCOPE the write to the actor's own receipt.
   PERFORM public.assert_knowledge_project(p_owner,p_project,true);
   PERFORM public.citation_lock_account(p_owner);
   PERFORM public.assert_project_team_account(p_owner);
@@ -1271,6 +1306,8 @@ BEGIN
     SET withdrawn=true, withdrawn_at=coalesce(withdrawn_at,clock_timestamp()), note=NULL
     WHERE user_id=p_owner AND project_id=p_project AND id=p_id AND reviewer_id=p_actor
     RETURNING id INTO updated;
+  -- The receipt was the actor's own at the optimistic read and is re-scoped identically here; a NULL means it
+  -- vanished under the lock (e.g. its finding was concurrently deleted), which is an honest forbidden.
   IF updated IS NULL THEN RAISE EXCEPTION 'citation_review_forbidden' USING ERRCODE='22023'; END IF;
   RETURN true;
 END; $$;

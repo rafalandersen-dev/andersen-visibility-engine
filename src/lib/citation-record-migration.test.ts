@@ -266,8 +266,10 @@ beforeEach(async () => {
   ANSWER = await importReal(ACC_CAP, "Acme Massage in Malmö is a good option to book.");
   BASELINE = await importReal("2024-04-01T00:00:00Z", "Acme Massage in Malmö is worth comparing.");
   await db.exec("DELETE FROM public.project_knowledge_sources");
+  // A trusted, ACTIVE in-scope source (availability requires status='active', mirroring the inspectable
+  // gate; a released-side revoke flips this to 'revoked' while retaining the row — see the revoke regression).
   await db.query(
-    "INSERT INTO project_knowledge_sources(user_id,project_id,id,revision,payload) VALUES($1,'p',$2,1,'{}'::jsonb)",
+    "INSERT INTO project_knowledge_sources(user_id,project_id,id,revision,payload) VALUES($1,'p',$2,1,'{\"status\":\"active\"}'::jsonb)",
     [user, SOURCE],
   );
   await seedApproval(true);
@@ -369,6 +371,35 @@ describe("improvement verification binds to trusted publication/approval records
     await seedFinding(fid);
     const imp = await saveI(improvement("70000000-0000-4000-8000-000000000005", fid), null);
     expect(imp.verificationStatus).toBe("unverified");
+  });
+  it("a released-side source REVOKE (row retained, status flipped) drops a delivered improvement to unverified while the finding row and its revoked reason survive", async () => {
+    const fid = "60000000-0000-4000-8000-000000000015";
+    // A finding whose cited evidence is the trusted in-scope SOURCE (active at save), delivered to
+    // connector_receipt — a real "valid finding/improvement at a delivery status" before the revoke.
+    const savedF = await saveF(finding(fid, [{ kind: "source", id: SOURCE }]));
+    expect(savedF.sourceAvailable).toBe(true);
+    const imp = await saveI(improvement("70000000-0000-4000-8000-000000000006", fid), binding());
+    expect(imp.verificationStatus).toBe("connector_receipt");
+    // Released-side revoke: the source row SURVIVES with its bytes cleared and status flipped to 'revoked'
+    // (this is NOT a delete). Mere row existence must no longer count as current availability.
+    await db.query(
+      "UPDATE project_knowledge_sources SET payload=jsonb_build_object('status','revoked') WHERE user_id=$1 AND project_id='p' AND id=$2",
+      [user, SOURCE],
+    );
+    // Current proof collapses honestly: the delivered improvement re-reads unverified (its bound finding's
+    // source is no longer active) and the finding's live sourceAvailable is false.
+    const readImp = await getCitationImprovement(scope, imp.id, rpc);
+    expect(readImp.verificationStatus).toBe("unverified");
+    const listed = await readCitationFindings(scope, rpc);
+    expect(listed.findings.find((r) => r.id === savedF.id)?.sourceAvailable).toBe(false);
+    // The source row is NOT deleted and its reason stays inspectable — revoked is distinct from nonexistent,
+    // so a historical review receipt (recorded when it was active) is never rewritten into a "gone" claim.
+    const surviving = await db.query<{ n: number; status: string }>(
+      "SELECT count(*)::int n, max(payload->>'status') status FROM project_knowledge_sources WHERE user_id=$1 AND project_id='p' AND id=$2",
+      [user, SOURCE],
+    );
+    expect(surviving.rows[0].n).toBe(1);
+    expect(surviving.rows[0].status).toBe("revoked");
   });
 });
 describe("binding is structured and forgery-resistant: arbitrary/mismatched bindings are refused", () => {

@@ -762,6 +762,216 @@ describe("independent evidence inspection gates completed verification (spec §4
     ]);
   });
 });
+// The inspection gate no longer just checks that a pinned fact ROW exists: it delegates to the ONE canonical
+// accuracy resolver (the same one the finding reads, the accuracy endpoint and the improvement gate use), so
+// inspection is COMPLETE only when every ASSESSED accuracy entry resolves, and un/malformed/mismatched pins,
+// bad captures, out-of-period or ambiguous/superseded facts leave it incomplete. Legitimately unassessed
+// entries (not_checked / unclear) need no fact binding. The resolver's own per-branch verdicts are proven in
+// the business-fact suite; here we prove the inspection gate honours them (not a second partial check).
+describe("the independent inspection gate reuses the canonical accuracy resolver", () => {
+  const FACT2 = "a1000000-0000-4000-8000-000000000002";
+  let seq = 0;
+  // A fully-resolving assessed entry against the seeded price fact + the ANSWER capture; override one field
+  // per case to break exactly one dimension of resolution.
+  const resolvedEntry = (rowId: string, over: Record<string, unknown> = {}) => ({
+    claimSpan: "The price is 500 SEK.",
+    factKind: "price",
+    status: "accurate_at_capture",
+    factId: FACT,
+    factVersion: 1,
+    factRowId: rowId,
+    captureEvidenceId: ANSWER,
+    review: { reviewer: user, reviewedAt: now },
+    ...over,
+  });
+  // Store a recommendation_accuracy finding whose (inspectable) answer evidence is fixed and whose single
+  // accuracy entry varies, via the RPC directly so the client schema cannot pre-reject a deliberately broken
+  // pin — resolution is a live READ concern, exactly what this gate must recompute.
+  const gate = async (
+    accuracy: unknown[],
+    evidence: Array<{ kind: "answer" | "native" | "source"; id: string }> = [
+      { kind: "answer", id: ANSWER },
+    ],
+  ) => {
+    seq += 1;
+    const fid = `60000000-0000-4000-8000-0000000009${String(seq).padStart(2, "0")}`;
+    const rec = finding(fid, "accepted", {
+      family: "recommendation_accuracy",
+      evidence,
+      accuracy,
+    });
+    const saved = await rpc("save_ai_citation_finding", {
+      p_user: user,
+      p_project: "p",
+      p_record: rec,
+      p_scope: panelScope,
+    });
+    if (saved.error) throw saved.error;
+    const rowId = (saved.data as { id: string }).id;
+    const view = await getCitationFindingForReview(
+      reviewer,
+      { ownerId: user, projectId: "p", findingRowId: rowId },
+      rpc,
+    );
+    return { rowId, view };
+  };
+  it("completes when every assessed accuracy entry resolves", async () => {
+    const v1 = await seedFact();
+    const { view } = await gate([resolvedEntry(v1.id)]);
+    expect(view.inspectionComplete).toBe(true);
+  });
+  it("stays complete for legitimately unassessed entries (not_checked / unclear need no fact binding)", async () => {
+    // Schema-valid unassessed entries: the required nullable factId/review are PRESENT as null (they carry no
+    // binding), and the optional pin cross-checks are simply omitted.
+    for (const status of ["not_checked", "unclear"]) {
+      const { view } = await gate([
+        {
+          claimSpan: "The price is 500 SEK.",
+          factKind: "price",
+          status,
+          factId: null,
+          review: null,
+        },
+      ]);
+      expect(view.inspectionComplete).toBe(true);
+    }
+  });
+  it("does not complete for a SCHEMA-VALID assessed accuracy entry that does not resolve", async () => {
+    const v1 = await seedFact();
+    // Each entry is a schema-valid assessed (accurate_at_capture) entry — the required nullable factId/review
+    // stay present — that breaks exactly one resolution dimension the canonical resolver checks. These are
+    // genuinely-UNRESOLVED valid records (e.g. the optional factRowId is simply omitted, or a well-formed pin
+    // disagrees with the stored fact), distinct from the malformed-record case tested at the SQL gate below.
+    const nonResolving: Array<[string, unknown]> = [
+      [
+        "no pinned fact row (the optional factRowId is omitted)",
+        {
+          claimSpan: "The price is 500 SEK.",
+          factKind: "price",
+          status: "accurate_at_capture",
+          factId: FACT,
+          review: { reviewer: user, reviewedAt: now },
+        },
+      ],
+      ["a pin to a non-existent fact row", resolvedEntry("a1000000-0000-4000-8000-0000000000ff")],
+      [
+        "a factId that disagrees with the row",
+        resolvedEntry(v1.id, { factId: "a1000000-0000-4000-8000-0000000000ee" }),
+      ],
+      ["a pinned version the row is not at", resolvedEntry(v1.id, { factVersion: 2 })],
+      ["a valid fact kind the row does not carry", resolvedEntry(v1.id, { factKind: "hours" })],
+      [
+        "a capture not among the finding's answers",
+        resolvedEntry(v1.id, { captureEvidenceId: "10000000-0000-4000-8000-0000000000cc" }),
+      ],
+    ];
+    for (const [label, entry] of nonResolving) {
+      const { view } = await gate([entry]);
+      expect({ label, complete: view.inspectionComplete }).toEqual({ label, complete: false });
+    }
+  });
+  it("a malformed stored accuracy pin fails the canonical gate closed (exercised at the SQL boundary)", async () => {
+    await seedFact();
+    // A genuinely MALFORMED historical record: its accuracy pin is not a uuid. The strict for-review response
+    // schema refuses to echo such a record (the owner detail read carries its own explicit invalid-record
+    // handling), so we exercise the canonical inspection gate directly — it must fail closed to unpinned
+    // (never silently complete on a bad pin), the same defensive normalization the accuracy audit reports.
+    const record = {
+      evidence: [{ kind: "answer", id: ANSWER }],
+      accuracy: [
+        {
+          claimSpan: "The price is 500 SEK.",
+          factKind: "price",
+          status: "accurate_at_capture",
+          factId: FACT,
+          factRowId: "nope",
+          captureEvidenceId: ANSWER,
+          review: { reviewer: user, reviewedAt: now },
+        },
+      ],
+    };
+    const gated = await db.query<{ ok: boolean }>(
+      "SELECT public.citation_finding_inspectable($1,'p',$2::jsonb) ok",
+      [user, JSON.stringify(record)],
+    );
+    expect(gated.rows[0].ok).toBe(false);
+  });
+  it("does not complete when the capture predates the fact's validity window (out_of_period)", async () => {
+    const v1 = await seedFact();
+    const early = await importReal("2023-06-01T00:00:00Z", "An older captured answer.");
+    const { view } = await gate(
+      [resolvedEntry(v1.id, { captureEvidenceId: early })],
+      [{ kind: "answer", id: early }],
+    );
+    expect(view.inspectionComplete).toBe(false);
+  });
+  it("does not complete when a second overlapping fact of the same kind makes the pin ambiguous", async () => {
+    const v1 = await seedFact();
+    await rpc("save_ai_citation_business_fact", {
+      p_user: user,
+      p_project: "p",
+      p_record: {
+        factId: FACT2,
+        kind: "price",
+        value: "600 SEK",
+        confirmedBy: user,
+        confirmedAt: "2026-01-02T00:00:00Z",
+        validFrom: "2024-01-01T00:00:00Z",
+        validUntil: null,
+      },
+    });
+    const { view } = await gate([resolvedEntry(v1.id)]);
+    expect(view.inspectionComplete).toBe(false);
+  });
+  it("does not complete when a newer correction of the same fact supersedes the pinned version", async () => {
+    const v1 = await seedFact();
+    const correction = await rpc("save_ai_citation_business_fact", {
+      p_user: user,
+      p_project: "p",
+      p_record: {
+        factId: FACT,
+        kind: "price",
+        value: "700 SEK",
+        confirmedBy: user,
+        confirmedAt: "2026-01-03T00:00:00Z",
+        validFrom: "2024-01-01T00:00:00Z",
+        validUntil: null,
+      },
+    });
+    expect((correction.data as { version: number }).version).toBe(2);
+    const { view } = await gate([resolvedEntry(v1.id, { factVersion: 1 })]);
+    expect(view.inspectionComplete).toBe(false);
+  });
+  it("an assessed-but-unresolved accuracy makes an independent approve only an OPINION that never completes a required second review", async () => {
+    const v1 = await seedFact();
+    const fid = "60000000-0000-4000-8000-000000000940";
+    // Required second review, but the accuracy no longer binds: a valid fact kind ('hours') that disagrees
+    // with the pinned price row resolves to wrong_kind, so the inspection cannot complete.
+    const rec = finding(fid, "needs_second_review", {
+      family: "recommendation_accuracy",
+      evidence: [{ kind: "answer", id: ANSWER }],
+      accuracy: [resolvedEntry(v1.id, { factKind: "hours" })],
+    });
+    const saved = await rpc("save_ai_citation_finding", {
+      p_user: user,
+      p_project: "p",
+      p_record: rec,
+      p_scope: panelScope,
+    });
+    if (saved.error) throw saved.error;
+    const rowId = (saved.data as { id: string }).id;
+    const view = await getCitationFindingForReview(
+      reviewer,
+      { ownerId: user, projectId: "p", findingRowId: rowId },
+      rpc,
+    );
+    expect(view.inspectionComplete).toBe(false);
+    const receipt = await submit(reviewer, rowId, view.recordSha256, "approved");
+    // The stored receipt is honestly an opinion; the required second review is NOT satisfied by it.
+    expect(receipt.inspectionComplete).toBe(false);
+    expect(await reviewStatusOf(rowId)).toBe("second_review_pending");
+  });
+});
 describe("withdrawal is reviewer-only, auditable, and never silently sanitises a dissent (gap 4)", () => {
   it("lets only the receipt's own reviewer withdraw (a content-free tombstone), never the owner or a stranger", async () => {
     const f = await saveF("60000000-0000-4000-8000-000000000040");
@@ -816,6 +1026,96 @@ describe("withdrawal is reviewer-only, auditable, and never silently sanitises a
     expect(await reviewStatusOf(f.id)).toBe("independent_reviewed");
     // Later membership revocation does not retroactively invalidate the historical review.
     await setMember(reviewer, "reviewer", false);
+    expect(await reviewStatusOf(f.id)).toBe("independent_reviewed");
+  });
+  it("refuses an unauthorized caller BEFORE the victim's workspace lock (authorization precedes the blocking lock)", async () => {
+    const f = await saveF("60000000-0000-4000-8000-000000000043");
+    const r = await submit(reviewer, f.id, await shaFor(f.id), "approved", "a note");
+    const rawRemove = async (actor: string, id: string) => {
+      try {
+        await db.query("SELECT public.remove_ai_citation_finding_review($1,$2,'p',$3)", [
+          actor,
+          user,
+          id,
+        ]);
+        return "ok";
+      } catch (e) {
+        return (e as Error).message;
+      }
+    };
+    // Delete the owner's workspace_meta row: the victim-scoped blocking lock (citation_lock_account) FAILS
+    // CLOSED with citation_record_unavailable if it is ever reached. So if an outsider's guessed/foreign
+    // receipt id reached the lock, we would see that error; instead the ownership check refuses first with
+    // citation_review_forbidden — proving authorization strictly precedes queuing any write on the victim.
+    await db.query("DELETE FROM workspace_meta WHERE user_id=$1", [user]);
+    expect(await rawRemove(stranger, "60000000-0000-4000-8000-0000000000cc")).toMatch(
+      /citation_review_forbidden/,
+    );
+    // A FOREIGN but real receipt id (the reviewer's) by an authenticated outsider is likewise refused before
+    // the lock, not with the lock-unavailable error.
+    expect(await rawRemove(stranger, r.id)).toMatch(/citation_review_forbidden/);
+    // The owner cannot erase another reviewer's receipt via a guessed id either — refused before the lock.
+    expect(await rawRemove(user, r.id)).toMatch(/citation_review_forbidden/);
+    // No mutation occurred: the reviewer's receipt is untouched (not withdrawn).
+    const rows = await db.query<{ withdrawn: boolean }>(
+      "SELECT withdrawn FROM ai_citation_finding_reviews WHERE id=$1",
+      [r.id],
+    );
+    expect(rows.rows[0].withdrawn).toBe(false);
+    // NOTE: PGlite runs a single in-memory connection, so genuine concurrent lock-WAIT/queue behaviour cannot
+    // be exercised here; this asserts the observable ORDERING (authorization before the blocking lock).
+  });
+  it("an already-withdrawn own receipt is idempotent AND takes no workspace lock (returns true even with the owner's workspace_meta deleted)", async () => {
+    const f = await saveF("60000000-0000-4000-8000-000000000044");
+    const r = await submit(reviewer, f.id, await shaFor(f.id), "approved", "a note");
+    expect(
+      await removeCitationFindingReview(reviewer, { ownerId: user, projectId: "p", id: r.id }, rpc),
+    ).toBe(true);
+    expect(await reviewStatusOf(f.id)).toBe("owner_only");
+    // Tripwire: delete the owner's workspace_meta so citation_lock_account would FAIL CLOSED
+    // (citation_record_unavailable, surfaced generically as a throw) if the already-withdrawn path ever took
+    // the workspace lock. A second withdrawal must STILL return true — proving the idempotent no-op returns
+    // before any workspace lock, not merely that it returns true when the row is present.
+    await db.query("DELETE FROM workspace_meta WHERE user_id=$1", [user]);
+    expect(
+      await removeCitationFindingReview(reviewer, { ownerId: user, projectId: "p", id: r.id }, rpc),
+    ).toBe(true);
+  });
+  it("declares a bounded per-lock wait (SET lock_timeout='1500ms') and a pinned search_path in its function config", async () => {
+    // A CONFIG/BOUNDARY regression: the pending-withdrawal path takes blocking FOR UPDATE locks
+    // (assert_knowledge_project + citation_lock_account) whose released bodies have no timeout, so this RPC
+    // must declare its own lock_timeout to bound each wait. lock_timeout is PER LOCK ACQUISITION, not a
+    // whole-RPC deadline; a single in-memory PGlite connection cannot exercise a real concurrent lock WAIT, so
+    // this asserts the DECLARED bound (and the pinned empty search_path) rather than an observed timeout.
+    const cfg = await db.query<{ proconfig: string[] | null }>(
+      "SELECT proconfig FROM pg_proc WHERE proname='remove_ai_citation_finding_review'",
+    );
+    const proconfig = cfg.rows[0]?.proconfig ?? [];
+    expect(proconfig.some((c) => c.startsWith("lock_timeout=") && c.includes("1500ms"))).toBe(true);
+    expect(proconfig.some((c) => c.startsWith("search_path="))).toBe(true);
+  });
+  it("lets a reviewer whose membership was later revoked still withdraw their OWN historical receipt", async () => {
+    const f = await saveF("60000000-0000-4000-8000-000000000045");
+    const r = await submit(reviewer, f.id, await shaFor(f.id), "approved");
+    // Membership revoked AFTER the attestation; the account is still current, so the own-receipt withdrawal
+    // is permitted (current membership is not required to retract a historical receipt).
+    await setMember(reviewer, "reviewer", false);
+    expect(
+      await removeCitationFindingReview(reviewer, { ownerId: user, projectId: "p", id: r.id }, rpc),
+    ).toBe(true);
+    expect(await reviewStatusOf(f.id)).toBe("owner_only");
+  });
+  it("refuses withdrawal from a suspended (banned) account, even for the reviewer's own receipt", async () => {
+    const f = await saveF("60000000-0000-4000-8000-000000000046");
+    const r = await submit(reviewer, f.id, await shaFor(f.id), "approved");
+    await db.query(
+      "UPDATE auth.users SET banned_until=clock_timestamp()+interval '1 day' WHERE id=$1",
+      [reviewer],
+    );
+    await expect(
+      removeCitationFindingReview(reviewer, { ownerId: user, projectId: "p", id: r.id }, rpc),
+    ).rejects.toThrow();
+    // The receipt still stands — a suspended session cannot mutate review state (the owner read is unaffected).
     expect(await reviewStatusOf(f.id)).toBe("independent_reviewed");
   });
 });
