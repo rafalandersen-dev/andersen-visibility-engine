@@ -1433,6 +1433,45 @@ describe("CI-2 erasure preserves the slot/budget fact (content-free tombstone)",
     expect(otherResolved.erasedSlots).toEqual([]);
     expect((await readResolvedCaptures(scope, rpc)).erasedSlots).toHaveLength(1);
   });
+  it("reads capture, consumption, a correction leaf and a deletion coherently from one snapshot (real storage)", async () => {
+    // Round 16: readResolvedCaptures reads the whole report from a SINGLE read_citation_protocol snapshot.
+    // Exercise all four dimensions against real PGlite storage in ONE call: a live discovery capture, a
+    // correction leaf superseding an original, a consumed+erased brand observation, and a live brand
+    // observation — all mutually consistent because they come from one snapshot.
+    await saveCitationPanelDraft(scope, brandPanelId, 0, draftBrand(), rpc);
+    await lockCitationPanel(scope, brandPanelId, 1, rpc);
+    await backdatePanelApproval(brandPanelId);
+    await insertBrandRun(uuid(50), { observationBudget: 3, rounds: 2 });
+    // Discovery: an original capture that is then corrected (only the leaf should resolve).
+    const dOriginal = await importManualCapture(scope, discoveryCapture(), rpc); // SY-D01 r1
+    const dLeaf = await importManualCapture(
+      scope,
+      discoveryCapture({}, { supersedesId: dOriginal, rawAnswer: "corrected discovery reading" }),
+      rpc,
+    );
+    // Brand: one live observation (r1) and one that is erased (r2) — consumption must survive the delete.
+    await importManualCapture(scope, brandCapture(), rpc); // SY-B01 r1 (live)
+    const bErased = await importManualCapture(
+      scope,
+      brandCapture({ slot: { round: 2, questionId: "SY-B01" } }, { rawAnswer: "obs2" }),
+      rpc,
+    );
+    await removeAnswerEvidence(scope, "answer", bErased, rpc);
+    const { captures, erasedSlots, reports } = await readResolvedCaptures(scope, rpc);
+    // Capture + correction: the discovery slot resolves to the active LEAF, never the superseded original.
+    const discovery = captures.filter((c) => c.captureContext.slot.questionId === "SY-D01");
+    expect(discovery.map((c) => c.answerId)).toEqual([dLeaf]);
+    // The live brand observation survives; the erased one is not returned as a live capture.
+    expect(captures.some((c) => c.captureContext.slot.questionId === "SY-B01")).toBe(true);
+    expect(captures.map((c) => c.answerId)).not.toContain(bErased);
+    // Deletion: the erased brand slot is reported as erased, not absent.
+    expect(erasedSlots.map((s) => s.questionId)).toEqual(["SY-B01"]);
+    // Consumption: the write gate counts both the live original and the erased sibling for the run.
+    const brand = reports.find((x) => x.panelId === brandPanelId);
+    expect(brand?.brandRuns).toEqual([
+      { runId: uuid(50), approvedBudget: 3, consumed: 2, observed: 1, erased: 1 },
+    ]);
+  });
   it("reports an erased discovery slot as erased and the rest as never-observed (final report counts)", async () => {
     const first = await importManualCapture(scope, discoveryCapture(), rpc); // SY-D01 r1
     await importManualCapture(
@@ -1930,6 +1969,7 @@ describe("CI-2 capacity, isolation, deletion and access control", () => {
           (await db.query("SELECT read_citation_protocol($1,$2) data", [user, "p"])).rows[0],
         ).toEqual({
           data: {
+            answers: [],
             panels: [],
             brandRuns: [],
             tombstones: [],

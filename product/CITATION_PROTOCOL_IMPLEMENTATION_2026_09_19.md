@@ -216,7 +216,10 @@ run are committed before the capture, so reading the append-only protocol strict
 makes the protocol snapshot at least as new as the evidence. Genuine deletion invalidation is
 preserved; no new framework; auth/tenant limits unchanged. Test: a deterministic, sleep-free ordering
 regression that holds the evidence RPC pending and asserts the protocol RPC does not start until the
-evidence result is in, then a valid new capture resolves `complete`.
+evidence result is in, then a valid new capture resolves `complete`. (Superseded by Review round 16:
+`readResolvedCaptures` now reads the whole report from a SINGLE snapshot via one `read_citation_protocol`
+RPC, so there is no longer a two-read ordering to sequence; the deterministic ordering regression was
+replaced with a single-RPC assertion.)
 
 ### Review round 6 — v1 discovery is the fixed 10×4 grid
 
@@ -364,7 +367,10 @@ Four confirmed follow-ups on the round-9 delta:
   `questionId` any 1..2000 chars, integers 0..2147483647) so every DB-storable tombstone parses;
   `citationReport` then classifies an unmappable fact as `excluded` (run budget still consumed) rather
   than rejecting the read.
-- **Evidence-before-protocol read race.** A capture deleted BETWEEN the two reads shows live in the
+- **Evidence-before-protocol read race.** (Superseded by Review round 16, which removes the two-read
+  window entirely by reading answers, panels, runs and erasure from a SINGLE `read_citation_protocol`
+  snapshot; the reconciliation below remains correct and is now exercised on the raw answers of that one
+  snapshot.) A capture deleted BETWEEN the two reads shows live in the
   stale evidence while its tombstone is already in the newer protocol. `readResolvedCaptures` now
   reconciles: a stale live capture whose slot has a tombstone is dropped (a tombstone is written only on
   delete and the write path forbids a live capture at a tombstoned slot, so they never coexist in a
@@ -512,6 +518,55 @@ REJECTED by `.uuid()`, failing the WHOLE protocol read on that one row.
   slot that still counts, the non-RFC id honestly appearing as bounded `erasureOverflow`; a non-RFC
   `brandRunId` bound to a VALID panel parses and the read survives; no other-owner leakage.
 
+### Review round 16 — return the whole report from a SINGLE database snapshot (P2 4057295124)
+
+`readResolvedCaptures` read `readAnswerEvidence` (`read_ai_answer_evidence`) and then
+`readCitationProtocol` (`read_citation_protocol`) as TWO separate statements — two database snapshots.
+A capture committed between them appeared in the second read's authoritative consumption while its
+evidence answer was still absent from the first, exposing consumed budget with no corresponding
+capture. The round-5/round-10 "evidence FIRST, then protocol" ordering narrowed but did not eliminate
+this: two statements still take two snapshots, and one RPC alone is insufficient if it runs multiple
+volatile statements. This supersedes those earlier sequential-read rationales for the resolved-capture
+path.
+
+- **Fix (candidate SQL + `citation-protocol.server.ts`):** `read_citation_protocol` already built its
+  payload from ONE `jsonb_build_object` SELECT (a single snapshot for every sub-select). It now carries
+  an `answers` field as its first key, built exactly like the released `read_ai_answer_evidence`
+  (`document || jsonb_build_object('id', id, 'createdAt', created_at, 'hash', document_hash)` ordered
+  `created_at DESC, id DESC`, same owner/project predicate), so evidence answers, panels, brand runs,
+  content-free tombstones, authoritative `runConsumed`, `erasureByVersion` and `erasureOverflow` all
+  come from ONE snapshot. `readResolvedCaptures` now issues a single RPC and derives everything from
+  `protocol.answers` — reconciling tombstoned chain roots on the raw answers BEFORE resolution,
+  resolving surviving captures, erased slots, per-run consumption and reports — with no second read.
+- **Contracts preserved.** The released `read_ai_answer_evidence` RPC and `readAnswerEvidence` helper
+  are unchanged and still used by the standalone evidence path (`importManualCapture`); their public
+  API is byte-compatible. `citationProtocolStateSchema` gains `answers: z.array(evidenceRowSchema)` as a
+  **REQUIRED** field (bounded to the 100-record cap, NO default): the observation payload is the
+  numerator the consumed-budget aggregate is measured against, so a snapshot that omits `answers` must
+  FAIL the read loudly rather than parse to an empty evidence set that would let a nonzero `runConsumed`
+  masquerade as "consumed budget, zero observed / never-observed". The candidate was never deployed, so
+  there is no answers-less report shape to keep compatible; a genuinely empty snapshot still passes as
+  `answers: []`. (The content-free erasure aggregates stay optional-with-default — they are not the
+  observation payload.) The round-15 read-only `pgUuid` acceptance, tombstone identity /
+  correction-chain / duplicate demotion / exact SQL consumption / truncation reporting and strict write
+  authentication are all unchanged. The `read_citation_protocol` signature `(uuid, text)` is unchanged,
+  so the rollback inventory (signatures/order) is unaffected.
+- Tests: the mocked server unit tests now assert the resolved read makes exactly ONE RPC
+  (`read_citation_protocol`) and throws on any other, so a second snapshot boundary cannot be
+  reintroduced; a snapshot that reports a nonzero `runConsumed` but omits `answers` FAILS the read
+  (well-formed consumption, missing observation payload — the masquerade is rejected) while a genuinely
+  empty `answers: []` snapshot still reads as an empty report; an independent survivor sharing a slot
+  with an erased original is preserved and flagged `erased_duplicate_slot` from one snapshot; a
+  surviving correction leaf at an erased sibling's slot is preserved. A real-PGlite test reads capture,
+  consumption, a correction leaf and a deletion coherently from one snapshot.
+- **Coherence scope (accurate).** The snapshot guarantee is ARCHITECTURAL: every payload component is
+  built by ONE SQL statement (`read_citation_protocol`'s single `jsonb_build_object` SELECT), which in
+  PostgreSQL observes one MVCC snapshot for all its sub-selects — so answers, consumption and erasure
+  cannot come from different points in time. The tests are single-connection coherence checks that
+  verify the caller issues one RPC and parses it atomically; they do NOT run concurrent connections and
+  do NOT empirically prove cross-connection/multi-transaction isolation. No cross-connection atomicity
+  is tested or claimed.
+
 ## Files
 
 | File | Change |
@@ -604,9 +659,23 @@ build PASS**. Round 15 (this turn) fixes P2 4057264542: the tombstone READ schem
 (e.g. `00000000-0000-0000-0000-000000000001`) failed the whole protocol read; a READ-ONLY `pgUuid`
 (canonical hex) now types the DB-derived identity fields (`erasedSlotFactSchema` answerId/panelId/
 brandRunId, `runConsumedSchema.runId`, `erasureByVersionSchema.panelId`), identity-only and with all
-write/auth `.uuid()` rules unchanged — `citation-protocol.ts` + P2 tests + docs only, no SQL change.
-**All prior counts — 6297/PASS and the 133-focused-PASS run included — are a prior stage and do not
-carry over**; every check below, including the new non-RFC-identity read tests, is UNRUN in this
+write/auth `.uuid()` rules unchanged — `citation-protocol.ts` + P2 tests + docs only, no SQL change;
+Codex ran round 15 at 135 focused PASS / 6299 full PASS. Round 16 (this turn) fixes P2 4057295124: the
+resolved read no longer takes two snapshots (`readAnswerEvidence` then `readCitationProtocol`). The
+candidate `read_citation_protocol` now also returns `answers` from its single `jsonb_build_object`
+snapshot (built like the released `read_ai_answer_evidence`), `citationProtocolStateSchema` gains a
+**required** bounded `answers` field (NO default, so a snapshot that omits the observation payload while
+reporting consumed budget fails the read loudly instead of masquerading as empty evidence; a genuinely
+empty snapshot still passes as `answers: []`), and `readResolvedCaptures` derives the whole report
+(answers, panels, runs, tombstones, authoritative consumption, coverage) from that ONE RPC — closing the
+window where a capture committed between the two reads exposed consumed budget without its evidence. The released
+`read_ai_answer_evidence`/`readAnswerEvidence` contract, the round-15 `pgUuid` read acceptance,
+tombstone identity / correction-chain / duplicate demotion / exact SQL consumption / truncation
+reporting / strict write auth, and the `read_citation_protocol(uuid,text)` signature (so the rollback
+inventory) are all unchanged — candidate SQL + `citation-protocol.server.ts`/`.ts` + P2 tests + docs
+only.
+**All prior counts — the round-15 135-focused / 6299-full PASS run included — are a prior stage and do
+not carry over**; every check below, including the round-16 single-snapshot read tests, is UNRUN in this
 worktree and must be re-executed by Codex. No released SQL, released `citation-panel.ts`, global
 migration inventory, or P3/R09 file was touched (the last commit `777ee67f` — Codex's doc rollback
 inventory fix — is preserved); USD50/manual-free is unchanged. The prepared deploy SQL /

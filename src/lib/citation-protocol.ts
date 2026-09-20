@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { answerEvidenceSchema, type AnswerEvidence } from "./answer-evidence";
+import { answerEvidenceSchema, evidenceRowSchema, type AnswerEvidence } from "./answer-evidence";
 import {
   brandRunSchema,
   captureContextSchema,
@@ -190,6 +190,17 @@ export type ErasureByVersion = z.infer<typeof erasureByVersionSchema>;
 
 export const citationProtocolStateSchema = z
   .object({
+    // The answer-evidence rows, read in the SAME database snapshot as the panels/runs/erasure below, so
+    // the resolved captures and the authoritative consumed budget can never be derived from two
+    // different snapshots (a capture committed between separate reads cannot expose consumed budget
+    // without its evidence). Same shape as read_ai_answer_evidence's answers. REQUIRED (no default): the
+    // observation payload is the numerator the consumed-budget aggregate is checked against, so a payload
+    // that omits `answers` must FAIL the read loudly, never silently parse to an empty evidence set that
+    // would let a nonzero `runConsumed` masquerade as "consumed budget, zero observed". The candidate RPC
+    // always emits it, and the candidate was never deployed, so there is no answers-less shape to keep
+    // compatible; a genuinely empty snapshot still passes as `answers: []`. (Contrast the content-free
+    // erasure aggregates below, which stay optional-with-default: they are not the observation payload.)
+    answers: z.array(evidenceRowSchema).max(100),
     panels: z.array(panelProtocolSchema).max(MAX_PANEL_VERSIONS),
     brandRuns: z.array(brandRunSchema).max(MAX_BRAND_RUNS),
     // Content-free erasure facts. Optional-with-default so a caller/store that predates them still

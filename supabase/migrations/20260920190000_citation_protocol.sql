@@ -89,7 +89,16 @@ CREATE FUNCTION public.read_citation_protocol(p_user uuid,p_project text)
 RETURNS jsonb LANGUAGE plpgsql SECURITY DEFINER SET search_path='' AS $$
 BEGIN
   PERFORM public.assert_knowledge_project(p_user,p_project);
+  -- SINGLE-SNAPSHOT canonical read: every payload component — the answer-evidence rows, panels, brand
+  -- runs, erased-slot coverage, the authoritative per-run consumed budget and the coverage metadata — is
+  -- produced by this ONE jsonb_build_object SELECT, so all sub-selects see the SAME statement snapshot.
+  -- A capture committed between two separate reads can therefore never expose consumed budget (which
+  -- counts live originals + tombstones) without its corresponding evidence row, because both are read
+  -- from the same snapshot here. `answers` mirrors read_ai_answer_evidence's answer rows verbatim
+  -- (document merged with id/createdAt/hash) so the released row schema parses it unchanged; that RPC is
+  -- untouched and its standalone contract is preserved. Owner/project scoping is the same assertion.
   RETURN jsonb_build_object(
+    'answers',coalesce((SELECT jsonb_agg(document||jsonb_build_object('id',id,'createdAt',created_at,'hash',document_hash) ORDER BY created_at DESC,id DESC) FROM public.ai_answer_evidence WHERE user_id=p_user AND project_id=p_project),'[]'::jsonb),
     'panels',coalesce((SELECT jsonb_agg(document ORDER BY created_at DESC,panel_id,version DESC) FROM public.citation_panels WHERE user_id=p_user AND project_id=p_project),'[]'::jsonb),
     'brandRuns',coalesce((SELECT jsonb_agg(document ORDER BY created_at DESC,run_id) FROM public.citation_brand_runs WHERE user_id=p_user AND project_id=p_project),'[]'::jsonb),
     -- Content-free erased-slot facts (spec §5.2 attempts semantics + erasure): only which slot was

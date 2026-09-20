@@ -178,29 +178,25 @@ export async function importManualCapture(
  * human-reviewed facts and counts themselves are the separate findings packet. */
 export async function readResolvedCaptures(raw: z.infer<typeof scope>, rpc?: KnowledgeRpc) {
   const s = scope.parse(raw);
-  // Read the dependent captures (evidence) BEFORE their append-only panel/run dependencies
-  // (protocol), sequentially — never Promise.all, which could read a stale protocol snapshot against
-  // newer evidence. A capture's referenced panel version and approved run are committed before the
-  // capture, so reading the protocol strictly after the evidence guarantees the protocol snapshot is
-  // at least as new as the evidence: any dependency that existed when a capture was written is present
-  // in the later read, and a concurrent panel lock / run approval / capture import can no longer
-  // produce a spurious panel_unresolved or brand_run_not_approved. A panel/run genuinely deleted
-  // between the two reads is still (correctly) seen as unresolved — deletion invalidation is preserved.
-  const evidence = await readAnswerEvidence(s, rpc);
+  // SINGLE-SNAPSHOT read. read_citation_protocol now returns the answer-evidence rows alongside the
+  // panels/runs/erasure/consumed, all from ONE jsonb_build_object SELECT (one statement snapshot), so
+  // there is no evidence-then-protocol window in which a capture committed between two reads could
+  // expose consumed budget (which counts live originals + tombstones) without its evidence row. The
+  // separate readAnswerEvidence call (and its ordering rationale) is gone; read_ai_answer_evidence is
+  // unchanged and still serves its own standalone endpoint. `protocol.answers` is the same row shape.
   const protocol = await readCitationProtocol(s, rpc);
-  // Stale-read reconciliation by chain IDENTITY, applied to the RAW evidence BEFORE active-leaf/slot
-  // resolution (evidence is read strictly BEFORE protocol). A row the older evidence still shows live
-  // may have been deleted by the newer protocol read. A tombstone records the erased ORIGINAL's id —
-  // the correction chain's ROOT (the trigger writes one only for a `supersedes` null row). Every row
-  // whose chain root is a tombstoned original is dropped from the raw set. Doing this BEFORE resolution
-  // is essential: resolving first would collapse two independent originals sharing one slot into a
-  // single stable-first entry and discard the sibling, so filtering afterwards could remove the kept
-  // copy and leave no survivor. Filtering the raw set instead removes only the deleted chain's own rows
-  // and leaves a genuine independent survivor (and its own correction chain, whose leaf id is NOT its
-  // root — found by walking `supersedesId`) to resolve normally. The chain root is resolved from the
-  // complete evidence ancestry map.
+  const answers = protocol.answers;
+  // Reconciliation by chain IDENTITY, applied to the RAW answers BEFORE active-leaf/slot resolution. A
+  // tombstone records the erased ORIGINAL's id — the correction chain's ROOT (the trigger writes one
+  // only for a `supersedes` null row). Every row whose chain root is a tombstoned original is dropped
+  // from the raw set. Doing this BEFORE resolution is essential: resolving first would collapse two
+  // rows sharing one slot into a single stable-first entry and discard the sibling, so filtering
+  // afterwards could remove the kept copy and leave no survivor. In a single consistent snapshot a
+  // tombstoned original is already deleted (so it is absent from `answers`), but this still correctly
+  // drops an ORPHANED correction of a deleted original; it is defensive and preserves the chain-identity
+  // semantics. The chain root is resolved from the complete ancestry map.
   const parentOf = new Map<string, string | null>();
-  for (const a of evidence.answers) parentOf.set(a.id, a.input.supersedesId ?? null);
+  for (const a of answers) parentOf.set(a.id, a.input.supersedesId ?? null);
   const rootOf = (id: string): string => {
     let cur = id;
     const seen = new Set<string>([cur]);
@@ -213,7 +209,7 @@ export async function readResolvedCaptures(raw: z.infer<typeof scope>, rpc?: Kno
     return cur;
   };
   const tombstonedRoots = new Set(protocol.tombstones.map((t) => t.answerId));
-  const survivingAnswers = evidence.answers.filter((a) => !tombstonedRoots.has(rootOf(a.id)));
+  const survivingAnswers = answers.filter((a) => !tombstonedRoots.has(rootOf(a.id)));
   // A survivor sharing a slot with a KNOWN erased original is ambiguous duplicate history: the resolver
   // flags it `erased_duplicate_slot` and demotes it (never a silent success). These keys match the
   // resolver's internal slot key. Only transmitted (grid, LIMIT-bounded) tombstones are known here; when

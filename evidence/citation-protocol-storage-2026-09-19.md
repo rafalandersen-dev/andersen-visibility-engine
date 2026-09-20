@@ -129,6 +129,9 @@ all conversation files.
 
 ## Review round 5 (read-ordering: evidence before its append-only dependencies)
 
+> Superseded by Review round 16: `readResolvedCaptures` now reads answers + protocol from ONE
+> `read_citation_protocol` snapshot, so there is no two-read window left to order.
+
 - `readResolvedCaptures` used `Promise.all([readCitationProtocol, readAnswerEvidence])`, so it could
   read a stale protocol snapshot against newer evidence: a capture imported concurrently with (just
   after) its panel lock / run approval could resolve against a protocol snapshot taken before those
@@ -268,8 +271,10 @@ Against the renamed candidate `20260920190000_citation_protocol.sql` (old `…17
   panelVersion 0..1e9). Relaxed to the trigger's exact bounds (uuid ids, questionId 1..2000 chars,
   integers 0..2147483647); `citationReport` classifies an unmappable fact as `excluded` (run budget
   still consumed), never rejecting the read.
-- **Evidence-before-protocol read race.** A capture deleted between the two reads shows live in the
-  older evidence while its tombstone is already in the newer protocol. `readResolvedCaptures` drops a
+- **Evidence-before-protocol read race.** (Superseded by round 16: the two-read window is removed —
+  answers now come from the same `read_citation_protocol` snapshot; the reconciliation below stays
+  correct and runs on that one snapshot's raw answers.) A capture deleted between the two reads shows
+  live in the older evidence while its tombstone is already in the newer protocol. `readResolvedCaptures` drops a
   stale live capture whose slot has a tombstone (a tombstone is only written on delete and the write
   path forbids a live capture at a tombstoned slot, so they never coexist consistently; the newer
   tombstone wins), reporting the deleted attempt as erased, not a positive. Preserves the append-only
@@ -403,6 +408,47 @@ Against the renamed candidate `20260920190000_citation_protocol.sql` (old `…17
   `readCitationProtocol`/`readResolvedCaptures` both survive, mixed with a valid RFC erased slot that
   still counts and the non-RFC id honestly a bounded `erasureOverflow`; a non-RFC `brandRunId` bound to
   a VALID panel parses and the read survives; no other-owner leakage.
+
+## Review round 16 (return the whole report from a SINGLE database snapshot — P2 4057295124)
+
+- `readResolvedCaptures` read `read_ai_answer_evidence` and then `read_citation_protocol` as TWO
+  statements = TWO snapshots. A capture committed between them appeared in the second read's
+  authoritative consumption while its evidence answer was still absent from the first — consumed budget
+  with no corresponding capture. The round-5/round-10 sequential ordering narrowed but did not close
+  this; two statements still take two snapshots. Fix: the candidate `read_citation_protocol` (already a
+  single `jsonb_build_object` SELECT — one snapshot for every sub-select) now also returns `answers`,
+  built exactly like the released `read_ai_answer_evidence`
+  (`document || jsonb_build_object('id', id, 'createdAt', created_at, 'hash', document_hash)`,
+  `ORDER BY created_at DESC, id DESC`, same owner/project predicate). `citationProtocolStateSchema`
+  gains a REQUIRED bounded `answers` field (NO default): the observation payload is the numerator the
+  consumed-budget aggregate is measured against, so a snapshot that omits `answers` while reporting a
+  nonzero `runConsumed` must FAIL the read loudly — never parse to empty evidence that would present
+  consumed budget as "zero observed / never-observed". The candidate was never deployed, so there is no
+  answers-less report shape to keep compatible; a genuinely empty snapshot still passes as `answers: []`
+  (the content-free erasure aggregates stay optional-with-default — they are not the observation
+  payload). `readResolvedCaptures` issues ONE RPC and derives everything (raw-answer chain-root
+  reconciliation, surviving captures, erased slots, per-run consumption, reports, coverage) from that
+  single snapshot — no second read.
+- Preserved: the released `read_ai_answer_evidence` RPC and `readAnswerEvidence` helper (still used by
+  `importManualCapture`, byte-compatible); the round-15 `pgUuid` read acceptance; tombstone identity /
+  correction-chain / duplicate demotion / exact SQL consumption / truncation reporting / strict write
+  auth; and the `read_citation_protocol(uuid,text)` signature — so the rollback signatures/order are
+  unchanged. Candidate SQL + `citation-protocol.server.ts`/`.ts` + P2 tests + docs only; no released
+  SQL, no P3/R09/global-inventory change.
+- Tests: mocked server unit tests assert the resolved read makes EXACTLY ONE RPC
+  (`read_citation_protocol`) and throw on any other call, so a second snapshot boundary cannot be
+  reintroduced; a snapshot reporting a nonzero `runConsumed` but omitting `answers` FAILS the read (the
+  empty-evidence masquerade is rejected) while a genuinely empty `answers: []` snapshot still reads as an
+  empty report; an independent survivor sharing a slot with an erased original is preserved and flagged
+  `erased_duplicate_slot` from one snapshot; a surviving correction leaf at an erased sibling's slot is
+  preserved; and a real-PGlite test reads capture, consumption, a correction leaf and a deletion
+  coherently from one snapshot.
+- Coherence scope (accurate): the guarantee is ARCHITECTURAL — one SQL statement
+  (`read_citation_protocol`'s single `jsonb_build_object` SELECT) observes one PostgreSQL MVCC snapshot
+  for all its sub-selects, so answers/consumption/erasure cannot come from different points in time. The
+  tests are single-connection coherence checks (one RPC, atomic parse); they do NOT run concurrent
+  connections and do NOT empirically prove cross-connection/multi-transaction isolation. No
+  cross-connection atomicity is tested or claimed.
 
 ## Checks (status: UNRUN — prepared for Codex)
 
@@ -547,3 +593,16 @@ Review4057250786 on1351520b identified an incomplete rollback inventory. Codex m
 ## Codex validation — historical PostgreSQL identities
 
 Read-only UUID schema delta reviewed against trigger/table representation; write/auth inputs unchanged. Focused135tests4PASS3.39s/typesPASS; full6299tests385PASS49.26s/lint/build/diffPASS. Logs /tmp/milo-p2-uuid-{focused,types,lint,full,build}-20260920.log. Codex formatter-only integration exception on two P2 TypeScript files. No deployment or real-use acceptance claimed; candidate UNAPPLIED, preparedSQL/identity STALE.
+
+## Single-database-snapshot resolved read — status UNRUN (P2 4057295124)
+
+Round 16 makes `readResolvedCaptures` return the whole report (answers, panels, brand runs, content-free tombstones, authoritative `runConsumed`, `erasureByVersion`/`erasureOverflow`, coverage) from ONE `read_citation_protocol` snapshot — the candidate SELECT now also emits `answers` built like the released `read_ai_answer_evidence`; `citationProtocolStateSchema` gains a REQUIRED `answers` field (NO default, so a snapshot that omits the observation payload while reporting consumed budget fails the read loudly rather than masquerading as empty evidence — a genuinely empty snapshot still passes as `answers: []`; the content-free erasure aggregates stay optional-with-default); `readResolvedCaptures` issues a single RPC. Released `read_ai_answer_evidence`/`readAnswerEvidence`, the round-15 `pgUuid` read acceptance, tombstone identity / correction-chain / duplicate demotion / exact SQL consumption / truncation reporting / strict write auth and the `read_citation_protocol(uuid,text)` signature (hence the rollback inventory) are unchanged. Edited only the candidate migration `20260920190000_citation_protocol.sql`, `citation-protocol.ts`/`.server.ts`, the two P2 test files and these docs.
+
+The single-snapshot guarantee is ARCHITECTURAL (one SQL statement = one PostgreSQL MVCC snapshot across all its sub-selects); the tests are single-connection coherence checks (one RPC, atomic parse, masquerade rejected) and do NOT run concurrent connections or empirically prove cross-connection/multi-transaction isolation — no cross-connection atomicity is tested or claimed.
+
+The prior stage (round-15 Codex run: 135 focused / 6299 full PASS) does NOT carry over; every check below is UNRUN in this worktree and must be re-executed by Codex under the recorded exception — this assistant did not run tests and claims no PASS. New/changed checks: the mocked server tests assert the resolved read makes exactly one RPC (`read_citation_protocol`) and rejects any other; a consumed-budget-but-no-answers snapshot FAILS while an empty `answers: []` snapshot still reads empty; single-snapshot survivor/correction tests; and a real-PGlite coherent capture/consumption/correction/deletion read. Candidate remains UNAPPLIED; prepared deploy SQL / expected-identity artifacts remain STALE (never executed); USD50/manual-free budget unchanged; nothing is deployed.
+
+
+### Round 16 independent verification, 2026-09-20
+
+Codex inspected the single-statement SQL payload, unchanged released evidence-row construction and single-RPC resolver, including rejection of missing answers. Focused:135 tests/4 files PASS (2.39s); full:6299 tests/385 files PASS (59.66s); TypeScript, scoped ESLint, production build and git diff --check PASS. Formatter-only Codex integration exception on four P2 TypeScript files. Logs:/tmp/milo-p2-requiredanswers-{focused,types,lint,full,build}-20260920.log. These checks are local evidence; no multi-connection experiment, production migration or deployment is claimed. Candidate SQL and expected identity artifacts must be regenerated for the final approved commit.

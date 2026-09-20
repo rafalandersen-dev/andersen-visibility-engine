@@ -788,9 +788,13 @@ describe("citation protocol server, no provider or URL calls", () => {
     expect(rpc).not.toHaveBeenCalled();
   });
   it("parses protocol state and rejects an over-cap panel array", async () => {
-    const rpc = vi.fn().mockResolvedValue({ data: { panels: [], brandRuns: [] }, error: null });
-    // A protocol payload without the erasure fields still parses (optional-with-default → empty sets).
+    const rpc = vi
+      .fn()
+      .mockResolvedValue({ data: { answers: [], panels: [], brandRuns: [] }, error: null });
+    // `answers` is REQUIRED (a payload omitting it fails the read — see the masquerade regression below);
+    // the content-free erasure fields stay optional-with-default (absent → empty sets).
     expect(await readCitationProtocol(scope, rpc)).toEqual({
+      answers: [],
       panels: [],
       brandRuns: [],
       tombstones: [],
@@ -900,27 +904,66 @@ describe("citation protocol server, no provider or URL calls", () => {
     );
     expect(rpc).not.toHaveBeenCalled();
   });
-  it("reads panels, runs and answers together and resolves captures for the report layer", async () => {
-    const rpc = vi.fn((name: string) =>
+  // Single-snapshot helpers: read_citation_protocol now returns the answer-evidence rows alongside the
+  // panels/runs/tombstones from ONE snapshot, so readResolvedCaptures makes exactly ONE RPC call and no
+  // capture/consumption can straddle two snapshot boundaries. `answers` mirror the row shape that
+  // read_ai_answer_evidence and read_citation_protocol emit (document merged with id/createdAt/hash).
+  const analysisFixture = {
+    algorithm: "literal-mention-supplied-citations-v1" as const,
+    verified: false as const,
+    mention: null,
+    ownCitation: null,
+    citations: [] as { url: string; kind: "own" | "competitor" | "third-party" }[],
+    cohort: "[]",
+  };
+  const answerRow = (id: string, over: Partial<AnswerEvidence> = {}) => ({
+    id,
+    createdAt: "2026-09-08T10:00:00Z",
+    hash: `h-${id}`,
+    input: answer(over),
+    prompt: promptRow,
+    analysis: analysisFixture,
+  });
+  const dTomb = (answerId: string) => ({
+    answerId,
+    panelId: uuid(1),
+    panelVersion: 1,
+    brandRunId: null,
+    questionId: "SY-D01",
+    round: 1,
+  });
+  const snapshotRpc = (answers: unknown[], tombstones: unknown[] = []) =>
+    vi.fn((name: string) =>
       Promise.resolve({
         data:
           name === "read_citation_protocol"
-            ? { panels: [discoveryPanel()], brandRuns: [] }
-            : { prompts: [], answers: [] },
+            ? { answers, panels: [discoveryPanel()], brandRuns: [], tombstones }
+            : (() => {
+                throw new Error(`unexpected RPC ${name}`);
+              })(),
         error: null,
       }),
     );
+  it("reads the whole report from a SINGLE database snapshot (one RPC), never a second evidence read", async () => {
+    // A capture and (would-be) consumption come from ONE payload, so consumed budget can never be
+    // exposed without its evidence row via a second snapshot. Exactly one RPC is issued.
+    const rpc = snapshotRpc([answerRow(uuid(500))]);
     const result = await readResolvedCaptures(scope, rpc);
-    expect(rpc.mock.calls.map((c) => c[0]).sort()).toEqual([
-      "read_ai_answer_evidence",
-      "read_citation_protocol",
-    ]);
+    expect(rpc.mock.calls.map((c) => c[0])).toEqual(["read_citation_protocol"]);
+    expect(result.captures[0]).toMatchObject({
+      answerId: uuid(500),
+      panelResolved: true,
+      outcome: "complete",
+    });
+  });
+  it("reads an empty report from a single snapshot (one RPC)", async () => {
+    const rpc = snapshotRpc([]);
+    const result = await readResolvedCaptures(scope, rpc);
+    expect(rpc.mock.calls.map((c) => c[0])).toEqual(["read_citation_protocol"]);
     expect(result.panels).toEqual([discoveryPanel()]);
     expect(result.brandRuns).toEqual([]);
     expect(result.captures).toEqual([]);
     expect(result.erasedSlots).toEqual([]);
-    // The service boundary always emits a canonical erased-aware report per locked panel version, so a
-    // consumer cannot read `captures` and silently drop erased facts. Empty here: nothing observed yet.
     expect(result.reports).toEqual([
       {
         panelId: discoveryPanel().panelId,
@@ -931,233 +974,72 @@ describe("citation protocol server, no provider or URL calls", () => {
         erased: 0,
         recorded: 0,
         neverObserved: 40,
-        coverageComplete: true, // no tombstones → coverage trivially complete
+        coverageComplete: true,
         excluded: 0,
         outcomes: { complete: 0, failed: 0, truncated: 0, missed: 0, protocol_deviant: 0 },
         brandRuns: [],
       },
     ]);
-    expect(result.erasureOverflow).toBe(0); // no orphaned tombstones
+    expect(result.erasureOverflow).toBe(0);
   });
-  it("reads evidence before the dependency protocol, so a concurrent lock/import cannot cause a false unresolved", async () => {
-    // Deterministic, sleep-free ordering proof: the evidence RPC is held pending; the protocol RPC
-    // (the capture's append-only dependency) must not start until the evidence result is in.
-    let releaseEvidence!: (v: { data: unknown; error: null }) => void;
-    const evidencePending = new Promise<{ data: unknown; error: null }>((res) => {
-      releaseEvidence = res;
-    });
-    const order: string[] = [];
-    const rpc = vi.fn((name: string) => {
-      order.push(name);
-      return name === "read_ai_answer_evidence"
-        ? evidencePending
-        : Promise.resolve({ data: { panels: [discoveryPanel()], brandRuns: [] }, error: null });
-    });
-    const pending = readResolvedCaptures(scope, rpc);
-    // Flush microtasks while evidence stays pending: the protocol dependency must not be read yet.
-    await Promise.resolve();
-    await Promise.resolve();
-    expect(order).toEqual(["read_ai_answer_evidence"]);
-    // Now the evidence resolves with a NEW capture. Only after this may the protocol be read, and the
-    // capture must resolve against that (at-least-as-new) protocol — never a stale one.
-    const answerRow = {
-      id: uuid(500),
-      createdAt: "2026-09-08T10:00:00Z",
-      hash: "hash-500",
-      input: answer(),
-      prompt: promptRow,
-      analysis: {
-        algorithm: "literal-mention-supplied-citations-v1" as const,
-        verified: false as const,
-        mention: null,
-        ownCitation: null,
-        citations: [] as { url: string; kind: "own" | "competitor" | "third-party" }[],
-        cohort: "[]",
-      },
-    };
-    releaseEvidence({ data: { prompts: [], answers: [answerRow] }, error: null });
-    const result = await pending;
-    expect(order).toEqual(["read_ai_answer_evidence", "read_citation_protocol"]);
-    expect(result.captures[0]).toMatchObject({
-      answerId: uuid(500),
-      panelResolved: true,
-      outcome: "complete",
-    });
-  });
-  it("invalidates a stale live capture when a newer tombstone shows it was deleted between the two reads", async () => {
-    // Evidence (read first) still shows the capture as live; the protocol (read second) already carries
-    // its tombstone for the SAME slot — i.e. the original was deleted between the two reads. The
-    // tombstone is authoritative, so the capture must NOT be returned as a live/positive slot; it is
-    // reported as an erased one. Deterministic, single-connection — a conservative boundary check, not a
-    // claim of multi-connection atomicity.
-    const answerRow = {
-      id: uuid(500),
-      createdAt: "2026-09-08T10:00:00Z",
-      hash: "hash-500",
-      input: answer(),
-      prompt: promptRow,
-      analysis: {
-        algorithm: "literal-mention-supplied-citations-v1" as const,
-        verified: false as const,
-        mention: null,
-        ownCitation: null,
-        citations: [] as { url: string; kind: "own" | "competitor" | "third-party" }[],
-        cohort: "[]",
-      },
-    };
-    const rpc = vi.fn((name: string) =>
+  it("fails a snapshot that reports consumed budget but omits answers (no empty-evidence masquerade)", async () => {
+    // The observation payload is REQUIRED in the canonical snapshot. A payload that carries a nonzero
+    // consumed budget yet OMITS `answers` (a wrong RPC or an older candidate version) must FAIL the read
+    // loudly — never parse to an empty evidence set that would present consumed budget as "zero observed
+    // / never-observed", defeating the atomic-report guarantee. `runConsumed` here is well-formed and
+    // nonzero, so the ONLY reason the read fails is the missing observation payload.
+    const missingAnswers = vi.fn((name: string) =>
       Promise.resolve({
         data:
-          name === "read_ai_answer_evidence"
-            ? { prompts: [], answers: [answerRow] }
-            : {
+          name === "read_citation_protocol"
+            ? {
                 panels: [discoveryPanel()],
                 brandRuns: [],
-                tombstones: [
-                  {
-                    answerId: uuid(500),
-                    panelId: uuid(1),
-                    panelVersion: 1,
-                    brandRunId: null,
-                    questionId: "SY-D01",
-                    round: 1,
-                  },
-                ],
-              },
+                runConsumed: [{ runId: uuid(50), consumed: 2 }],
+              }
+            : (() => {
+                throw new Error(`unexpected RPC ${name}`);
+              })(),
         error: null,
       }),
     );
-    const result = await readResolvedCaptures(scope, rpc);
-    expect(result.captures).toEqual([]); // the stale live capture is dropped (it was deleted)
-    expect(result.erasedSlots.map((s) => s.answerId)).toEqual([uuid(500)]);
-    const [report] = result.reports;
-    expect(report).toMatchObject({ observed: 0, erased: 1 }); // reported as erased, never a live positive
+    await expect(readResolvedCaptures(scope, missingAnswers)).rejects.toThrow();
+    // A genuinely empty snapshot (answers explicitly present as []) is still valid — empty, not failed.
+    await expect(readResolvedCaptures(scope, snapshotRpc([]))).resolves.toMatchObject({
+      captures: [],
+    });
   });
-  it("drops a whole correction chain by ROOT identity when its original was deleted between reads", async () => {
-    // Stale evidence still shows original X and its correction X' live; the newer protocol has a
-    // tombstone for the ROOT X (the erased original, supersedes null). The active leaf is X' (id != X),
-    // so slot equality would be needed to catch it — but identity via the chain ROOT is exact: X' is
-    // dropped because rootOf(X') === X ∈ tombstones. No stale positive content is returned.
-    const analysis = {
-      algorithm: "literal-mention-supplied-citations-v1" as const,
-      verified: false as const,
-      mention: null,
-      ownCitation: null,
-      citations: [] as { url: string; kind: "own" | "competitor" | "third-party" }[],
-      cohort: "[]",
-    };
-    const original = {
-      id: uuid(500),
-      createdAt: "2026-09-08T10:00:00Z",
-      hash: "h-root",
-      input: answer(),
-      prompt: promptRow,
-      analysis,
-    };
-    const correction = {
-      id: uuid(501),
-      createdAt: "2026-09-08T11:00:00Z",
-      hash: "h-leaf",
-      input: answer({ supersedesId: uuid(500), rawAnswer: "corrected" }),
-      prompt: promptRow,
-      analysis,
-    };
-    const rpc = vi.fn((name: string) =>
-      Promise.resolve({
-        data:
-          name === "read_ai_answer_evidence"
-            ? { prompts: [], answers: [original, correction] }
-            : {
-                panels: [discoveryPanel()],
-                brandRuns: [],
-                tombstones: [
-                  {
-                    answerId: uuid(500), // the ROOT/original id, not the leaf
-                    panelId: uuid(1),
-                    panelVersion: 1,
-                    brandRunId: null,
-                    questionId: "SY-D01",
-                    round: 1,
-                  },
-                ],
-              },
-        error: null,
-      }),
-    );
+  it("reads a deleted chain as an erased slot in a single snapshot (the erased original is absent; no stale positive)", async () => {
+    // In one consistent snapshot a tombstoned original's chain is already deleted, so `answers` does not
+    // contain it. It reads as an erased slot, never a live/positive one, and returns no stale content.
+    const rpc = snapshotRpc([], [dTomb(uuid(500))]);
     const result = await readResolvedCaptures(scope, rpc);
-    expect(result.captures).toEqual([]); // the active leaf X' dropped via its root X; no stale positive
+    expect(rpc.mock.calls.map((c) => c[0])).toEqual(["read_citation_protocol"]);
+    expect(result.captures).toEqual([]);
     expect(result.erasedSlots.map((s) => s.answerId)).toEqual([uuid(500)]);
     expect(result.reports[0]).toMatchObject({ observed: 0, erased: 1 });
   });
-  // Two-snapshot race helpers: stale evidence (older) still shows rows live; newer protocol has a
-  // tombstone for one root. All rows sit at the ONE slot SY-D01 r1 so the collapse would otherwise fight
-  // the reconciliation. These exercise the ordering combination the earlier fix missed.
-  const raceAnalysis = {
-    algorithm: "literal-mention-supplied-citations-v1" as const,
-    verified: false as const,
-    mention: null,
-    ownCitation: null,
-    citations: [] as { url: string; kind: "own" | "competitor" | "third-party" }[],
-    cohort: "[]",
-  };
-  const raceRow = (id: string, over: Partial<AnswerEvidence> = {}) => ({
-    id,
-    createdAt: "2026-09-08T10:00:00Z",
-    hash: `h-${id}`,
-    input: answer(over),
-    prompt: promptRow,
-    analysis: raceAnalysis,
-  });
-  const raceRpc = (answers: unknown[], tombstonedRootIds: string[]) =>
-    vi.fn((name: string) =>
-      Promise.resolve({
-        data:
-          name === "read_ai_answer_evidence"
-            ? { prompts: [], answers }
-            : {
-                panels: [discoveryPanel()],
-                brandRuns: [],
-                tombstones: tombstonedRootIds.map((id) => ({
-                  answerId: id,
-                  panelId: uuid(1),
-                  panelVersion: 1,
-                  brandRunId: null,
-                  questionId: "SY-D01",
-                  round: 1,
-                })),
-              },
-        error: null,
-      }),
-    );
-  it("preserves an independent survivor in the delete-between-reads race (A first in stale evidence, tombstone A)", async () => {
-    // Older evidence still shows A and independent B live at one slot; newer protocol tombstones A.
-    const rpc = raceRpc([raceRow(uuid(500)), raceRow(uuid(501))], [uuid(500)]);
+  it("preserves an independent survivor sharing a slot with an erased original, flagged (single snapshot)", async () => {
+    // Consistent post-erase state in ONE snapshot: original A is deleted (absent from `answers`), its
+    // tombstone remains, and an independent original B still lives at the same slot. B must be preserved
+    // AND flagged as ambiguous duplicate history — never silently turned into an erased-only slot.
+    const rpc = snapshotRpc([answerRow(uuid(501))], [dTomb(uuid(500))]);
     const result = await readResolvedCaptures(scope, rpc);
-    // A's chain is dropped from the RAW set BEFORE resolution, so B is not discarded by the collapse.
-    expect(result.captures.map((c) => c.answerId)).toEqual([uuid(501)]); // B survives
+    expect(result.captures.map((c) => c.answerId)).toEqual([uuid(501)]);
     expect(result.captures[0].outcome).toBe("protocol_deviant");
-    expect(result.captures[0].deviations).toContain("erased_duplicate_slot"); // ambiguous history exposed
-  });
-  it("preserves the independent survivor regardless of stale order (B first in stale evidence, tombstone A)", async () => {
-    // Same as above but the stable-first row is now the SURVIVOR — the earlier post-resolve filter would
-    // have kept B here yet dropped it in the other order; raw-first reconciliation is order-independent.
-    const rpc = raceRpc([raceRow(uuid(501)), raceRow(uuid(500))], [uuid(500)]);
-    const result = await readResolvedCaptures(scope, rpc);
-    expect(result.captures.map((c) => c.answerId)).toEqual([uuid(501)]); // B survives, order-independent
     expect(result.captures[0].deviations).toContain("erased_duplicate_slot");
   });
-  it("preserves a surviving sibling's correction chain in the race when the independent original is erased", async () => {
-    const rpc = raceRpc(
+  it("preserves a surviving sibling's correction chain leaf sharing a slot with an erased original", async () => {
+    // B and its correction B' live; the independent original A is deleted (absent) with its tombstone.
+    // B's ACTIVE LEAF (B', whose id is not its root) is preserved and flagged, never dropped.
+    const rpc = snapshotRpc(
       [
-        raceRow(uuid(500)), // independent original A (erased)
-        raceRow(uuid(501)), // original B
-        raceRow(uuid(502), { supersedesId: uuid(501), rawAnswer: "B corrected" }), // B's active leaf
+        answerRow(uuid(501)),
+        answerRow(uuid(502), { supersedesId: uuid(501), rawAnswer: "B corrected" }),
       ],
-      [uuid(500)],
+      [dTomb(uuid(500))],
     );
     const result = await readResolvedCaptures(scope, rpc);
-    // A dropped by root; B's chain survives; its ACTIVE LEAF (502, not its root 501) is the resolved
-    // capture, flagged as ambiguous duplicate history — no stale A content is returned.
     expect(result.captures.map((c) => c.answerId)).toEqual([uuid(502)]);
     expect(result.captures[0].deviations).toContain("erased_duplicate_slot");
   });
