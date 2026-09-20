@@ -173,10 +173,90 @@ cross-client corpus.
 
 - **Independent destination content check.** No trusted record proves a destination shows the approved
   content; `owner_attested` is the strongest status and is an owner attestation, not a system check.
-- **Two-person / independent reviewer authentication** (P3 accepts only self-attested findings and
-  self-confirmed facts) and **panel authentication** (panel/client scope stays owner-declared until the P2
-  `citation_panels` contract exists) remain unresolved and are documented here rather than guessed. The UI
-  surface for facts/accuracy is also later work.
+- **Independent (two-person) finding review is implemented** as authenticated receipts with a narrow
+  evidence-inspection read (see the section below). The reviewer CAN now open this finding's extant cited
+  evidence (the captured answer excerpt + capture time, the cited source's presence/status, and the dated
+  fact behind each accuracy claim) — enough to actually perform the review, not just receipt metadata. What
+  remains: a NATIVE report artifact stays opaque unparsed bytes (never independently inspectable until the P5
+  parser), and there is still no independent DESTINATION content check. Business facts remain
+  owner-self-confirmed (no independent fact attestation, only read access for the reviewer).
+- **Panel authentication** (panel/client scope stays owner-declared until the P2 `citation_panels` contract
+  exists) remains unresolved and is documented here rather than guessed. The UI surface for facts/accuracy
+  and for the review queue is also later work.
+
+## Independent (two-person) finding review
+
+Spec §4.5 ("a second studio reviewer checks ambiguous or high-impact claims when available"; "a collector
+may also be reviewer, but that is not independent verification"). The finding record already refuses every
+embedded reviewer identity that is not the authenticated owner, so a genuine second reviewer's decision
+**cannot** be a field of the owner-authored record without becoming a forged provenance claim. Independent
+review is therefore a SEPARATE additive table, `ai_citation_finding_reviews` (still in the UNAPPLIED
+candidate), of authenticated receipts:
+
+- **Authority is the actual released team ADMISSION contract, reused not reinvented.** Eligibility is the
+  same predicate the asset-review authority uses (`role='reviewer'` under a
+  `separate_reviewers`/`editors_can_approve` policy, or `role='editor'` under `editors_can_approve`) — but
+  the policy/role predicate is NOT the whole authorization. Every review RPC also runs the real account
+  admission: an OPTIMISTIC, lock-free check that BOTH the owner and the actor are current `auth.users` (not
+  deleted, not banned) with an active, non-expired membership — so a stale/suspended/non-member session is
+  refused *before* it can queue on an arbitrary victim owner's workspace lock — and then, on the write path,
+  the AUTHORITATIVE `assert_project_team_account` (the released `FOR SHARE` account check) for both owner and
+  actor under the owner workspace + account lock, plus a membership/policy re-read. The reads enforce the
+  same current account admission. The migration test applies the REAL `20260911020000_project_team_reads.sql`
+  (real `project_team_members` + `assert_project_team_account`), so a suspended owner/actor is proven to be
+  refused. Reusing asset-review authority as the *eligibility* test still does **not** hand the reviewer the
+  owner-only findings list / business-fact management / native artifact bytes / exports.
+- **Receipts are forgery- and replay-resistant.** The reviewer id and time are server-derived from the
+  authenticated caller (the owner cannot impersonate another reviewer; the reviewer field is not a payload
+  input). Each receipt is bound to the EXACT immutable finding row + version + `record_sha256` the reviewer
+  pinned; a hash that no longer matches that row is refused (`citation_review_stale`), and because a new
+  finding version is a new row, a receipt never replays onto changed evidence. No self second-review. One
+  receipt per reviewer per row; the same decision AND note on the same content is idempotent, but a *changed*
+  decision OR a *changed note* is refused (`citation_review_conflict`) — a recorded human decision (and its
+  note) is preserved as history, never silently flipped or a new note reported as saved. Idempotency/conflict
+  is decided BEFORE the per-project capacity charge, so an identical retry still returns at the 2000 cap.
+- **The reviewer inspects the real substantive evidence; incomplete/opaque evidence is only an opinion.**
+  The narrow reviewer read resolves THIS finding's cited evidence to its actual readable content: an
+  `answer` yields its FULL content (the whole `rawAnswer`, contract-capped at 50000 chars, with
+  `contentLength`/`contentTruncated` so truncation is never silently treated as complete), the supplied
+  citation URLs, and capture provenance (surface/mode/method/capturedAt/status/promptId/promptRevision); a
+  `source` yields its identity/provenance (label, url, content fingerprint, capture time, status) AND its
+  substantive MATERIAL — the released `project_knowledge_records` bound to THIS source at its current
+  revision (`value`/`excerpt`/`locator`/`category`/`status`, plus each record's `recordId`/`recordRevision`
+  for provenance), returned IN FULL up to the project record cap (300, so an ordinary source is entirely
+  inspectable), deterministically ordered by record id, with `materialCount`/`materialTruncated`; scoped to
+  the cited source only (never the whole knowledge corpus, never the raw document bytes which stay
+  service-only). A source whose material overflows 300 is `materialTruncated` and NOT inspectable (its last
+  records would be unreachable, so review stays incomplete rather than falsely complete). A `native` artifact
+  is present-or-not but `inspectable:false`
+  (opaque bytes; parser is P5); and each assessed-accuracy fact pin its dated value — every item with an
+  authentic `available:false` when the reference was deleted. `inspectionComplete` is true ONLY when EVERY
+  cited item is genuinely inspectable: an answer fully within the content cap, a source active WITH
+  substantive bound material (attribution/provenance alone is NOT support, §4.2), and NO native item — so a
+  native-only OR a **mixed native+answer** finding, a metadata-only / revoked / wrong-source / stale-revision
+  source, a deleted reference, or a truncated answer is incomplete. An `approved` receipt on a non-inspectable finding is stored `inspection_complete=false` and
+  reads `independent_opinion`: honestly exposed but NEVER completing a required second review or lifting an
+  improvement. A valid answer-only or source-only review with real evidence DOES complete (review is not
+  disabled), and `inspectionComplete` is a CURRENT-availability signal distinct from the historical receipt.
+- **Read-eligibility wiring.** The canonical finding reads return a server-derived `reviewStatus`
+  (`owner_only` / `second_review_pending` / `independent_reviewed` / `independent_opinion` /
+  `independent_dissent`), recomputed live over ALL of a row's receipts. A `needs_second_review` finding reads
+  `second_review_pending` until a COMPLETED (inspection-complete) independent approval exists. An improvement
+  bound to a finding that is `second_review_pending` or `independent_dissent` is capped below `owner_attested`
+  (down to `connector_receipt`), mirroring the accuracy-unresolved gate. The receipt reads are paginated
+  (`reviews` ≤100) with an explicit `reviewTotal`/`reviewsTruncated` and full-population `activeDissent` /
+  `activeApproved` / `reviewStatus`, so a dissent beyond the displayed page is never silently erased.
+- **Withdrawal is reviewer-only, auditable, and non-sanitising.** ONLY the receipt's own reviewer may
+  withdraw it — the OWNER cannot delete another reviewer's decision (which would let an owner clear a dissent
+  and leave a standing approval reading as `independent_reviewed`). Withdrawal is a content-free soft
+  tombstone: the note is erased, the decision/reviewer/timestamps stay for audit, and a withdrawn receipt no
+  longer counts. The acting account must be current (`assert_project_team_account`), but current MEMBERSHIP is
+  not required — a reviewer whose membership was later revoked may still retract their own historical
+  attestation, and (conversely) a historically valid receipt keeps counting after that reviewer's membership
+  is revoked (current permission vs historical review are distinct).
+- **Separation of powers preserved.** These endpoints take the authenticated actor and a supplied
+  owner/project/finding (like the released asset-review server), and the database — not the client — decides
+  authority. Publication and spend permissions are untouched; no owner-only raw endpoint was broadened.
 
 ## Review history (short note; superseded, not erased)
 
@@ -221,9 +301,53 @@ read-only canonical (hex `pgUuid`) type matching what the database echoes, so a 
 trips instead of crashing the read (the write path keeps strict `.uuid()`); and (B2) `getCitationFinding`
 still strict-parsed a malformed `record` and would crash despite the doc claiming it inspectable — it now
 returns `recordValid:false` with the raw record present (valid records stay strictly typed), so a
-legacy/malformed finding is inspectable and deletable, tested through the actual `getCitationFinding`. The
-prior focused run does not carry over — the precision representation, read schemas, detail contract and
-tests all changed.
+legacy/malformed finding is inspectable and deletable, tested through the actual `getCitationFinding`. A
+following review then required the malformed-detail fallback to be a concrete serializable type (a
+`Record<string,unknown>` return failed `tsc` against the server-function transport contract), fixed by a
+discriminated `recordValid` detail whose invalid branch is a bounded, depth/size-capped JSON-safe value
+(never `unknown`). A prior packet added **independent (two-person) finding review**: a separate
+`ai_citation_finding_reviews` receipt table, authority reusing the live project team membership/policy, a
+`reviewStatus` on the finding reads, and the improvement gate capping `owner_attested` when a bound finding's
+required second review is missing or dissented. A follow-up review then found four concrete gaps, all fixed
+in the MOST RECENT packet: (1) the authority only checked two tables, skipping the released admission
+(`auth.users` deleted/banned + account locks) so a stale/suspended owner/actor session could reach review
+data — now every review RPC runs the optimistic pre-lock account+membership check AND the authoritative
+`assert_project_team_account` under the lock, the reads enforce the same admission, withdrawal requires a
+current acting account, and the test applies the REAL `20260911020000` team migration; (2) the reviewer read
+aggregated all receipts under a max-100 response and charged capacity before the idempotency lookup — now the
+receipts are a bounded page with an explicit total/truncation and a full-population dissent aggregate, and an
+identical retry is resolved before the capacity charge (a changed note is an explicit conflict, never a
+silent save); (3) the reviewer could not actually inspect the underlying evidence — now the narrow read
+resolves this finding's answer excerpt/capture time, source presence and dated accuracy facts, a native
+artifact stays explicitly non-inspectable, and an un-inspectable approval is an `independent_opinion` that
+never completes verification or promotes an improvement; (4) the owner could remove a dissent and leave a
+standing approval reading as reviewed — now withdrawal is reviewer-only and a content-free auditable
+tombstone, historical receipts survive later membership revocation, and the canonical improvement gate is
+tested. A subsequent review found the evidence-inspection itself was still too shallow — all fixed in the
+LATEST packet: `citation_finding_inspectable` accepted ANY answer/source and returned only source
+status/kind, only the first 4000 of the allowed 50000 answer chars, and treated a mixed native+answer
+finding as complete despite the opaque native — so a reviewer could complete a review on incomplete proof.
+A further review found the SOURCE half of that fix still shallow — a source was counted complete on
+`status='active'` + non-empty `label` alone and the read returned only metadata (label/url/fingerprint are
+attribution, not support, §4.2). Fixed in this packet: a source is inspectable ONLY when actual substantive
+MATERIAL exists — at least one released `project_knowledge_records` row bound to THIS source (`source_id`)
+at its CURRENT `revision` with a non-empty `value` — and the reviewer read exposes that bound material
+(`value`/`excerpt`/`locator`/`category`/`status`, scoped to the cited source, bounded page, never the raw
+document bytes or the wider corpus). So inspection now requires EVERY cited item genuinely readable (an
+answer fully within the 50000-char content cap; a source active WITH bound current-revision material; NO
+native item); a mixed native+answer, a metadata-only / wrong-source / stale-revision / revoked source, and a
+deleted or truncated reference all read `inspectionComplete:false` (opinion only), while a valid answer-only
+OR a source-only review with real bound material still completes. The metadata-only source test was
+corrected to expect incomplete, and material/wrong-source/stale-revision/revoked cases added. That packet's
+focused run then FAILED (all four source reads → `citation_review_unavailable`) from two bugs, both fixed
+here: (1) the material subquery selected only `payload,revision` while `jsonb_agg(... ORDER BY id)`
+referenced `id`, raising at runtime — the inner select now exposes `id` and each material record carries its
+`recordId`; and (2) completeness was `EXISTS`/`materialCount>0` while the read capped the page at 10, so an
+11-record source falsely read complete with its later records unreachable — both the gate and the read now
+use the same 300 bound (the project record cap), returning the material IN FULL up to 300 (an ordinary
+source is entirely inspectable) and marking any overflow `materialTruncated` → NOT inspectable → incomplete.
+The prior focused run does not carry over — the source material read/cap and the tests all changed and must
+be re-run.
 
 ## Tests prepared (offline, synthetic; NOT RUN here — Codex runs them)
 
@@ -278,6 +402,42 @@ through the EXISTING `readCitationImprovements`. `citation-business-fact.functio
 endpoints require auth, bind to the owner (mismatch → `evidence_owner_changed`), and refuse a wrong
 project, an off-contract fact and malformed ids.
 
+`citation-finding-review-migration.test.ts` (real PGlite over the same chain PLUS the actual released
+`20260911020000_project_team_reads.sql` — real `project_team_members` + `assert_project_team_account` +
+`auth.users(deleted_at,banned_until)` — with only the approval-policy lookup created directly):
+a current reviewer records a receipt bound to the exact row+content and `reviewStatus` flips to
+`independent_reviewed` on BOTH canonical reads; the owner is refused as an independent reviewer AND refused
+the reviewer-only read (no self second-review); a non-member, a viewer, an editor under `separate_reviewers`,
+and any actor under a `disabled` policy are all refused, while an editor under `editors_can_approve` is
+allowed; a revoked or expired membership and a foreign project are refused; **a suspended (deleted/banned)
+actor OR owner account is refused on submit, withdraw AND the reviewer read (the real account-admission
+contract)**; a stale/foreign content hash is refused and a new finding version carries no receipt
+(anti-replay); an identical decision+note is idempotent while a changed decision OR a changed note is
+refused; **the receipts page is bounded to 100 with an explicit total, but an off-page dissent still shows in
+`activeDissent`/`reviewStatus`**; **idempotency is decided before capacity, so an identical retry still
+returns at the 2000 cap while a new reviewer hits it**; **the reviewer read exposes the FULL answer content
+past the old 4000-char cut (a `TAILMARKER-AT-END` beyond char 4200 is present, `contentTruncated:false`) plus
+citations/provenance and the dated accuracy fact; a source-only finding exposes the bound knowledge-record
+MATERIAL (`value`/`excerpt`/`locator` + `recordId`/`recordRevision`) and COMPLETES (`independent_reviewed`)
+only when real material is bound to the cited source at its current revision — including a source with MORE
+than 10 records where ALL are returned (a `LAST-RECORD-MARKER` eleventh record is reachable,
+`materialTruncated:false`) — while a metadata-only source (active + label/url but NO material), a
+wrong-source or stale-revision record, a revoked source, a source whose material OVERFLOWS the 300 cap
+(`materialTruncated:true` → not inspectable), a native-only finding, and a MIXED native+answer finding are
+all `inspectionComplete:false` so an approval is only an `independent_opinion`/pending that never completes a
+required second review; and a deleted answer reads `available:false`**; a `needs_second_review` finding reads `second_review_pending` until a
+COMPLETED independent approval and a dissent reads `independent_dissent`; **withdrawal is reviewer-only (the
+owner cannot sanitise a dissent — A dissents + B approves stays `independent_dissent` until A retracts), a
+content-free auditable tombstone, and a historically valid receipt keeps counting after the reviewer's
+membership is revoked**; and — with the full publication/approval/baseline fixture — a bound
+`needs_second_review` finding holds the improvement at `connector_receipt` until an independent approval lifts
+it to `owner_attested`, and an independent `needs_changes` dissent drops a would-be `owner_attested`
+improvement back to `connector_receipt`.
+`citation-finding-review.functions.test.ts`: the four review endpoints require auth and ALWAYS use the
+authenticated caller as the actor (the reviewer is never a payload field, so an owner cannot impersonate a
+reviewer), passing the supplied owner/project/finding through, and reject malformed ids, a bad content
+hash, an off-list decision and a malformed project/owner.
+
 No pass counts are claimed and the earlier focused run does not carry over — the schema, canonical reads,
 improvement gate, storage and tests all changed and must be re-run. Single-connection PGlite verifies
 logical guards, not true concurrency.
@@ -285,11 +445,11 @@ logical guards, not true concurrency.
 ## Prepared commands — UNRUN (Codex executes)
 
 ```
-npx vitest run src/lib/citation-record-migration.test.ts src/lib/citation-business-fact-migration.test.ts src/lib/citation-record.functions.test.ts src/lib/citation-business-fact.functions.test.ts
+npx vitest run src/lib/citation-record-migration.test.ts src/lib/citation-business-fact-migration.test.ts src/lib/citation-finding-review-migration.test.ts src/lib/citation-record.functions.test.ts src/lib/citation-business-fact.functions.test.ts src/lib/citation-finding-review.functions.test.ts
 npx vitest run
 npx tsc --noEmit
-npx eslint src/lib/citation-record.ts src/lib/citation-record.server.ts src/lib/citation-record.functions.ts src/lib/citation-business-fact.ts src/lib/citation-business-fact.server.ts src/lib/citation-business-fact.functions.ts src/lib/citation-finding.ts src/lib/citation-record-migration.test.ts src/lib/citation-business-fact-migration.test.ts src/lib/citation-record.functions.test.ts src/lib/citation-business-fact.functions.test.ts
-npx prettier --check "src/lib/citation-record*.ts" "src/lib/citation-business-fact*.ts" src/lib/citation-finding.ts supabase/migrations/20260920200000_citation_findings_improvements.sql
+npx eslint src/lib/citation-record.ts src/lib/citation-record.server.ts src/lib/citation-record.functions.ts src/lib/citation-business-fact.ts src/lib/citation-business-fact.server.ts src/lib/citation-business-fact.functions.ts src/lib/citation-finding.ts src/lib/citation-finding-review.ts src/lib/citation-finding-review.server.ts src/lib/citation-finding-review.functions.ts src/lib/citation-record-migration.test.ts src/lib/citation-business-fact-migration.test.ts src/lib/citation-finding-review-migration.test.ts src/lib/citation-record.functions.test.ts src/lib/citation-business-fact.functions.test.ts src/lib/citation-finding-review.functions.test.ts
+npx prettier --check "src/lib/citation-record*.ts" "src/lib/citation-business-fact*.ts" "src/lib/citation-finding-review*.ts" src/lib/citation-finding.ts supabase/migrations/20260920200000_citation_findings_improvements.sql
 npm run build
 ```
 
@@ -306,3 +466,7 @@ The corrected packet was independently inspected against the released publicatio
 ### Business-fact boundary verification checkpoint, 2026-09-20
 
 Codex independently checked the completed correction packet: actual saved capture date binding, microsecond normalization, historical read identities, and discriminated bounded JSON detail. Focused tests: 67 passed across four files (2.08s); TypeScript passed. ESLint and git diff --check passed after a formatter-only Codex integration exception. Logs: /tmp/milo-p3-serializable-focused-20260920.log, /tmp/milo-p3-serializable-types-20260920.log, /tmp/milo-p3-facts-lint-20260920.log. This is a local checkpoint; full integration checks, reviewer authorization, panel binding, destination proof, release and real-use acceptance remain open.
+
+### Codex reviewer/source checkpoint — 20 September 2026
+
+Completed scoped review of real account admission, bounded receipt display with full dissent aggregation, reviewer withdrawal, and actual source material inspection. Focused six suites passed 98 tests (2.52s); TypeScript passed. Formatting-only Codex integration exception applied to seven changed TypeScript files; scoped ESLint and whitespace checks passed. Full suite: 6279 passed, one failed (44.51s), specifically the stale candidate migration inventory, which still listed artifact staging as unapplied and omitted the new P3 candidate. Production build independently passed. Logs: /tmp/milo-p3-source-bounds-{focused,types}-20260920.log and /tmp/milo-p3-review-checkpoint-{format,lint,full,build}-20260920.log. This is a local checkpoint, not release acceptance. Reconcile current main and migration inventory next; panel binding, destination verification, UI, genuine exports and real-use acceptance remain open.

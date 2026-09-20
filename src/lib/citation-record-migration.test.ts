@@ -665,10 +665,15 @@ describe("isolation and access boundaries", () => {
       await expect(db.query("SELECT * FROM ai_citation_improvements")).rejects.toThrow(
         /permission denied/,
       );
+      await expect(db.query("SELECT * FROM ai_citation_finding_reviews")).rejects.toThrow(
+        /permission denied/,
+      );
       for (const helper of [
         "citation_finding_sources_available($1,'p','{}'::jsonb)",
         "citation_improvement_status($1,'p','{}'::jsonb,ARRAY[]::uuid[],NULL)",
         "citation_lock_account($1)",
+        "citation_review_authorized($1,$1,'p')",
+        "citation_finding_review_status($1,'p',$1)",
       ])
         await expect(db.query("SELECT " + helper, [user])).rejects.toThrow(/permission denied/);
       if (role !== "service_role")
@@ -750,7 +755,10 @@ describe("a bound finding's unresolved accuracy downgrades the dependent improve
         relevance: "medium" as const,
         fixability: "medium" as const,
       },
-      decision: "needs_second_review" as const,
+      // 'accepted' (not 'needs_second_review') so this test isolates the ACCURACY gate: a finding that asks
+      // for a second review is separately capped by the independent-review gate (see the dedicated review
+      // migration test), which would otherwise also hold this improvement below owner_attested.
+      decision: "accepted" as const,
       review: { reviewer: user, reviewedAt: now },
       secondReview: null,
       linkedTaskId: null,

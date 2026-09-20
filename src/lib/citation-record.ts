@@ -92,6 +92,24 @@ export const citationImprovementStageSchema = z
  * or superseded fact downgrades it (`none` = no assessed entries, `resolved` = all bound, `unresolved` =
  * at least one assessed entry no longer binds). It reports binding integrity, never that a claim is true. */
 export const CITATION_FINDING_ACCURACY_STATUSES = ["none", "resolved", "unresolved"] as const;
+/** Server-derived INDEPENDENT (two-person) review status of this finding row, recomputed live on the
+ * canonical read from the separate review-receipt table (`ai_citation_finding_reviews`). It reports review
+ * integrity, never that a claim is true: `owner_only` (no active independent receipt and none required),
+ * `second_review_pending` (the finding asked for a second review but has no COMPLETED independent approval
+ * yet — honestly "required but insufficient", never a fabricated approval), `independent_reviewed` (an
+ * independent reviewer approved after inspecting the finding's extant evidence, and none dissented),
+ * `independent_opinion` (an approval exists but only as an opinion because the finding could not be
+ * independently inspected — e.g. a native-only or deleted-evidence finding — so it never completes
+ * verification or promotes an improvement) or `independent_dissent` (an independent reviewer flagged it).
+ * Withdrawn receipts do not count. The receipt reviewer is always a current authorized team reviewer
+ * distinct from the owner; the owner cannot submit one. Not a caller-supplied value. */
+export const CITATION_FINDING_REVIEW_STATUSES = [
+  "owner_only",
+  "second_review_pending",
+  "independent_reviewed",
+  "independent_opinion",
+  "independent_dissent",
+] as const;
 export const citationFindingSummarySchema = z
   .object({
     id: uuid,
@@ -109,6 +127,7 @@ export const citationFindingSummarySchema = z
     createdAt: z.string(),
     sourceAvailable: z.boolean(),
     accuracyStatus: z.enum(CITATION_FINDING_ACCURACY_STATUSES),
+    reviewStatus: z.enum(CITATION_FINDING_REVIEW_STATUSES),
   })
   .strict();
 export type CitationFindingSummary = z.infer<typeof citationFindingSummarySchema>;

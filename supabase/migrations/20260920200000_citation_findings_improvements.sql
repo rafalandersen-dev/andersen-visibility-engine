@@ -91,6 +91,53 @@ ALTER TABLE public.ai_citation_findings ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.ai_citation_improvements ENABLE ROW LEVEL SECURITY;
 REVOKE ALL ON public.ai_citation_findings,public.ai_citation_improvements FROM PUBLIC,anon,authenticated,service_role;
 
+-- INDEPENDENT (two-person) review receipts (spec §4.5: "a second studio reviewer checks ambiguous or
+-- high-impact claims"). This is a SEPARATE, additive table — NOT a finding-record field — because the
+-- finding record refuses every embedded reviewer identity that is not the owner (see save_ai_citation_finding),
+-- so a genuine second reviewer's decision cannot live inside the owner-authored record without becoming a
+-- forged provenance claim. Each receipt is the authenticated independent reviewer's own decision, bound to
+-- the EXACT immutable finding row + version + content hash it was made against. It grants no data access by
+-- itself and does NOT touch the owner-only raw artifact / business-fact / export surface.
+CREATE TABLE public.ai_citation_finding_reviews (
+  user_id uuid NOT NULL,             -- the project OWNER (the data scope these receipts belong to)
+  project_id text NOT NULL, id uuid NOT NULL DEFAULT gen_random_uuid(),
+  finding_row_id uuid NOT NULL,      -- the EXACT immutable ai_citation_findings.id (a version is one row)
+  finding_id uuid NOT NULL,          -- logical finding id (denormalised for grouping on read)
+  finding_version integer NOT NULL CHECK(finding_version BETWEEN 1 AND 10000),
+  record_sha256 text NOT NULL CHECK(record_sha256 ~ '^[a-f0-9]{64}$'), -- the reviewed content, pinned
+  -- The independent reviewer is the authenticated caller and is NEVER the owner (the owner's own review is
+  -- the primary one embedded in the record). Stored role/policy/membership revisions make the receipt
+  -- self-describing for audit — the authority it was written under — exactly as the asset approval history
+  -- records its version/membership/policy. They are a historical snapshot, not a live re-check.
+  reviewer_id uuid NOT NULL,
+  reviewer_role text NOT NULL CHECK(reviewer_role IN ('reviewer','editor')),
+  policy_mode text NOT NULL CHECK(policy_mode IN ('separate_reviewers','editors_can_approve')),
+  policy_revision bigint NOT NULL, membership_revision bigint NOT NULL,
+  decision text NOT NULL CHECK(decision IN ('approved','rejected','needs_changes')),
+  -- 6000 octets comfortably fits the client's 2000-code-unit note (<=3 UTF-8 bytes per BMP unit) so a
+  -- client-valid multilingual note never trips this cap with a generic INSERT error.
+  note text CHECK(note IS NULL OR octet_length(note) BETWEEN 1 AND 6000),
+  -- Whether the finding's cited answer/source evidence AND assessed-fact pins were fully resolvable when the
+  -- receipt was written. An 'approved' receipt on a finding that could NOT be inspected (a deleted cited
+  -- answer, or a native-only unparsed artifact) is recorded as an OPINION: it never counts as completed
+  -- independent verification and never promotes a dependent improvement.
+  inspection_complete boolean NOT NULL DEFAULT false,
+  -- A soft, content-free tombstone: only the receipt's OWN reviewer may withdraw (the owner cannot delete
+  -- another reviewer's decision and silently sanitise a dissent). Withdrawal erases the note but keeps the
+  -- decision/reviewer/timestamps for audit. A withdrawn receipt no longer counts toward reviewStatus.
+  withdrawn boolean NOT NULL DEFAULT false, withdrawn_at timestamptz,
+  created_at timestamptz NOT NULL DEFAULT clock_timestamp(),
+  CHECK(user_id<>reviewer_id),
+  CHECK(withdrawn OR withdrawn_at IS NULL),
+  PRIMARY KEY(user_id,project_id,id),
+  -- One receipt per independent reviewer per EXACT finding row: a reviewer cannot stack duplicate approvals,
+  -- and a new finding version (a new row) requires a fresh independent review rather than inheriting the old.
+  UNIQUE(user_id,project_id,finding_row_id,reviewer_id),
+  FOREIGN KEY(user_id,project_id,finding_row_id) REFERENCES public.ai_citation_findings(user_id,project_id,id) ON DELETE CASCADE
+);
+ALTER TABLE public.ai_citation_finding_reviews ENABLE ROW LEVEL SECURITY;
+REVOKE ALL ON public.ai_citation_finding_reviews FROM PUBLIC,anon,authenticated,service_role;
+
 -- Explicit account-first lock that FAILS CLOSED. `assert_knowledge_project(...,true)` takes the account
 -- FOR UPDATE lock but does not fail when the workspace_meta row is missing, so a P3 write RPC takes this
 -- lock itself and refuses before any capacity/idempotency/version mutation when the account row is absent.
@@ -101,6 +148,126 @@ BEGIN
   IF NOT FOUND THEN RAISE EXCEPTION 'citation_record_unavailable' USING ERRCODE='22023'; END IF;
 END; $$;
 REVOKE ALL ON FUNCTION public.citation_lock_account(uuid) FROM PUBLIC,anon,authenticated,service_role;
+
+-- Independent-review authority, computed LIVE from the ACTUAL project team contracts (never a bespoke or
+-- blanket grant): the actor must be a CURRENT, active, non-expired member whose role/policy grants review
+-- authority for this owner's project — the same predicate the asset review authority uses
+-- (read_project_team_review_authority), reused rather than reinvented, MINUS the owner (the owner is the
+-- primary reviewer, not an independent one). No policy row, a disabled policy, a viewer, a revoked/expired
+-- membership or a foreign project all fail closed (allowed=false). Reusing asset-review authority as the
+-- eligibility test does NOT grant the reviewer the owner-only findings list / facts / artifacts / exports;
+-- it only gates the narrow receipt + single-finding review read below. Internal-only.
+CREATE FUNCTION public.citation_review_authorized(p_actor uuid,p_owner uuid,p_project text,
+  OUT allowed boolean, OUT member_role text, OUT policy_mode text, OUT policy_revision bigint, OUT membership_revision bigint)
+LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path='' AS $$
+BEGIN
+  allowed := false; member_role := NULL; policy_mode := NULL; policy_revision := 0; membership_revision := 0;
+  IF p_actor IS NULL OR p_owner IS NULL OR p_actor = p_owner THEN RETURN; END IF;
+  -- Both accounts must be current (not deleted, not banned) — a previously issued authenticated session must
+  -- not reach review data under a suspended owner or actor. These are the SAME optimistic, lock-free checks
+  -- read_project_team_snapshot runs first; the calling RPC repeats the authoritative FOR SHARE version under
+  -- the owner lock via assert_project_team_account.
+  IF NOT EXISTS(SELECT 1 FROM auth.users WHERE id=p_owner AND deleted_at IS NULL AND (banned_until IS NULL OR banned_until<=clock_timestamp()))
+     OR NOT EXISTS(SELECT 1 FROM auth.users WHERE id=p_actor AND deleted_at IS NULL AND (banned_until IS NULL OR banned_until<=clock_timestamp())) THEN
+    RETURN;
+  END IF;
+  SELECT role,revision INTO member_role,membership_revision FROM public.project_team_members
+    WHERE owner_id=p_owner AND project_id=p_project AND actor_id=p_actor
+      AND active AND (expires_at IS NULL OR expires_at>clock_timestamp());
+  SELECT mode,revision INTO policy_mode,policy_revision FROM public.project_team_approval_policy
+    WHERE owner_id=p_owner AND project_id=p_project;
+  allowed := coalesce((policy_mode IN ('separate_reviewers','editors_can_approve') AND member_role='reviewer')
+                   OR (policy_mode='editors_can_approve' AND member_role='editor'), false);
+  IF NOT allowed THEN member_role := NULL; policy_mode := NULL; END IF;
+END; $$;
+REVOKE ALL ON FUNCTION public.citation_review_authorized(uuid,uuid,text) FROM PUBLIC,anon,authenticated,service_role;
+
+-- Whether a finding's cited evidence is sufficient for a COMPLETED independent inspection. EVERY cited
+-- evidence item must be genuinely readable for THIS finding (not merely present):
+--   answer -> the answer row resolves AND its full rawAnswer content is within the 50000-char contract
+--             (so the whole answer is accessible in the reviewer read, never a silently-truncated snippet);
+--   source -> the source row resolves, is `status='active'`, and carries substantive provenance (a non-empty
+--             `label`) AND actual substantive MATERIAL — at least one released `project_knowledge_records`
+--             row bound to THIS source (`source_id`) at the source's CURRENT `revision` with a non-empty
+--             `value`. Label/url/fingerprint are attribution/provenance, NOT support (§4.2): a source with
+--             no bound material, or only stale-revision material, is NOT inspectable;
+--   native -> NEVER inspectable (opaque staged bytes; the parser is P5), so ANY native evidence — including
+--             a mixed native+answer finding — makes the inspection incomplete.
+-- Plus every assessed-accuracy fact pin must still resolve to its exact fact row. When this is false, an
+-- 'approved' receipt is only an opinion (never a completed verification and never promotes an improvement).
+-- Internal-only.
+CREATE FUNCTION public.citation_finding_inspectable(p_user uuid,p_project text,p_record jsonb)
+RETURNS boolean LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path='' AS $$
+DECLARE e jsonb; ref uuid; ra text; st text; srev integer; mcnt integer;
+BEGIN
+  IF jsonb_typeof(p_record->'evidence')<>'array' OR jsonb_array_length(p_record->'evidence')=0 THEN RETURN false; END IF;
+  FOR e IN SELECT jsonb_array_elements(p_record->'evidence') LOOP
+    IF (e->>'id') !~ '^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$' THEN RETURN false; END IF;
+    ref := (e->>'id')::uuid;
+    IF e->>'kind'='answer' THEN
+      SELECT document->'input'->>'rawAnswer' INTO ra FROM public.ai_answer_evidence
+        WHERE user_id=p_user AND project_id=p_project AND id=ref;
+      IF ra IS NULL OR char_length(ra) > 50000 THEN RETURN false; END IF;
+    ELSIF e->>'kind'='source' THEN
+      SELECT payload->>'status',revision INTO st,srev FROM public.project_knowledge_sources
+        WHERE user_id=p_user AND project_id=p_project AND id=ref;
+      -- Count the substantive bound material at the CURRENT source revision. Inspectable requires the source
+      -- active AND at least one bound record AND no overflow beyond the exposed cap of 300 (the project record
+      -- cap, which the reviewer read returns in full) — a source whose last records would be unreachable in
+      -- the read is NOT counted complete. This 300 MUST match the reviewer read's material page/cap.
+      SELECT count(*) INTO mcnt FROM public.project_knowledge_records r
+        WHERE r.user_id=p_user AND r.project_id=p_project AND r.source_id=ref
+          AND (r.payload->>'sourceRevision')=srev::text AND coalesce(r.payload->>'value','')<>'';
+      IF st IS DISTINCT FROM 'active' OR mcnt NOT BETWEEN 1 AND 300 THEN RETURN false; END IF;
+    ELSE
+      RETURN false; -- native (opaque) or unknown kind: never a completed independent inspection
+    END IF;
+  END LOOP;
+  IF jsonb_typeof(p_record->'accuracy')='array' THEN
+    FOR e IN SELECT jsonb_array_elements(p_record->'accuracy') LOOP
+      IF jsonb_typeof(e->'factRowId')='string'
+         AND (e->>'factRowId') ~ '^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$' THEN
+        IF NOT EXISTS(SELECT 1 FROM public.ai_citation_business_facts
+          WHERE user_id=p_user AND project_id=p_project AND id=(e->>'factRowId')::uuid) THEN RETURN false; END IF;
+      END IF;
+    END LOOP;
+  END IF;
+  RETURN true;
+END; $$;
+REVOKE ALL ON FUNCTION public.citation_finding_inspectable(uuid,text,jsonb) FROM PUBLIC,anon,authenticated,service_role;
+
+-- Aggregate INDEPENDENT-review status of one finding ROW, for the canonical reads and the improvement gate.
+-- Computed over ALL that row's receipts (never a display page — a dissent is never truncated away):
+--   'owner_only'             no active independent receipt, and the finding did not ask for a second review.
+--   'second_review_pending'  the finding's decision is 'needs_second_review' but no COMPLETED independent
+--                            approval exists yet — the honest "required but insufficient" state. An
+--                            approve-without-inspectable-evidence opinion does NOT complete it.
+--   'independent_reviewed'   at least one active, INSPECTION-COMPLETE 'approved' receipt and no dissent.
+--   'independent_opinion'    an active 'approved' receipt exists but only as an opinion (the finding could
+--                            not be independently inspected), on a finding that did not require a second
+--                            review — exposed honestly, and it never lifts the improvement gate.
+--   'independent_dissent'    at least one active 'rejected'/'needs_changes' receipt (reported even if an
+--                            approval also exists — a dissent is never silently overridden).
+-- Withdrawn receipts (a reviewer's own content-free retraction) do not count. Only receipts from a reviewer
+-- OTHER than the owner count (defence in depth; the save already forbids the owner). Internal-only.
+CREATE FUNCTION public.citation_finding_review_status(p_user uuid,p_project text,p_row uuid)
+RETURNS text LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path='' AS $$
+DECLARE dec text; approved_complete integer; approved_opinion integer; dissent integer;
+BEGIN
+  SELECT decision INTO dec FROM public.ai_citation_findings WHERE user_id=p_user AND project_id=p_project AND id=p_row;
+  IF dec IS NULL THEN RETURN 'owner_only'; END IF;
+  SELECT count(*) FILTER (WHERE decision='approved' AND inspection_complete),
+         count(*) FILTER (WHERE decision='approved' AND NOT inspection_complete),
+         count(*) FILTER (WHERE decision IN ('rejected','needs_changes'))
+    INTO approved_complete,approved_opinion,dissent FROM public.ai_citation_finding_reviews
+    WHERE user_id=p_user AND project_id=p_project AND finding_row_id=p_row AND reviewer_id<>p_user AND NOT withdrawn;
+  IF dissent>0 THEN RETURN 'independent_dissent'; END IF;
+  IF approved_complete>0 THEN RETURN 'independent_reviewed'; END IF;
+  IF dec='needs_second_review' THEN RETURN 'second_review_pending'; END IF;
+  IF approved_opinion>0 THEN RETURN 'independent_opinion'; END IF;
+  RETURN 'owner_only';
+END; $$;
+REVOKE ALL ON FUNCTION public.citation_finding_review_status(uuid,text,uuid) FROM PUBLIC,anon,authenticated,service_role;
 
 -- Are every source a finding cites still present as a TRUSTED in-scope record? evidence[] of kind:
 --   'source' -> public.project_knowledge_sources (the trusted in-scope source; NOT inline, the record
@@ -210,7 +377,7 @@ CREATE FUNCTION public.citation_improvement_status(p_user uuid,p_project text,p_
 RETURNS text LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path='' AS $$
 DECLARE frec jsonb; i integer; pub public.publication_evidence%ROWTYPE;
   b_asset text; b_vhash text; live_url text; insp jsonb; status text; appr_at timestamptz; obs timestamptz;
-  acc_unresolved boolean := false;
+  acc_unresolved boolean := false; review_incomplete boolean := false;
 BEGIN
   IF p_binding IS NULL OR jsonb_typeof(p_binding)<>'object' THEN RETURN 'unverified'; END IF;
   -- Every PINNED finding version row must still exist with resolvable in-scope sources. A bound finding
@@ -225,6 +392,12 @@ BEGIN
     END IF;
     IF public.citation_finding_accuracy_status(p_user,p_project,frec)='unresolved' THEN
       acc_unresolved := true;
+    END IF;
+    -- A bound finding that ASKED for a second review but lacks an independent approval, or that an
+    -- independent reviewer flagged, forfeits the owner_attested before/after claim below (reported honestly,
+    -- never fabricated into a fully-attested improvement). It still keeps the finding available.
+    IF public.citation_finding_review_status(p_user,p_project,p_bound[i]) IN ('second_review_pending','independent_dissent') THEN
+      review_incomplete := true;
     END IF;
   END LOOP;
   b_asset := p_binding->>'assetId'; b_vhash := p_binding->>'versionHash';
@@ -256,6 +429,7 @@ BEGIN
        AND (insp->>'observedUrl') = live_url
        AND pub.finished_at IS NOT NULL
        AND NOT acc_unresolved
+       AND NOT review_incomplete
        AND public.citation_improvement_evidence(p_user,p_project,p_record)='baseline_recorded' THEN
       BEGIN obs := (insp->>'observedAt')::timestamptz; EXCEPTION WHEN others THEN obs := NULL; END;
       IF obs IS NOT NULL AND isfinite(obs)
@@ -331,7 +505,7 @@ BEGIN
       'client',jsonb_build_object('name',client_name,'market',client_market),
       'actorId',actor_id,'reviewerId',reviewer_id,'supersedesId',supersedes_id,
       'predecessorDeleted',predecessor_deleted,'createdAt',created_at,
-      'sourceAvailable',public.citation_finding_sources_available(p_user,p_project,record),'accuracyStatus',public.citation_finding_accuracy_status(p_user,p_project,record))
+      'sourceAvailable',public.citation_finding_sources_available(p_user,p_project,record),'accuracyStatus',public.citation_finding_accuracy_status(p_user,p_project,record),'reviewStatus',public.citation_finding_review_status(p_user,p_project,id))
       FROM public.ai_citation_findings WHERE user_id=p_user AND project_id=p_project AND id=existing);
   END IF;
   IF (SELECT count(*) FROM public.ai_citation_findings WHERE user_id=p_user AND project_id=p_project)>=200 THEN
@@ -355,7 +529,7 @@ BEGIN
     'client',jsonb_build_object('name',client_name,'market',client_market),
     'actorId',actor_id,'reviewerId',reviewer_id,'supersedesId',supersedes_id,
     'predecessorDeleted',predecessor_deleted,'createdAt',created_at,
-    'sourceAvailable',public.citation_finding_sources_available(p_user,p_project,record),'accuracyStatus',public.citation_finding_accuracy_status(p_user,p_project,record))
+    'sourceAvailable',public.citation_finding_sources_available(p_user,p_project,record),'accuracyStatus',public.citation_finding_accuracy_status(p_user,p_project,record),'reviewStatus',public.citation_finding_review_status(p_user,p_project,id))
     FROM public.ai_citation_findings WHERE user_id=p_user AND project_id=p_project AND id=new_id);
 END; $$;
 
@@ -369,7 +543,7 @@ BEGIN
     'client',jsonb_build_object('name',client_name,'market',client_market),
     'actorId',actor_id,'reviewerId',reviewer_id,'supersedesId',supersedes_id,
     'predecessorDeleted',predecessor_deleted,'createdAt',created_at,
-    'sourceAvailable',public.citation_finding_sources_available(p_user,p_project,record),'accuracyStatus',public.citation_finding_accuracy_status(p_user,p_project,record))
+    'sourceAvailable',public.citation_finding_sources_available(p_user,p_project,record),'accuracyStatus',public.citation_finding_accuracy_status(p_user,p_project,record),'reviewStatus',public.citation_finding_review_status(p_user,p_project,id))
     ORDER BY created_at DESC,id DESC)
     FROM public.ai_citation_findings WHERE user_id=p_user AND project_id=p_project),'[]'::jsonb));
 END; $$;
@@ -387,6 +561,7 @@ BEGIN
     'predecessorDeleted',predecessor_deleted,'createdAt',created_at,'record',record,
     'sourceAvailable',public.citation_finding_sources_available(p_user,p_project,record),
     'accuracyStatus',public.citation_finding_accuracy_status(p_user,p_project,record),
+    'reviewStatus',public.citation_finding_review_status(p_user,p_project,id),
     'accuracy',public.citation_finding_accuracy(p_user,p_project,record)) INTO result
     FROM public.ai_citation_findings WHERE user_id=p_user AND project_id=p_project AND id=p_id;
   IF result IS NULL THEN RAISE EXCEPTION 'citation_finding_unavailable' USING ERRCODE='22023'; END IF;
@@ -992,4 +1167,269 @@ GRANT EXECUTE ON FUNCTION
   public.read_ai_citation_improvements(uuid,text),
   public.read_ai_citation_improvement(uuid,text,uuid),
   public.remove_ai_citation_improvement(uuid,text,uuid)
+  TO service_role;
+
+-- ===========================================================================================
+-- Independent (two-person) finding review. The actor is the authenticated CALLER; the owner, project and
+-- finding row are supplied by the review surface. Authority is decided by the live project team contracts
+-- (citation_review_authorized), NOT by ownership — so a non-owner reviewer can act, and an owner cannot
+-- impersonate a reviewer (the receipt reviewer is always the caller, and the owner is refused as an
+-- independent reviewer). Publication/spend permissions are entirely separate and untouched.
+CREATE FUNCTION public.save_ai_citation_finding_review(p_actor uuid,p_owner uuid,p_project text,p_finding uuid,p_expected_sha text,p_decision text,p_note text)
+RETURNS jsonb LANGUAGE plpgsql SECURITY DEFINER SET search_path='' AS $$
+DECLARE auth record; f_sha text; f_id uuid; f_ver integer; f_reviewer uuid; frec jsonb; insp boolean; new_id uuid;
+  existing public.ai_citation_finding_reviews%ROWTYPE;
+BEGIN
+  IF p_actor IS NULL OR p_owner IS NULL OR p_actor=p_owner OR p_finding IS NULL
+     OR p_decision IS NULL OR p_decision NOT IN ('approved','rejected','needs_changes')
+     OR p_expected_sha IS NULL OR p_expected_sha !~ '^[a-f0-9]{64}$'
+     OR (p_note IS NOT NULL AND octet_length(p_note) NOT BETWEEN 1 AND 6000) THEN
+    RAISE EXCEPTION 'citation_review_invalid' USING ERRCODE='22023';
+  END IF;
+  -- OPTIMISTIC admission BEFORE any lock: current (not deleted/banned) owner AND actor accounts plus an
+  -- active review-permitting membership. A stale/suspended/non-reviewer session is refused here, so it never
+  -- queues on an arbitrary victim owner's workspace lock (same pattern read_project_team_snapshot uses).
+  SELECT * INTO auth FROM public.citation_review_authorized(p_actor,p_owner,p_project);
+  IF NOT auth.allowed THEN RAISE EXCEPTION 'citation_review_forbidden' USING ERRCODE='22023'; END IF;
+  -- Serialize under the owner workspace + account locks (a concurrent version bump or membership change is
+  -- seen consistently).
+  PERFORM public.assert_knowledge_project(p_owner,p_project,true);
+  PERFORM public.citation_lock_account(p_owner);
+  -- AUTHORITATIVE live re-check under the lock: the released FOR SHARE account admission for BOTH owner and
+  -- actor (a suspension landing after the optimistic check is caught), then the membership/policy re-read
+  -- (membership writes serialize on this same owner lock). This reuses the real team admission contract
+  -- rather than trusting the policy/role predicate alone.
+  PERFORM public.assert_project_team_account(p_owner);
+  PERFORM public.assert_project_team_account(p_actor);
+  SELECT * INTO auth FROM public.citation_review_authorized(p_actor,p_owner,p_project);
+  IF NOT auth.allowed THEN RAISE EXCEPTION 'citation_review_forbidden' USING ERRCODE='22023'; END IF;
+  SELECT record_sha256,finding_id,version,reviewer_id,record INTO f_sha,f_id,f_ver,f_reviewer,frec
+    FROM public.ai_citation_findings WHERE user_id=p_owner AND project_id=p_project AND id=p_finding;
+  IF f_sha IS NULL THEN RAISE EXCEPTION 'citation_finding_unavailable' USING ERRCODE='22023'; END IF;
+  -- No self second-review: the finding's primary reviewer (the owner) cannot also be the independent one.
+  IF f_reviewer = p_actor THEN RAISE EXCEPTION 'citation_review_forbidden' USING ERRCODE='22023'; END IF;
+  -- Bind to the EXACT reviewed content: attesting to content that is no longer this row (e.g. a version
+  -- moved on after the reviewer read it) is refused, so an old attestation can never replay onto changed
+  -- evidence. Because a receipt is keyed to the immutable row, a new version simply has no receipt yet.
+  IF f_sha <> p_expected_sha THEN RAISE EXCEPTION 'citation_review_stale' USING ERRCODE='22023'; END IF;
+  -- Whether the finding's cited evidence was fully inspectable at review time. An 'approved' receipt on a
+  -- non-inspectable finding is only an OPINION and never completes independent verification (see reviewStatus).
+  insp := public.citation_finding_inspectable(p_owner,p_project,frec);
+  -- Decide idempotency/conflict BEFORE charging capacity, so an identical retry still returns at the 2000 cap.
+  SELECT * INTO existing FROM public.ai_citation_finding_reviews
+    WHERE user_id=p_owner AND project_id=p_project AND finding_row_id=p_finding AND reviewer_id=p_actor;
+  IF existing.id IS NOT NULL THEN
+    IF existing.withdrawn THEN
+      -- The reviewer previously withdrew; a fresh submission REACTIVATES their receipt with the new decision.
+      UPDATE public.ai_citation_finding_reviews SET decision=p_decision,note=p_note,inspection_complete=insp,
+        record_sha256=f_sha,finding_version=f_ver,reviewer_role=auth.member_role,policy_mode=auth.policy_mode,
+        policy_revision=auth.policy_revision,membership_revision=auth.membership_revision,
+        withdrawn=false,withdrawn_at=NULL,created_at=clock_timestamp()
+        WHERE user_id=p_owner AND project_id=p_project AND id=existing.id;
+      new_id := existing.id;
+    ELSIF existing.record_sha256=p_expected_sha AND existing.decision=p_decision AND existing.note IS NOT DISTINCT FROM p_note THEN
+      -- Identical decision AND note on identical content: idempotent.
+      new_id := existing.id;
+    ELSE
+      -- A changed decision OR a changed note is an explicit conflict — a recorded human decision (and its
+      -- note) is preserved as history, never silently overwritten or a new note reported as saved.
+      RAISE EXCEPTION 'citation_review_conflict' USING ERRCODE='22023';
+    END IF;
+  ELSE
+    IF (SELECT count(*) FROM public.ai_citation_finding_reviews WHERE user_id=p_owner AND project_id=p_project)>=2000 THEN
+      RAISE EXCEPTION 'citation_review_capacity' USING ERRCODE='22023';
+    END IF;
+    INSERT INTO public.ai_citation_finding_reviews
+      (user_id,project_id,finding_row_id,finding_id,finding_version,record_sha256,reviewer_id,reviewer_role,policy_mode,policy_revision,membership_revision,decision,note,inspection_complete)
+      VALUES(p_owner,p_project,p_finding,f_id,f_ver,f_sha,p_actor,auth.member_role,auth.policy_mode,auth.policy_revision,auth.membership_revision,p_decision,p_note,insp)
+      RETURNING id INTO new_id;
+  END IF;
+  RETURN (SELECT jsonb_build_object('id',id,'findingRowId',finding_row_id,'findingId',finding_id,
+    'findingVersion',finding_version,'recordSha256',record_sha256,'reviewerId',reviewer_id,
+    'reviewerRole',reviewer_role,'decision',decision,'note',note,'inspectionComplete',inspection_complete,
+    'withdrawn',withdrawn,'createdAt',created_at)
+    FROM public.ai_citation_finding_reviews WHERE user_id=p_owner AND project_id=p_project AND id=new_id);
+END; $$;
+
+-- Withdrawal is a soft, content-free tombstone (spec-driven, gap 4): ONLY the receipt's own reviewer may
+-- withdraw — the owner cannot delete another reviewer's decision and silently sanitise an unresolved dissent
+-- (an owner-removed dissent + a standing approval would otherwise read as independent_reviewed). The note is
+-- erased; the decision/reviewer/timestamps stay for audit; a withdrawn receipt no longer counts toward
+-- reviewStatus. The acting ACCOUNT must be current (assert_project_team_account) — a suspended session cannot
+-- mutate review state — but current MEMBERSHIP is NOT required: a reviewer whose membership was later revoked
+-- may still retract their own historical attestation (current permission vs historical review are distinct).
+CREATE FUNCTION public.remove_ai_citation_finding_review(p_actor uuid,p_owner uuid,p_project text,p_id uuid)
+RETURNS boolean LANGUAGE plpgsql SECURITY DEFINER SET search_path='' AS $$
+DECLARE updated uuid;
+BEGIN
+  IF p_actor IS NULL OR p_owner IS NULL OR p_id IS NULL THEN RAISE EXCEPTION 'citation_review_invalid' USING ERRCODE='22023'; END IF;
+  PERFORM public.assert_knowledge_project(p_owner,p_project,true);
+  PERFORM public.citation_lock_account(p_owner);
+  PERFORM public.assert_project_team_account(p_owner);
+  PERFORM public.assert_project_team_account(p_actor);
+  UPDATE public.ai_citation_finding_reviews
+    SET withdrawn=true, withdrawn_at=coalesce(withdrawn_at,clock_timestamp()), note=NULL
+    WHERE user_id=p_owner AND project_id=p_project AND id=p_id AND reviewer_id=p_actor
+    RETURNING id INTO updated;
+  IF updated IS NULL THEN RAISE EXCEPTION 'citation_review_forbidden' USING ERRCODE='22023'; END IF;
+  RETURN true;
+END; $$;
+
+-- The receipts for a finding row, callable by the owner OR a current authorized reviewer. The `reviews`
+-- array is a bounded page (<=100) with an explicit `reviewTotal`/`reviewsTruncated`, but `reviewStatus` and
+-- the active dissent/approval aggregates are computed over ALL receipts — so a dissent is never erased by
+-- pagination. Withdrawn receipts are shown (note erased, withdrawn:true) for audit but do not count.
+CREATE FUNCTION public.read_ai_citation_finding_reviews(p_actor uuid,p_owner uuid,p_project text,p_finding uuid)
+RETURNS jsonb LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path='' AS $$
+DECLARE auth record; reviews jsonb; total integer; active_dissent integer; active_approved integer;
+BEGIN
+  IF p_actor IS NULL OR p_owner IS NULL OR p_finding IS NULL THEN RAISE EXCEPTION 'citation_review_invalid' USING ERRCODE='22023'; END IF;
+  PERFORM public.assert_knowledge_project(p_owner,p_project);
+  -- Current account admission for BOTH the owner (whose review data this is) and the acting session: a
+  -- suspended owner or actor cannot read review data, even with an otherwise-valid authenticated session.
+  PERFORM public.assert_project_team_account(p_owner);
+  IF p_actor<>p_owner THEN
+    PERFORM public.assert_project_team_account(p_actor);
+    SELECT * INTO auth FROM public.citation_review_authorized(p_actor,p_owner,p_project);
+    IF NOT auth.allowed THEN RAISE EXCEPTION 'citation_review_forbidden' USING ERRCODE='22023'; END IF;
+  END IF;
+  IF NOT EXISTS(SELECT 1 FROM public.ai_citation_findings WHERE user_id=p_owner AND project_id=p_project AND id=p_finding) THEN
+    RAISE EXCEPTION 'citation_finding_unavailable' USING ERRCODE='22023';
+  END IF;
+  SELECT count(*),
+    count(*) FILTER (WHERE NOT withdrawn AND decision IN ('rejected','needs_changes') AND reviewer_id<>p_owner),
+    count(*) FILTER (WHERE NOT withdrawn AND decision='approved' AND reviewer_id<>p_owner)
+    INTO total,active_dissent,active_approved
+    FROM public.ai_citation_finding_reviews WHERE user_id=p_owner AND project_id=p_project AND finding_row_id=p_finding;
+  SELECT coalesce(jsonb_agg(jsonb_build_object('id',id,'reviewerId',reviewer_id,'mine',reviewer_id=p_actor,
+    'owner',reviewer_id=p_owner,'reviewerRole',reviewer_role,'decision',decision,'note',note,
+    'inspectionComplete',inspection_complete,'withdrawn',withdrawn,'withdrawnAt',withdrawn_at,
+    'findingVersion',finding_version,'recordSha256',record_sha256,'createdAt',created_at)
+    ORDER BY created_at DESC,id DESC),'[]'::jsonb)
+    INTO reviews FROM (SELECT * FROM public.ai_citation_finding_reviews
+      WHERE user_id=p_owner AND project_id=p_project AND finding_row_id=p_finding ORDER BY created_at DESC,id DESC LIMIT 100) recent;
+  RETURN jsonb_build_object('ownerId',p_owner,'projectId',p_project,'findingRowId',p_finding,'reviews',reviews,
+    'reviewTotal',total,'reviewsTruncated',total>100,'activeDissent',active_dissent,'activeApproved',active_approved,
+    'reviewStatus',public.citation_finding_review_status(p_owner,p_project,p_finding));
+END; $$;
+
+-- The NARROW reviewer read: a current authorized independent reviewer (never the owner here — the owner
+-- uses read_ai_citation_finding) sees ONLY the single finding they were asked to review AND the extant
+-- evidence it cites, sufficient to actually perform the review (spec §4.5): the captured answer text +
+-- capture time, the cited source's presence/status, and the dated fact behind each assessed-accuracy claim.
+-- Each item reports authentic availability (a deleted reference reads available:false), a native staged
+-- artifact stays explicitly non-inspectable, and `inspectionComplete` says whether a COMPLETED independent
+-- review is even possible. Every OTHER finding, the full artifact bytes/export and business-fact management
+-- stay owner-only; this is the least access the second-review activity needs, not a corpus/export grant.
+CREATE FUNCTION public.read_ai_citation_finding_for_review(p_actor uuid,p_owner uuid,p_project text,p_id uuid)
+RETURNS jsonb LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path='' AS $$
+DECLARE auth record; frow public.ai_citation_findings%ROWTYPE; frec jsonb; e jsonb; ref uuid;
+  ev_json jsonb := '[]'::jsonb; facts_json jsonb := '[]'::jsonb; reviews jsonb; total integer;
+  ans jsonb; src jsonb; srev integer; mat jsonb; mcount integer; nat boolean;
+  fk text; fv text; ffrom timestamptz; funtil timestamptz; ffound boolean;
+BEGIN
+  IF p_actor IS NULL OR p_owner IS NULL OR p_id IS NULL THEN RAISE EXCEPTION 'citation_review_invalid' USING ERRCODE='22023'; END IF;
+  PERFORM public.assert_knowledge_project(p_owner,p_project);
+  -- Current account admission for both owner and actor, then the live review authority.
+  PERFORM public.assert_project_team_account(p_owner);
+  PERFORM public.assert_project_team_account(p_actor);
+  SELECT * INTO auth FROM public.citation_review_authorized(p_actor,p_owner,p_project);
+  IF NOT auth.allowed THEN RAISE EXCEPTION 'citation_review_forbidden' USING ERRCODE='22023'; END IF;
+  SELECT * INTO frow FROM public.ai_citation_findings WHERE user_id=p_owner AND project_id=p_project AND id=p_id;
+  IF frow.id IS NULL THEN RAISE EXCEPTION 'citation_finding_unavailable' USING ERRCODE='22023'; END IF;
+  frec := frow.record;
+  -- Resolve each cited evidence item to its extant content (or an explicit missing state).
+  IF jsonb_typeof(frec->'evidence')='array' THEN
+    FOR e IN SELECT jsonb_array_elements(frec->'evidence') LOOP
+      IF (e->>'id') ~ '^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$' THEN ref := (e->>'id')::uuid; ELSE ref := NULL; END IF;
+      IF e->>'kind'='answer' THEN
+        SELECT document INTO ans FROM public.ai_answer_evidence WHERE user_id=p_owner AND project_id=p_project AND id=ref;
+        -- The FULL answer content (rawAnswer is contract-capped at 50000 chars, exposed in full), the actual
+        -- supplied citation URLs, and capture provenance — not a 4000-char snippet. contentTruncated makes
+        -- any (contract-violating) over-cap answer explicit rather than silently "complete".
+        ev_json := ev_json || jsonb_build_object('kind','answer','id',e->>'id','available',ans IS NOT NULL,
+          'inspectable',ans IS NOT NULL AND char_length(coalesce(ans->'input'->>'rawAnswer',''))<=50000,
+          'capturedAt',ans->'input'->>'capturedAt','surface',ans->'input'->>'surface','mode',ans->'input'->>'mode',
+          'method',ans->'input'->>'method','status',ans->'input'->>'status',
+          'promptId',ans->'input'->>'promptId','promptRevision',(ans->'input'->>'promptRevision')::integer,
+          'citationsComplete',(ans->'input'->>'citationsComplete')::boolean,
+          'citations',coalesce(ans->'input'->'citations','[]'::jsonb),
+          'content',left(ans->'input'->>'rawAnswer',50000),
+          'contentLength',coalesce(char_length(ans->'input'->>'rawAnswer'),0),
+          'contentTruncated',coalesce(char_length(ans->'input'->>'rawAnswer'),0)>50000);
+      ELSIF e->>'kind'='source' THEN
+        SELECT payload,revision INTO src,srev FROM public.project_knowledge_sources WHERE user_id=p_owner AND project_id=p_project AND id=ref;
+        -- Substantive source MATERIAL: the released knowledge records bound to THIS source at its CURRENT
+        -- revision (their `value`/`excerpt`/`locator`), scoped to the cited source only — never the whole
+        -- knowledge corpus and never the raw document bytes (service-only). Plus the source identity/
+        -- provenance (label, url, fingerprint, capture time). Inspectable requires ACTIVE + real material,
+        -- since label/url/fingerprint are attribution, not support (§4.2).
+        SELECT count(*) INTO mcount FROM public.project_knowledge_records r
+          WHERE r.user_id=p_owner AND r.project_id=p_project AND r.source_id=ref
+            AND (r.payload->>'sourceRevision')=srev::text AND coalesce(r.payload->>'value','')<>'';
+        -- Return the material IN FULL up to 300 (the project record cap, so an ordinary source is entirely
+        -- inspectable), deterministically ordered by record id, with each record's identity/revision for
+        -- provenance. The inner subquery MUST expose `id` for the ORDER BY. This 300 matches the gate cap.
+        SELECT coalesce(jsonb_agg(jsonb_build_object('recordId',id,'value',payload->>'value','excerpt',payload->>'excerpt',
+          'locator',payload->>'locator','category',payload->>'category','status',payload->>'status',
+          'recordRevision',revision) ORDER BY id),'[]'::jsonb) INTO mat
+          FROM (SELECT id,payload,revision FROM public.project_knowledge_records
+            WHERE user_id=p_owner AND project_id=p_project AND source_id=ref
+              AND (payload->>'sourceRevision')=srev::text AND coalesce(payload->>'value','')<>'' ORDER BY id LIMIT 300) m;
+        ev_json := ev_json || jsonb_build_object('kind','source','id',e->>'id','available',src IS NOT NULL,
+          'inspectable',src IS NOT NULL AND (src->>'status')='active' AND coalesce(mcount,0) BETWEEN 1 AND 300,
+          'sourceKind',src->>'kind','status',src->>'status','label',src->>'label',
+          'url',src->>'url','fingerprint',src->>'fingerprint','observedAt',src->>'observedAt','sourceRevision',srev,
+          'material',mat,'materialCount',coalesce(mcount,0),'materialTruncated',coalesce(mcount,0)>300);
+      ELSIF e->>'kind'='native' THEN
+        SELECT EXISTS(SELECT 1 FROM public.ai_native_report_artifacts WHERE user_id=p_owner AND project_id=p_project AND id=ref) INTO nat;
+        -- A native staged artifact is opaque unparsed bytes: present-or-not, but NEVER independently inspectable.
+        ev_json := ev_json || jsonb_build_object('kind','native','id',e->>'id','available',nat,'inspectable',false);
+      END IF;
+    END LOOP;
+  END IF;
+  -- The dated fact behind each assessed-accuracy claim (only entries that pin a fact row).
+  IF jsonb_typeof(frec->'accuracy')='array' THEN
+    FOR e IN SELECT jsonb_array_elements(frec->'accuracy') LOOP
+      IF jsonb_typeof(e->'factRowId')='string' AND (e->>'factRowId') ~ '^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$' THEN
+        SELECT kind,value,valid_from,valid_until INTO fk,fv,ffrom,funtil FROM public.ai_citation_business_facts
+          WHERE user_id=p_owner AND project_id=p_project AND id=(e->>'factRowId')::uuid;
+        ffound := FOUND;
+        facts_json := facts_json || jsonb_build_object('factRowId',e->>'factRowId','available',ffound,
+          'kind',fk,'value',fv,
+          'validFrom',CASE WHEN ffound THEN to_char(ffrom AT TIME ZONE 'UTC','YYYY-MM-DD"T"HH24:MI:SS.US"Z"') ELSE NULL END,
+          'validUntil',CASE WHEN ffound AND funtil IS NOT NULL THEN to_char(funtil AT TIME ZONE 'UTC','YYYY-MM-DD"T"HH24:MI:SS.US"Z"') ELSE NULL END);
+      END IF;
+    END LOOP;
+  END IF;
+  SELECT count(*) INTO total FROM public.ai_citation_finding_reviews WHERE user_id=p_owner AND project_id=p_project AND finding_row_id=p_id;
+  SELECT coalesce(jsonb_agg(jsonb_build_object('id',id,'reviewerId',reviewer_id,'mine',reviewer_id=p_actor,
+    'owner',reviewer_id=p_owner,'reviewerRole',reviewer_role,'decision',decision,'note',note,
+    'inspectionComplete',inspection_complete,'withdrawn',withdrawn,'withdrawnAt',withdrawn_at,
+    'findingVersion',finding_version,'recordSha256',record_sha256,'createdAt',created_at)
+    ORDER BY created_at DESC,id DESC),'[]'::jsonb)
+    INTO reviews FROM (SELECT * FROM public.ai_citation_finding_reviews
+      WHERE user_id=p_owner AND project_id=p_project AND finding_row_id=p_id ORDER BY created_at DESC,id DESC LIMIT 100) recent;
+  RETURN jsonb_build_object('id',frow.id,'findingId',frow.finding_id,'version',frow.version,'family',frow.family,
+    'decision',frow.decision,'panelId',frow.panel_id,'panelVersion',frow.panel_version,
+    'client',jsonb_build_object('name',frow.client_name,'market',frow.client_market),
+    'recordSha256',frow.record_sha256,'record',frec,'createdAt',frow.created_at,
+    'sourceAvailable',public.citation_finding_sources_available(p_owner,p_project,frec),
+    'accuracyStatus',public.citation_finding_accuracy_status(p_owner,p_project,frec),
+    'reviewStatus',public.citation_finding_review_status(p_owner,p_project,frow.id),
+    'inspectionComplete',public.citation_finding_inspectable(p_owner,p_project,frec),
+    'evidence',ev_json,'facts',facts_json,'reviews',reviews,'reviewTotal',total,'reviewsTruncated',total>100);
+END; $$;
+
+REVOKE ALL ON FUNCTION
+  public.save_ai_citation_finding_review(uuid,uuid,text,uuid,text,text,text),
+  public.remove_ai_citation_finding_review(uuid,uuid,text,uuid),
+  public.read_ai_citation_finding_reviews(uuid,uuid,text,uuid),
+  public.read_ai_citation_finding_for_review(uuid,uuid,text,uuid)
+  FROM PUBLIC,anon,authenticated;
+GRANT EXECUTE ON FUNCTION
+  public.save_ai_citation_finding_review(uuid,uuid,text,uuid,text,text,text),
+  public.remove_ai_citation_finding_review(uuid,uuid,text,uuid),
+  public.read_ai_citation_finding_reviews(uuid,uuid,text,uuid),
+  public.read_ai_citation_finding_for_review(uuid,uuid,text,uuid)
   TO service_role;
