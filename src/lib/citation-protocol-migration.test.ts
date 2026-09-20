@@ -226,6 +226,23 @@ async function backdatePanelApproval(
   );
   return approvedAt;
 }
+/** Fixture: fill a project with `count` distinct single-version panels at the given head status via a
+ * direct write, to reach a near-capacity state cheaply. A locked head reserves no lock slot; a draft
+ * head reserves one. These rows are never read back through the schema here — only their count and head
+ * status feed the capacity reservation. `count` is an in-test literal, never external input. */
+async function seedPanelHeads(count: number, status: "locked" | "draft", ownerId = user) {
+  await db.query(
+    `INSERT INTO citation_panels(user_id,project_id,panel_id,version,document) SELECT $1,'p',gen_random_uuid(),1,$2 FROM generate_series(1,${count}) g`,
+    [ownerId, { status }],
+  );
+}
+const panelRowCount = async (ownerId = user) =>
+  (
+    await db.query<{ n: number }>(
+      "SELECT count(*)::int n FROM citation_panels WHERE user_id=$1 AND project_id='p'",
+      [ownerId],
+    )
+  ).rows[0].n;
 const rpc: KnowledgeRpc = async (name, args) => {
   try {
     const keys = Object.keys(args);
@@ -1853,6 +1870,117 @@ describe("CI-2 capacity, isolation, deletion and access control", () => {
         rpc,
       ),
     ).rejects.toThrow(); // 20-run ceiling
+  });
+  it("reserves a lock slot for a pending draft head: admits the final draft, then locks it", async () => {
+    // 198 locked panels leave two free slots. A new discovery draft is admitted because it fits its own
+    // row PLUS its reserved eventual-lock slot (198 rows + 0 pending + 1 new head = 199 < 200); the head
+    // then locks by consuming that reservation. Before the fix the draft filled the project to 200 and
+    // the lock — which appends the locked version row — was rejected, stranding the owner.
+    await seedPanelHeads(198, "locked");
+    await saveCitationPanelDraft(scope, discoveryPanelId, 0, draftDiscovery(), rpc); // rows 199, pending 1
+    const locked = await lockCitationPanel(scope, discoveryPanelId, 1, rpc); // consumes the reservation
+    expect(locked).toMatchObject({ version: 2, status: "locked" });
+    expect(await panelRowCount()).toBe(200); // exactly at the cap, no overflow, nothing deleted
+  });
+  it("does not let a new panel consume the lock slot reserved for another pending head", async () => {
+    // 198 locked + one pending discovery draft = 199 rows fully reserved to 200 (row + eventual lock). A
+    // brand-new panel needs two more slots (its draft row + a lock reservation), so it is refused — its
+    // admission must not steal the slot reserved for the pending discovery head, which stays lockable.
+    await seedPanelHeads(198, "locked");
+    await saveCitationPanelDraft(scope, discoveryPanelId, 0, draftDiscovery(), rpc); // rows 199, pending 1
+    // Specific DB guard via direct SQL; the public wrapper refuses the same call (generic error).
+    await expect(
+      db.query("SELECT save_citation_panel_draft($1,'p',$2,$3,$4)", [
+        user,
+        brandPanelId,
+        0,
+        draftBrand(),
+      ]),
+    ).rejects.toThrow(/citation_panel_capacity/);
+    await expect(
+      saveCitationPanelDraft(scope, brandPanelId, 0, draftBrand(), rpc),
+    ).rejects.toThrow();
+    // The protected pending head still locks (its reservation was preserved).
+    expect(await lockCitationPanel(scope, discoveryPanelId, 1, rpc)).toMatchObject({
+      status: "locked",
+    });
+    expect(await panelRowCount()).toBe(200);
+  });
+  it("keeps multiple pending draft heads lockable up to the reserved capacity", async () => {
+    // 196 locked leave four slots. Two pending draft heads (discovery + brand) reserve two rows plus two
+    // eventual locks = exactly four. Both must remain lockable; opening the second head must not have
+    // consumed the first head's reserved lock slot.
+    await seedPanelHeads(196, "locked");
+    await saveCitationPanelDraft(scope, discoveryPanelId, 0, draftDiscovery(), rpc); // rows 197, pending 1
+    await saveCitationPanelDraft(scope, brandPanelId, 0, draftBrand(), rpc); // rows 198, pending 2
+    expect(await lockCitationPanel(scope, discoveryPanelId, 1, rpc)).toMatchObject({
+      status: "locked",
+    });
+    expect(await lockCitationPanel(scope, brandPanelId, 1, rpc)).toMatchObject({
+      status: "locked",
+    });
+    expect(await panelRowCount()).toBe(200); // 196 locked + 2 drafts + 2 locks, exactly at the cap
+  });
+  it("a draft revision cannot consume another pending head's reserved lock slot; both still lock", async () => {
+    // 196 locked + two pending heads (discovery + brand) fully reserve to 200 (198 rows + 2 reserved
+    // locks). Revising the discovery draft keeps it a SINGLE head (no new reservation) but needs a free
+    // physical row — and every remaining slot is reserved for the two eventual locks, so the revision is
+    // refused rather than stealing the brand head's reservation. Both heads then lock intact.
+    await seedPanelHeads(196, "locked");
+    await saveCitationPanelDraft(scope, discoveryPanelId, 0, draftDiscovery(), rpc); // rows 197, pending 1
+    await saveCitationPanelDraft(scope, brandPanelId, 0, draftBrand(), rpc); // rows 198, pending 2
+    // Specific guard via direct SQL; public wrapper refuses generically. Revision = expected version 1.
+    await expect(
+      db.query("SELECT save_citation_panel_draft($1,'p',$2,$3,$4)", [
+        user,
+        discoveryPanelId,
+        1,
+        draftDiscovery({ version: 2 }),
+      ]),
+    ).rejects.toThrow(/citation_panel_capacity/);
+    await expect(
+      saveCitationPanelDraft(scope, discoveryPanelId, 1, draftDiscovery({ version: 2 }), rpc),
+    ).rejects.toThrow();
+    // The brand head's reservation was preserved, and the discovery head still locks too.
+    expect(await lockCitationPanel(scope, brandPanelId, 1, rpc)).toMatchObject({
+      status: "locked",
+    });
+    expect(await lockCitationPanel(scope, discoveryPanelId, 1, rpc)).toMatchObject({
+      status: "locked",
+    });
+    expect(await panelRowCount()).toBe(200);
+  });
+  it("admits a revision when a free slot remains, without opening a second reservation", async () => {
+    // 196 locked + one pending discovery head = 197 rows, one reserved lock (free = 200 - 197 - 1 = 2).
+    // A revision spends one physical row but stays a single head (no new reservation), so it is admitted
+    // while a free slot exists; the head still locks afterwards.
+    await seedPanelHeads(196, "locked");
+    await saveCitationPanelDraft(scope, discoveryPanelId, 0, draftDiscovery(), rpc); // rows 197, pending 1
+    await saveCitationPanelDraft(scope, discoveryPanelId, 1, draftDiscovery({ version: 2 }), rpc); // rows 198, pending 1
+    expect(await panelRowCount()).toBe(198);
+    // Locking the revised head (now at version 2) still fits its preserved reservation.
+    expect(await lockCitationPanel(scope, discoveryPanelId, 2, rpc)).toMatchObject({
+      version: 3,
+      status: "locked",
+    });
+    expect(await panelRowCount()).toBe(199);
+  });
+  it("scopes the reserved capacity per project: a full project does not block a fresh one", async () => {
+    // Fill user's project 'p' to the cap with locked panels; a DIFFERENT project 'q' for the same owner
+    // is unaffected — the row count and pending-head reservation are project-scoped, unchanged from
+    // before this fix.
+    await seedPanelHeads(200, "locked");
+    await expect(
+      saveCitationPanelDraft(scope, discoveryPanelId, 0, draftDiscovery(), rpc),
+    ).rejects.toThrow(); // 'p' is full
+    const qScope = { ownerId: user, projectId: "q" };
+    for (let i = 0; i < 10; i++)
+      await saveEvidencePrompt(qScope, uuid(101 + i), 0, promptData(discoveryQuestionText(i)), rpc);
+    await saveCitationPanelDraft(qScope, discoveryPanelId, 0, draftDiscovery(), rpc);
+    expect(await lockCitationPanel(qScope, discoveryPanelId, 1, rpc)).toMatchObject({
+      status: "locked",
+    });
+    expect(await panelRowCount()).toBe(200); // 'p' unchanged
   });
   it("isolates owners and projects and refuses a missing project", async () => {
     await saveCitationPanelDraft(scope, discoveryPanelId, 0, draftDiscovery(), rpc);

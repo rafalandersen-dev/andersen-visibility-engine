@@ -450,6 +450,38 @@ Against the renamed candidate `20260920190000_citation_protocol.sql` (old `…17
   connections and do NOT empirically prove cross-connection/multi-transaction isolation. No
   cross-connection atomicity is tested or claimed.
 
+## Review round 17 (reserve a lock slot per pending draft head — P2 4057367487)
+
+- Both `save_citation_panel_draft` and `lock_citation_panel` APPEND an immutable row (a draft version,
+  then a separate locked version) under one 200-row per-project cap. The draft guard counted only current
+  rows (`count(*) >= 200`), so an owner could fill to 200 with drafts and then have every lock — which
+  must append the locked row — rejected by the same `>= 200`, with no deletion/retirement path (immutable
+  history, by design): stranded.
+- Fix (candidate SQL only): `save_citation_panel_draft` admits a draft only if, after inserting it, the
+  row count PLUS one reserved lock slot per pending draft head still fits within 200 — `count(*)` +
+  `pending` (latest version per panel whose status is 'draft', via `DISTINCT ON (panel_id) … ORDER BY
+  panel_id,version DESC`) + this insert's own new head (1 unless the panel's current head is already a
+  draft; a revision keeps one head → delta 0), rejecting at `>= 200`. So one panel's creation/revision
+  cannot consume the lock slot reserved for another pending head, and repeated revisions of a head spend
+  rows but never a second reservation. `lock_citation_panel` CONSUMES a head's own reservation (row +1,
+  pending −1) so the count plus reservations never grows; its `>= 200` physical guard stays as a
+  fail-closed backstop, provably never triggered for a valid pending head (reservation keeps the count
+  ≤ 199 while a pending head exists) and deliberately not re-reserving (which would wrongly reject the
+  final pending head).
+- Untouched: no deletion/retirement of history, no cap change (200 read/write, `MAX_PANEL_VERSIONS` and
+  the read schema stay 200), no in-place mutation, no new retirement feature; write auth, grid guard,
+  binding, workspace_meta serialization and the brand-run/answer caps unchanged. The two function
+  signatures are unchanged → rollback inventory unaffected (only two bodies changed).
+- Tests (real PGlite via the draft/lock services near the 200 boundary, using a direct-write
+  locked-panel fixture for the near-cap fill; explicit approved bindings for the real locks): final
+  admissible draft accepted then LOCKS (stranding gone); a new panel refused when it would consume a
+  pending head's reserved lock slot (specific `citation_panel_capacity` via direct SQL, generic via the
+  wrapper) while that head still locks; two pending heads both lockable up to the reserved capacity; a
+  revision refused when every remaining slot is reserved for other heads' locks (those heads still lock),
+  and a revision admitted when a free slot remains without opening a second reservation; reservation is
+  project-scoped (a full project does not block a fresh one). Scope isolation and the missing-workspace
+  serialization guard unchanged. No multi-connection empirical proof claimed.
+
 ## Checks (status: UNRUN — prepared for Codex)
 
 Prior stages: 143 (tsc failing) → 146 → 148/147-PASS-1-FAIL → 150 → 170/6081 → (round 5) read-ordering
@@ -606,3 +638,14 @@ The prior stage (round-15 Codex run: 135 focused / 6299 full PASS) does NOT carr
 ### Round 16 independent verification, 2026-09-20
 
 Codex inspected the single-statement SQL payload, unchanged released evidence-row construction and single-RPC resolver, including rejection of missing answers. Focused:135 tests/4 files PASS (2.39s); full:6299 tests/385 files PASS (59.66s); TypeScript, scoped ESLint, production build and git diff --check PASS. Formatter-only Codex integration exception on four P2 TypeScript files. Logs:/tmp/milo-p2-requiredanswers-{focused,types,lint,full,build}-20260920.log. These checks are local evidence; no multi-connection experiment, production migration or deployment is claimed. Candidate SQL and expected identity artifacts must be regenerated for the final approved commit.
+
+## Pending-draft-head lock-slot reservation — status UNRUN (P2 4057367487)
+
+Round 17 fixes the panel capacity so an owner is never stranded: because `save_citation_panel_draft` and `lock_citation_panel` each append an immutable row under one 200-row per-project cap, the draft guard now reserves one eventual lock slot per pending draft head — it admits a draft only if `count(*)` + pending-head reservations + this insert's own new head (delta 0 for a revision of an existing draft head, else 1) stays `< 200`. `lock_citation_panel` consumes a head's own reservation (row +1, pending −1) and preserves the others; its `>= 200` physical guard is a fail-closed backstop that is never triggered for a valid pending head and never re-reserves. No deletion/retirement, no cap change (200 read/write), no in-place mutation, no new retirement feature; write auth / grid / binding / workspace_meta serialization / brand-run + answer caps and the two function SIGNATURES are unchanged, so the rollback inventory is unaffected — only two candidate SQL function bodies plus the P2 migration tests and these docs changed. Edited only `supabase/migrations/20260920190000_citation_protocol.sql`, `src/lib/citation-protocol-migration.test.ts` and these docs.
+
+The prior stage (Codex round-16 verification on a306b5c5: 135 focused / 6299 full PASS, 59.66s, types/lint/build PASS) does NOT carry over; every round-17 check is UNRUN in this worktree and must be re-executed by Codex under the recorded exception — this assistant did not run tests and claims no PASS. New checks (real PGlite via the draft/lock services near the 200 boundary, direct-write locked-panel fixture for the fill): final admissible draft accepted then locked; a new panel refused when it would consume a pending head's reserved lock slot (specific `citation_panel_capacity` via direct SQL, generic via the wrapper) while that head still locks; two pending heads both lockable; a revision refused when all remaining slots are reserved for other heads' locks (those heads still lock) and a revision admitted when a free slot remains without a second reservation; project-scoped reservation. No multi-connection empirical proof. Candidate `20260920190000` remains UNAPPLIED; prepared deploy SQL / expected-identity artifacts remain STALE (never executed); USD50 + manual-free budget unchanged; nothing is deployed.
+
+
+### Round 17 independent verification, 2026-09-20
+
+Codex reviewed the reservation invariant: after draft insertion, physical rows plus one future lock row per pending latest draft head stay at or below 200; locking consumes its reservation. Focused141 tests/4 files PASS (2.35s), full6305 tests/385 files PASS (79.67s), TypeScript/scoped ESLint/production build/git diff --check PASS. Formatter-only Codex integration exception on the migration test. Logs:/tmp/milo-p2-capacity-{focused,types,lint,full,build}-20260920.log. Candidate remains unapplied; no production or multi-connection acceptance is claimed.

@@ -567,6 +567,45 @@ path.
   do NOT empirically prove cross-connection/multi-transaction isolation. No cross-connection atomicity
   is tested or claimed.
 
+### Review round 17 — reserve a lock slot per pending draft head so an owner is never stranded (P2 4057367487)
+
+`save_citation_panel_draft` and `lock_citation_panel` both APPEND an immutable row to `citation_panels`
+(a draft version, then a separate locked version), under one per-project 200-row cap. The draft guard
+counted only current rows (`count(*) >= 200`), so an owner could fill the project to 200 with drafts and
+then have every `lock_citation_panel` — which must append the locked version row — rejected by the same
+`>= 200` guard. With no panel deletion or retirement RPC (immutable history, by design), the owner was
+stranded.
+
+- **Fix (candidate SQL only).** `save_citation_panel_draft` now admits a draft only if, AFTER inserting
+  it, the row count PLUS one RESERVED lock slot for every pending draft head still fits within 200. A
+  "pending head" is a panel whose latest version is a draft (it will append exactly one row when locked).
+  The guard adds: current `count(*)` + `pending` (count of pending heads, via `DISTINCT ON (panel_id) …
+  ORDER BY panel_id, version DESC` filtered to `status='draft'`) + this insert's own new head (1 unless
+  the panel's current head is ALREADY a draft — a revision keeps the same single head, delta 0), and
+  rejects at `>= 200`. This makes creating/revising one panel unable to consume the lock slot reserved
+  for another pending head; repeated revisions of one head spend real rows but never a SECOND reservation.
+  `lock_citation_panel` CONSUMES a head's own reservation (row +1, pending −1), so the count plus
+  outstanding reservations never grows; its physical `>= 200` guard stays as a fail-closed backstop and
+  is provably never triggered for a valid pending head (the draft-time reservation keeps the count ≤ 199
+  whenever a pending head exists). It deliberately does NOT re-reserve, which would wrongly reject the
+  final pending head.
+- **Untouched.** No deletion/retirement of historical versions, no change to the 200 read/write cap
+  (`MAX_PANEL_VERSIONS` and the read schema stay 200), no in-place mutation, no new retirement feature.
+  The three draft-origin cases (new panel, revision of a pending head, draft on top of a locked head) are
+  handled by the single delta rule above. Write auth, the grid guard, question binding, the workspace_meta
+  row-lock serialization and the brand-run/answer caps are unchanged. The `save_citation_panel_draft` and
+  `lock_citation_panel` signatures are unchanged, so the rollback inventory (signatures/order) is
+  unaffected — only two function bodies changed.
+- Tests (real PGlite via the draft/lock services, near the 200 boundary using a direct-write locked-panel
+  fixture): a final admissible draft is accepted and then LOCKS (the pre-fix stranding is gone); a
+  brand-new panel is refused when it would consume a pending head's reserved lock slot (specific
+  `citation_panel_capacity` via direct SQL, generic via the wrapper) while that head still locks; two
+  pending heads both remain lockable up to the reserved capacity; a revision is refused when every
+  remaining slot is reserved for other heads' locks yet those heads still lock, and a revision is admitted
+  when a free slot remains without opening a second reservation; and the reservation is project-scoped (a
+  full project does not block a fresh one). Scope isolation and the missing-workspace serialization guard
+  are unchanged.
+
 ## Files
 
 | File | Change |
@@ -673,10 +712,17 @@ window where a capture committed between the two reads exposed consumed budget w
 tombstone identity / correction-chain / duplicate demotion / exact SQL consumption / truncation
 reporting / strict write auth, and the `read_citation_protocol(uuid,text)` signature (so the rollback
 inventory) are all unchanged — candidate SQL + `citation-protocol.server.ts`/`.ts` + P2 tests + docs
-only.
+only. Round 17 (this turn) fixes P2 4057367487: `save_citation_panel_draft` now reserves one eventual
+lock slot per pending draft head within the 200-row cap (row count + pending-head reservations + this
+insert's own new head < 200), so an owner can never fill the project to 200 with drafts and then be
+unable to lock; `lock_citation_panel` consumes a head's own reservation and preserves the others (its
+physical `>= 200` guard is a never-triggered backstop for valid pending heads). No deletion/retirement,
+no cap change (still 200 read/write), no in-place mutation; the `save_citation_panel_draft` /
+`lock_citation_panel` signatures are unchanged, so the rollback inventory is unaffected — only two
+candidate SQL function bodies plus the P2 migration tests and these docs changed.
 **All prior counts — the round-15 135-focused / 6299-full PASS run included — are a prior stage and do
-not carry over**; every check below, including the round-16 single-snapshot read tests, is UNRUN in this
-worktree and must be re-executed by Codex. No released SQL, released `citation-panel.ts`, global
+not carry over**; every check below, including the round-16 single-snapshot read tests and the round-17
+capacity-reservation tests, is UNRUN in this worktree and must be re-executed by Codex. No released SQL, released `citation-panel.ts`, global
 migration inventory, or P3/R09 file was touched (the last commit `777ee67f` — Codex's doc rollback
 inventory fix — is preserved); USD50/manual-free is unchanged. The prepared deploy SQL /
 expected-identity artifacts are STALE — never execute them; nothing here is deployed.

@@ -188,7 +188,28 @@ BEGIN
   ) THEN RAISE EXCEPTION 'citation_question_unbound'; END IF;
   SELECT coalesce(max(version),0) INTO current_version FROM public.citation_panels WHERE user_id=p_user AND project_id=p_project AND panel_id=p_panel;
   IF current_version<>p_expected THEN RAISE EXCEPTION 'citation_panel_changed'; END IF;
-  IF (SELECT count(*) FROM public.citation_panels WHERE user_id=p_user AND project_id=p_project)>=200 THEN RAISE EXCEPTION 'citation_panel_capacity'; END IF;
+  -- Bounded capacity with a RESERVED lock slot per PENDING DRAFT HEAD. The 200 cap covers every row
+  -- (drafts plus immutable locked history). A panel whose latest version is still a draft (a "pending
+  -- head") will, when locked, append exactly one more row (lock_citation_panel below), so it must hold a
+  -- reserved slot NOW; otherwise an owner could fill the project to 200 rows with drafts and then be
+  -- unable to lock any of them, with no deletion or retirement path (immutable history, by design). Admit
+  -- this draft only if, AFTER inserting it, the row count PLUS one reserved lock slot for every pending
+  -- head still fits within 200. `pending` counts pending heads BEFORE this insert (the latest version per
+  -- panel whose status is 'draft'); the CASE adds this insert's OWN new pending head UNLESS the panel's
+  -- current head is already a draft — a revision keeps the same single head, so repeated revisions spend
+  -- real rows but never a SECOND reservation and never the slot reserved for another pending head, while a
+  -- brand-new panel or a draft on a locked head opens a new pending head. Locking consumes a head's own
+  -- reservation (row +1, pending -1) and preserves the rest, so it always fits. Serialized by the
+  -- workspace_meta row lock taken above; the total read/write cap is unchanged at 200.
+  IF (
+    (SELECT count(*) FROM public.citation_panels WHERE user_id=p_user AND project_id=p_project)
+    + (SELECT count(*) FROM (SELECT DISTINCT ON (panel_id) document->>'status' AS status
+         FROM public.citation_panels WHERE user_id=p_user AND project_id=p_project
+         ORDER BY panel_id,version DESC) h WHERE h.status='draft')
+    + (CASE WHEN EXISTS (SELECT 1 FROM public.citation_panels
+         WHERE user_id=p_user AND project_id=p_project AND panel_id=p_panel
+           AND version=current_version AND document->>'status'='draft') THEN 0 ELSE 1 END)
+  )>=200 THEN RAISE EXCEPTION 'citation_panel_capacity'; END IF;
   INSERT INTO public.citation_panels(user_id,project_id,panel_id,version,document) VALUES(p_user,p_project,p_panel,p_expected+1,p_document);
   RETURN p_document;
 END; $$;
@@ -239,6 +260,12 @@ BEGIN
         AND pr.id=(q->>'promptId')::uuid AND pr.revision=(q->>'promptRevision')::integer
         AND pr.data->>'prompt'=q->>'text')
   ) THEN RAISE EXCEPTION 'citation_question_unbound'; END IF;
+  -- Locking CONSUMES this pending head's reserved slot (row +1, pending head -1), so the row count plus
+  -- outstanding reservations is unchanged and never grows. The draft-time reservation in
+  -- save_citation_panel_draft guarantees the row count is at most 199 whenever a pending head exists, so a
+  -- valid pending head always fits. This physical guard is a fail-closed backstop (e.g. against a
+  -- historical over-capacity direct write); it deliberately does NOT re-reserve, which would wrongly
+  -- reject the final pending head that is only consuming its own reserved slot. Cap unchanged at 200.
   IF (SELECT count(*) FROM public.citation_panels WHERE user_id=p_user AND project_id=p_project)>=200 THEN RAISE EXCEPTION 'citation_panel_capacity'; END IF;
   locked := draft || jsonb_build_object(
     'version',p_expected+1,'status','locked',
