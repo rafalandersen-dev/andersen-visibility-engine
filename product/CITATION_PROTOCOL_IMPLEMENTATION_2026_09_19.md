@@ -485,6 +485,33 @@ then removed A — leaving NO survivor. The order was also outcome-dependent on 
   is preserved AND flagged (not a clean single capture); brand `consumed` stays 2 with the survivor
   observed. The migration fixture `.find(...)` narrowing (TS18048) is guarded.
 
+### Review round 15 — accept canonical (non-RFC) Postgres uuid shape on the tombstone READ (P2 4057264542)
+
+The tombstone READ schemas used Zod `.uuid()` (RFC 4122, which checks the version/variant nibbles), but
+the deletion trigger validates a capture context's ids with a canonical-hex `8-4-4-4-12` regex and the
+tombstone table's `uuid` columns store any such value. A HISTORICAL identity that is PostgreSQL-valid
+without RFC bits (e.g. `00000000-0000-0000-0000-000000000001`) therefore parses in the DB but was
+REJECTED by `.uuid()`, failing the WHOLE protocol read on that one row.
+
+- **Fix (`citation-protocol.ts` only):** a READ-ONLY `pgUuid` schema (canonical hex, superset of
+  `.uuid()`) now types the DB-derived, content-free identity fields — `erasedSlotFactSchema.answerId`,
+  `.panelId`, `.brandRunId`; `runConsumedSchema.runId`; `erasureByVersionSchema.panelId` — so every
+  DB-storable tombstone identity parses and the canonical read survives. This is identity-only and does
+  NOT loosen authorization: NEW capture/panel/run input+auth schemas (`brandRunApprovalSchema`, the
+  scope/param `.uuid()` guards, and the released `captureContextSchema`) are unchanged, and identity
+  MATCHING still requires a genuine locked+approved panel / approved run — a non-RFC id that resolves to
+  no real entity stays `panelResolved: false` / excluded / overflow, granting no authority and dropping
+  no consumed-budget or deletion-identity fact silently.
+- Audited all tombstone-related read fields against the DB: `answerId`/`panelId`/`brandRunId` (uuid
+  columns, canonical hex), `panelVersion`/`round` (int4, already `0..2147483647`), `questionId` (grid
+  regex; non-grid → excluded count), and the per-version metadata (`erasureByVersion`,
+  `erasureOverflow`, `runConsumed`) — no unrelated schema rewrite. No released SQL change (the trigger
+  already emits the canonical shape).
+- Tests (real PGlite): a non-RFC historical captureContext → released `remove` → the trigger writes the
+  tombstone → `readCitationProtocol`/`readResolvedCaptures` both survive, mixed with a valid RFC erased
+  slot that still counts, the non-RFC id honestly appearing as bounded `erasureOverflow`; a non-RFC
+  `brandRunId` bound to a VALID panel parses and the read survives; no other-owner leakage.
+
 ## Files
 
 | File | Change |
@@ -571,12 +598,19 @@ order-independent), expose a survivor that shares a slot with a known erased ori
 the round-13 truncation claim (reconciliation is exact within the LIMIT; beyond it, `coverageComplete`
 false already flags the incompleteness rather than claiming no stale content). `citation-protocol.ts`
 (bounded defaulted `erasedSlotKeys` param) + `citation-protocol.server.ts` + P2 tests + docs only; no
-SQL/schema change. **All prior counts — 6291/PASS and the 130-focused-with-types-FAIL run included — are
-a prior stage and do not carry over**; every check below, including the new raw-reconciliation race and
-duplicate-history tests, is UNRUN in this worktree and must be re-executed by Codex. No released SQL,
-released `citation-panel.ts`, global migration inventory, or P3/R09 file was touched; USD50/manual-free
-is unchanged. The prepared deploy SQL / expected-identity artifacts are STALE — never execute them;
-nothing here is deployed.
+SQL/schema change; Codex ran that at **133 focused tests PASS, 6297 full PASS in 46.66s, types + lint +
+build PASS**. Round 15 (this turn) fixes P2 4057264542: the tombstone READ schemas used Zod `.uuid()`
+(RFC 4122) but the trigger/`uuid` column accept any canonical-hex value, so a historical non-RFC id
+(e.g. `00000000-0000-0000-0000-000000000001`) failed the whole protocol read; a READ-ONLY `pgUuid`
+(canonical hex) now types the DB-derived identity fields (`erasedSlotFactSchema` answerId/panelId/
+brandRunId, `runConsumedSchema.runId`, `erasureByVersionSchema.panelId`), identity-only and with all
+write/auth `.uuid()` rules unchanged — `citation-protocol.ts` + P2 tests + docs only, no SQL change.
+**All prior counts — 6297/PASS and the 133-focused-PASS run included — are a prior stage and do not
+carry over**; every check below, including the new non-RFC-identity read tests, is UNRUN in this
+worktree and must be re-executed by Codex. No released SQL, released `citation-panel.ts`, global
+migration inventory, or P3/R09 file was touched (the last commit `777ee67f` — Codex's doc rollback
+inventory fix — is preserved); USD50/manual-free is unchanged. The prepared deploy SQL /
+expected-identity artifacts are STALE — never execute them; nothing here is deployed.
 
 - `npx vitest run src/lib/citation-protocol.test.ts`
 - `npx vitest run src/lib/citation-protocol.functions.test.ts`

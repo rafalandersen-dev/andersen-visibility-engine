@@ -136,12 +136,25 @@ export const lockedPanelSchema = panelProtocolSchema.superRefine((panel, ctx) =>
  * content-free excluded COUNT (`erasureByVersion.excludedRows`) — so this schema can require the grid
  * shape without a malformed historical row ever breaking the read or leaking deleted content. `panelVersion`/
  * `round` are integers as wide as the trigger allows (0..int4); `answerId` is identity only. */
+/** PostgreSQL's canonical `uuid` textual shape (8-4-4-4-12 hex), which is BROADER than Zod's `.uuid()`
+ * (RFC 4122, which also checks the version/variant nibbles). The deletion trigger validates a capture
+ * context's ids with exactly this hex shape, and the tombstone table's `uuid` columns store any such
+ * value, so a HISTORICAL identity may be Postgres-valid without RFC bits (e.g.
+ * `00000000-0000-0000-0000-000000000001`). The content-free tombstone READ must therefore accept this
+ * shape or one legacy row would fail the whole protocol read. This relaxation is READ-ONLY and identity
+ * only: NEW capture/panel/run authorization and input schemas keep the stricter `.uuid()`, and
+ * identity MATCHING still requires a genuine locked+approved panel / approved run (an id that resolves
+ * to no real entity stays `panelResolved: false` / excluded — the read grants no authority). */
+const pgUuid = z
+  .string()
+  .regex(/^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$/);
+
 export const erasedSlotFactSchema = z
   .object({
-    answerId: z.string().uuid(),
-    panelId: z.string().uuid(),
+    answerId: pgUuid,
+    panelId: pgUuid,
     panelVersion: z.number().int().min(0).max(2147483647),
-    brandRunId: z.string().uuid().nullable(),
+    brandRunId: pgUuid.nullable(),
     questionId: z.string().regex(/^[A-Z]{2}-[DB]\d{2}$/),
     round: z.number().int().min(0).max(2147483647),
   })
@@ -150,10 +163,11 @@ export type ErasedSlotFact = z.infer<typeof erasedSlotFactSchema>;
 
 /** AUTHORITATIVE per-approved-run consumed budget, computed by the read RPC with the exact write-gate
  * predicate (live originals bound to the run by `captureContext->>'brandRunId'`, including a malformed
- * context, PLUS each tombstone row). Never reconstructed from the collapsed/LIMIT-bounded coverage. */
+ * context, PLUS each tombstone row). Never reconstructed from the collapsed/LIMIT-bounded coverage.
+ * `runId` is a DB-derived stored identity (canonical Postgres uuid shape). */
 export const runConsumedSchema = z
   .object({
-    runId: z.string().uuid(),
+    runId: pgUuid,
     consumed: z.number().int().min(0).max(2147483647),
   })
   .strict();
@@ -162,10 +176,11 @@ export type RunConsumed = z.infer<typeof runConsumedSchema>;
 /** Coverage-completeness metadata per ACTUAL stored panel version that has tombstones. `gridRows` is
  * the TRUE grid-shaped tombstone-row total, so a consumer can tell whether the LIMIT-bounded
  * `tombstones` are complete for the version (and must NOT derive a definitive `neverObserved` when they
- * are not); `excludedRows` is the content-free malformed (non-grid) row count. */
+ * are not); `excludedRows` is the content-free malformed (non-grid) row count. `panelId` is a DB-derived
+ * stored identity (canonical Postgres uuid shape). */
 export const erasureByVersionSchema = z
   .object({
-    panelId: z.string().uuid(),
+    panelId: pgUuid,
     panelVersion: z.number().int().min(0).max(2147483647),
     gridRows: z.number().int().min(0).max(2147483647),
     excludedRows: z.number().int().min(0).max(2147483647),

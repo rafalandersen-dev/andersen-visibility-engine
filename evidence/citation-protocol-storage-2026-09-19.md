@@ -383,6 +383,27 @@ Against the renamed candidate `20260920190000_citation_protocol.sql` (old `…17
   (TS18048) is guarded. Ancestry not fully present in the snapshot is walked to the deepest reachable
   node (conservative — never over-drops). No released SQL / schema change; earlier round limits hold.
 
+## Review round 15 (accept canonical non-RFC Postgres uuid shape on the tombstone READ — P2 4057264542)
+
+- The tombstone READ schemas used Zod `.uuid()` (RFC 4122, version/variant nibbles), but the deletion
+  trigger validates a capture context's ids with a canonical-hex `8-4-4-4-12` regex and the tombstone
+  `uuid` columns store any such value. A historical identity that is PostgreSQL-valid without RFC bits
+  (e.g. `00000000-0000-0000-0000-000000000001`) then failed the WHOLE protocol read on that one row.
+  Fixed (`citation-protocol.ts` only): a READ-ONLY `pgUuid` (canonical hex, a superset of `.uuid()`)
+  types the DB-derived content-free identity fields — `erasedSlotFactSchema` answerId/panelId/
+  brandRunId, `runConsumedSchema.runId`, `erasureByVersionSchema.panelId` — so every DB-storable
+  tombstone identity parses and the read survives. Identity-only: NEW capture/panel/run input+auth
+  schemas (`brandRunApprovalSchema`, the scope/param `.uuid()` guards, the released
+  `captureContextSchema`) are UNCHANGED, and matching still requires a genuine locked+approved panel /
+  approved run — a non-RFC id that resolves to no real entity stays `panelResolved: false` / excluded /
+  overflow, granting no authority and dropping no consumed-budget/deletion fact silently. Audited every
+  tombstone read field vs the DB (uuid columns, int4 bounds, grid `questionId`, per-version metadata);
+  no unrelated rewrite, no released SQL change (the trigger already emits the canonical shape). Tests
+  (real PGlite): a non-RFC historical captureContext → released `remove` → trigger tombstone →
+  `readCitationProtocol`/`readResolvedCaptures` both survive, mixed with a valid RFC erased slot that
+  still counts and the non-RFC id honestly a bounded `erasureOverflow`; a non-RFC `brandRunId` bound to
+  a VALID panel parses and the read survives; no other-owner leakage.
+
 ## Checks (status: UNRUN — prepared for Codex)
 
 Prior stages: 143 (tsc failing) → 146 → 148/147-PASS-1-FAIL → 150 → 170/6081 → (round 5) read-ordering
@@ -433,10 +454,15 @@ sharing a slot with a known erased original as `erased_duplicate_slot`/`protocol
 success), guard the fixture narrowing, and revise the round-13 truncation claim (exact within the LIMIT;
 beyond it `coverageComplete` false flags the incompleteness). `citation-protocol.ts` (bounded defaulted
 `erasedSlotKeys` param) + `citation-protocol.server.ts` + P2 tests + docs only; no SQL/schema change.
-All prior counts — 6291/PASS and the 130-focused-with-types-FAIL run included — are a PRIOR STAGE and do
-not carry over; every check below, including the new raw-reconciliation race and duplicate-history
-tests, is UNRUN and re-run by Codex. The prepared deploy SQL / expected-identity artifacts are STALE —
-never execute; nothing here is deployed.
+Codex ran round 14 at 133 focused PASS, 6297 full PASS in 46.66s, types + lint + build PASS. Round 15
+(this turn) fixes P2 4057264542: the tombstone READ schemas used Zod `.uuid()` (RFC) but the trigger/
+`uuid` column accept any canonical-hex value, so a historical non-RFC id failed the whole protocol read;
+a READ-ONLY `pgUuid` (canonical hex) now types the DB-derived identity fields, identity-only with all
+write/auth `.uuid()` rules unchanged — `citation-protocol.ts` + P2 tests + docs only, no SQL change.
+All prior counts — 6297/PASS and the 133-focused-PASS run included — are a PRIOR STAGE and do not carry
+over; every check below, including the new non-RFC-identity read tests, is UNRUN and re-run by Codex.
+The last commit `777ee67f` (Codex's doc rollback inventory fix) is preserved. The prepared deploy SQL /
+expected-identity artifacts are STALE — never execute; nothing here is deployed.
 
 | Check | Purpose | Status |
 | --- | --- | --- |
@@ -517,3 +543,7 @@ Reviewed raw-chain deletion reconciliation before duplicate collapse and explici
 ## Codex release-documentation correction
 
 Review4057250786 on1351520b identified an incomplete rollback inventory. Codex made a documentation-only integration exception: enumerated all three tables, all six exact function signatures and the trigger attached to ai_answer_evidence; clarified dependency order, data loss, later dependencies and already-released P1. Verified inventory directly against CREATE statements in candidate20190000; no application code, SQL or production state changed. Previous code validation remains applicable; rollback was not executed.
+
+## Codex validation — historical PostgreSQL identities
+
+Read-only UUID schema delta reviewed against trigger/table representation; write/auth inputs unchanged. Focused135tests4PASS3.39s/typesPASS; full6299tests385PASS49.26s/lint/build/diffPASS. Logs /tmp/milo-p2-uuid-{focused,types,lint,full,build}-20260920.log. Codex formatter-only integration exception on two P2 TypeScript files. No deployment or real-use acceptance claimed; candidate UNAPPLIED, preparedSQL/identity STALE.

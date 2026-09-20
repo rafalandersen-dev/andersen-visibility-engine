@@ -1674,6 +1674,93 @@ describe("CI-2 erasure preserves the slot/budget fact (content-free tombstone)",
         ?.brandRuns[0].consumed,
     ).toBe(1);
   });
+  it("survives a canonical-but-non-RFC historical tombstone identity on read (mixed with a valid erased slot)", async () => {
+    // A historical capture whose captureContext ids are PostgreSQL-valid uuids WITHOUT RFC version/
+    // variant bits (the deletion trigger's hex regex and the uuid column accept them; Zod `.uuid()`
+    // would not). Insert it directly (the write RPC's input schema rejects a non-RFC id), then erase it
+    // via the released path so the trigger writes a content-free tombstone carrying that identity.
+    const nonRfcPanel = "00000000-0000-0000-0000-000000000001"; // valid Postgres uuid, not RFC v4
+    const nonRfcAnswer = "00000000-0000-0000-0000-0000000000aa";
+    await db.query(
+      "INSERT INTO ai_answer_evidence(user_id,project_id,id,prompt_id,prompt_revision,document_hash,document,supersedes_id) VALUES($1,'p',$2,$3,1,$4,$5,NULL)",
+      [
+        user,
+        nonRfcAnswer,
+        discoveryPromptId,
+        "nonrfc-hash",
+        {
+          input: {
+            captureContext: {
+              panelId: nonRfcPanel,
+              panelVersion: 2,
+              slot: { round: 1, questionId: "SY-D01" },
+              brandRunId: null,
+            },
+          },
+          prompt: {},
+          analysis: {},
+        },
+      ],
+    );
+    await removeAnswerEvidence(scope, "answer", nonRfcAnswer, rpc); // trigger writes the non-RFC tombstone
+    // Also a NORMAL, valid, RFC capture erased at a real locked panel/slot (mixed valid row).
+    const valid = await importManualCapture(
+      scope,
+      discoveryCapture({ slot: { round: 2, questionId: "SY-D01" } }),
+      rpc,
+    );
+    await removeAnswerEvidence(scope, "answer", valid, rpc);
+    // The whole protocol read must SURVIVE (the RFC-strict schema previously threw on the non-RFC id).
+    const protocol = await readCitationProtocol(scope, rpc);
+    expect(protocol.tombstones.map((t) => t.panelId).sort()).toEqual(
+      [nonRfcPanel, discoveryPanelId].sort(),
+    );
+    // readResolvedCaptures also survives: the non-RFC id resolves to no real panel (bounded overflow),
+    // the valid one is a real erased slot. Consumed/erased facts are honest, no answer content present.
+    const resolved = await readResolvedCaptures(scope, rpc);
+    expect(resolved.erasureOverflow).toBe(1); // the non-RFC tombstone is not attributable to a real panel
+    const r = resolved.reports.find((x) => x.panelId === discoveryPanelId && x.panelVersion === 2);
+    expect(r?.erased).toBe(1); // the valid erased slot (SY-D01 r2) still counts
+    // No leakage to another owner (the read is owner/project scoped).
+    const otherResolved = await readResolvedCaptures({ ownerId: other, projectId: "p" }, rpc);
+    expect(otherResolved.erasedSlots).toEqual([]);
+    expect(otherResolved.erasureOverflow).toBe(0);
+  });
+  it("survives a non-RFC brandRunId tombstone bound to a valid panel", async () => {
+    await saveCitationPanelDraft(scope, brandPanelId, 0, draftBrand(), rpc);
+    await lockCitationPanel(scope, brandPanelId, 1, rpc);
+    await backdatePanelApproval(brandPanelId);
+    const nonRfcRun = "00000000-0000-0000-0000-0000000000bb"; // valid Postgres uuid, not RFC v4
+    const ans = "00000000-0000-0000-0000-0000000000cc";
+    await db.query(
+      "INSERT INTO ai_answer_evidence(user_id,project_id,id,prompt_id,prompt_revision,document_hash,document,supersedes_id) VALUES($1,'p',$2,$3,1,$4,$5,NULL)",
+      [
+        user,
+        ans,
+        brandPromptId,
+        "nonrfc-run-hash",
+        {
+          input: {
+            captureContext: {
+              panelId: brandPanelId,
+              panelVersion: 2,
+              slot: { round: 1, questionId: "SY-B01" },
+              brandRunId: nonRfcRun,
+            },
+          },
+          prompt: {},
+          analysis: {},
+        },
+      ],
+    );
+    await removeAnswerEvidence(scope, "answer", ans, rpc); // trigger: valid panel id, non-RFC run id
+    const protocol = await readCitationProtocol(scope, rpc);
+    const t = protocol.tombstones.find((x) => x.brandRunId === nonRfcRun);
+    expect(t?.panelId).toBe(brandPanelId); // valid panel id AND non-RFC run id both parse
+    // The read survives end to end (a non-RFC run resolves to no approved run, so it is content-free
+    // history — not promoted to any approved run's consumed budget).
+    await expect(readResolvedCaptures(scope, rpc)).resolves.toBeDefined();
+  });
   it("does not derive a definitive neverObserved from truncated tombstone coverage, and bounds overflow", async () => {
     // Synthesize > the 10000 read LIMIT of grid tombstones for the locked discovery version (all one
     // slot, distinct answer ids) so the transmitted coverage is truncated for that version.
