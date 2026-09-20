@@ -590,12 +590,19 @@ so it validates the new SQL against the actual prior schema without applying any
 
 ## Migration / rollback
 
-One new, **unapplied** migration adding two tables and five functions. It depends only on already
-present objects (`assert_knowledge_project`, `ai_visibility_prompts`, `ai_answer_evidence`,
-`workspace_entities`). It does not alter or replay any of the eight already-applied conversation
-migrations or any other existing migration. Rollback = drop the two functions-set and two tables;
-because everything is additive and service-only, dropping them leaves the legacy answer/knowledge
-stack unchanged. The P1 migration remains separate and unapplied.
+One new, **unapplied** migration adds three tables, six functions and one trigger. It depends on existing `assert_knowledge_project`, `ai_visibility_prompts`, `ai_answer_evidence`, `workspace_entities` and the account serialization row. It does not alter or replay released migrations. P1 artifact staging is already released; it is outside this rollback.
+
+If rollback becomes necessary, first disable or roll back callers of these P2 RPCs and inspect later dependencies. Preserve any owner-required evidence before considering table removal: dropping these tables destroys panel approvals, run budgets and content-free erasure history. This is a rollback inventory, not an executed or pre-authorized destructive operation.
+
+Remove objects in dependency order, using explicit names and signatures, without `CASCADE`:
+
+1. Drop trigger `tombstone_citation_capture` **ON `public.ai_answer_evidence`**. This detaches the new behavior from the existing answer-evidence table.
+2. Drop the five service RPCs: `public.read_citation_protocol(uuid,text)`, `public.save_citation_panel_draft(uuid,text,uuid,integer,jsonb)`, `public.lock_citation_panel(uuid,text,uuid,integer)`, `public.approve_citation_brand_run(uuid,text,uuid,uuid,integer,integer,integer)`, and `public.save_citation_capture(uuid,text,jsonb)`.
+3. Drop internal trigger function `public.tombstone_citation_capture()`.
+4. Drop `public.citation_brand_runs` before its referenced `public.citation_panels` table, and drop `public.citation_capture_tombstones` as well. These are all three tables created by this candidate.
+5. Verify that all six functions, all three tables and the trigger are absent, and that the legacy answer/knowledge objects and their existing triggers remain present. Reconcile the migration journal through the established release procedure; never edit an applied migration or silently reapply it.
+
+If later released objects depend on P2, stop the removal and plan their compatible rollback first. Removing P2 does not reverse already stored answer evidence, and loss of erasure history means previous consumed-slot guarantees cannot be assumed after a future reinstall.
 
 ## Limitations and P3 dependency
 

@@ -513,3 +513,7 @@ Reviewed SQL consumed aggregates against the actual capture write-gate predicate
 ## Codex validation — raw identity reconciliation, 20 September
 
 Reviewed raw-chain deletion reconciliation before duplicate collapse and explicit erased-duplicate deviation. Focused133tests4filesPASS2.27s; TypeScriptPASS. Full6297tests385filesPASS46.66s; scopedlint/build/diffPASS. Logs /tmp/milo-p2-ordering-{focused,types,lint,full,build}-20260920.log. Formatter-only Codex integration exception on four P2 TypeScript files. Tests cover both input orders, surviving correction chains and deleted-chain races through injected snapshots; no multi-connection or production claim. Truncated tombstone coverage remains explicitly incomplete and cannot prove full reconciliation. Candidate UNAPPLIED; prepared release SQL/identity STALE pending final approval.
+
+## Codex release-documentation correction
+
+Review4057250786 on1351520b identified an incomplete rollback inventory. Codex made a documentation-only integration exception: enumerated all three tables, all six exact function signatures and the trigger attached to ai_answer_evidence; clarified dependency order, data loss, later dependencies and already-released P1. Verified inventory directly against CREATE statements in candidate20190000; no application code, SQL or production state changed. Previous code validation remains applicable; rollback was not executed.
