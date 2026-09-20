@@ -337,6 +337,52 @@ Against the renamed candidate `20260920190000_citation_protocol.sql` (old `…17
   coverage `LIMIT`-bounded (10000), `coverageComplete` false, `neverObserved` null; an orphaned tombstone
   → `erasureOverflow` 1; a pure completeness unit test.
 
+## Review round 13 (preserve a real survivor at a historically-duplicated slot — P1 4057186213)
+
+- `readResolvedCaptures` reconciled stale live captures against tombstones by SLOT KEY, so a genuine
+  surviving independent original at a slot a historical sibling also occupied was silently hidden
+  (turned into an erased-only slot) when the sibling was erased — even though authoritative `consumed`
+  correctly counted 2. Fixed (server only): reconcile by correction-chain ROOT IDENTITY. A tombstone
+  records the erased ORIGINAL's id (the chain root; the trigger writes one only for a `supersedes` null
+  row). The server walks each resolved active leaf's `supersedesId` to its root (a leaf's id is not its
+  root) and drops the leaf ONLY when that root is a tombstoned original — never merely because another
+  original shared its slot. The survivor and its correction chain are preserved; an actually-deleted
+  chain's stale positive is still removed. `resolveErasedSlots` still folds a tombstone whose slot a
+  live capture holds into `consumed` (write-gate faithful) rather than double-counting coverage, so
+  `consumed` may exceed `observed + erased`. (Round 14 corrects the ORDER of this reconciliation and
+  revises the truncation claim — see below.)
+
+## Review round 14 (reconcile the RAW chain BEFORE resolution; expose ambiguous duplicate history)
+
+- The round-13 reconciliation ran AFTER `resolveStoredCaptures`, which first collapses two independent
+  originals sharing one slot to a single stable-first entry and DISCARDS the sibling — so in the true
+  delete-between-reads race (older evidence `[originalA, independentB]` at one slot, newer protocol
+  tombstone A) the resolver kept A and discarded B, then the post-resolve filter removed A → no
+  survivor; it was also order-dependent. Fixed: reconcile deleted-chain identities on the RAW evidence
+  BEFORE resolution. The server builds the full `supersedesId` ancestry map over all raw answers,
+  computes each row's chain ROOT, and drops every row whose root is a tombstoned original; the resolver
+  runs on the surviving raw set, so a genuine independent survivor (and its own correction chain, whose
+  active-leaf id is not its root) is never discarded. Order-independent.
+- A survivor sharing its slot with a KNOWN erased original is ambiguous duplicate history, not a clean
+  measurement: `resolveStoredCaptures` takes a bounded, defaulted `erasedSlotKeys` set (the transmitted
+  tombstones' slot keys) and flags such a survivor `erased_duplicate_slot`, demoting it to
+  `protocol_deviant` — inspectable, never a silent `complete`. `resolveErasedSlots` still folds that
+  tombstone into `consumed` (write-gate faithful) rather than double-counting the slot.
+- **Truncation claim revised (no unproven guarantee).** Reconciliation identity comes from the
+  transmitted (`LIMIT`-bounded, grid) tombstones; under concurrent > `LIMIT` deletions the
+  newest-row-always-transmitted assumption is NOT proven, so a deleted root whose tombstone fell past
+  the limit could leave a stale positive. This is not claimed away — it is exactly the case already
+  flagged: when a version's tombstones are truncated, `coverageComplete` is false and `neverObserved`
+  null, signalling that both coverage AND the reconciliation identity for that version may be
+  incomplete. Within the limit (bounded-normal data) reconciliation is exact.
+- Tests: unit two-snapshot RPC — A-first/tombstone-A and B-first/tombstone-A both keep independent
+  survivor B (order-independent) flagged `erased_duplicate_slot`; a surviving corrected-B chain keeps
+  its active leaf; the deleted original+correction chain is dropped with no stale content. SQL (real
+  deletion): the two-independent-originals and surviving-sibling cases assert the survivor is preserved
+  AND flagged; brand `consumed` stays 2 with the survivor observed; the fixture `.find(...)` narrowing
+  (TS18048) is guarded. Ancestry not fully present in the snapshot is walked to the deepest reachable
+  node (conservative — never over-drops). No released SQL / schema change; earlier round limits hold.
+
 ## Checks (status: UNRUN — prepared for Codex)
 
 Prior stages: 143 (tsc failing) → 146 → 148/147-PASS-1-FAIL → 150 → 170/6081 → (round 5) read-ordering
@@ -375,13 +421,22 @@ read content-safe and bounded (only grid-shaped questionId transmitted; malforme
 `tombstoneExcluded` count; LIMIT-bounded) and computes consumed budget from trusted facts
 (`tombstoneBudget` per-run row counts + reconciled live originals) so historical same-slot duplicates
 count as consumed 2 / erased-unique 1; Codex ran that delta at 154 focused tests PASS in 2.06s, types
-PASS. Round 12 (this turn) makes consumed an authoritative SQL aggregate (`runConsumed`, exact
-write-gate predicate) and adds truncation-aware bounded coverage (`erasureByVersion` + `erasureOverflow`,
-`neverObserved` now `number | null`). All in P2-owned files (candidate `…20190000` + TS + the two P2
-test files + docs); `citation-panel.ts` composed, not edited. All prior counts — 6265/PASS and the
-154-focused-PASS run included — are a PRIOR STAGE and do not carry over; every check below, including the
-new authoritative-consumed and truncation/overflow tests, is UNRUN and re-run by Codex. The prepared
-deploy SQL / expected-identity artifacts are STALE — never execute.
+PASS. Round 12 made consumed an authoritative SQL aggregate (`runConsumed`) and added truncation-aware
+bounded coverage (`erasureByVersion`/`erasureOverflow`, nullable `neverObserved`); Codex ran that delta
+at 127 focused tests PASS + types PASS, and the full suite at 6291 tests PASS in 46.54s + build/lint
+PASS (formatter-only exception), committed `e99dabb9`, cherry-picked into PR146 (`5b3939fc`). Round 13
+began the P1 4057186213 fix but reconciled AFTER resolution; Codex found types FAIL (TS18048, a fixture
+`.find(...)` possibly-undefined) with 130 focused / 4 PASS at 2.22s. Round 14 (this turn) delivers the
+coherent fix: reconcile the deleted chain on the RAW evidence BEFORE resolution (the true race with two
+independent originals at one slot now keeps the real survivor, order-independent), expose a survivor
+sharing a slot with a known erased original as `erased_duplicate_slot`/`protocol_deviant` (no silent
+success), guard the fixture narrowing, and revise the round-13 truncation claim (exact within the LIMIT;
+beyond it `coverageComplete` false flags the incompleteness). `citation-protocol.ts` (bounded defaulted
+`erasedSlotKeys` param) + `citation-protocol.server.ts` + P2 tests + docs only; no SQL/schema change.
+All prior counts — 6291/PASS and the 130-focused-with-types-FAIL run included — are a PRIOR STAGE and do
+not carry over; every check below, including the new raw-reconciliation race and duplicate-history
+tests, is UNRUN and re-run by Codex. The prepared deploy SQL / expected-identity artifacts are STALE —
+never execute; nothing here is deployed.
 
 | Check | Purpose | Status |
 | --- | --- | --- |
@@ -454,3 +509,7 @@ Integrated validation after released bd0: 63 focused tests/2 files passed (1.90s
 ## Codex integrated validation — authoritative counts, 20 September
 
 Reviewed SQL consumed aggregates against the actual capture write-gate predicate, deletion/coverage semantics, and bounded truncation metadata. Current focused run: 127 tests / 4 files PASS (2.24s); TypeScript PASS. Full suite: 6291 tests / 385 files PASS (46.54s); scoped lint, production build and git diff --check PASS. Logs: /tmp/milo-p2-authoritative-{focused,types,lint,full,build}-20260920.log. Codex formatter-only integration exception on four citation-protocol TypeScript files. This supersedes earlier validation counts for the current packet, but is not multi-connection or production acceptance. Candidate migration remains UNAPPLIED; guarded apply SQL and release identity remain STALE until regenerated for the approved final head.
+
+## Codex validation — raw identity reconciliation, 20 September
+
+Reviewed raw-chain deletion reconciliation before duplicate collapse and explicit erased-duplicate deviation. Focused133tests4filesPASS2.27s; TypeScriptPASS. Full6297tests385filesPASS46.66s; scopedlint/build/diffPASS. Logs /tmp/milo-p2-ordering-{focused,types,lint,full,build}-20260920.log. Formatter-only Codex integration exception on four P2 TypeScript files. Tests cover both input orders, surviving correction chains and deleted-chain races through injected snapshots; no multi-connection or production claim. Truncated tombstone coverage remains explicitly incomplete and cannot prove full reconciliation. Candidate UNAPPLIED; prepared release SQL/identity STALE pending final approval.

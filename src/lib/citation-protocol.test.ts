@@ -1033,4 +1033,132 @@ describe("citation protocol server, no provider or URL calls", () => {
     const [report] = result.reports;
     expect(report).toMatchObject({ observed: 0, erased: 1 }); // reported as erased, never a live positive
   });
+  it("drops a whole correction chain by ROOT identity when its original was deleted between reads", async () => {
+    // Stale evidence still shows original X and its correction X' live; the newer protocol has a
+    // tombstone for the ROOT X (the erased original, supersedes null). The active leaf is X' (id != X),
+    // so slot equality would be needed to catch it — but identity via the chain ROOT is exact: X' is
+    // dropped because rootOf(X') === X ∈ tombstones. No stale positive content is returned.
+    const analysis = {
+      algorithm: "literal-mention-supplied-citations-v1" as const,
+      verified: false as const,
+      mention: null,
+      ownCitation: null,
+      citations: [] as { url: string; kind: "own" | "competitor" | "third-party" }[],
+      cohort: "[]",
+    };
+    const original = {
+      id: uuid(500),
+      createdAt: "2026-09-08T10:00:00Z",
+      hash: "h-root",
+      input: answer(),
+      prompt: promptRow,
+      analysis,
+    };
+    const correction = {
+      id: uuid(501),
+      createdAt: "2026-09-08T11:00:00Z",
+      hash: "h-leaf",
+      input: answer({ supersedesId: uuid(500), rawAnswer: "corrected" }),
+      prompt: promptRow,
+      analysis,
+    };
+    const rpc = vi.fn((name: string) =>
+      Promise.resolve({
+        data:
+          name === "read_ai_answer_evidence"
+            ? { prompts: [], answers: [original, correction] }
+            : {
+                panels: [discoveryPanel()],
+                brandRuns: [],
+                tombstones: [
+                  {
+                    answerId: uuid(500), // the ROOT/original id, not the leaf
+                    panelId: uuid(1),
+                    panelVersion: 1,
+                    brandRunId: null,
+                    questionId: "SY-D01",
+                    round: 1,
+                  },
+                ],
+              },
+        error: null,
+      }),
+    );
+    const result = await readResolvedCaptures(scope, rpc);
+    expect(result.captures).toEqual([]); // the active leaf X' dropped via its root X; no stale positive
+    expect(result.erasedSlots.map((s) => s.answerId)).toEqual([uuid(500)]);
+    expect(result.reports[0]).toMatchObject({ observed: 0, erased: 1 });
+  });
+  // Two-snapshot race helpers: stale evidence (older) still shows rows live; newer protocol has a
+  // tombstone for one root. All rows sit at the ONE slot SY-D01 r1 so the collapse would otherwise fight
+  // the reconciliation. These exercise the ordering combination the earlier fix missed.
+  const raceAnalysis = {
+    algorithm: "literal-mention-supplied-citations-v1" as const,
+    verified: false as const,
+    mention: null,
+    ownCitation: null,
+    citations: [] as { url: string; kind: "own" | "competitor" | "third-party" }[],
+    cohort: "[]",
+  };
+  const raceRow = (id: string, over: Partial<AnswerEvidence> = {}) => ({
+    id,
+    createdAt: "2026-09-08T10:00:00Z",
+    hash: `h-${id}`,
+    input: answer(over),
+    prompt: promptRow,
+    analysis: raceAnalysis,
+  });
+  const raceRpc = (answers: unknown[], tombstonedRootIds: string[]) =>
+    vi.fn((name: string) =>
+      Promise.resolve({
+        data:
+          name === "read_ai_answer_evidence"
+            ? { prompts: [], answers }
+            : {
+                panels: [discoveryPanel()],
+                brandRuns: [],
+                tombstones: tombstonedRootIds.map((id) => ({
+                  answerId: id,
+                  panelId: uuid(1),
+                  panelVersion: 1,
+                  brandRunId: null,
+                  questionId: "SY-D01",
+                  round: 1,
+                })),
+              },
+        error: null,
+      }),
+    );
+  it("preserves an independent survivor in the delete-between-reads race (A first in stale evidence, tombstone A)", async () => {
+    // Older evidence still shows A and independent B live at one slot; newer protocol tombstones A.
+    const rpc = raceRpc([raceRow(uuid(500)), raceRow(uuid(501))], [uuid(500)]);
+    const result = await readResolvedCaptures(scope, rpc);
+    // A's chain is dropped from the RAW set BEFORE resolution, so B is not discarded by the collapse.
+    expect(result.captures.map((c) => c.answerId)).toEqual([uuid(501)]); // B survives
+    expect(result.captures[0].outcome).toBe("protocol_deviant");
+    expect(result.captures[0].deviations).toContain("erased_duplicate_slot"); // ambiguous history exposed
+  });
+  it("preserves the independent survivor regardless of stale order (B first in stale evidence, tombstone A)", async () => {
+    // Same as above but the stable-first row is now the SURVIVOR — the earlier post-resolve filter would
+    // have kept B here yet dropped it in the other order; raw-first reconciliation is order-independent.
+    const rpc = raceRpc([raceRow(uuid(501)), raceRow(uuid(500))], [uuid(500)]);
+    const result = await readResolvedCaptures(scope, rpc);
+    expect(result.captures.map((c) => c.answerId)).toEqual([uuid(501)]); // B survives, order-independent
+    expect(result.captures[0].deviations).toContain("erased_duplicate_slot");
+  });
+  it("preserves a surviving sibling's correction chain in the race when the independent original is erased", async () => {
+    const rpc = raceRpc(
+      [
+        raceRow(uuid(500)), // independent original A (erased)
+        raceRow(uuid(501)), // original B
+        raceRow(uuid(502), { supersedesId: uuid(501), rawAnswer: "B corrected" }), // B's active leaf
+      ],
+      [uuid(500)],
+    );
+    const result = await readResolvedCaptures(scope, rpc);
+    // A dropped by root; B's chain survives; its ACTIVE LEAF (502, not its root 501) is the resolved
+    // capture, flagged as ambiguous duplicate history — no stale A content is returned.
+    expect(result.captures.map((c) => c.answerId)).toEqual([uuid(502)]);
+    expect(result.captures[0].deviations).toContain("erased_duplicate_slot");
+  });
 });

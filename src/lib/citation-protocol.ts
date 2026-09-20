@@ -283,6 +283,13 @@ export function resolveStoredCaptures(
   answers: StoredCaptureAnswer[],
   panels: PanelProtocol[],
   brandRuns: BrandRun[],
+  // Slot keys (same shape as the internal `slotKey`) of KNOWN erased originals. A surviving live
+  // capture that shares its slot with an erased independent original is ambiguous duplicate history:
+  // it is flagged `erased_duplicate_slot` and demoted to `protocol_deviant`, so it stays inspectable
+  // but is never promoted to a silent measurement success. Callers must already have dropped a deleted
+  // chain's own rows (by root identity) BEFORE calling this, so the collapse never discards a real
+  // survivor. Default empty: the pure resolver keeps its original behaviour when no erasure is known.
+  erasedSlotKeys: Set<string> = new Set(),
 ): ResolvedCapture[] {
   // A record only supersedes another in the resolved graph if it is itself a resolvable capture (its
   // captureContext parses). So a context-less or malformed successor — e.g. a legacy Answer-panel
@@ -412,18 +419,22 @@ export function resolveStoredCaptures(
       continue;
     }
     const key = slotKey(c);
-    if ((slotCount.get(key) ?? 0) <= 1) {
+    const liveDuplicate = (slotCount.get(key) ?? 0) > 1;
+    // A slot is ambiguous either because two live captures resolve to it, OR because a KNOWN erased
+    // original shared it with this survivor. Both are duplicate history and must never read as a clean
+    // success; the survivor stays inspectable but is demoted to `protocol_deviant` and flagged.
+    const erasedDuplicate = erasedSlotKeys.has(key);
+    if (!liveDuplicate && !erasedDuplicate) {
       deduped.push(c);
       continue;
     }
-    if (seen.has(key)) continue; // exclude the extra duplicate(s); the raw rows remain in storage
+    if (seen.has(key)) continue; // exclude the extra live duplicate(s); the raw rows remain in storage
     seen.add(key);
+    const deviation = liveDuplicate ? "duplicate_slot" : "erased_duplicate_slot";
     deduped.push({
       ...c,
       outcome: "protocol_deviant",
-      deviations: c.deviations.includes("duplicate_slot")
-        ? c.deviations
-        : [...c.deviations, "duplicate_slot"],
+      deviations: c.deviations.includes(deviation) ? c.deviations : [...c.deviations, deviation],
     });
   }
   return deduped;

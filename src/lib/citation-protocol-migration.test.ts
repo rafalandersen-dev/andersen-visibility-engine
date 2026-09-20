@@ -1558,11 +1558,75 @@ describe("CI-2 erasure preserves the slot/budget fact (content-free tombstone)",
       ],
     );
     await removeAnswerEvidence(scope, "answer", uuid(731), rpc); // erase the sibling; o1 survives
-    const { reports } = await readResolvedCaptures(scope, rpc);
+    const { captures, reports } = await readResolvedCaptures(scope, rpc);
+    // P1: the SURVIVING original o1 is preserved as inspectable live evidence — NOT hidden just because
+    // its slot was tombstoned by the erased sibling. It is flagged as ambiguous duplicate history.
+    expect(captures.map((c) => c.answerId)).toEqual([o1]);
+    expect(captures[0].deviations).toContain("erased_duplicate_slot");
     const brand = reports.find((x) => x.panelId === brandPanelId);
-    // Authoritative SQL consumed = live original (o1) + tombstone (sibling) = 2, matching the write gate
-    // even though the surviving original's slot is reconciled out of coverage (consumed is independent).
-    expect(brand?.brandRuns[0].consumed).toBe(2);
+    // consumed is the write-gate count (live o1 + sibling tombstone = 2); the survivor is observed once;
+    // the sibling's slot is held by o1 so it is not a separate erased slot (folded into consumed).
+    expect(brand?.brandRuns).toEqual([
+      { runId: uuid(50), approvedBudget: 5, consumed: 2, observed: 1, erased: 0 },
+    ]);
+  });
+  it("preserves a surviving independent original at a historically-duplicated slot when its sibling is erased", async () => {
+    const a = await importManualCapture(scope, discoveryCapture(), rpc); // original A, SY-D01 r1
+    const doc = (await readAnswerEvidence(scope, rpc)).answers[0];
+    // A second INDEPENDENT original at the same slot (historical; the write gate forbids it now).
+    await db.query(
+      "INSERT INTO ai_answer_evidence(user_id,project_id,id,prompt_id,prompt_revision,document_hash,document,supersedes_id) VALUES($1,'p',$2,$3,1,$4,$5,NULL)",
+      [
+        user,
+        uuid(740),
+        discoveryPromptId,
+        "indep-dup-hash",
+        { input: doc.input, prompt: doc.prompt, analysis: doc.analysis },
+      ],
+    );
+    // While BOTH are live, the shared slot is explicit duplicate-deviation evidence (collapsed to one).
+    const both = await readResolvedCaptures(scope, rpc);
+    expect(both.captures).toHaveLength(1);
+    expect(both.captures[0].deviations).toContain("duplicate_slot");
+    // Erase ONE original; the OTHER is a real surviving live capture and must stay inspectable — never
+    // silently turned into an erased-only slot. It is preserved AND flagged as ambiguous duplicate
+    // history (a co-located original was erased), never promoted to a clean single success.
+    await removeAnswerEvidence(scope, "answer", a, rpc);
+    const after = await readResolvedCaptures(scope, rpc);
+    expect(after.captures.map((c) => c.answerId)).toEqual([uuid(740)]); // survivor preserved
+    expect(after.captures[0].outcome).toBe("protocol_deviant");
+    expect(after.captures[0].deviations).toContain("erased_duplicate_slot");
+    const r = after.reports.find((x) => x.panelId === discoveryPanelId && x.panelVersion === 2);
+    expect(r).toMatchObject({ observed: 1 }); // inspectable (observed slot), but a flagged deviation
+  });
+  it("preserves a surviving sibling's live correction chain when a duplicate sibling is erased", async () => {
+    const b = await importManualCapture(scope, discoveryCapture(), rpc); // original B, SY-D01 r1
+    const bPrime = await importManualCapture(
+      scope,
+      discoveryCapture({}, { supersedesId: b, rawAnswer: "B corrected" }),
+      rpc,
+    ); // B's correction (active leaf)
+    const doc = (await readAnswerEvidence(scope, rpc)).answers.find((x) => x.id === b);
+    if (!doc) throw new Error("fixture: original B not found");
+    // An independent duplicate original at B's slot (historical), then erase it. B's chain survives.
+    await db.query(
+      "INSERT INTO ai_answer_evidence(user_id,project_id,id,prompt_id,prompt_revision,document_hash,document,supersedes_id) VALUES($1,'p',$2,$3,1,$4,$5,NULL)",
+      [
+        user,
+        uuid(741),
+        discoveryPromptId,
+        "dup-of-chain-hash",
+        { input: doc.input, prompt: doc.prompt, analysis: doc.analysis },
+      ],
+    );
+    await removeAnswerEvidence(scope, "answer", uuid(741), rpc); // erase the duplicate; B chain survives
+    const { captures } = await readResolvedCaptures(scope, rpc);
+    // The surviving chain's ACTIVE LEAF (bPrime) is preserved — its ROOT (b) is not the erased original,
+    // so it is never dropped merely because the erased sibling shared its slot. It is flagged as
+    // ambiguous duplicate history (a co-located original was erased), never a silent clean success.
+    expect(captures.map((c) => c.answerId)).toEqual([bPrime]);
+    expect(captures[0].outcome).toBe("protocol_deviant");
+    expect(captures[0].deviations).toContain("erased_duplicate_slot");
   });
   it("consumed counts a malformed-context live original (write-gate parity) and never charges corrections", async () => {
     await saveCitationPanelDraft(scope, brandPanelId, 0, draftBrand(), rpc);

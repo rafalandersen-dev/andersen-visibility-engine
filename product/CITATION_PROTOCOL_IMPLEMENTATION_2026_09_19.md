@@ -438,6 +438,53 @@ Two final integration gaps on the round-11 delta:
   coverage `LIMIT`-bounded, `coverageComplete` false, `neverObserved` null; an orphaned tombstone →
   `erasureOverflow` 1. Pure — a `citationReport` completeness test (neverObserved null when incomplete).
 
+### Review round 13 — preserve a real survivor at a historically-duplicated slot (P1 4057186213)
+
+`readResolvedCaptures` reconciled stale live captures against tombstones by SLOT KEY: it dropped any
+resolved live capture whose slot matched a tombstone. But two independent original rows can share one
+slot (historical, pre one-per-slot guard); erasing one leaves a genuine live sibling, and the slot-key
+filter silently hid that survivor (and its duplicate/protocol-deviation evidence), turning it into an
+erased-only slot — while authoritative `consumed` still correctly counted 2.
+
+- **Fix (`citation-protocol.server.ts` only):** reconcile by correction-chain ROOT IDENTITY, not slot.
+  A tombstone records the erased ORIGINAL's id, i.e. the chain root (the trigger writes one only for a
+  `supersedes` null row). (Round 14 corrects this round's ORDER — the reconciliation must run on the raw
+  evidence before resolution — and revises the truncation claim below.)
+
+### Review round 14 — reconcile the raw chain BEFORE resolution; expose ambiguous duplicate history
+
+Round 13's identity reconciliation ran AFTER `resolveStoredCaptures`, which first collapses two
+independent originals sharing one slot to a single stable-first entry and DISCARDS the sibling. So in
+the true delete-between-reads race (older evidence `[originalA, independentB]` at one slot, newer
+protocol tombstone A), the resolver kept A (+duplicate_slot) and discarded B; the post-resolve filter
+then removed A — leaving NO survivor. The order was also outcome-dependent on which row sorted first.
+
+- **Fix (`citation-protocol.server.ts` + a bounded, defaulted param on `resolveStoredCaptures`):**
+  reconcile deleted-chain identities on the RAW evidence BEFORE resolution. The server builds the full
+  `supersedesId` ancestry map over all raw answers, computes each row's chain ROOT, and drops every row
+  whose root is a tombstoned original. `resolveStoredCaptures` then runs on the surviving raw set, so a
+  genuine independent survivor (and its own correction chain, whose active-leaf id is not its root) is
+  never discarded by the collapse. This is order-independent.
+- **Expose ambiguous duplicate history (no silent success):** a survivor that shares its slot with a
+  KNOWN erased original is not a clean measurement. `resolveStoredCaptures` takes a bounded, defaulted
+  `erasedSlotKeys` set (the transmitted tombstones' slot keys) and, for a survivor at such a slot, adds
+  an `erased_duplicate_slot` deviation and demotes it to `protocol_deviant` — inspectable but never
+  promoted to a silent `complete`. `resolveErasedSlots` still folds that tombstone into `consumed`
+  (write-gate faithful) rather than double-counting the slot.
+- **Truncation claim revised (no unproven guarantee).** Reconciliation identity comes from the
+  transmitted (`LIMIT`-bounded, grid) tombstones; under concurrent > `LIMIT` deletions the newest-row
+  assumption is NOT proven, so a deleted root whose tombstone fell past the limit could leave a stale
+  positive. This is not claimed away: it is exactly the case the read already flags — when a version's
+  tombstones are truncated, `coverageComplete` is false (and `neverObserved` null), signalling that both
+  coverage AND the reconciliation identity for that version may be incomplete. Bounded-normal data
+  (within the limit) reconciles exactly.
+- Tests (unit, injected two-snapshot RPC): A-first/tombstone-A and B-first/tombstone-A both keep the
+  independent survivor B (order-independent), flagged `erased_duplicate_slot`; a surviving corrected-B
+  chain keeps its active leaf; the deleted original+correction chain is dropped with no stale content.
+  SQL (real deletion): the two-independent-originals and surviving-sibling cases now assert the survivor
+  is preserved AND flagged (not a clean single capture); brand `consumed` stays 2 with the survivor
+  observed. The migration fixture `.find(...)` narrowing (TS18048) is guarded.
+
 ## Files
 
 | File | Change |
@@ -510,16 +557,26 @@ a content-free `tombstoneExcluded` count; `LIMIT`-bounded) so an arbitrary/empty
 TRUSTED facts (`tombstoneBudget` per-run row counts + live originals, reconciled) so two historical
 originals at one slot count as consumed 2 / erased-unique 1 — `citationReport` now takes a
 `CitationErasure` bundle; Codex ran that delta at **154 focused tests PASS in 2.06s, types PASS**.
-Round 12 (this turn) makes `consumed` an authoritative SQL aggregate in `read_citation_protocol`
-(`runConsumed`, the exact write-gate predicate — malformed-context live originals included, surviving
-originals not dropped) and adds truncation-aware, bounded coverage metadata (`erasureByVersion` +
-`erasureOverflow`), with `CitationReport.neverObserved` now `number | null` (null when coverage is
-incomplete). **All prior counts — 6265/PASS and the 154-focused-PASS run included — are a prior stage
-and do not carry over**; every check below, including the new authoritative-consumed and
-truncation/overflow tests, is UNRUN in this worktree and must be re-executed by Codex. No released SQL,
-released `citation-panel.ts`, global migration inventory, or P3/R09 worktree file was touched;
-USD50/manual-free is unchanged. The prepared deploy SQL / expected-identity artifacts are STALE — never
-execute them.
+Round 12 made `consumed` an authoritative SQL aggregate (`runConsumed`) and added truncation-aware
+bounded coverage (`erasureByVersion`/`erasureOverflow`, nullable `neverObserved`); Codex ran that delta
+at **127 focused tests PASS + types PASS**, and the full suite at **6291 tests PASS in 46.54s with
+build + lint PASS** (a formatter-only exception applied), committed `e99dabb9` and cherry-picked into
+PR146 (`5b3939fc`). Round 13 began the P1 4057186213 fix (chain-root identity reconciliation) but ran it
+AFTER resolution; Codex then found types FAIL (TS18048, a fixture `.find(...)` possibly-undefined) with
+130 focused tests, 4 PASS at 2.22s. Round 14 (this turn) delivers the coherent fix: reconcile the
+deleted chain on the RAW evidence BEFORE resolution (so a collapsed sibling is never discarded — the
+true delete-between-reads race with two independent originals at one slot now keeps the real survivor,
+order-independent), expose a survivor that shares a slot with a known erased original as
+`erased_duplicate_slot`/`protocol_deviant` (no silent success), guard the fixture narrowing, and revise
+the round-13 truncation claim (reconciliation is exact within the LIMIT; beyond it, `coverageComplete`
+false already flags the incompleteness rather than claiming no stale content). `citation-protocol.ts`
+(bounded defaulted `erasedSlotKeys` param) + `citation-protocol.server.ts` + P2 tests + docs only; no
+SQL/schema change. **All prior counts — 6291/PASS and the 130-focused-with-types-FAIL run included — are
+a prior stage and do not carry over**; every check below, including the new raw-reconciliation race and
+duplicate-history tests, is UNRUN in this worktree and must be re-executed by Codex. No released SQL,
+released `citation-panel.ts`, global migration inventory, or P3/R09 file was touched; USD50/manual-free
+is unchanged. The prepared deploy SQL / expected-identity artifacts are STALE — never execute them;
+nothing here is deployed.
 
 - `npx vitest run src/lib/citation-protocol.test.ts`
 - `npx vitest run src/lib/citation-protocol.functions.test.ts`

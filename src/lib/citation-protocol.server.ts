@@ -188,8 +188,46 @@ export async function readResolvedCaptures(raw: z.infer<typeof scope>, rpc?: Kno
   // between the two reads is still (correctly) seen as unresolved — deletion invalidation is preserved.
   const evidence = await readAnswerEvidence(s, rpc);
   const protocol = await readCitationProtocol(s, rpc);
-  const resolved = resolveStoredCaptures(
-    evidence.answers.map((a) => ({
+  // Stale-read reconciliation by chain IDENTITY, applied to the RAW evidence BEFORE active-leaf/slot
+  // resolution (evidence is read strictly BEFORE protocol). A row the older evidence still shows live
+  // may have been deleted by the newer protocol read. A tombstone records the erased ORIGINAL's id —
+  // the correction chain's ROOT (the trigger writes one only for a `supersedes` null row). Every row
+  // whose chain root is a tombstoned original is dropped from the raw set. Doing this BEFORE resolution
+  // is essential: resolving first would collapse two independent originals sharing one slot into a
+  // single stable-first entry and discard the sibling, so filtering afterwards could remove the kept
+  // copy and leave no survivor. Filtering the raw set instead removes only the deleted chain's own rows
+  // and leaves a genuine independent survivor (and its own correction chain, whose leaf id is NOT its
+  // root — found by walking `supersedesId`) to resolve normally. The chain root is resolved from the
+  // complete evidence ancestry map.
+  const parentOf = new Map<string, string | null>();
+  for (const a of evidence.answers) parentOf.set(a.id, a.input.supersedesId ?? null);
+  const rootOf = (id: string): string => {
+    let cur = id;
+    const seen = new Set<string>([cur]);
+    let p = parentOf.get(cur) ?? null;
+    while (p !== null && parentOf.has(p) && !seen.has(p)) {
+      cur = p;
+      seen.add(cur);
+      p = parentOf.get(cur) ?? null;
+    }
+    return cur;
+  };
+  const tombstonedRoots = new Set(protocol.tombstones.map((t) => t.answerId));
+  const survivingAnswers = evidence.answers.filter((a) => !tombstonedRoots.has(rootOf(a.id)));
+  // A survivor sharing a slot with a KNOWN erased original is ambiguous duplicate history: the resolver
+  // flags it `erased_duplicate_slot` and demotes it (never a silent success). These keys match the
+  // resolver's internal slot key. Only transmitted (grid, LIMIT-bounded) tombstones are known here; when
+  // truncated, `coverageComplete` is false for the version so the incompleteness is already surfaced.
+  const tombstoneSlotKey = (t: {
+    panelId: string;
+    panelVersion: number;
+    brandRunId: string | null;
+    questionId: string;
+    round: number;
+  }) => JSON.stringify([t.panelId, t.panelVersion, t.brandRunId, t.questionId, t.round]);
+  const erasedSlotKeys = new Set(protocol.tombstones.map(tombstoneSlotKey));
+  const captures = resolveStoredCaptures(
+    survivingAnswers.map((a) => ({
       id: a.id,
       status: a.input.status,
       promptId: a.input.promptId,
@@ -200,36 +238,7 @@ export async function readResolvedCaptures(raw: z.infer<typeof scope>, rpc?: Kno
     })),
     protocol.panels,
     protocol.brandRuns,
-  );
-  // Stale-read reconciliation (evidence is read strictly BEFORE protocol). If a capture that the older
-  // evidence snapshot still shows as live has a tombstone in the newer protocol snapshot for the SAME
-  // slot, the original was deleted between the two reads: the tombstone is written only on delete, and
-  // the write path forbids a live capture at a tombstoned slot, so the two can never coexist in a
-  // consistent snapshot. The tombstone (newer) is authoritative — drop the stale live capture so a
-  // deleted observation is never reported as a live/positive slot. This is a conservative live-identity
-  // check at the P2 read boundary; it needs no released-answer SQL change and preserves the earlier
-  // append-only-dependency ordering (a genuinely new capture's dependencies are still read after it).
-  // Single-connection tests exercise this deterministically; it is not a claim of multi-connection
-  // atomicity across the two released RPCs.
-  const slotKey = (t: {
-    panelId: string;
-    panelVersion: number;
-    brandRunId: string | null;
-    questionId: string;
-    round: number;
-  }) => JSON.stringify([t.panelId, t.panelVersion, t.brandRunId, t.questionId, t.round]);
-  const tombstoneKeys = new Set(protocol.tombstones.map(slotKey));
-  const captures = resolved.filter(
-    (c) =>
-      !tombstoneKeys.has(
-        slotKey({
-          panelId: c.captureContext.panelId,
-          panelVersion: c.captureContext.panelVersion,
-          brandRunId: c.captureContext.brandRunId,
-          questionId: c.captureContext.slot.questionId,
-          round: c.captureContext.slot.round,
-        }),
-      ),
+    erasedSlotKeys,
   );
   // Content-free erased-slot facts: an erased consumed attempt (a deleted capture that left a
   // tombstone) is surfaced as an erased observation so the report never mistakes it for an absent/
