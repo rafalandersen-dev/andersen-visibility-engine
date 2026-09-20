@@ -388,6 +388,53 @@ describe("CI-2 panel storage, versioning and owner lock", () => {
     ).rejects.toThrow(/citation_panel_grid_invalid/);
     expect(await versions(uuid(34))).toEqual({ n: 1 }); // still only the draft; nothing locked
   });
+  it("refuses to lock ten non-distinct discovery questions (reused prompt binding or copied text)", async () => {
+    // Ten unique local ids all bound to ONE prompt with identical text is not ten questions. The save
+    // path's binding guard would reject it (text must equal the bound prompt), so insert the draft
+    // directly and assert the lock RPC's grid guard fires before binding. Both distinct-binding and
+    // distinct-text collapse to 1 here.
+    const oneBinding = draftDiscovery({
+      panelId: uuid(35),
+      questions: discoveryQuestions.map((_, i) => ({
+        id: `SY-D${String(i + 1).padStart(2, "0")}`,
+        promptId: discoveryPromptId,
+        promptRevision: 1,
+        text: discoveryText,
+        language: "sv",
+      })),
+    });
+    // Ten DISTINCT prompt ids but identical COPIED text — distinct-text collapses to 1.
+    const copiedText = draftDiscovery({
+      panelId: uuid(36),
+      questions: discoveryQuestions.map((q) => ({ ...q, text: discoveryText })),
+    });
+    const count = async (panelId: string) =>
+      (
+        await db.query<{ n: number }>(
+          "SELECT count(*)::int n FROM citation_panels WHERE user_id=$1 AND project_id='p' AND panel_id=$2",
+          [user, panelId],
+        )
+      ).rows[0].n;
+    for (const [panelId, draft] of [
+      [uuid(35), oneBinding],
+      [uuid(36), copiedText],
+    ] as const) {
+      await db.query(
+        "INSERT INTO citation_panels(user_id,project_id,panel_id,version,document) VALUES($1,'p',$2,1,$3)",
+        [user, panelId, draft],
+      );
+      // Direct lock RPC surfaces the specific grid guard; the public wrapper normalizes to generic.
+      await expect(
+        db.query("SELECT lock_citation_panel($1,'p',$2,$3)", [user, panelId, 1]),
+      ).rejects.toThrow(/citation_panel_grid_invalid/);
+      await expect(lockCitationPanel(scope, panelId, 1, rpc)).rejects.toThrow();
+      expect(await count(panelId)).toBe(1); // only the editable draft; nothing locked
+    }
+    // Regression that the guard is not over-broad: the genuine ten-distinct grid still locks.
+    await saveCitationPanelDraft(scope, discoveryPanelId, 0, draftDiscovery(), rpc);
+    const locked = await lockCitationPanel(scope, discoveryPanelId, 1, rpc);
+    expect(locked).toMatchObject({ version: 2, status: "locked" });
+  });
   it("fails closed on all three write RPCs when the account workspace_meta row is missing, then permits them once restored", async () => {
     // save_citation_panel_draft, lock_citation_panel and approve_citation_brand_run all call
     // assert_knowledge_project(...,true), whose workspace_meta FOR UPDATE is a silent no-op when no row
@@ -1307,6 +1354,285 @@ describe("CI-2 erasure preserves the slot/budget fact (content-free tombstone)",
       (await db.query("SELECT count(*)::int n FROM citation_capture_tombstones")).rows[0],
     ).toEqual({ n: 1 });
   });
+  it("surfaces an erased discovery observation as an erased slot (not absent); read RPC returns content-free tombstones", async () => {
+    const first = await importManualCapture(scope, discoveryCapture(), rpc);
+    await removeAnswerEvidence(scope, "answer", first, rpc);
+    // read_citation_protocol now returns the content-free tombstone (identity only, no answer text).
+    const protocol = await readCitationProtocol(scope, rpc);
+    expect(protocol.tombstones).toEqual([
+      expect.objectContaining({
+        answerId: first,
+        panelId: discoveryPanelId,
+        panelVersion: 2,
+        questionId: "SY-D01",
+        round: 1,
+        brandRunId: null,
+      }),
+    ]);
+    expect(JSON.stringify(protocol.tombstones)).not.toContain("FIXTURE"); // no erased answer content
+    // readResolvedCaptures surfaces it as an erased slot; no live capture, and it is NOT absent/missed.
+    const { captures, erasedSlots } = await readResolvedCaptures(scope, rpc);
+    expect(captures).toEqual([]);
+    expect(erasedSlots).toHaveLength(1);
+    expect(erasedSlots[0]).toMatchObject({
+      questionId: "SY-D01",
+      round: 1,
+      panelResolved: true,
+      brandRunResolved: null,
+    });
+  });
+  it("returns exactly one erased slot for a fully erased correction chain (no double count)", async () => {
+    const first = await importManualCapture(scope, discoveryCapture(), rpc);
+    await importManualCapture(
+      scope,
+      discoveryCapture({}, { supersedesId: first, rawAnswer: "corrected same-slot" }),
+      rpc,
+    );
+    await removeAnswerEvidence(scope, "answer", first, rpc); // cascade deletes the correction too
+    const { captures, erasedSlots } = await readResolvedCaptures(scope, rpc);
+    expect(captures).toEqual([]);
+    expect(erasedSlots).toHaveLength(1); // one slot, not one per chain link
+  });
+  it("distinguishes an erased slot from a surviving capture at another slot (each counted once)", async () => {
+    const r1 = await importManualCapture(scope, discoveryCapture(), rpc); // round 1
+    await importManualCapture(
+      scope,
+      discoveryCapture({ slot: { round: 2, questionId: "SY-D01" } }, { rawAnswer: "round2 live" }),
+      rpc,
+    );
+    await removeAnswerEvidence(scope, "answer", r1, rpc); // erase round 1 only
+    const { captures, erasedSlots } = await readResolvedCaptures(scope, rpc);
+    expect(captures.map((c) => c.captureContext.slot.round)).toEqual([2]); // live round-2 capture
+    expect(erasedSlots).toHaveLength(1);
+    expect(erasedSlots[0]).toMatchObject({ round: 1 });
+  });
+  it("keeps a brand run's erased observations as erased slots after every capture is deleted", async () => {
+    await saveCitationPanelDraft(scope, brandPanelId, 0, draftBrand(), rpc);
+    await lockCitationPanel(scope, brandPanelId, 1, rpc);
+    await backdatePanelApproval(brandPanelId);
+    await insertBrandRun(uuid(50), { observationBudget: 2, rounds: 2 });
+    const o1 = await importManualCapture(scope, brandCapture(), rpc); // round 1
+    const o2 = await importManualCapture(
+      scope,
+      brandCapture({ slot: { round: 2, questionId: "SY-B01" } }, { rawAnswer: "obs2" }),
+      rpc,
+    );
+    await removeAnswerEvidence(scope, "answer", o1, rpc);
+    await removeAnswerEvidence(scope, "answer", o2, rpc);
+    const { captures, erasedSlots } = await readResolvedCaptures(scope, rpc);
+    expect(captures).toEqual([]);
+    const brandErased = erasedSlots.filter((s) => s.brandRunId === uuid(50));
+    expect(brandErased).toHaveLength(2); // both consumed attempts persist as erased slots
+    expect(brandErased.every((s) => s.brandRunResolved === true)).toBe(true);
+  });
+  it("does not leak an erased slot across owners", async () => {
+    const first = await importManualCapture(scope, discoveryCapture(), rpc);
+    await removeAnswerEvidence(scope, "answer", first, rpc);
+    // Another owner with the same project id sees none of this owner's erased slots.
+    const otherResolved = await readResolvedCaptures({ ownerId: other, projectId: "p" }, rpc);
+    expect(otherResolved.erasedSlots).toEqual([]);
+    expect((await readResolvedCaptures(scope, rpc)).erasedSlots).toHaveLength(1);
+  });
+  it("reports an erased discovery slot as erased and the rest as never-observed (final report counts)", async () => {
+    const first = await importManualCapture(scope, discoveryCapture(), rpc); // SY-D01 r1
+    await importManualCapture(
+      scope,
+      discoveryCapture({ slot: { round: 2, questionId: "SY-D01" } }, { rawAnswer: "r2 live" }),
+      rpc,
+    );
+    await removeAnswerEvidence(scope, "answer", first, rpc); // erase round 1 only
+    const { reports } = await readResolvedCaptures(scope, rpc);
+    const r = reports.find((x) => x.panelId === discoveryPanelId && x.panelVersion === 2);
+    expect(r).toMatchObject({
+      planned: 40,
+      observed: 1, // the surviving round-2 capture
+      erased: 1, // the erased round-1 slot — counted as erased, not absent
+      recorded: 2,
+      neverObserved: 38,
+      excluded: 0,
+    });
+    expect(r?.outcomes.complete).toBe(1); // only the live capture; erasure contributes no complete
+  });
+  it("reports a brand run's budget as consumed after every capture is erased (final report counts)", async () => {
+    await saveCitationPanelDraft(scope, brandPanelId, 0, draftBrand(), rpc);
+    await lockCitationPanel(scope, brandPanelId, 1, rpc);
+    await backdatePanelApproval(brandPanelId);
+    await insertBrandRun(uuid(50), { observationBudget: 2, rounds: 2 });
+    const o1 = await importManualCapture(scope, brandCapture(), rpc);
+    const o2 = await importManualCapture(
+      scope,
+      brandCapture({ slot: { round: 2, questionId: "SY-B01" } }, { rawAnswer: "obs2" }),
+      rpc,
+    );
+    await removeAnswerEvidence(scope, "answer", o1, rpc);
+    await removeAnswerEvidence(scope, "answer", o2, rpc);
+    const { reports } = await readResolvedCaptures(scope, rpc);
+    const brand = reports.find((x) => x.panelId === brandPanelId);
+    expect(brand?.brandRuns).toEqual([
+      { runId: uuid(50), approvedBudget: 2, consumed: 2, observed: 0, erased: 2 },
+    ]);
+    expect(brand?.outcomes.complete).toBe(0); // no eligible numerator survives erasure
+  });
+  it("tolerates malformed historical tombstones on read: never throws, excluded count visible, legit facts still count", async () => {
+    // A prior looser trigger stored captureContext.slot.questionId verbatim, so a historical tombstone
+    // can carry an ARBITRARY / EMPTY / OVERLENGTH questionId. Erase one legitimate capture, then insert
+    // malformed content-free tombstones directly: empty, overlength (2001 chars) and arbitrary text.
+    const legit = await importManualCapture(scope, discoveryCapture(), rpc); // SY-D01 r1
+    await removeAnswerEvidence(scope, "answer", legit, rpc);
+    const malformedIds = [
+      { id: uuid(720), q: "" }, // empty
+      { id: uuid(721), q: "Z".repeat(2001) }, // overlength (would blow a min1/max2000 schema)
+      { id: uuid(722), q: "arbitrary deleted content that must never be transmitted" },
+    ];
+    for (const m of malformedIds)
+      await db.query(
+        "INSERT INTO citation_capture_tombstones(user_id,project_id,answer_id,panel_id,panel_version,brand_run_id,question_id,round) VALUES($1,'p',$2,$3,2,NULL,$4,0)",
+        [user, m.id, discoveryPanelId, m.q],
+      );
+    // The read does NOT throw; malformed questionIds are never transmitted (only the grid-shaped legit
+    // slot is), and the malformed rows surface as a content-free excluded count while the legitimate
+    // erased slot still counts as erased. legitimate panels still read.
+    const protocol = await readCitationProtocol(scope, rpc);
+    expect(protocol.panels).toHaveLength(2); // the draft + locked discovery panel still read
+    expect(protocol.tombstones.map((t) => t.questionId)).toEqual(["SY-D01"]); // only the grid-shaped slot
+    expect(JSON.stringify(protocol)).not.toContain("arbitrary deleted content"); // no content leaked
+    const { erasedSlots, reports } = await readResolvedCaptures(scope, rpc);
+    expect(erasedSlots.map((s) => s.questionId)).toEqual(["SY-D01"]);
+    const r = reports.find((x) => x.panelId === discoveryPanelId && x.panelVersion === 2);
+    expect(r).toMatchObject({ observed: 0, erased: 1, excluded: 3 }); // 3 malformed rows, visible count
+  });
+  it("counts two erased originals at one brand run/slot as consumed 2 but erased-unique 1 (write-gate faithful)", async () => {
+    await saveCitationPanelDraft(scope, brandPanelId, 0, draftBrand(), rpc);
+    await lockCitationPanel(scope, brandPanelId, 1, rpc);
+    await backdatePanelApproval(brandPanelId);
+    await insertBrandRun(uuid(50), { observationBudget: 5, rounds: 2 });
+    // One real observation via the RPC, then a SECOND distinct original at the SAME run/slot inserted
+    // directly (the write gate forbids this now, but historical data predates the one-per-slot guard).
+    const o1 = await importManualCapture(scope, brandCapture(), rpc);
+    const doc = (await readAnswerEvidence(scope, rpc)).answers[0];
+    await db.query(
+      "INSERT INTO ai_answer_evidence(user_id,project_id,id,prompt_id,prompt_revision,document_hash,document,supersedes_id) VALUES($1,'p',$2,$3,1,$4,$5,NULL)",
+      [
+        user,
+        uuid(730),
+        brandPromptId,
+        "hist-dup-hash",
+        { input: doc.input, prompt: doc.prompt, analysis: doc.analysis },
+      ],
+    );
+    // Erase BOTH originals → two tombstone rows at one slot.
+    await removeAnswerEvidence(scope, "answer", o1, rpc);
+    await removeAnswerEvidence(scope, "answer", uuid(730), rpc);
+    expect(
+      (
+        await db.query(
+          "SELECT count(*)::int n FROM citation_capture_tombstones WHERE brand_run_id=$1",
+          [uuid(50)],
+        )
+      ).rows[0],
+    ).toEqual({ n: 2 }); // two rows, one slot
+    const { reports } = await readResolvedCaptures(scope, rpc);
+    const brand = reports.find((x) => x.panelId === brandPanelId);
+    // Consumed counts each tombstone row (2 attempts), erased counts distinct slots (1 unique observation).
+    expect(brand?.brandRuns).toEqual([
+      { runId: uuid(50), approvedBudget: 5, consumed: 2, observed: 0, erased: 1 },
+    ]);
+  });
+  it("consumed counts a SURVIVING live original AND its erased same-slot sibling (write gate = 2)", async () => {
+    await saveCitationPanelDraft(scope, brandPanelId, 0, draftBrand(), rpc);
+    await lockCitationPanel(scope, brandPanelId, 1, rpc);
+    await backdatePanelApproval(brandPanelId);
+    await insertBrandRun(uuid(50), { observationBudget: 5, rounds: 2 });
+    const o1 = await importManualCapture(scope, brandCapture(), rpc); // SY-B01 r1
+    const doc = (await readAnswerEvidence(scope, rpc)).answers[0];
+    // A second original at the SAME run/slot inserted directly (historical), then erase ONLY it — the
+    // first original SURVIVES. The write gate would count budget = 1 live original + 1 tombstone = 2.
+    await db.query(
+      "INSERT INTO ai_answer_evidence(user_id,project_id,id,prompt_id,prompt_revision,document_hash,document,supersedes_id) VALUES($1,'p',$2,$3,1,$4,$5,NULL)",
+      [
+        user,
+        uuid(731),
+        brandPromptId,
+        "sibling-hash",
+        { input: doc.input, prompt: doc.prompt, analysis: doc.analysis },
+      ],
+    );
+    await removeAnswerEvidence(scope, "answer", uuid(731), rpc); // erase the sibling; o1 survives
+    const { reports } = await readResolvedCaptures(scope, rpc);
+    const brand = reports.find((x) => x.panelId === brandPanelId);
+    // Authoritative SQL consumed = live original (o1) + tombstone (sibling) = 2, matching the write gate
+    // even though the surviving original's slot is reconciled out of coverage (consumed is independent).
+    expect(brand?.brandRuns[0].consumed).toBe(2);
+  });
+  it("consumed counts a malformed-context live original (write-gate parity) and never charges corrections", async () => {
+    await saveCitationPanelDraft(scope, brandPanelId, 0, draftBrand(), rpc);
+    await lockCitationPanel(scope, brandPanelId, 1, rpc);
+    await backdatePanelApproval(brandPanelId);
+    await insertBrandRun(uuid(50), { observationBudget: 5, rounds: 2 });
+    const o1 = await importManualCapture(scope, brandCapture(), rpc); // valid original, run uuid(50)
+    await importManualCapture(
+      scope,
+      brandCapture({}, { supersedesId: o1, rawAnswer: "corrected" }),
+      rpc,
+    ); // a correction of o1 (supersedes set) — must never be charged
+    // Corrupt o1's STORED captureContext to a shape captureContextSchema rejects, keeping only its
+    // brandRunId — exactly what the write gate keys on. The strict resolver now drops o1 from coverage,
+    // but the authoritative SQL consumed must still count it, as the write gate does.
+    await db.query(
+      "UPDATE ai_answer_evidence SET document=jsonb_set(document,'{input,captureContext}',$3::jsonb) WHERE user_id=$1 AND id=$2",
+      [user, o1, JSON.stringify({ brandRunId: uuid(50), junk: true })],
+    );
+    const { reports } = await readResolvedCaptures(scope, rpc);
+    const brand = reports.find((x) => x.panelId === brandPanelId);
+    // consumed = 1: the malformed original is counted (else 0), and the correction is not charged (else 2).
+    expect(brand?.brandRuns[0].consumed).toBe(1);
+    // Owner isolation: another owner's original for the same run id never affects this owner's consumed
+    // (the SQL aggregate is owner/project scoped). This row is never read by the user's scoped read.
+    await saveEvidencePrompt(
+      { ownerId: other, projectId: "p" },
+      uuid(940),
+      0,
+      promptData(brandText),
+      rpc,
+    );
+    await db.query(
+      "INSERT INTO ai_answer_evidence(user_id,project_id,id,prompt_id,prompt_revision,document_hash,document,supersedes_id) VALUES($1,'p',$2,$3,1,$4,$5,NULL)",
+      [
+        other,
+        uuid(941),
+        uuid(940),
+        "other-run-hash",
+        { input: { captureContext: { brandRunId: uuid(50) } }, prompt: {}, analysis: {} },
+      ],
+    );
+    expect(
+      (await readResolvedCaptures(scope, rpc)).reports.find((x) => x.panelId === brandPanelId)
+        ?.brandRuns[0].consumed,
+    ).toBe(1);
+  });
+  it("does not derive a definitive neverObserved from truncated tombstone coverage, and bounds overflow", async () => {
+    // Synthesize > the 10000 read LIMIT of grid tombstones for the locked discovery version (all one
+    // slot, distinct answer ids) so the transmitted coverage is truncated for that version.
+    await db.query(
+      `INSERT INTO citation_capture_tombstones(user_id,project_id,answer_id,panel_id,panel_version,brand_run_id,question_id,round)
+       SELECT $1,'p',gen_random_uuid(),$2,2,NULL,'SY-D01',1 FROM generate_series(1,10001) g`,
+      [user, discoveryPanelId],
+    );
+    const protocol = await readCitationProtocol(scope, rpc);
+    expect(protocol.tombstones).toHaveLength(10000); // LIMIT-bounded, not unbounded
+    const { reports } = await readResolvedCaptures(scope, rpc);
+    const r = reports.find((x) => x.panelId === discoveryPanelId && x.panelVersion === 2);
+    // Coverage is incomplete (10000 transmitted < 10001 true grid rows) → neverObserved must be unknown.
+    expect(r?.coverageComplete).toBe(false);
+    expect(r?.neverObserved).toBeNull();
+    // An orphaned tombstone (a panel version that no longer exists) is a bounded overflow count, not a
+    // random-id group and not silently dropped.
+    await db.query(
+      "INSERT INTO citation_capture_tombstones(user_id,project_id,answer_id,panel_id,panel_version,brand_run_id,question_id,round) VALUES($1,'p',$2,$3,9,NULL,'SY-D01',1)",
+      [user, uuid(750), uuid(999)],
+    );
+    expect((await readResolvedCaptures(scope, rpc)).erasureOverflow).toBe(1);
+  });
 });
 
 describe("CI-2 capacity, isolation, deletion and access control", () => {
@@ -1451,7 +1777,16 @@ describe("CI-2 capacity, isolation, deletion and access control", () => {
       else
         expect(
           (await db.query("SELECT read_citation_protocol($1,$2) data", [user, "p"])).rows[0],
-        ).toEqual({ data: { panels: [], brandRuns: [] } });
+        ).toEqual({
+          data: {
+            panels: [],
+            brandRuns: [],
+            tombstones: [],
+            runConsumed: [],
+            erasureByVersion: [],
+            erasureOverflow: 0,
+          },
+        });
       await db.exec("RESET ROLE");
     }
     expect(

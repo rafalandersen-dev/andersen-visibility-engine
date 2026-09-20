@@ -302,6 +302,142 @@ unserialized.
   or capacity guard) was the sole blocker. PGlite is single-connection, so this proves the fail-closed
   presence gate, not multi-connection lock contention.
 
+### Review round 9 — ten DISTINCT questions, and erased attempts must not vanish
+
+Two confirmed findings against the renamed candidate `20260920190000_citation_protocol.sql`:
+
+- **Ten distinct discovery questions at lock (not ten labels for one).** The lock grid guard checked
+  only `10 questions × 4 rounds`, so ten unique local ids all bound to ONE prompt — or ten prompts
+  carrying identical COPIED text — passed as a "ten-question" experiment. Fixed in three places that
+  must agree: the SQL `lock_citation_panel` grid guard now also requires ten DISTINCT prompt bindings
+  (`promptId|promptRevision`) AND ten DISTINCT texts; the TS `lockedPanelSchema` (via
+  `assertV1DiscoveryGrid` + the new exported `v1DiscoveryQuestionsDistinct`) refuses the same at the
+  boundary; and the read resolver's `gridValid` includes the same distinctness so a HISTORICAL locked
+  panel with a non-distinct grid can never read a capture as `complete` (it is flagged
+  `panel_grid_invalid`, demoted to `protocol_deviant`). Incomplete drafts stay editable and brand
+  panels stay exempt (rounds 0). The existing binding guard already forces text = the bound prompt's
+  text, so a reused prompt also collides on text; both checks are kept so the intent holds even if a
+  row is malformed. Tests: duplicate-binding and copied-text drafts refused at lock (specific SQL error
+  + generic wrapper + nothing locked), the genuine 10×4 distinct grid still locks, and a capture against
+  a historical non-distinct grid reads as an explicit deviation.
+- **Erased consumed attempts must not read as absent/missed.** `readResolvedCaptures` ignored the
+  content-free `citation_capture_tombstones`, so a deleted observation silently reappeared as a
+  never-observed slot and a brand run looked under-consumed. Fix: `read_citation_protocol` now also
+  returns a content-free `tombstones` array (only slot/budget identity: panel version, brand run,
+  question, round, and the erased answer id — no answer text); `citationProtocolStateSchema` gains an
+  optional-with-default `tombstones` field; a new pure `resolveErasedSlots` re-derives each tombstone
+  into an `ErasedSlot` (panel/run resolution mirrors the live resolver), EXCLUDING any slot a surviving
+  resolved capture still occupies (no double count of a deleted original whose chain or an identical
+  re-import still resolves) and collapsing duplicate tombstones for one slot; and `readResolvedCaptures`
+  returns `erasedSlots` alongside `captures` (additive — existing report consumers that destructure
+  `{ panels, brandRuns, captures }` are unaffected). An erased slot is thus DISTINCT from a
+  never-observed one, and a brand run's budget stays consumed even after every capture is deleted.
+  Nothing retains erased answer content; tenant isolation, the read-order race fix (evidence before
+  protocol) and conservative concurrency are unchanged. Tests: an erased discovery observation surfaces
+  as an erased slot (and `read_citation_protocol` returns a content-free tombstone), a fully erased
+  correction chain yields exactly one erased slot, an erased slot coexists with a surviving capture at
+  another slot (each counted once), a brand run keeps two erased slots after all captures are deleted,
+  no erased slot leaks across owners, plus pure-resolver unit tests for exclusion/collapse/unresolved.
+
+### Review round 10 — make erased facts actually count, tolerate malformed history, close the read race
+
+Four confirmed follow-ups on the round-9 delta:
+
+- **Service-role read expectation (test-only).** The RLS test asserted `read_citation_protocol` returns
+  `{ panels, brandRuns }`; the added `tombstones: []` broke it. Corrected the expected contract to
+  `{ panels: [], brandRuns: [], tombstones: [] }`.
+- **Erased facts must reach the counts, not just the array.** Returning `erasedSlots` alongside
+  `captures` changed no report, because the report layer's `panelCounts` consumes only live captures.
+  Added a canonical, typed, P2-owned report — `citationReport` (+ `citationReports`) in
+  `citation-protocol.ts` — that folds live outcomes AND erased facts per locked panel version:
+  `planned`, `observed`, `erased`, `recorded = observed + erased`, `neverObserved` (explicit erased vs
+  never-observed), an `outcomes` tally taken ONLY from live captures (no eligible numerator from
+  erasure), and per-approved-run `{ approvedBudget, consumed, observed, erased }` where `consumed`
+  counts live originals plus erased attempts so a run's budget stays consumed after every capture is
+  erased. It validates panel/question/round/run and de-duplicates so a slot is never double-counted.
+  `readResolvedCaptures` now computes `reports` at the service boundary, so a consumer cannot read
+  `captures` and silently drop the erased facts. `citation-panel.ts` is unchanged (composed, not
+  edited); human-reviewed numerators stay the report layer's facts.
+- **Malformed historical tombstones must not break the read.** The strict `erasedSlotFactSchema` would
+  throw the whole read on a tombstone the trigger legitimately allows (arbitrary `questionId`,
+  `round`/`panelVersion` 0..1e9). Relaxed the schema to exactly the trigger's bounds (uuid ids,
+  `questionId` any 1..2000 chars, integers 0..2147483647) so every DB-storable tombstone parses;
+  `citationReport` then classifies an unmappable fact as `excluded` (run budget still consumed) rather
+  than rejecting the read.
+- **Evidence-before-protocol read race.** A capture deleted BETWEEN the two reads shows live in the
+  stale evidence while its tombstone is already in the newer protocol. `readResolvedCaptures` now
+  reconciles: a stale live capture whose slot has a tombstone is dropped (a tombstone is written only on
+  delete and the write path forbids a live capture at a tombstoned slot, so they never coexist in a
+  consistent snapshot; the newer tombstone is authoritative). The deleted attempt is reported as erased,
+  never a live positive. Preserves the append-only-dependency ordering, needs no released-answer SQL
+  change, and is a conservative single-connection boundary check — NOT a multi-connection atomicity
+  claim. Tests: an injected ordering test proves a delete-between-reads capture is not returned as a
+  positive; SQL tests assert final report counts (erased discovery slot vs never-observed; brand budget
+  consumed after all captures erased) and that a directly-inserted malformed historical tombstone reads
+  without throwing and is `excluded` while a legitimate erased slot still counts; plus pure
+  `citationReport` unit tests (erased-vs-absent, budget-consumed, malformed-excluded, no-double-count).
+
+### Review round 11 — content-safe/bounded erasure read, and write-gate-faithful consumed budget
+
+Two confirmed edge cases on the round-9/10 delta:
+
+- **`questionId` content safety + bounded read.** The trigger stores `captureContext.slot.questionId`
+  verbatim (any non-null text, incl. empty/2001+ chars), which the strict `min1/max2000` schema would
+  reject — throwing the whole read — and which could leak arbitrary deleted content, and an unbounded
+  tombstone set could hit the array cap. Fixed by reshaping `read_citation_protocol`: `tombstones` now
+  emits ONLY rows whose `question_id` is a real grid-shaped id (`^[A-Z]{2}-[DB][0-9]{2}$`, a structured
+  ≤6-char label — never free text), `LIMIT`-bounded; malformed rows are reduced to a content-free
+  `tombstoneExcluded` count per panel version (no text transmitted). The schema requires the grid shape
+  (SQL-guaranteed) so a malformed historical row can neither break the read nor leak content, and the
+  report surfaces the excluded count as visible `excluded`.
+- **Consumed budget must count each tombstone row, not each distinct slot.** `resolveErasedSlots`
+  collapses same-slot tombstones for coverage, so two historical originals at one run/slot (each a real
+  consumed attempt, both counted by the write gate) under-reported consumed. Fixed by computing
+  consumed from TRUSTED facts, not the collapsed coverage: `read_citation_protocol` returns
+  `tombstoneBudget` = per-run `count(*)` of tombstone rows (aggregated in SQL by answer id), and
+  `readResolvedCaptures` adds every live ORIGINAL (`supersedes` null) still bound to the run — minus any
+  stale original whose slot the newer protocol already tombstoned (the round-10 reconciliation, so it is
+  counted once via its tombstone). `citationReport` now takes a `CitationErasure` bundle
+  (`slots` + `consumedByRun` + `excludedByVersion`) and reports per-run `consumed` from `consumedByRun`
+  while `erased` stays the distinct-slot (unique-observation) count — so `consumed` can exceed
+  `observed + erased` exactly when historical duplicates existed. Corrections (`supersedes` set) are
+  never counted as originals. This wires the service report from trusted facts, not a detached helper.
+  Tests: SQL — empty/overlength/arbitrary `questionId` tombstones read without throwing, no content
+  transmitted, panels still read, excluded count visible; two erased originals at one run/slot →
+  consumed 2, erased-unique 1; other-owner/project excluded (existing isolation tests). Pure — the
+  `citationReport` suite updated to the trusted-facts shape (erased-vs-absent, live-empty budget
+  consumed, consumed-2/erased-1, malformed-excluded-visible, no-double-count).
+
+### Review round 12 — authoritative SQL consumed, and truncation-aware coverage
+
+Two final integration gaps on the round-11 delta:
+
+- **A — `consumed` must equal the write gate.** The round-11 server reconstructed consumed in JS: it
+  parsed live originals with the STRICT `captureContextSchema` (so a live original with a malformed
+  context but a valid `brandRunId`, which the write gate counts via `captureContext->>'brandRunId'`, was
+  skipped) and dropped any live original whose slot had a tombstone (so a SURVIVING original sharing a
+  slot with an erased sibling — write gate = 2 — was under-counted to 1). Fixed by making consumed
+  AUTHORITATIVE in SQL: `read_citation_protocol` now returns `runConsumed` per approved run, computed
+  with the EXACT write-gate predicate — `count(*)` of live originals (`supersedes` null) bound to the
+  run by `captureContext->>'brandRunId'` (malformed context included) plus `count(*)` of the run's
+  tombstone rows — in one snapshot, owner/project scoped, bounded to the ≤20 approved runs. The server
+  passes it straight through (no JS reconstruction, no reconciliation applied to consumed); `consumed`
+  now matches the gate even when the surviving original's slot is reconciled out of coverage.
+- **B — never claim `neverObserved` from truncated coverage; bound all aggregates.** The `tombstones`
+  read is `LIMIT`-bounded with no truncation signal, so `neverObserved` could be computed from partial
+  data, and the old per-`(panel,run)` aggregates could form unbounded groups on random historical ids.
+  Fixed: `read_citation_protocol` now returns `erasureByVersion` (per ACTUAL stored panel version that
+  has tombstones — bounded to real panels — its TRUE grid-row total and content-free malformed count)
+  and a single `erasureOverflow` count of tombstone rows orphaned by a deleted panel. The server derives
+  `coverageCompleteByVersion` (transmitted grid rows for a version ≥ its true total); `CitationReport`
+  gains `coverageComplete` and makes `neverObserved` **`number | null`** — null whenever coverage is
+  incomplete, so a definitive missing count is never derived from truncated tombstones. `erasureOverflow`
+  is surfaced on `readResolvedCaptures`. Tests: SQL — a surviving live original plus an erased same-slot
+  sibling → consumed 2; a malformed-context live original still counted while a correction is never
+  charged, and other-owner rows excluded; a `generate_series` synthetic >10000-row set → transmitted
+  coverage `LIMIT`-bounded, `coverageComplete` false, `neverObserved` null; an orphaned tombstone →
+  `erasureOverflow` 1. Pure — a `citationReport` completeness test (neverObserved null when incomplete).
+
 ## Files
 
 | File | Change |
@@ -350,12 +486,40 @@ stay erasable, no tombstone fabricated) and strengthened the tests (malformed-ca
 live-capture project deletion, full-row content-free inspection); Codex ran that at **31 SQL tests
 PASS (1.52s) but TypeScript FAILED** — `citation-protocol-migration.test.ts(1011,18)` TS2571, the
 full-row `row_to_json` result was `unknown`; fixed (test typing only) with a `<{ r: Record<string,
-unknown> }>` row generic, no broad `any`, assertion unchanged. Round 8 (this turn) adds the missing
-`workspace_meta FOR UPDATE`+`FOUND` serialization gate to the three panel/run write RPCs (matching the
-capture path) plus one SQL regression, all in candidate `…170000` and the test file only. **All prior
-counts — the 31/PASS-with-types-FAILED included — are a prior stage and do not carry over**; every
-check below, including the new serialization gate and its regression, is UNRUN in this worktree and
-must be re-executed by Codex.
+unknown> }>` row generic, no broad `any`, assertion unchanged. Round 8 added the missing
+`workspace_meta FOR UPDATE`+`FOUND` serialization gate to the three panel/run write RPCs; the migration
+was then released into main (`bd0…` integrated at `fc33…`) and RENAMED to the unapplied
+`20260920190000_citation_protocol.sql` (old `…170000` is historical), after which Codex ran the full
+suite at **6265 PASS / 63 focused, with types + lint + build PASS and security clean**. Round 9 (this
+turn) adds, in the renamed candidate + the TS contract/resolver/server + the two P2 test files + these
+docs only: (1) ten-DISTINCT-question enforcement at lock (SQL grid guard, `lockedPanelSchema`, and the
+resolver's `gridValid`); (2) content-free erased-slot resolution (`read_citation_protocol` returns
+`tombstones`, `citationProtocolStateSchema.tombstones`, `resolveErasedSlots`, and `erasedSlots` on
+`readResolvedCaptures`). Codex then ran the round-9 delta at **104 PASS / 1 FAIL of 105 focused
+(2.01s), tsc NOT run because of the failure** — the sole failure was the round-9 service-role RLS
+assertion still expecting `{ panels, brandRuns }` without the new `tombstones: []`. Round 10 (this turn)
+corrects that test expectation and adds: the canonical erased-aware report `citationReport`/
+`citationReports` wired into `readResolvedCaptures.reports` (so erased facts change the counts, not just
+ride alongside), a permissive `erasedSlotFactSchema` so malformed historical tombstones never break the
+read (classified `excluded`, budget still consumed), and a stale-read reconciliation that drops a live
+capture whose slot has a newer tombstone (a delete-between-reads is reported as erased, not a positive);
+Codex ran that delta green (**152 focused tests PASS in 2.06s, tsc PASS**). Round 11 (this turn) makes
+the erasure read content-safe and bounded (only grid-shaped `questionId` transmitted; malformed rows →
+a content-free `tombstoneExcluded` count; `LIMIT`-bounded) so an arbitrary/empty/overlength historical
+`questionId` can neither break the read nor leak deleted content, and computes `consumed` budget from
+TRUSTED facts (`tombstoneBudget` per-run row counts + live originals, reconciled) so two historical
+originals at one slot count as consumed 2 / erased-unique 1 — `citationReport` now takes a
+`CitationErasure` bundle; Codex ran that delta at **154 focused tests PASS in 2.06s, types PASS**.
+Round 12 (this turn) makes `consumed` an authoritative SQL aggregate in `read_citation_protocol`
+(`runConsumed`, the exact write-gate predicate — malformed-context live originals included, surviving
+originals not dropped) and adds truncation-aware, bounded coverage metadata (`erasureByVersion` +
+`erasureOverflow`), with `CitationReport.neverObserved` now `number | null` (null when coverage is
+incomplete). **All prior counts — 6265/PASS and the 154-focused-PASS run included — are a prior stage
+and do not carry over**; every check below, including the new authoritative-consumed and
+truncation/overflow tests, is UNRUN in this worktree and must be re-executed by Codex. No released SQL,
+released `citation-panel.ts`, global migration inventory, or P3/R09 worktree file was touched;
+USD50/manual-free is unchanged. The prepared deploy SQL / expected-identity artifacts are STALE — never
+execute them.
 
 - `npx vitest run src/lib/citation-protocol.test.ts`
 - `npx vitest run src/lib/citation-protocol.functions.test.ts`

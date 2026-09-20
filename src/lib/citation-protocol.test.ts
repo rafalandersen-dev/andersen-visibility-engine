@@ -4,11 +4,15 @@ import type { BrandRun, CaptureContext, PanelProtocol } from "./citation-panel";
 import { panelCounts } from "./citation-panel";
 import {
   citationProtocolStateSchema,
+  citationReport,
   parseManualCaptureInput,
   panelDraftSchema,
   lockedPanelSchema,
+  resolveErasedSlots,
   resolveStoredCaptures,
   type BrandRunApproval,
+  type ErasedSlot,
+  type ErasedSlotFact,
 } from "./citation-protocol";
 import {
   approveBrandRun,
@@ -462,6 +466,48 @@ describe("citation protocol pure contract", () => {
       ).success,
     ).toBe(true);
   });
+  it("locks only ten DISTINCT discovery questions: refuses reused prompt bindings or copied text", () => {
+    // Ten unique local ids all bound to ONE prompt (same promptId+revision, same text) is not ten
+    // questions — a false ten-question experiment. Refused at lock even though ids are unique.
+    const oneBinding = discoveryQuestions.map((q, i) => ({
+      ...q,
+      id: `SY-D${String(i + 1).padStart(2, "0")}`,
+      promptId: uuid(101),
+      promptRevision: 1,
+      text: discoveryText,
+    }));
+    expect(lockedPanelSchema.safeParse(discoveryPanel({ questions: oneBinding })).success).toBe(
+      false,
+    );
+    // Ten DISTINCT prompt ids but identical COPIED text is also not ten questions.
+    const copiedText = discoveryQuestions.map((q) => ({ ...q, text: discoveryText }));
+    expect(lockedPanelSchema.safeParse(discoveryPanel({ questions: copiedText })).success).toBe(
+      false,
+    );
+    // The genuine ten-distinct grid (distinct bindings AND distinct texts) still locks.
+    expect(lockedPanelSchema.safeParse(discoveryPanel()).success).toBe(true);
+  });
+  it("flags a capture against a historical non-distinct discovery grid as invalid, never complete", () => {
+    // A locked panel already on disk whose ten questions carry identical copied text (a false
+    // ten-question grid) must never read a capture as a complete v1 measurement.
+    const copiedText = discoveryQuestions.map((q) => ({ ...q, text: discoveryText }));
+    const [r] = resolveStoredCaptures(
+      [
+        {
+          id: "a1",
+          status: "complete",
+          promptId: uuid(101),
+          promptRevision: 1,
+          captureContext: context(),
+          supersedesId: null,
+        },
+      ],
+      [discoveryPanel({ questions: copiedText })],
+      [],
+    );
+    expect(r).toMatchObject({ panelResolved: true, outcome: "protocol_deviant" });
+    expect(r.deviations).toContain("panel_grid_invalid");
+  });
   it("plans exactly 40 discovery slots so one observed leaves 39 unobserved", () => {
     const counts = panelCounts(discoveryPanel(), [
       {
@@ -500,6 +546,237 @@ describe("citation protocol pure contract", () => {
   });
 });
 
+describe("citation protocol erased-slot resolution (content-free tombstones)", () => {
+  const tombstone = (over: Partial<ErasedSlotFact> = {}): ErasedSlotFact => ({
+    answerId: uuid(700),
+    panelId: uuid(1),
+    panelVersion: 1,
+    brandRunId: null,
+    questionId: "SY-D01",
+    round: 1,
+    ...over,
+  });
+  it("surfaces an erased discovery observation, distinct from a never-observed slot", () => {
+    const erased = resolveErasedSlots([tombstone()], [discoveryPanel()], [], []);
+    expect(erased).toHaveLength(1);
+    expect(erased[0]).toMatchObject({
+      questionId: "SY-D01",
+      round: 1,
+      panelResolved: true,
+      brandRunResolved: null,
+    });
+    // A slot with neither a tombstone nor a capture is absent from both — never fabricated here as an
+    // erased fact (that is a genuinely never-observed / missed slot for the report to count as such).
+    expect(resolveErasedSlots([], [discoveryPanel()], [], [])).toEqual([]);
+  });
+  it("never double-counts a slot a surviving capture still occupies, and collapses duplicate tombstones", () => {
+    const live = resolveStoredCaptures(
+      [
+        {
+          id: "a1",
+          status: "complete",
+          promptId: uuid(101),
+          promptRevision: 1,
+          captureContext: context(),
+          supersedesId: null,
+        },
+      ],
+      [discoveryPanel()],
+      [],
+    );
+    // A tombstone for the SAME slot as a surviving resolved capture is excluded (no double count).
+    expect(resolveErasedSlots([tombstone()], [discoveryPanel()], [], live)).toEqual([]);
+    // Two tombstones for one slot collapse to a single erased fact.
+    expect(
+      resolveErasedSlots(
+        [tombstone(), tombstone({ answerId: uuid(701) })],
+        [discoveryPanel()],
+        [],
+        [],
+      ),
+    ).toHaveLength(1);
+  });
+  it("keeps a brand run's budget consumed after all its captures are erased", () => {
+    const bt = tombstone({
+      answerId: uuid(710),
+      panelId: uuid(2),
+      brandRunId: uuid(50),
+      questionId: "SY-B01",
+    });
+    // The erased brand observation still stands (budget consumed) and resolves its run.
+    expect(resolveErasedSlots([bt], [brandPanel()], [brandRun()], [])[0]).toMatchObject({
+      brandRunId: uuid(50),
+      panelResolved: true,
+      brandRunResolved: true,
+    });
+    // Even if the run no longer resolves, the erased fact persists (the consumed attempt is immutable).
+    expect(resolveErasedSlots([bt], [brandPanel()], [], [])[0]).toMatchObject({
+      panelResolved: true,
+      brandRunResolved: false,
+    });
+  });
+  it("marks an erased slot whose panel version no longer resolves as unresolved, still not absent", () => {
+    const [r] = resolveErasedSlots([tombstone({ panelVersion: 2 })], [discoveryPanel()], [], []);
+    expect(r).toMatchObject({ panelResolved: false, brandRunResolved: null });
+  });
+});
+
+describe("citation canonical report folds live + trusted erasure facts (final counts)", () => {
+  const es = (over: Partial<ErasedSlot> = {}): ErasedSlot => ({
+    answerId: uuid(700),
+    panelId: uuid(1),
+    panelVersion: 1,
+    brandRunId: null,
+    questionId: "SY-D01",
+    round: 1,
+    panelResolved: true,
+    brandRunResolved: null,
+    ...over,
+  });
+  const liveComplete = () =>
+    resolveStoredCaptures(
+      [
+        {
+          id: "a1",
+          status: "complete",
+          promptId: uuid(101),
+          promptRevision: 1,
+          captureContext: context(),
+          supersedesId: null,
+        },
+      ],
+      [discoveryPanel()],
+      [],
+    );
+  it("counts erased discovery slots as erased (not absent), with no eligible numerator from erasure", () => {
+    const report = citationReport(discoveryPanel(), liveComplete(), {
+      slots: [es({ answerId: uuid(701), questionId: "SY-D02", round: 1 })], // a different slot, erased
+      consumedByRun: {},
+      excludedByVersion: {},
+      coverageCompleteByVersion: {},
+    });
+    expect(report).toMatchObject({
+      planned: 40,
+      observed: 1,
+      erased: 1,
+      recorded: 2,
+      neverObserved: 38, // 40 planned − 1 observed − 1 erased
+      excluded: 0,
+    });
+    expect(report.outcomes.complete).toBe(1); // only the live complete; erasure adds no complete
+  });
+  it("keeps a brand run's budget consumed after every capture is erased (live empty)", () => {
+    const report = citationReport(
+      brandPanel(),
+      [],
+      {
+        slots: [
+          es({
+            answerId: uuid(710),
+            panelId: uuid(2),
+            brandRunId: uuid(50),
+            questionId: "SY-B01",
+            round: 1,
+          }),
+          es({
+            answerId: uuid(711),
+            panelId: uuid(2),
+            brandRunId: uuid(50),
+            questionId: "SY-B01",
+            round: 2,
+          }),
+        ],
+        consumedByRun: { [uuid(50)]: 2 }, // trusted: two erased tombstone rows
+        excludedByVersion: {},
+        coverageCompleteByVersion: {},
+      },
+      [brandRun({ observationBudget: 2, rounds: 2 })],
+    );
+    expect(report.brandRuns).toEqual([
+      { runId: uuid(50), approvedBudget: 2, consumed: 2, observed: 0, erased: 2 },
+    ]);
+    expect(report.outcomes.complete).toBe(0);
+  });
+  it("counts two erased originals at ONE run/slot as consumed 2 but erased-unique 1", () => {
+    // The trusted consumed (2 tombstone rows) is independent of the collapsed coverage slot (1).
+    const report = citationReport(
+      brandPanel(),
+      [],
+      {
+        slots: [
+          es({
+            answerId: uuid(710),
+            panelId: uuid(2),
+            brandRunId: uuid(50),
+            questionId: "SY-B01",
+            round: 1,
+          }),
+        ],
+        consumedByRun: { [uuid(50)]: 2 },
+        excludedByVersion: {},
+        coverageCompleteByVersion: {},
+      },
+      [brandRun({ observationBudget: 2, rounds: 2 })],
+    );
+    expect(report.brandRuns).toEqual([
+      { runId: uuid(50), approvedBudget: 2, consumed: 2, observed: 0, erased: 1 },
+    ]);
+  });
+  it("surfaces malformed historical tombstones as an excluded count; budget still consumed", () => {
+    // Malformed tombstones arrive already reduced to content-free counts (no slots transmitted).
+    const report = citationReport(
+      brandPanel(),
+      [],
+      {
+        slots: [],
+        consumedByRun: { [uuid(50)]: 2 },
+        excludedByVersion: { [`${uuid(2)}:1`]: 2 },
+        coverageCompleteByVersion: {},
+      },
+      [brandRun({ observationBudget: 5, rounds: 2 })],
+    );
+    expect(report.erased).toBe(0);
+    expect(report.excluded).toBe(2); // both malformed rows visible as an excluded count
+    expect(report.brandRuns[0].consumed).toBe(2); // both consumed budget despite malformed slots
+  });
+  it("never double-counts a slot present as both a live capture and an erased fact", () => {
+    const report = citationReport(discoveryPanel(), liveComplete(), {
+      slots: [es()], // SY-D01 r1, same as the live capture
+      consumedByRun: {},
+      excludedByVersion: {},
+      coverageCompleteByVersion: {},
+    });
+    expect(report.observed).toBe(1);
+    expect(report.erased).toBe(0); // the live capture holds the slot; the erased fact is not re-counted
+    expect(report.excluded).toBe(1); // surfaced as excluded, never silently dropped
+    expect(report.recorded).toBe(1);
+  });
+  it("returns neverObserved = null (not a definitive count) when erased-slot coverage is incomplete", () => {
+    const key = `${uuid(1)}:1`;
+    const complete = citationReport(discoveryPanel(), liveComplete(), {
+      slots: [es({ answerId: uuid(701), questionId: "SY-D02", round: 1 })],
+      consumedByRun: {},
+      excludedByVersion: {},
+      coverageCompleteByVersion: { [key]: true },
+    });
+    expect(complete).toMatchObject({ coverageComplete: true, neverObserved: 38 });
+    // Same inputs but coverage flagged incomplete (the read LIMIT truncated this version's tombstones):
+    // neverObserved must be null — never derived from partial data — while erased stays a floor.
+    const incomplete = citationReport(discoveryPanel(), liveComplete(), {
+      slots: [es({ answerId: uuid(701), questionId: "SY-D02", round: 1 })],
+      consumedByRun: {},
+      excludedByVersion: {},
+      coverageCompleteByVersion: { [key]: false },
+    });
+    expect(incomplete).toMatchObject({
+      coverageComplete: false,
+      neverObserved: null,
+      observed: 1,
+      erased: 1,
+    });
+  });
+});
+
 describe("citation protocol server, no provider or URL calls", () => {
   const scope = { ownerId: owner, projectId: "p" };
   it("validates owner and project before any RPC", async () => {
@@ -512,7 +789,15 @@ describe("citation protocol server, no provider or URL calls", () => {
   });
   it("parses protocol state and rejects an over-cap panel array", async () => {
     const rpc = vi.fn().mockResolvedValue({ data: { panels: [], brandRuns: [] }, error: null });
-    expect(await readCitationProtocol(scope, rpc)).toEqual({ panels: [], brandRuns: [] });
+    // A protocol payload without the erasure fields still parses (optional-with-default → empty sets).
+    expect(await readCitationProtocol(scope, rpc)).toEqual({
+      panels: [],
+      brandRuns: [],
+      tombstones: [],
+      runConsumed: [],
+      erasureByVersion: [],
+      erasureOverflow: 0,
+    });
     expect(
       citationProtocolStateSchema.safeParse({
         panels: Array.from({ length: 201 }, () => discoveryPanel()),
@@ -630,7 +915,29 @@ describe("citation protocol server, no provider or URL calls", () => {
       "read_ai_answer_evidence",
       "read_citation_protocol",
     ]);
-    expect(result).toEqual({ panels: [discoveryPanel()], brandRuns: [], captures: [] });
+    expect(result.panels).toEqual([discoveryPanel()]);
+    expect(result.brandRuns).toEqual([]);
+    expect(result.captures).toEqual([]);
+    expect(result.erasedSlots).toEqual([]);
+    // The service boundary always emits a canonical erased-aware report per locked panel version, so a
+    // consumer cannot read `captures` and silently drop erased facts. Empty here: nothing observed yet.
+    expect(result.reports).toEqual([
+      {
+        panelId: discoveryPanel().panelId,
+        panelVersion: 1,
+        kind: "discovery",
+        planned: 40,
+        observed: 0,
+        erased: 0,
+        recorded: 0,
+        neverObserved: 40,
+        coverageComplete: true, // no tombstones → coverage trivially complete
+        excluded: 0,
+        outcomes: { complete: 0, failed: 0, truncated: 0, missed: 0, protocol_deviant: 0 },
+        brandRuns: [],
+      },
+    ]);
+    expect(result.erasureOverflow).toBe(0); // no orphaned tombstones
   });
   it("reads evidence before the dependency protocol, so a concurrent lock/import cannot cause a false unresolved", async () => {
     // Deterministic, sleep-free ordering proof: the evidence RPC is held pending; the protocol RPC
@@ -676,5 +983,54 @@ describe("citation protocol server, no provider or URL calls", () => {
       panelResolved: true,
       outcome: "complete",
     });
+  });
+  it("invalidates a stale live capture when a newer tombstone shows it was deleted between the two reads", async () => {
+    // Evidence (read first) still shows the capture as live; the protocol (read second) already carries
+    // its tombstone for the SAME slot — i.e. the original was deleted between the two reads. The
+    // tombstone is authoritative, so the capture must NOT be returned as a live/positive slot; it is
+    // reported as an erased one. Deterministic, single-connection — a conservative boundary check, not a
+    // claim of multi-connection atomicity.
+    const answerRow = {
+      id: uuid(500),
+      createdAt: "2026-09-08T10:00:00Z",
+      hash: "hash-500",
+      input: answer(),
+      prompt: promptRow,
+      analysis: {
+        algorithm: "literal-mention-supplied-citations-v1" as const,
+        verified: false as const,
+        mention: null,
+        ownCitation: null,
+        citations: [] as { url: string; kind: "own" | "competitor" | "third-party" }[],
+        cohort: "[]",
+      },
+    };
+    const rpc = vi.fn((name: string) =>
+      Promise.resolve({
+        data:
+          name === "read_ai_answer_evidence"
+            ? { prompts: [], answers: [answerRow] }
+            : {
+                panels: [discoveryPanel()],
+                brandRuns: [],
+                tombstones: [
+                  {
+                    answerId: uuid(500),
+                    panelId: uuid(1),
+                    panelVersion: 1,
+                    brandRunId: null,
+                    questionId: "SY-D01",
+                    round: 1,
+                  },
+                ],
+              },
+        error: null,
+      }),
+    );
+    const result = await readResolvedCaptures(scope, rpc);
+    expect(result.captures).toEqual([]); // the stale live capture is dropped (it was deleted)
+    expect(result.erasedSlots.map((s) => s.answerId)).toEqual([uuid(500)]);
+    const [report] = result.reports;
+    expect(report).toMatchObject({ observed: 0, erased: 1 }); // reported as erased, never a live positive
   });
 });

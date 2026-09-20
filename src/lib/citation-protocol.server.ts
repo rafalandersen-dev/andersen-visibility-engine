@@ -4,9 +4,11 @@ import { readAnswerEvidence } from "./answer-evidence.server";
 import {
   brandRunApprovalSchema,
   citationProtocolStateSchema,
+  citationReports,
   lockedPanelSchema,
   panelDraftSchema,
   parseManualCaptureInput,
+  resolveErasedSlots,
   resolveStoredCaptures,
 } from "./citation-protocol";
 import { brandRunSchema } from "./citation-panel";
@@ -186,7 +188,7 @@ export async function readResolvedCaptures(raw: z.infer<typeof scope>, rpc?: Kno
   // between the two reads is still (correctly) seen as unresolved — deletion invalidation is preserved.
   const evidence = await readAnswerEvidence(s, rpc);
   const protocol = await readCitationProtocol(s, rpc);
-  const captures = resolveStoredCaptures(
+  const resolved = resolveStoredCaptures(
     evidence.answers.map((a) => ({
       id: a.id,
       status: a.input.status,
@@ -199,5 +201,86 @@ export async function readResolvedCaptures(raw: z.infer<typeof scope>, rpc?: Kno
     protocol.panels,
     protocol.brandRuns,
   );
-  return { panels: protocol.panels, brandRuns: protocol.brandRuns, captures };
+  // Stale-read reconciliation (evidence is read strictly BEFORE protocol). If a capture that the older
+  // evidence snapshot still shows as live has a tombstone in the newer protocol snapshot for the SAME
+  // slot, the original was deleted between the two reads: the tombstone is written only on delete, and
+  // the write path forbids a live capture at a tombstoned slot, so the two can never coexist in a
+  // consistent snapshot. The tombstone (newer) is authoritative — drop the stale live capture so a
+  // deleted observation is never reported as a live/positive slot. This is a conservative live-identity
+  // check at the P2 read boundary; it needs no released-answer SQL change and preserves the earlier
+  // append-only-dependency ordering (a genuinely new capture's dependencies are still read after it).
+  // Single-connection tests exercise this deterministically; it is not a claim of multi-connection
+  // atomicity across the two released RPCs.
+  const slotKey = (t: {
+    panelId: string;
+    panelVersion: number;
+    brandRunId: string | null;
+    questionId: string;
+    round: number;
+  }) => JSON.stringify([t.panelId, t.panelVersion, t.brandRunId, t.questionId, t.round]);
+  const tombstoneKeys = new Set(protocol.tombstones.map(slotKey));
+  const captures = resolved.filter(
+    (c) =>
+      !tombstoneKeys.has(
+        slotKey({
+          panelId: c.captureContext.panelId,
+          panelVersion: c.captureContext.panelVersion,
+          brandRunId: c.captureContext.brandRunId,
+          questionId: c.captureContext.slot.questionId,
+          round: c.captureContext.slot.round,
+        }),
+      ),
+  );
+  // Content-free erased-slot facts: an erased consumed attempt (a deleted capture that left a
+  // tombstone) is surfaced as an erased observation so the report never mistakes it for an absent/
+  // missed slot. Any slot a (reconciled) surviving capture still occupies is excluded (no double
+  // count). These are the distinct content-safe grid slots for COVERAGE only — never the budget count.
+  const erasedSlots = resolveErasedSlots(
+    protocol.tombstones,
+    protocol.panels,
+    protocol.brandRuns,
+    captures,
+  );
+  // Consumed budget is AUTHORITATIVE from the read RPC's SQL aggregate (`runConsumed`), computed with
+  // the exact write-gate predicate in one snapshot — never reconstructed here from the LIMIT-bounded or
+  // slot-collapsed coverage, and NOT subject to the capture reconciliation (the write gate counts a
+  // surviving live original AND an erased sibling at the same slot as two; a JS reconstruction that
+  // dropped same-slot live originals would under-report). Bounded to the approved runs.
+  const consumedByRun: Record<string, number> = {};
+  for (const r of protocol.runConsumed) consumedByRun[r.runId] = r.consumed;
+  // Content-free malformed-tombstone counts per panel version, surfaced as `excluded` in the report.
+  const excludedByVersion: Record<string, number> = {};
+  // Coverage completeness per version: the transmitted (LIMIT-bounded) grid tombstone rows for a version
+  // vs its TRUE grid-row total. When fewer were transmitted, coverage is incomplete and the report must
+  // not derive a definitive neverObserved. `tombstones` is content-safe grid rows only, so counting them
+  // per version against `gridRows` detects the LIMIT truncation exactly.
+  const receivedByVersion: Record<string, number> = {};
+  for (const t of protocol.tombstones) {
+    const k = `${t.panelId}:${t.panelVersion}`;
+    receivedByVersion[k] = (receivedByVersion[k] ?? 0) + 1;
+  }
+  const coverageCompleteByVersion: Record<string, boolean> = {};
+  for (const v of protocol.erasureByVersion) {
+    const k = `${v.panelId}:${v.panelVersion}`;
+    excludedByVersion[k] = (excludedByVersion[k] ?? 0) + v.excludedRows;
+    coverageCompleteByVersion[k] = (receivedByVersion[k] ?? 0) >= v.gridRows;
+  }
+  const erasure = {
+    slots: erasedSlots,
+    consumedByRun,
+    excludedByVersion,
+    coverageCompleteByVersion,
+  };
+  // Canonical erased-aware report per locked panel version, computed at the service boundary from these
+  // trusted facts so a consumer cannot read `captures` and silently ignore erased/consumed facts.
+  // `erasureOverflow` (tombstone rows orphaned by a deleted panel) is surfaced so nothing is dropped.
+  const reports = citationReports(protocol.panels, protocol.brandRuns, captures, erasure);
+  return {
+    panels: protocol.panels,
+    brandRuns: protocol.brandRuns,
+    captures,
+    erasedSlots,
+    reports,
+    erasureOverflow: protocol.erasureOverflow,
+  };
 }

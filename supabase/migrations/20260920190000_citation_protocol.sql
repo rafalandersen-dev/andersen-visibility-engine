@@ -91,7 +91,54 @@ BEGIN
   PERFORM public.assert_knowledge_project(p_user,p_project);
   RETURN jsonb_build_object(
     'panels',coalesce((SELECT jsonb_agg(document ORDER BY created_at DESC,panel_id,version DESC) FROM public.citation_panels WHERE user_id=p_user AND project_id=p_project),'[]'::jsonb),
-    'brandRuns',coalesce((SELECT jsonb_agg(document ORDER BY created_at DESC,run_id) FROM public.citation_brand_runs WHERE user_id=p_user AND project_id=p_project),'[]'::jsonb));
+    'brandRuns',coalesce((SELECT jsonb_agg(document ORDER BY created_at DESC,run_id) FROM public.citation_brand_runs WHERE user_id=p_user AND project_id=p_project),'[]'::jsonb),
+    -- Content-free erased-slot facts (spec §5.2 attempts semantics + erasure): only which slot was
+    -- observed, NEVER any erased answer content. `question_id` was stored verbatim from the capture
+    -- context, so a HISTORICAL tombstone may carry an arbitrary/empty/overlength string; only rows whose
+    -- question_id is a real GRID-shaped id (^[A-Z]{2}-[DB][0-9]{2}$, ≤6 chars, structured — not free
+    -- text) are transmitted, so arbitrary deleted content can never leak here and one bad row can never
+    -- break the strict read. Malformed rows are counted (`tombstoneExcluded`), not sent. Bounded by a
+    -- LIMIT so an unbounded tombstone set cannot produce an unbounded payload.
+    'tombstones',coalesce((SELECT jsonb_agg(t ORDER BY t->>'answerId') FROM (
+        SELECT jsonb_build_object('answerId',answer_id,'panelId',panel_id,'panelVersion',panel_version,
+          'brandRunId',brand_run_id,'questionId',question_id,'round',round) t
+        FROM public.citation_capture_tombstones
+        WHERE user_id=p_user AND project_id=p_project AND question_id ~ '^[A-Z]{2}-[DB][0-9]{2}$'
+        ORDER BY created_at DESC,answer_id LIMIT 10000) s),'[]'::jsonb),
+    -- AUTHORITATIVE per-approved-run consumed budget, computed here with the EXACT predicate the write
+    -- gate uses (save_citation_capture): every live ORIGINAL (supersedes null) bound to the run by
+    -- captureContext->>'brandRunId' (so a malformed-context original still counts, exactly as the gate
+    -- counts it) PLUS each tombstone row for the run. One snapshot, owner/project scoped, bounded to the
+    -- ≤20 approved runs — never reconstructed from the LIMIT-bounded or slot-collapsed coverage above.
+    'runConsumed',coalesce((SELECT jsonb_agg(jsonb_build_object('runId',r.run_id,'consumed',
+        (SELECT count(*) FROM public.ai_answer_evidence e
+           WHERE e.user_id=p_user AND e.project_id=p_project AND e.supersedes_id IS NULL
+             AND e.document->'input'->'captureContext'->>'brandRunId'=r.run_id::text)
+      + (SELECT count(*) FROM public.citation_capture_tombstones tb
+           WHERE tb.user_id=p_user AND tb.project_id=p_project AND tb.brand_run_id=r.run_id)))
+      FROM public.citation_brand_runs r WHERE r.user_id=p_user AND r.project_id=p_project),'[]'::jsonb),
+    -- Coverage completeness metadata, per ACTUAL stored panel version that has tombstones (bounded to
+    -- real panels — never unbounded random-id groups): the TRUE grid-shaped row total (so a consumer can
+    -- tell whether the LIMIT-bounded `tombstones` are complete for that version, and refuse to derive a
+    -- definitive neverObserved when they are not) and the content-free malformed (non-grid) row count.
+    'erasureByVersion',coalesce((SELECT jsonb_agg(jsonb_build_object(
+        'panelId',pv.panel_id,'panelVersion',pv.panel_version,
+        'gridRows',(SELECT count(*) FROM public.citation_capture_tombstones tb
+           WHERE tb.user_id=p_user AND tb.project_id=p_project AND tb.panel_id=pv.panel_id
+             AND tb.panel_version=pv.panel_version AND tb.question_id ~ '^[A-Z]{2}-[DB][0-9]{2}$'),
+        'excludedRows',(SELECT count(*) FROM public.citation_capture_tombstones tb
+           WHERE tb.user_id=p_user AND tb.project_id=p_project AND tb.panel_id=pv.panel_id
+             AND tb.panel_version=pv.panel_version AND tb.question_id !~ '^[A-Z]{2}-[DB][0-9]{2}$')))
+      FROM (SELECT DISTINCT tb.panel_id,tb.panel_version FROM public.citation_capture_tombstones tb
+            WHERE tb.user_id=p_user AND tb.project_id=p_project
+              AND EXISTS(SELECT 1 FROM public.citation_panels p WHERE p.user_id=p_user AND p.project_id=p_project
+                AND p.panel_id=tb.panel_id AND p.version=tb.panel_version)) pv),'[]'::jsonb),
+    -- Explicit content-free overflow: tombstone rows not attributable to any stored panel version
+    -- (orphaned by a deleted panel), so nothing is silently dropped and nothing is unbounded.
+    'erasureOverflow',(SELECT count(*) FROM public.citation_capture_tombstones tb
+        WHERE tb.user_id=p_user AND tb.project_id=p_project
+          AND NOT EXISTS(SELECT 1 FROM public.citation_panels p WHERE p.user_id=p_user AND p.project_id=p_project
+            AND p.panel_id=tb.panel_id AND p.version=tb.panel_version)));
 END; $$;
 
 -- Append one immutable draft panel version. Every question must bind to an actual saved prompt
@@ -163,8 +210,17 @@ BEGIN
   -- CI11-T13). An incomplete draft may be saved and edited, but a discovery panel can only lock at the
   -- full grid, so an under- or over-sized pilot never locks/approves and never reads as a complete v1
   -- measurement. Brand panels are unscheduled (rounds 0) and exempt. Checked before question binding.
+  -- The ten must be ten DISTINCT questions, not ten labels for one: ten unique local ids all bound to
+  -- the SAME prompt, or ten prompts carrying identical COPIED text, is not a ten-question experiment.
+  -- Require ten distinct prompt bindings (promptId+revision) AND ten distinct texts; either collision
+  -- fails closed. (The binding guard below forces text = the bound prompt's text, so a reused prompt
+  -- also collides on text, but both are checked so the intent holds even if a row is malformed.)
   IF draft->>'kind'='discovery' AND (
     jsonb_array_length(draft->'questions')<>10 OR (draft->>'rounds')::integer<>4
+    OR (SELECT count(DISTINCT (q->>'promptId')||'|'||(q->>'promptRevision'))
+          FROM jsonb_array_elements(draft->'questions') AS t(q))<>10
+    OR (SELECT count(DISTINCT q->>'text')
+          FROM jsonb_array_elements(draft->'questions') AS t(q))<>10
   ) THEN RAISE EXCEPTION 'citation_panel_grid_invalid'; END IF;
   IF EXISTS (
     SELECT 1 FROM jsonb_array_elements(draft->'questions') AS t(q)
