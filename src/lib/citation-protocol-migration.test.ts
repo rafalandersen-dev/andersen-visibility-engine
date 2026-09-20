@@ -5,6 +5,7 @@ import {
   saveEvidencePrompt,
   readAnswerEvidence,
   importAnswerEvidence,
+  removeAnswerEvidence,
 } from "./answer-evidence.server";
 import {
   approveBrandRun,
@@ -987,6 +988,237 @@ describe("CI-2 brand correction binds to the same observation identity", () => {
   });
 });
 
+describe("CI-2 erasure preserves the slot/budget fact (content-free tombstone)", () => {
+  beforeEach(async () => {
+    await saveCitationPanelDraft(scope, discoveryPanelId, 0, draftDiscovery(), rpc);
+    await lockCitationPanel(scope, discoveryPanelId, 1, rpc);
+    await backdatePanelApproval(discoveryPanelId);
+  });
+  it("denies any replacement at an erased discovery slot and never restores it; tombstone is content-free and tenant-scoped", async () => {
+    const first = await importManualCapture(scope, discoveryCapture(), rpc);
+    const doc = (await readAnswerEvidence(scope, rpc)).answers[0]; // capture the document shape before erasure
+    await removeAnswerEvidence(scope, "answer", first, rpc);
+    expect((await readAnswerEvidence(scope, rpc)).answers).toEqual([]); // answer content erased
+    // A content-free tombstone remains. Inspect the FULL row (row_to_json), not a chosen projection:
+    // its columns are exactly the slot/budget identity + housekeeping — no answer text/citations.
+    const rows = (
+      await db.query<{ r: Record<string, unknown> }>(
+        "SELECT row_to_json(t) r FROM citation_capture_tombstones t WHERE user_id=$1",
+        [user],
+      )
+    ).rows;
+    expect(rows).toHaveLength(1);
+    const tomb = rows[0].r;
+    expect(tomb).toMatchObject({ question_id: "SY-D01", round: 1, brand_run_id: null });
+    expect(Object.keys(tomb).sort()).toEqual(
+      [
+        "answer_id",
+        "brand_run_id",
+        "created_at",
+        "panel_id",
+        "panel_version",
+        "project_collection",
+        "project_id",
+        "question_id",
+        "round",
+        "user_id",
+      ].sort(),
+    );
+    expect(JSON.stringify(tomb)).not.toContain("FIXTURE answer"); // the erased rawAnswer is nowhere in the row
+    // Tenant-scoped: no tombstone leaks to another owner (the write guards filter by user/project).
+    expect(
+      (
+        await db.query("SELECT count(*)::int n FROM citation_capture_tombstones WHERE user_id=$1", [
+          other,
+        ])
+      ).rows[0],
+    ).toEqual({ n: 0 });
+    // A distinct replacement at that slot is refused (direct SQL: specific guard; wrapper: generic).
+    const replacement = {
+      input: { ...doc.input, rawAnswer: "post-erasure replacement" },
+      prompt: doc.prompt,
+      analysis: doc.analysis,
+    };
+    await expect(
+      db.query("SELECT save_citation_capture($1,$2,$3)", [user, "p", replacement]),
+    ).rejects.toThrow(/citation_slot_occupied/);
+    await expect(
+      importManualCapture(scope, discoveryCapture({}, { rawAnswer: "wrapper replacement" }), rpc),
+    ).rejects.toThrow();
+    expect((await readAnswerEvidence(scope, rpc)).answers).toEqual([]); // still nothing stored
+  });
+  it("tombstones one slot when a whole correction chain is erased, and denies re-import", async () => {
+    const first = await importManualCapture(scope, discoveryCapture(), rpc);
+    await importManualCapture(
+      scope,
+      discoveryCapture({}, { supersedesId: first, rawAnswer: "corrected same-slot" }),
+      rpc,
+    );
+    expect((await readAnswerEvidence(scope, rpc)).answers).toHaveLength(2); // original + correction
+    await removeAnswerEvidence(scope, "answer", first, rpc); // deletes original → cascades correction
+    expect((await readAnswerEvidence(scope, rpc)).answers).toEqual([]); // whole chain erased
+    expect(
+      (await db.query("SELECT count(*)::int n FROM citation_capture_tombstones")).rows[0],
+    ).toEqual({
+      n: 1,
+    }); // one slot tombstone (the original), not one per chain link
+    await expect(importManualCapture(scope, discoveryCapture(), rpc)).rejects.toThrow();
+  });
+  it("tombstones the slot when the bound prompt is erased (cascade bypass closed)", async () => {
+    await importManualCapture(scope, discoveryCapture(), rpc);
+    await removeAnswerEvidence(scope, "prompt", discoveryPromptId, rpc); // cascades the capture away
+    expect((await readAnswerEvidence(scope, rpc)).answers).toEqual([]);
+    expect(
+      (await db.query("SELECT count(*)::int n FROM citation_capture_tombstones")).rows[0],
+    ).toEqual({
+      n: 1,
+    });
+    // Recreating the prompt does not reopen the slot — the tombstone still denies a re-import.
+    await saveEvidencePrompt(scope, discoveryPromptId, 0, promptData(discoveryText), rpc);
+    await expect(importManualCapture(scope, discoveryCapture(), rpc)).rejects.toThrow();
+  });
+  it("does not tombstone or impede legacy (context-less) answer erasure", async () => {
+    const legacy = await importAnswerEvidence(
+      scope,
+      {
+        ...answerBase,
+        promptId: discoveryPromptId,
+        promptRevision: 1,
+        capturedAt: "2026-09-08T10:00:00Z",
+        rawAnswer: "legacy answer",
+      },
+      rpc,
+    );
+    await removeAnswerEvidence(scope, "answer", legacy, rpc);
+    expect((await readAnswerEvidence(scope, rpc)).answers).toEqual([]);
+    expect(
+      (await db.query("SELECT count(*)::int n FROM citation_capture_tombstones")).rows[0],
+    ).toEqual({
+      n: 0,
+    }); // legacy answers occupy no slot, so leave no tombstone
+    const again = await importAnswerEvidence(
+      scope,
+      {
+        ...answerBase,
+        promptId: discoveryPromptId,
+        promptRevision: 1,
+        capturedAt: "2026-09-08T10:00:00Z",
+        rawAnswer: "legacy again",
+      },
+      rpc,
+    );
+    expect(again).toBeTypeOf("string"); // legacy erasure/re-import remains fully functional
+  });
+  it("does not restore brand run budget after an observation is erased", async () => {
+    await saveCitationPanelDraft(scope, brandPanelId, 0, draftBrand(), rpc);
+    await lockCitationPanel(scope, brandPanelId, 1, rpc);
+    await backdatePanelApproval(brandPanelId);
+    await insertBrandRun(uuid(50), { observationBudget: 1, rounds: 2 });
+    const first = await importManualCapture(scope, brandCapture(), rpc); // round 1 — budget of one spent
+    const doc = (await readAnswerEvidence(scope, rpc)).answers[0];
+    await removeAnswerEvidence(scope, "answer", first, rpc); // erase the sole observation
+    expect(
+      (
+        await db.query(
+          "SELECT count(*)::int n FROM citation_capture_tombstones WHERE brand_run_id=$1",
+          [uuid(50)],
+        )
+      ).rows[0],
+    ).toEqual({ n: 1 });
+    // A new observation at a DIFFERENT slot (round 2) is still over budget — the tombstone counts.
+    const round2 = {
+      input: {
+        ...doc.input,
+        rawAnswer: "post-erasure round 2",
+        captureContext: { ...doc.input.captureContext, slot: { round: 2, questionId: "SY-B01" } },
+      },
+      prompt: doc.prompt,
+      analysis: doc.analysis,
+    };
+    await expect(
+      db.query("SELECT save_citation_capture($1,$2,$3)", [user, "p", round2]),
+    ).rejects.toThrow(/brand_run_budget_exceeded/);
+    await expect(
+      importManualCapture(
+        scope,
+        brandCapture(
+          { slot: { round: 2, questionId: "SY-B01" } },
+          { rawAnswer: "wrapper round 2" },
+        ),
+        rpc,
+      ),
+    ).rejects.toThrow();
+    expect((await readAnswerEvidence(scope, rpc)).answers).toEqual([]); // nothing re-stored
+  });
+  it("erases a malformed historical capture without blocking erasure or fabricating a slot tombstone", async () => {
+    // The released generic answer path stored arbitrary `input` fields, so a historical row may carry
+    // a malformed captureContext. Erasing it must never fail on a cast, and must not fabricate a valid
+    // occupied slot. These rows are inserted directly (the generic path's authority boundary — the
+    // protocol path save_citation_capture would reject them via captureContextSchema and its guards).
+    const malformed = [
+      {
+        id: uuid(700),
+        ctx: {
+          panelId: "not-a-uuid",
+          panelVersion: 2,
+          slot: { round: 1, questionId: "SY-D01" },
+          brandRunId: null,
+        },
+      },
+      { id: uuid(701), ctx: {} }, // missing keys entirely
+      {
+        id: uuid(702),
+        ctx: {
+          panelId: discoveryPanelId,
+          panelVersion: "99999999999",
+          slot: { round: 1, questionId: "SY-D01" },
+        },
+      }, // int overflow
+      {
+        id: uuid(703),
+        ctx: {
+          panelId: discoveryPanelId,
+          panelVersion: 2,
+          slot: { round: "NaN", questionId: "SY-D01" },
+          brandRunId: "also-bad",
+        },
+      },
+    ];
+    for (const m of malformed) {
+      await db.query(
+        "INSERT INTO ai_answer_evidence(user_id,project_id,id,prompt_id,prompt_revision,document_hash,document) VALUES($1,'p',$2,$3,1,$4,$5)",
+        [
+          user,
+          m.id,
+          discoveryPromptId,
+          `malformed-${m.id}`,
+          { input: { captureContext: m.ctx }, prompt: {}, analysis: {} },
+        ],
+      );
+      // Erasure succeeds (the trigger validates shape before casting, so no cast error blocks it).
+      await expect(removeAnswerEvidence(scope, "answer", m.id, rpc)).resolves.toBe(true);
+    }
+    // No tombstone is fabricated for any invalid payload, and every malformed row is fully erased.
+    expect(
+      (await db.query("SELECT count(*)::int n FROM citation_capture_tombstones")).rows[0],
+    ).toEqual({ n: 0 });
+    expect(
+      (
+        await db.query(
+          "SELECT count(*)::int n FROM ai_answer_evidence WHERE user_id=$1 AND project_id='p'",
+          [user],
+        )
+      ).rows[0],
+    ).toEqual({ n: 0 });
+    // A well-formed protocol capture, by contrast, IS tombstoned on erasure (valid slot preserved).
+    const valid = await importManualCapture(scope, discoveryCapture(), rpc);
+    await removeAnswerEvidence(scope, "answer", valid, rpc);
+    expect(
+      (await db.query("SELECT count(*)::int n FROM citation_capture_tombstones")).rows[0],
+    ).toEqual({ n: 1 });
+  });
+});
+
 describe("CI-2 capacity, isolation, deletion and access control", () => {
   it("enforces the panel-version and brand-run capacities", async () => {
     await saveCitationPanelDraft(scope, brandPanelId, 0, draftBrand(), rpc);
@@ -1035,23 +1267,92 @@ describe("CI-2 capacity, isolation, deletion and access control", () => {
       ),
     ).rejects.toThrow();
   });
-  it("removes panels and runs when the project is deleted", async () => {
-    await saveCitationPanelDraft(scope, brandPanelId, 0, draftBrand(), rpc);
-    await lockCitationPanel(scope, brandPanelId, 1, rpc);
-    await insertBrandRun(uuid(50));
+  it("cascades a project deletion with LIVE captures + an existing tombstone, without the trigger blocking or recreating tombstones, and preserves other tenants", async () => {
+    await saveCitationPanelDraft(scope, discoveryPanelId, 0, draftDiscovery(), rpc);
+    await lockCitationPanel(scope, discoveryPanelId, 1, rpc);
+    await backdatePanelApproval(discoveryPanelId);
+    // A LIVE original + correction chain (slot round 1), still present at delete time.
+    const live = await importManualCapture(scope, discoveryCapture(), rpc);
+    await importManualCapture(
+      scope,
+      discoveryCapture({}, { supersedesId: live, rawAnswer: "corrected" }),
+      rpc,
+    );
+    // A separately erased capture (slot round 2) that already left a tombstone.
+    const erased = await importManualCapture(
+      scope,
+      discoveryCapture({ slot: { round: 2, questionId: "SY-D01" } }),
+      rpc,
+    );
+    await removeAnswerEvidence(scope, "answer", erased, rpc);
+    expect(
+      (
+        await db.query(
+          "SELECT count(*)::int n FROM ai_answer_evidence WHERE user_id=$1 AND project_id='p'",
+          [user],
+        )
+      ).rows[0],
+    ).toEqual({ n: 2 }); // original + correction live
+    expect(
+      (
+        await db.query("SELECT count(*)::int n FROM citation_capture_tombstones WHERE user_id=$1", [
+          user,
+        ])
+      ).rows[0],
+    ).toEqual({ n: 1 });
+    // Another tenant with its own evidence, untouched by this project's deletion.
+    const otherScope = { ownerId: other, projectId: "p" };
+    await saveEvidencePrompt(otherScope, uuid(900), 0, promptData(discoveryText), rpc);
+    await importAnswerEvidence(
+      otherScope,
+      {
+        ...answerBase,
+        promptId: uuid(900),
+        promptRevision: 1,
+        capturedAt: "2026-09-08T10:00:00Z",
+        rawAnswer: "other tenant answer",
+      },
+      rpc,
+    );
+    // Delete the whole project directly while live captures remain. The trigger must neither block the
+    // cascade nor recreate a tombstone (the project row is gone, so it skips).
     await db.query(
       "DELETE FROM workspace_entities WHERE user_id=$1 AND collection='projects' AND entity_id='p'",
       [user],
     );
-    expect((await db.query("SELECT count(*) n FROM citation_panels")).rows[0]).toEqual({ n: 0 });
-    expect((await db.query("SELECT count(*) n FROM citation_brand_runs")).rows[0]).toEqual({
-      n: 0,
-    });
+    expect(
+      (
+        await db.query(
+          "SELECT count(*)::int n FROM ai_answer_evidence WHERE user_id=$1 AND project_id='p'",
+          [user],
+        )
+      ).rows[0],
+    ).toEqual({ n: 0 }); // all content erased
+    expect(
+      (await db.query("SELECT count(*)::int n FROM citation_panels WHERE user_id=$1", [user]))
+        .rows[0],
+    ).toEqual({ n: 0 });
+    expect(
+      (
+        await db.query("SELECT count(*)::int n FROM citation_capture_tombstones WHERE user_id=$1", [
+          user,
+        ])
+      ).rows[0],
+    ).toEqual({ n: 0 }); // tombstones cascade; none recreated by the trigger
+    // Other tenant preserved.
+    expect(
+      (
+        await db.query(
+          "SELECT count(*)::int n FROM ai_answer_evidence WHERE user_id=$1 AND project_id='p'",
+          [other],
+        )
+      ).rows[0],
+    ).toEqual({ n: 1 });
   });
   it("has RLS and exposes only service-role RPCs, never direct table access", async () => {
     for (const role of ["anon", "authenticated", "service_role"]) {
       await db.exec(`SET ROLE ${role}`);
-      for (const table of ["citation_panels", "citation_brand_runs"])
+      for (const table of ["citation_panels", "citation_brand_runs", "citation_capture_tombstones"])
         await expect(db.query(`SELECT * FROM ${table}`)).rejects.toThrow(/permission denied/);
       if (role !== "service_role")
         await expect(db.query("SELECT read_citation_protocol($1,$2)", [user, "p"])).rejects.toThrow(
@@ -1066,9 +1367,9 @@ describe("CI-2 capacity, isolation, deletion and access control", () => {
     expect(
       (
         await db.query(
-          "SELECT count(*) n FROM pg_class WHERE relname IN ('citation_panels','citation_brand_runs') AND relrowsecurity",
+          "SELECT count(*) n FROM pg_class WHERE relname IN ('citation_panels','citation_brand_runs','citation_capture_tombstones') AND relrowsecurity",
         )
       ).rows[0],
-    ).toEqual({ n: 2 });
+    ).toEqual({ n: 3 });
   });
 });

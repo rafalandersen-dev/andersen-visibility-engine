@@ -238,6 +238,44 @@ measurement (violating spec §5.3, CI11-T13: exactly 10 questions × 4 rounds = 
   case flagging an off-grid historical panel. Brand behavior unchanged; only the unapplied
   `…170000` migration changed.
 
+### Review round 7 — erasure must not reopen a slot or restore budget
+
+The released `remove_ai_answer_evidence` (immutable) hard-deletes an answer/correction chain, and via
+its FKs a prompt or project deletion cascades to captures. For a citation capture this reopened its
+scheduled slot and lowered the brand run's live observation count, so an owner could erase an
+observation and re-submit a fresh one at the same slot / re-consume budget — breaking the immutable
+attempts contract. Fixed without touching the released RPC:
+- **Content-free tombstone (`citation_capture_tombstones`, in `…170000`).** An `AFTER DELETE` trigger
+  on `ai_answer_evidence` records, for an erased *original* (supersedes null) that carries a capture
+  context, **only** its slot/budget identity — panel version, brand run, question id, round, and the
+  answer id — and **no** answer content. Corrections and legacy (context-less) answers occupy no slot
+  and are skipped (legacy erasure is byte-identical). The trigger skips during a project deletion (its
+  rows are cascading away), and the table cascades with the project, so no tombstone orphans.
+- **Malformed historical captures stay erasable.** The trigger validates the slot/budget identity with
+  safe predicates (uuid-/integer-shaped text) *before* any cast, so a historical row with a malformed
+  captureContext — the released generic answer path accepted arbitrary `input` fields, and the reader
+  tolerates invalid historical captures — never throws a cast error that would block a user's erasure;
+  it is simply erased with no tombstone (it never validly occupied a slot). Only a well-formed protocol
+  capture is tombstoned. There is deliberately **no** broad exception handler, so a genuine DB failure
+  still propagates rather than being swallowed. (Authority boundary: only `save_citation_capture`
+  stores a valid captureContext; the generic path never should, so its rows are never fabricated into a
+  valid occupied slot.)
+- **Write guards consult it.** `save_citation_capture`'s one-per-slot guard treats a tombstoned slot as
+  occupied (`citation_slot_occupied`), and the brand budget check counts tombstones toward the run's
+  consumed observations (`brand_run_budget_exceeded`). So erasing an observation never reopens the slot
+  (even for an identical re-import) or restores budget; the cascading prompt/root removal bypass is
+  closed because the trigger fires on every delete of the row.
+- **Erasure obligation honored:** the answer content is genuinely deleted (the row is gone); only the
+  content-free attempt fact persists. Tenant isolation, account-first serialization (delete and capture
+  both hold the `workspace_meta` lock), authorization, hash dedup-before-budget and correction chains
+  are all preserved. Tests: delete-then-replacement same slot denied (direct SQL + wrapper, nothing
+  re-stored), brand budget not restored, correction-chain and prompt-removal paths, tombstone content-
+  free (full-row inspection, exact column set) and tenant-scoped, malformed historical captures
+  (bad uuid / missing keys / int overflow / non-numeric round) erasable with no tombstone while a
+  well-formed one IS tombstoned, a project deletion with LIVE captures + an existing tombstone that
+  cascades everything without the trigger blocking or recreating a tombstone (other tenant preserved),
+  and legacy deletion still functional.
+
 ## Files
 
 | File | Change |
@@ -248,7 +286,7 @@ measurement (violating spec §5.3, CI11-T13: exactly 10 questions × 4 rounds = 
 | `src/lib/citation-protocol.test.ts` | New. Pure-contract + mocked-server unit tests. |
 | `src/lib/citation-protocol.functions.test.ts` | New. Endpoint authentication/validation tests. |
 | `src/lib/citation-protocol-migration.test.ts` | New. Real PGlite SQL round trips (isolation, auth, missing project, reference forgery, approval version, protocol binding, capacity, deletion, idempotency). |
-| `supabase/migrations/20260919170000_citation_protocol.sql` | New (one migration). Two tables + five service-only SECURITY DEFINER RPCs; RLS on, project-scoped FKs, project-deletion cascade. |
+| `supabase/migrations/20260919170000_citation_protocol.sql` | New (one migration). Three tables (panels, brand runs, content-free capture tombstones) + five service-only SECURITY DEFINER RPCs + an `AFTER DELETE` tombstone trigger on `ai_answer_evidence`; RLS on, project-scoped FKs, project-deletion cascade. |
 | `src/lib/answer-evidence.ts` | Additive only: optional opaque `captureContext` on `answerEvidenceSchema` so reads tolerate capture-bound records. Legacy documents are byte-identical (field absent). |
 | `src/lib/answer-evidence.server.ts` | Additive only: `importAnswerEvidence` refuses a capture context (legacy path stays capture-blind; captures must use the panel-aware path). |
 | `product/CITATION_PROTOCOL_IMPLEMENTATION_2026_09_19.md`, `evidence/citation-protocol-storage-2026-09-19.md` | New. This doc and the evidence record. |
@@ -279,12 +317,17 @@ and idempotency are covered by the new migration tests.
 ## Checks to run (UNRUN here — Codex executes)
 
 Status honesty: successive stages ran 143 (tsc failing) → 146 → 148/147-PASS-1-FAIL → 150 → 170/6081
-→ (round 5) the read-ordering fix + regression, with prior focused suites passing. This round (6)
-enforces the fixed v1 discovery 10×4 grid across the locked schema, the SQL lock and the read
-resolver, and rebuilds the discovery fixtures to a valid 10-question × 4-round grid. **All prior PASS
-counts are a prior stage and do not carry over** — every check below, including the new grid
-refusal/planning/resolver cases and the regenerated fixtures, is UNRUN in this worktree and must be
-re-executed by Codex.
+→ (round 5) read-ordering → (round 6) v1 10×4 grid → (round 7) the content-free erasure tombstone,
+whose delta Codex ran at 30 SQL tests PASS + types PASS. The shape-guard amendment hardened the
+tombstone trigger to validate the captureContext shape before casting (malformed historical captures
+stay erasable, no tombstone fabricated) and strengthened the tests (malformed-capture erasability, a
+live-capture project deletion, full-row content-free inspection); Codex ran that at **31 SQL tests
+PASS (1.52s) but TypeScript FAILED** — `citation-protocol-migration.test.ts(1011,18)` TS2571, the
+full-row `row_to_json` result was `unknown`. Fixed here (test typing only, no app/SQL change): the
+`db.query` call now carries a `<{ r: Record<string, unknown> }>` row generic (as the existing
+`{ data: unknown }` query does), so the full-row content-free assertion is unchanged and uses no
+broad `any`. **All prior counts — 31/PASS-with-types-FAILED included — are a prior stage and do not
+carry over**; every check below is UNRUN in this worktree and must be re-executed by Codex.
 
 - `npx vitest run src/lib/citation-protocol.test.ts`
 - `npx vitest run src/lib/citation-protocol.functions.test.ts`

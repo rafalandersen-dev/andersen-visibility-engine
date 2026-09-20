@@ -27,9 +27,63 @@ CREATE TABLE public.citation_brand_runs (
   -- A run can only bind to an actual stored panel version; the RPC additionally requires it locked.
   FOREIGN KEY(user_id,project_id,panel_id,panel_version) REFERENCES public.citation_panels(user_id,project_id,panel_id,version) ON DELETE CASCADE
 );
+-- Content-free slot/budget tombstone. When a manual capture (an ai_answer_evidence row carrying a
+-- captureContext) is erased — directly, or via a cascading prompt/correction-chain delete — the
+-- released remove_ai_answer_evidence hard-deletes it, which would reopen its scheduled slot and lower
+-- a brand run's observation count. This table durably records ONLY the slot/budget identity of the
+-- erased ORIGINAL (panel version, brand run, question, round) — never any answer content — so the
+-- immutable "this slot was observed / this budget was consumed" fact survives erasure and the write
+-- guards keep counting it. Project deletion removes it (workspace_entities cascade); the trigger below
+-- does not create one during a project delete, so nothing orphans.
+CREATE TABLE public.citation_capture_tombstones (
+  user_id uuid NOT NULL, project_id text NOT NULL,
+  project_collection text NOT NULL DEFAULT 'projects' CHECK(project_collection='projects'),
+  answer_id uuid NOT NULL,
+  panel_id uuid NOT NULL, panel_version integer NOT NULL,
+  brand_run_id uuid, question_id text NOT NULL, round integer NOT NULL,
+  created_at timestamptz NOT NULL DEFAULT clock_timestamp(),
+  PRIMARY KEY(user_id,project_id,answer_id),
+  FOREIGN KEY(user_id,project_collection,project_id) REFERENCES public.workspace_entities(user_id,collection,entity_id) ON DELETE CASCADE
+);
 ALTER TABLE public.citation_panels ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.citation_brand_runs ENABLE ROW LEVEL SECURITY;
-REVOKE ALL ON public.citation_panels,public.citation_brand_runs FROM PUBLIC,anon,authenticated,service_role;
+ALTER TABLE public.citation_capture_tombstones ENABLE ROW LEVEL SECURITY;
+REVOKE ALL ON public.citation_panels,public.citation_brand_runs,public.citation_capture_tombstones FROM PUBLIC,anon,authenticated,service_role;
+
+-- Erasure preserves the slot/budget fact. This AFTER DELETE trigger records a content-free tombstone
+-- for an erased citation ORIGINAL (supersedes null). Corrections and legacy (context-less) answers
+-- occupy no slot and are skipped, so legacy erasure is unchanged. When the project itself is being
+-- deleted, its rows cascade away and this skips (no orphan tombstone survives project deletion).
+--
+-- The slot/budget identity is validated with SAFE predicates (uuid/integer-shaped text) BEFORE any
+-- cast, so a malformed HISTORICAL capture context (the released generic answer path stored arbitrary
+-- `input` fields, and the reader tolerates invalid historical captures) can never throw a cast error
+-- and block a user's erasure — it is simply erased with no tombstone (it never validly occupied a
+-- slot). Only a well-formed protocol capture is tombstoned. There is deliberately NO broad exception
+-- handler, so a genuine DB failure (e.g. an insert error) still propagates rather than being swallowed.
+CREATE FUNCTION public.tombstone_citation_capture()
+RETURNS trigger LANGUAGE plpgsql SECURITY DEFINER SET search_path='' AS $$
+DECLARE ctx jsonb; slot jsonb;
+BEGIN
+  ctx := OLD.document->'input'->'captureContext';
+  IF OLD.supersedes_id IS NOT NULL OR ctx IS NULL OR jsonb_typeof(ctx)<>'object' THEN RETURN OLD; END IF;
+  slot := ctx->'slot';
+  IF jsonb_typeof(slot)='object'
+    AND ctx->>'panelId' ~ '^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$'
+    AND ctx->>'panelVersion' ~ '^[0-9]{1,9}$'
+    AND (ctx->>'brandRunId' IS NULL OR ctx->>'brandRunId' ~ '^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$')
+    AND slot->>'questionId' IS NOT NULL AND slot->>'round' ~ '^[0-9]{1,9}$'
+    AND EXISTS(SELECT 1 FROM public.workspace_entities WHERE user_id=OLD.user_id AND collection='projects' AND entity_id=OLD.project_id) THEN
+    INSERT INTO public.citation_capture_tombstones(user_id,project_id,answer_id,panel_id,panel_version,brand_run_id,question_id,round)
+      VALUES(OLD.user_id,OLD.project_id,OLD.id,(ctx->>'panelId')::uuid,(ctx->>'panelVersion')::integer,
+        (ctx->>'brandRunId')::uuid,slot->>'questionId',(slot->>'round')::integer)
+      ON CONFLICT DO NOTHING;
+  END IF;
+  RETURN OLD;
+END; $$;
+REVOKE ALL ON FUNCTION public.tombstone_citation_capture() FROM PUBLIC,anon,authenticated,service_role;
+CREATE TRIGGER tombstone_citation_capture AFTER DELETE ON public.ai_answer_evidence
+  FOR EACH ROW EXECUTE FUNCTION public.tombstone_citation_capture();
 
 CREATE FUNCTION public.read_citation_protocol(p_user uuid,p_project text)
 RETURNS jsonb LANGUAGE plpgsql SECURITY DEFINER SET search_path='' AS $$
@@ -274,14 +328,25 @@ BEGIN
   -- held FOR UPDATE (required-present) from the top of this function, so this check and the insert are
   -- serialized with every other capture for the account and two concurrent originals cannot both pass.
   -- A superseded original keeps supersedes_id null, so it still occupies its slot (raw history kept).
-  IF replaced IS NULL AND EXISTS (
-    SELECT 1 FROM public.ai_answer_evidence
-    WHERE user_id=p_user AND project_id=p_project AND supersedes_id IS NULL
-      AND document->'input'->'captureContext'->>'panelId'=ctx->>'panelId'
-      AND document->'input'->'captureContext'->>'panelVersion'=ctx->>'panelVersion'
-      AND document->'input'->'captureContext'->'slot'->>'questionId'=ctx->'slot'->>'questionId'
-      AND document->'input'->'captureContext'->'slot'->>'round'=ctx->'slot'->>'round'
-      AND document->'input'->'captureContext'->>'brandRunId' IS NOT DISTINCT FROM ctx->>'brandRunId'
+  -- An erased slot stays occupied via its content-free tombstone, so erasing an observation never
+  -- reopens the slot for a fresh (or even identical) re-import — the attempt is immutable.
+  IF replaced IS NULL AND (
+    EXISTS (
+      SELECT 1 FROM public.ai_answer_evidence
+      WHERE user_id=p_user AND project_id=p_project AND supersedes_id IS NULL
+        AND document->'input'->'captureContext'->>'panelId'=ctx->>'panelId'
+        AND document->'input'->'captureContext'->>'panelVersion'=ctx->>'panelVersion'
+        AND document->'input'->'captureContext'->'slot'->>'questionId'=ctx->'slot'->>'questionId'
+        AND document->'input'->'captureContext'->'slot'->>'round'=ctx->'slot'->>'round'
+        AND document->'input'->'captureContext'->>'brandRunId' IS NOT DISTINCT FROM ctx->>'brandRunId'
+    )
+    OR EXISTS (
+      SELECT 1 FROM public.citation_capture_tombstones
+      WHERE user_id=p_user AND project_id=p_project
+        AND panel_id=(ctx->>'panelId')::uuid AND panel_version=(ctx->>'panelVersion')::integer
+        AND question_id=ctx->'slot'->>'questionId' AND round=(ctx->'slot'->>'round')::integer
+        AND brand_run_id IS NOT DISTINCT FROM (ctx->>'brandRunId')::uuid
+    )
   ) THEN
     RAISE EXCEPTION 'citation_slot_occupied';
   END IF;
@@ -291,11 +356,14 @@ BEGIN
   -- Concurrency: this count+insert is serialized per account by the workspace_meta row lock, taken
   -- FOR UPDATE and required-present in one statement at the top of this function, so two concurrent
   -- captures for one run serialize on that row and cannot both pass the budget. No per-run lock is
-  -- needed.
+  -- needed. Erased observations still count via their tombstones, so erasing a brand capture never
+  -- restores budget for a fresh one — the consumed attempt is immutable.
   IF panel_kind<>'discovery' AND replaced IS NULL AND (
-    SELECT count(*) FROM public.ai_answer_evidence
-    WHERE user_id=p_user AND project_id=p_project AND supersedes_id IS NULL
-      AND document->'input'->'captureContext'->>'brandRunId'=v_run::text
+    (SELECT count(*) FROM public.ai_answer_evidence
+      WHERE user_id=p_user AND project_id=p_project AND supersedes_id IS NULL
+        AND document->'input'->'captureContext'->>'brandRunId'=v_run::text)
+    + (SELECT count(*) FROM public.citation_capture_tombstones
+        WHERE user_id=p_user AND project_id=p_project AND brand_run_id=v_run)
   )>=(run_doc->>'observationBudget')::integer THEN
     RAISE EXCEPTION 'brand_run_budget_exceeded';
   END IF;

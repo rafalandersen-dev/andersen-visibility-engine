@@ -159,6 +159,40 @@ all conversation files.
   planning exactly 40 with 1 observed → 39 unobserved, and a resolver off-grid case. Only the unapplied
   `…170000` migration changed.
 
+## Review round 7 (erasure must not reopen a slot or restore budget)
+
+- The released `remove_ai_answer_evidence` hard-deletes an answer/correction chain (and a prompt or
+  project delete cascades to captures), which reopened a scheduled slot and lowered a brand run's
+  observation count — letting an owner erase and re-submit at the same slot / re-consume budget. Fixed
+  without touching the released RPC: a new content-free `citation_capture_tombstones` table and an
+  `AFTER DELETE` trigger on `ai_answer_evidence` (both in the unapplied `…170000`) record only the
+  slot/budget identity of an erased ORIGINAL (panel version, brand run, question, round, answer id) —
+  no answer content. `save_citation_capture`'s one-per-slot guard treats a tombstoned slot as occupied
+  (`citation_slot_occupied`) and the brand budget count adds tombstones (`brand_run_budget_exceeded`),
+  so erasure never reopens a slot (even for an identical re-import) or restores budget; the prompt/root
+  cascade bypass is closed because the trigger fires on every row delete. Corrections/legacy answers
+  occupy no slot and are skipped (legacy erasure unchanged); the trigger skips during project deletion
+  and the table cascades with the project, so no orphan. Erasure obligation honored (content deleted,
+  only the content-free attempt fact persists); tenant isolation, account-first serialization,
+  authorization, hash-dedup-before-budget and correction chains preserved.
+- Amendment (this turn): the `AFTER DELETE` trigger no longer blindly casts the historical
+  captureContext. It first checks the context is a jsonb object, the slot is a jsonb object, `panelId`
+  and any `brandRunId` match the uuid shape, `panelVersion`/`round` are numeric within `^[0-9]{1,9}$`,
+  and `questionId` is present, before any `::uuid`/`::integer` cast — so a malformed historical
+  captureContext (bad uuid, missing keys, integer overflow, non-numeric round) can no longer raise
+  inside the trigger and block the user's erasure. No broad `EXCEPTION WHEN OTHERS` is added, so a
+  genuine DB fault still surfaces; a malformed payload is simply erased with no tombstone written
+  (never fabricating a valid occupied slot / budget). This keeps the generic evidence-deletion path
+  (which may carry any legacy context) erasable while the authenticated protocol capture path still
+  writes exactly one well-formed tombstone. Tests: delete-then-replacement same slot denied (direct
+  SQL + wrapper, nothing re-stored), brand budget not restored, correction-chain and prompt-removal
+  paths, tombstone content-free via full-row `row_to_json` inspection asserting the exact column set
+  (no answer content) and tenant-scoped, malformed historical captures stay erasable with zero
+  tombstones while a well-formed capture IS tombstoned, a project deletion carrying LIVE captures
+  (original + correction) plus an existing tombstone cascades every content/protocol/tombstone row
+  without the trigger blocking or recreating a tombstone (a second tenant's answer is preserved), and
+  legacy deletion still functional.
+
 ## Checks (status: UNRUN — prepared for Codex)
 
 Prior stages: 143 (tsc failing) → 146 → 148/147-PASS-1-FAIL → 150 → 170/6081 → (round 5) read-ordering
@@ -168,8 +202,19 @@ sole failure was a test-only assertion — the grid table-driven test expected t
 normalizes DB errors to `citation_protocol_unavailable`. Fixed here (test only): each invalid-grid case
 now asserts the specific error via a direct `lock_citation_panel` RPC, the generic refusal via the
 public wrapper, and that no locked version was inserted (the draft stays editable); the 11-question
-direct-SQL case is kept. No guard weakened, no raw error exposed, no application/SQL change. All prior
-PASS counts are a PRIOR STAGE and do not carry over — every check below is UNRUN and re-run by Codex.
+direct-SQL case is kept (that grid delta then passed). Round 7 added the content-free erasure tombstone
+(new table + `AFTER DELETE` trigger) and made the write guards consult it; Codex then ran that delta at
+30 SQL tests PASS + TypeScript PASS (lint reported only Prettier formatting in the test file, which
+Codex will format). The shape-guard amendment hardened the trigger's captureContext shape validation
+before any cast and strengthened two tests (malformed-capture erasability; a live-capture project
+deletion; the content-free assertion now inspects the full tombstone row). Codex then formatted the
+test and ran it at 31 SQL tests PASS (1.52s) but TypeScript FAILED at
+`citation-protocol-migration.test.ts(1011,18)` TS2571 (the `row_to_json` full row typed `unknown`).
+Fixed here (test typing only): the `db.query` full-row read now carries a
+`<{ r: Record<string, unknown> }>` row generic — the same pattern as the existing `{ data: unknown }`
+query — so the full-row content-free assertion is unchanged and uses no broad `any`; no application or
+SQL behavior changed. All prior counts — including 31/PASS-with-types-FAILED — are a PRIOR STAGE and do
+not carry over; every check below is UNRUN and re-run by Codex.
 
 | Check | Purpose | Status |
 | --- | --- | --- |
