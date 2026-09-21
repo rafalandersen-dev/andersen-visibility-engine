@@ -985,6 +985,148 @@ describe("the independent inspection gate reuses the canonical accuracy resolver
     expect(receipt.inspectionComplete).toBe(false);
     expect(await reviewStatusOf(rowId)).toBe("second_review_pending");
   });
+  it("propagates erasure to a finding pinning a DELETED fact: prose + notes withheld from the reviewer, retained for the owner, new reviews blocked (finding 4059689464)", async () => {
+    const OBS_SECRET = "OBS-SECRET-6M2P: the deleted fact recorded the private 999 rate.";
+    const NOTE_SECRET = "NOTE-SECRET-6M2P: this reviewer note quotes the deleted fact.";
+    const fact = await seedFact();
+    const fid = "60000000-0000-4000-8000-000000000950";
+    const saved = await rpc("save_ai_citation_finding", {
+      p_user: user,
+      p_project: "p",
+      p_record: {
+        ...finding(fid, "accepted", {
+          family: "recommendation_accuracy",
+          evidence: [{ kind: "answer" as const, id: ANSWER }],
+          accuracy: [resolvedEntry(fact.id)],
+        }),
+        observation: OBS_SECRET,
+      },
+      p_scope: panelScope,
+    });
+    if (saved.error) throw saved.error;
+    const row = (saved.data as { id: string }).id;
+    // A reviewer records a receipt whose NOTE quotes the fact, while the fact is still live.
+    await submit(reviewer, row, await shaFor(row), "approved", NOTE_SECRET);
+    // Delete the pinned fact via the real RPC.
+    expect(
+      (
+        await rpc("remove_ai_citation_business_fact", {
+          p_user: user,
+          p_project: "p",
+          p_id: fact.id,
+        })
+      ).error,
+    ).toBeNull();
+    // The finding is now evidence-erased; the reviewer for-review read withholds the free prose AND the note,
+    // and neither the observation nor the note secret appears anywhere in the response.
+    const view = await getCitationFindingForReview(
+      reviewer,
+      { ownerId: user, projectId: "p", findingRowId: row },
+      rpc,
+    );
+    expect(view.evidenceErased).toBe(true);
+    expect(view.record.observation).toBe("[withheld: finding evidence hidden]");
+    expect(view.reviews[0].note).toBeNull();
+    const whole = JSON.stringify(view);
+    expect(whole).not.toContain("OBS-SECRET-6M2P");
+    expect(whole).not.toContain("NOTE-SECRET-6M2P");
+    // The standalone receipt list also withholds the note for the reviewer.
+    expect(
+      (
+        await readCitationFindingReviews(
+          reviewer,
+          { ownerId: user, projectId: "p", findingRowId: row },
+          rpc,
+        )
+      ).reviews[0].note,
+    ).toBeNull();
+    // A NEW review on the erased finding is blocked (no note resurrection).
+    await expect(submit(reviewer, row, "a".repeat(64), "approved")).rejects.toThrow();
+    // The OWNER retains the free-text observation (honest retention); the note is ERASED in storage to the marker.
+    expect(JSON.stringify(await getCitationFinding(scope, row, rpc))).toContain("OBS-SECRET-6M2P");
+    const ownerList = await readCitationFindingReviews(
+      user,
+      { ownerId: user, projectId: "p", findingRowId: row },
+      rpc,
+    );
+    expect(ownerList.reviews[0].note).toBe("[redacted: finding evidence forgotten]");
+    expect(ownerList.reviews[0].decision).toBe("approved");
+    const stored = await db.query<{ n: string | null; obs: string }>(
+      "SELECT (SELECT note FROM ai_citation_finding_reviews WHERE finding_row_id=$1) n, (record->>'observation') obs FROM ai_citation_findings WHERE id=$1",
+      [row],
+    );
+    expect(stored.rows[0].n).toBe("[redacted: finding evidence forgotten]");
+    expect(stored.rows[0].obs).toBe(OBS_SECRET); // the owner's prose is genuinely retained in storage
+  });
+  it("blocks fact-erased resurrection at save, leaves a finding pinning a SURVIVING fact untouched, and survives a project delete without an orphaned marker (finding 4059689464)", async () => {
+    const factA = await seedFact();
+    const factB = (
+      await rpc("save_ai_citation_business_fact", {
+        p_user: user,
+        p_project: "p",
+        p_record: {
+          factId: FACT2,
+          kind: "price",
+          value: "600 SEK",
+          confirmedBy: user,
+          confirmedAt: "2026-01-02T00:00:00Z",
+          validFrom: "2024-01-01T00:00:00Z",
+          validUntil: null,
+        },
+      })
+    ).data as { id: string };
+    const survivingRow = (
+      (
+        await rpc("save_ai_citation_finding", {
+          p_user: user,
+          p_project: "p",
+          p_record: finding("60000000-0000-4000-8000-000000000951", "accepted", {
+            family: "recommendation_accuracy",
+            evidence: [{ kind: "answer", id: ANSWER }],
+            accuracy: [resolvedEntry(factB.id, { factId: FACT2 })],
+          }),
+          p_scope: panelScope,
+        })
+      ).data as { id: string }
+    ).id;
+    // Delete factA; a finding pinning the SURVIVING factB must be untouched (row-id scoped, no over-fire).
+    await rpc("remove_ai_citation_business_fact", { p_user: user, p_project: "p", p_id: factA.id });
+    // A FRESH finding pinning the now-deleted factA is erased at save (resurrection blocked).
+    const freshRow = (
+      (
+        await rpc("save_ai_citation_finding", {
+          p_user: user,
+          p_project: "p",
+          p_record: finding("60000000-0000-4000-8000-000000000952", "accepted", {
+            family: "recommendation_accuracy",
+            evidence: [{ kind: "answer", id: ANSWER }],
+            accuracy: [resolvedEntry(factA.id)],
+          }),
+          p_scope: panelScope,
+        })
+      ).data as { id: string }
+    ).id;
+    const erasedOf = async (rowId: string) =>
+      (
+        await db.query<{ e: string | null }>(
+          "SELECT evidence_erased_at::text e FROM ai_citation_findings WHERE id=$1",
+          [rowId],
+        )
+      ).rows[0].e;
+    expect(await erasedOf(freshRow)).not.toBeNull();
+    expect(await erasedOf(survivingRow)).toBeNull();
+    // A whole-project delete cascades the facts; the trigger's project-exists guard skips, so no orphaned marker
+    // and no FK failure — the delete is atomic.
+    await db.query(
+      "DELETE FROM workspace_entities WHERE user_id=$1 AND collection='projects' AND entity_id='p'",
+      [user],
+    );
+    const remaining = await db.query<{ n: number }>(
+      "SELECT count(*)::int n FROM ai_citation_business_facts WHERE user_id=$1 AND project_id='p'",
+      [user],
+    );
+    expect(remaining.rows[0].n).toBe(0);
+  });
 });
 describe("withdrawal is reviewer-only, auditable, and never silently sanitises a dissent (gap 4)", () => {
   it("lets only the receipt's own reviewer withdraw (a content-free tombstone), never the owner or a stranger", async () => {
@@ -1680,6 +1822,41 @@ describe("evidence lifecycle: forgetting a source erases copied material and dow
     );
     expect(ownerList.reviews[0].note).toBe(NOTE_SECRET);
   });
+  it("withholds the free-text observation from the reviewer after a SOURCE forget while the owner retains it, leaving an unrelated finding's prose intact (finding 4059648507)", async () => {
+    const OBS_SECRET =
+      "OBSERVATION-SECRET-4K9Z: the forgotten source page quoted the private rate.";
+    await seedSource("active", SOURCE);
+    await seedSource("active", SOURCE2);
+    const fid = "60000000-0000-4000-8000-0000000000f8";
+    const row = await saveRaw(sourceFinding(fid, { observation: OBS_SECRET }));
+    const unrelated = await saveRaw(
+      sourceFinding("60000000-0000-4000-8000-0000000000f9", {
+        source: SOURCE2,
+        observation: "Unrelated visible prose.",
+      }),
+    );
+    expect((await forget("source", SOURCE)).error).toBeNull();
+    // The reviewer never receives the free-text observation (it may quote the forgotten source); the secret is
+    // absent from the whole response.
+    const view = await getCitationFindingForReview(
+      reviewer,
+      { ownerId: user, projectId: "p", findingRowId: row },
+      rpc,
+    );
+    expect(view.evidenceErased).toBe(true);
+    expect(view.record.observation).toBe("[withheld: finding evidence hidden]");
+    expect(JSON.stringify(view)).not.toContain("SECRET-4K9Z");
+    // The OWNER retains the real observation in storage (honest retention; the reviewer withholding is response-only).
+    expect(JSON.stringify(await getCitationFinding(scope, row, rpc))).toContain("SECRET-4K9Z");
+    // An unrelated finding (different, still-active source) is unaffected — its prose stays visible to the reviewer.
+    const unrelatedView = await getCitationFindingForReview(
+      reviewer,
+      { ownerId: user, projectId: "p", findingRowId: unrelated },
+      rpc,
+    );
+    expect(unrelatedView.evidenceErased).toBe(false);
+    expect(unrelatedView.record.observation).toBe("Unrelated visible prose.");
+  });
   it("downgrades a previously owner_attested improvement to connector_receipt after a record-only forget, leaving the historical receipt auditable", async () => {
     await seedApproval();
     await seedPublication();
@@ -2304,7 +2481,7 @@ describe("answer-delete erasure propagation: forgetting an answer erases a findi
         ])
       ).rows[0].r,
     );
-  it("erases the answer-derived copies across ALL versions on a real answer remove — masks the reviewer digest + receipt, blocks new reviews, keeps prose, and leaves a finding citing a different answer intact", async () => {
+  it("erases the answer-derived copies across ALL versions on a real answer remove — masks the reviewer digest + receipt, blocks new reviews, keeps prose for the OWNER while WITHHOLDING it from the reviewer, and leaves a finding citing a different answer intact", async () => {
     const ans = await importReal(ACC_CAP, "The captured answer under review.");
     const ans2 = await importReal(ACC_CAP, "An unrelated captured answer.");
     const fid = "60000000-0000-4000-8000-0000000000f0";
@@ -2331,7 +2508,9 @@ describe("answer-delete erasure propagation: forgetting an answer erases a findi
       expect(rec).toContain(MARKER);
       expect(rec, v).toContain(proseByVersion[v]); // this version's free reviewer prose is NOT auto-wiped
     }
-    // The finding is erased: the reviewer read masks the digest + the receipt, and no secret appears anywhere.
+    // The finding is erased: the reviewer read masks the digest + receipt, and NO evidence-derived content
+    // appears — including the free-text observation, now WITHHELD on the reviewer surface (finding 4059648507)
+    // because it may quote/paraphrase the erased answer.
     const view = await getCitationFindingForReview(
       reviewer,
       { ownerId: user, projectId: "p", findingRowId: v2 },
@@ -2340,11 +2519,15 @@ describe("answer-delete erasure propagation: forgetting an answer erases a findi
     expect(view.evidenceErased).toBe(true);
     expect(view.recordSha256).toBeNull();
     expect(view.reviews[0].recordSha256).toBeNull();
+    expect(view.record.observation).toBe("[withheld: finding evidence hidden]");
     const whole = JSON.stringify(view);
     for (const secret of [REC, SUP, ACC]) expect(whole).not.toContain(secret);
-    // The OWNER detail read also shows markers — a forget is a deletion, erased for everyone (not just reviewers).
+    expect(whole).not.toContain("free-analysis prose"); // the reviewer never receives the owner's prose
+    // The OWNER detail read shows the structured copies as markers (a forget is a deletion) but RETAINS the
+    // owner's own free-text prose — honest owner retention; the reviewer withholding above is response-only.
     const detail = JSON.stringify(await getCitationFinding(scope, v2, rpc));
     for (const secret of [REC, SUP, ACC]) expect(detail).not.toContain(secret);
+    expect(detail).toContain("Revised free-analysis prose (a new version).");
     // A NEW review on the erased finding is blocked.
     await expect(submit(reviewer, v2, "a".repeat(64), "approved")).rejects.toThrow();
     // Answer-scoped isolation: the finding citing a DIFFERENT answer keeps its copies.

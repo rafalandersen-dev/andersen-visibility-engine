@@ -215,6 +215,10 @@ describe("candidate migration chain", () => {
     "citation_redact_answer_fields(jsonb)",
     "citation_forget_redact_answer(uuid,text,uuid)",
     "citation_forget_answer_passages()",
+    // Fact-delete erasure objects: the fact redactor and the trigger function fired by AFTER DELETE on
+    // ai_citation_business_facts. Both REVOKEd from every role — reached only from the trigger.
+    "citation_forget_redact_fact(uuid,text,uuid)",
+    "citation_forget_fact_records()",
   ])("%s is reachable only from definer functions", async (fn) => {
     for (const role of ["anon", "authenticated", "service_role", "public"])
       expect(await allowed(role, fn)).toBe(false);
@@ -271,6 +275,8 @@ describe("candidate migration chain", () => {
       "ai_citation_answer_erasures",
       // Content-free logical-finding dissent tombstone (a dissent survives a version/head delete; ids + timestamp).
       "ai_citation_finding_dissent_tombstones",
+      // Content-free fact-level erasure provenance (fact-delete propagation; ids + timestamp only).
+      "ai_citation_fact_erasures",
     ]) {
       const { rows } = await db.query<{ rls: boolean; policies: string }>(
         "SELECT c.relrowsecurity rls,(SELECT count(*)::text FROM pg_policy WHERE polrelid=c.oid) policies FROM pg_class c JOIN pg_namespace s ON s.oid=c.relnamespace WHERE s.nspname='public' AND c.relname=$1",

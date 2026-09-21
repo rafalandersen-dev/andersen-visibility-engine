@@ -923,6 +923,18 @@ BEGIN
     p_record := public.citation_redact_answer_fields(p_record);
     erased := true;
   END IF;
+  -- Anti-resurrection (finding 4059689464): a new/altered version whose accuracy[] PINS a fact ROW whose fact was
+  -- DELETED must not become a fresh un-erased attestation whose free prose / receipt notes could re-expose the
+  -- deleted fact value. There is NO fact-value copy in the record to scrub (accuracy[].claimSpan is answer-derived
+  -- and must not be touched by a fact delete), so mark the row evidence-erased: its free prose is then withheld
+  -- from reviewers and new reviews are blocked. Row-id scoped by SEMANTIC uuid, so a delete-then-recreate (new row
+  -- id) or a finding pinning a surviving version is unaffected. Independent of the source/answer guards above.
+  IF EXISTS(SELECT 1 FROM jsonb_array_elements(
+        CASE WHEN jsonb_typeof(p_record->'accuracy')='array' THEN p_record->'accuracy' ELSE '[]'::jsonb END) a
+      JOIN public.ai_citation_fact_erasures x
+        ON x.user_id=p_user AND x.project_id=p_project AND x.fact_row_id::text=lower(a->>'factRowId')) THEN
+    erased := true;
+  END IF;
   INSERT INTO public.ai_citation_findings
     (user_id,project_id,finding_id,version,family,decision,record,record_sha256,
      panel_id,panel_version,client_name,client_market,actor_id,reviewer_id,supersedes_id,evidence_erased_at)
@@ -1188,14 +1200,19 @@ BEGIN
   -- VERIFICATION is only trustworthy when anchored to server-validated events: the bound approval
   -- (approval.updated_at = appr_at) and a structured owner inspection of the published liveUrl
   -- (ownerInspection.observedAt = obs, already validated finite + on/after publication AND approval + non-future
-  -- above). So a verification with no such trusted inspection is REFUSED (fail-closed; no inspection is
-  -- fabricated), and when present the two instants are DERIVED into the record — and thus into the idempotency
-  -- digest and every downstream comparison — at the database's supported MICROSECOND precision as canonical UTC
-  -- ISO-8601 (not raw ISO-string equality). The owner's raw claimed dates are discarded, so a backdated claim
-  -- collapses to the same trusted record (idempotent) and cannot reorder intervention vs retest. This does NOT
-  -- turn owner_attested into independent proof: obs is still an owner observation, unchanged in meaning.
+  -- above), AND that inspection must be POSITIVE — checkResult='shows_approved_content'. A verification with NO
+  -- trusted inspection, or one anchored to a does_not_show / inconclusive inspection that CONTRADICTS the
+  -- before/after claim (the destination does NOT show the approved content), is REFUSED here (fail-closed; no
+  -- inspection is fabricated) — so a contradictory/negative verification never reaches storage and can never be
+  -- counted by the downstream isVerifiedImprovement / comparablePairs, which read the record's verification, not
+  -- the inspection result (closing that alternate path). When admitted (positive), the two instants are DERIVED
+  -- into the record — and thus into the idempotency digest and every downstream comparison — at the database's
+  -- supported MICROSECOND precision as canonical UTC ISO-8601 (not raw ISO-string equality). The owner's raw
+  -- claimed dates are discarded, so a backdated claim collapses to the same trusted record (idempotent) and
+  -- cannot reorder intervention vs retest. This does NOT turn owner_attested into independent proof: obs is still
+  -- an owner observation of the destination, unchanged in meaning.
   IF v IS NOT NULL AND jsonb_typeof(v)='object' THEN
-    IF obs IS NULL OR appr_at IS NULL THEN
+    IF obs IS NULL OR appr_at IS NULL OR (insp->>'checkResult') IS DISTINCT FROM 'shows_approved_content' THEN
       RAISE EXCEPTION 'citation_improvement_verification_unbacked' USING ERRCODE='22023';
     END IF;
     p_record := jsonb_set(
@@ -1334,6 +1351,64 @@ CREATE TABLE public.ai_citation_business_facts (
 );
 ALTER TABLE public.ai_citation_business_facts ENABLE ROW LEVEL SECURITY;
 REVOKE ALL ON public.ai_citation_business_facts FROM PUBLIC,anon,authenticated,service_role;
+
+-- Fact-DELETE erasure propagation (finding 4059689464). remove_ai_citation_business_fact (and a project-delete
+-- cascade) DELETEs a fact ROW; an accuracy assessment that PINNED that row already resolves 'fact_missing', but
+-- the finding's free-text prose (observation/hypothesis/support[].reason) and its receipt NOTES may quote or
+-- paraphrase the deleted fact value and were neither withheld nor erased, and a note could persist/resurrect.
+-- This content-free marker + AFTER DELETE trigger extend the coherent evidence-erasure behavior to fact deletion.
+CREATE TABLE public.ai_citation_fact_erasures (
+  user_id uuid NOT NULL,
+  project_collection text NOT NULL DEFAULT 'projects' CHECK(project_collection='projects'),
+  project_id text NOT NULL,
+  fact_row_id uuid NOT NULL,
+  erased_at timestamptz NOT NULL DEFAULT clock_timestamp(),
+  PRIMARY KEY(user_id,project_id,fact_row_id),
+  FOREIGN KEY(user_id,project_collection,project_id) REFERENCES public.workspace_entities(user_id,collection,entity_id) ON DELETE CASCADE
+);
+ALTER TABLE public.ai_citation_fact_erasures ENABLE ROW LEVEL SECURITY;
+REVOKE ALL ON public.ai_citation_fact_erasures FROM PUBLIC,anon,authenticated,service_role;
+-- Marks every version of every finding of the SAME owner+project whose accuracy[] pins the DELETED fact ROW
+-- (semantic uuid, exact owner+project) evidence-erased — activating the same erased machinery as an answer/source
+-- forget: reviewer digest + receipt + free prose masked/withheld, new reviews blocked, review/improvement current
+-- status downgraded. Receipt NOTES are erased in storage (content-free marker). NO structured field is scrubbed:
+-- the fact VALUE is never copied into the record (resolved live via factRowId), and accuracy[].claimSpan is
+-- ANSWER-derived, so a fact delete must not touch it — the free prose that may quote the fact is RESPONSE-withheld
+-- to the reviewer (honest owner retention), consistent with the current prose policy. record_sha256 is left as the
+-- pre-erasure digest (masked from reviewers). Project-delete safe: skip when the workspace_entities project row is
+-- already gone (the FK cascade purges facts AFTER the project row; inserting provenance would orphan the FK 23503).
+CREATE FUNCTION public.citation_forget_redact_fact(p_user uuid,p_project text,p_fact uuid) RETURNS void
+LANGUAGE plpgsql SECURITY DEFINER SET search_path='' AS $$
+BEGIN
+  IF NOT EXISTS(SELECT 1 FROM public.workspace_entities
+       WHERE user_id=p_user AND collection='projects' AND entity_id=p_project) THEN
+    RETURN;
+  END IF;
+  INSERT INTO public.ai_citation_fact_erasures(user_id,project_id,fact_row_id)
+    VALUES(p_user,p_project,p_fact) ON CONFLICT(user_id,project_id,fact_row_id) DO NOTHING;
+  UPDATE public.ai_citation_findings f
+    SET evidence_erased_at = coalesce(f.evidence_erased_at, clock_timestamp())
+    WHERE f.user_id=p_user AND f.project_id=p_project
+      AND EXISTS(SELECT 1 FROM jsonb_array_elements(
+            CASE WHEN jsonb_typeof(f.record->'accuracy')='array' THEN f.record->'accuracy' ELSE '[]'::jsonb END) a
+          WHERE lower(a->>'factRowId')=p_fact::text);
+  UPDATE public.ai_citation_finding_reviews r
+    SET note='[redacted: finding evidence forgotten]'
+    WHERE r.user_id=p_user AND r.project_id=p_project AND NOT r.withdrawn AND r.note IS NOT NULL
+      AND EXISTS(SELECT 1 FROM public.ai_citation_findings f
+        WHERE f.id=r.finding_row_id AND f.user_id=p_user AND f.project_id=p_project
+          AND jsonb_typeof(f.record->'accuracy')='array'
+          AND EXISTS(SELECT 1 FROM jsonb_array_elements(f.record->'accuracy') a
+            WHERE lower(a->>'factRowId')=p_fact::text));
+END; $$;
+REVOKE ALL ON FUNCTION public.citation_forget_redact_fact(uuid,text,uuid) FROM PUBLIC,anon,authenticated,service_role;
+CREATE FUNCTION public.citation_forget_fact_records() RETURNS trigger
+LANGUAGE plpgsql SECURITY DEFINER SET search_path='' AS $$
+BEGIN PERFORM public.citation_forget_redact_fact(OLD.user_id,OLD.project_id,OLD.id); RETURN OLD; END; $$;
+REVOKE ALL ON FUNCTION public.citation_forget_fact_records() FROM PUBLIC,anon,authenticated,service_role;
+CREATE TRIGGER citation_forget_fact_records_trg
+  AFTER DELETE ON public.ai_citation_business_facts
+  FOR EACH ROW EXECUTE FUNCTION public.citation_forget_fact_records();
 
 CREATE FUNCTION public.save_ai_citation_business_fact(p_user uuid,p_project text,p_record jsonb)
 RETURNS jsonb LANGUAGE plpgsql SECURITY DEFINER SET search_path='' AS $$
@@ -1997,6 +2072,28 @@ BEGIN
       FROM jsonb_array_elements(frec->'support') WITH ORDINALITY AS a(s,ord)));
   ELSE
     frec_response := frec;
+  END IF;
+  -- EVIDENCE-DERIVED PROSE withholding (finding 4059648507). observation / hypothesis / support[].reason are the
+  -- OWNER'S own free-text analysis and MAY quote or paraphrase the now-erased answer or the withheld source. They
+  -- are KEPT in storage (honest owner retention — the owner's own detail read still returns them, the documented
+  -- retention boundary for the owner's analysis), but the REVIEWER must not receive evidence-derived prose once
+  -- the finding is MASKED (erased, or a cited source revoked/missing). So this reviewer RESPONSE COPY blanks them
+  -- to a content-free marker whenever masked — response-only withholding, symmetric with the copied-passage and
+  -- receipt-note withholding, no stored mutation and no content-free audit lost. (The structured answer/source
+  -- copies are handled separately: storage-erased on a forget, response-withheld on a revoke.)
+  IF frow.evidence_erased_at IS NOT NULL OR passages_withheld THEN
+    IF (frec_response->>'observation') IS NOT NULL THEN
+      frec_response := jsonb_set(frec_response,'{observation}',to_jsonb('[withheld: finding evidence hidden]'::text));
+    END IF;
+    IF (frec_response->>'hypothesis') IS NOT NULL THEN
+      frec_response := jsonb_set(frec_response,'{hypothesis}',to_jsonb('[withheld: finding evidence hidden]'::text));
+    END IF;
+    IF jsonb_typeof(frec_response->'support')='array' THEN
+      frec_response := jsonb_set(frec_response,'{support}',(
+        SELECT coalesce(jsonb_agg(CASE WHEN s->>'reason' IS NOT NULL
+            THEN jsonb_set(s,'{reason}',to_jsonb('[withheld: finding evidence hidden]'::text)) ELSE s END ORDER BY ord),'[]'::jsonb)
+        FROM jsonb_array_elements(frec_response->'support') WITH ORDINALITY AS a(s,ord)));
+    END IF;
   END IF;
   -- The dated fact behind each assessed-accuracy claim (only entries that pin a fact row).
   IF jsonb_typeof(frec->'accuracy')='array' THEN

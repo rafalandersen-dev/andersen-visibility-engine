@@ -711,6 +711,30 @@ describe("intervention/retest dates are reconciled to trusted server events (no 
     );
     expect(n.rows[0].n).toBe(0);
   });
+  it("refuses a verification anchored to a NEGATIVE/inconclusive inspection — only shows_approved_content counts (finding 4059648500)", async () => {
+    const observedAt = await isoAt("- interval '1 hour'");
+    // A does_not_show / inconclusive inspection CONTRADICTS the before/after claim, so a verification anchored to
+    // it is refused (never stored, so isVerifiedImprovement/comparablePairs can never count it via the record).
+    for (const checkResult of ["does_not_show", "inconclusive"] as const) {
+      await expect(
+        saveI(
+          improvement(impId, fid, { verified: true }),
+          binding({ inspection: { checkResult, observedAt } }),
+        ),
+      ).rejects.toThrow();
+    }
+    const n = await db.query<{ n: number }>(
+      "SELECT count(*)::int n FROM ai_citation_improvements WHERE user_id=$1",
+      [user],
+    );
+    expect(n.rows[0].n).toBe(0);
+    // A POSITIVE inspection is sound: it reaches owner_attested (an owner attestation only, not independent proof).
+    const ok = await saveI(
+      improvement(impId, fid, { verified: true }),
+      binding({ inspection: { checkResult: "shows_approved_content", observedAt } }),
+    );
+    expect(ok.verificationStatus).toBe("owner_attested");
+  });
 });
 describe("embedded reviewer identity is matched case-insensitively (semantic UUID), forgeries refused", () => {
   // A hex-LETTERED owner so an UPPERCASE embedded reviewer is a REAL case difference (the all-digit `user` is
