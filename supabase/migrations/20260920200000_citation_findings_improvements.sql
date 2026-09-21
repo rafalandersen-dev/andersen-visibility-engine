@@ -122,6 +122,27 @@ CREATE TABLE public.ai_citation_source_erasures (
 ALTER TABLE public.ai_citation_source_erasures ENABLE ROW LEVEL SECURITY;
 REVOKE ALL ON public.ai_citation_source_erasures FROM PUBLIC,anon,authenticated,service_role;
 
+-- CONTENT-FREE answer-level erasure provenance (P2 retention, finding 4058893312 — mirrors the source table).
+-- Deleting an ANSWER (remove_ai_answer_evidence 'answer', a prompt FK cascade, a supersedes-chain FK cascade, or
+-- a project delete) removes the released ai_answer_evidence row, but a dependent citation finding kept its OWN
+-- copies of answer-derived text (recommendation.passage, support[].claimSpan, accuracy[].claimSpan), which the
+-- released source/record triggers never touch. This table records, per (owner, project, answer), that an
+-- answer's evidence was forgotten, so a later resave / fresh finding citing that answer id is caught at save
+-- (the released ai_answer_evidence row is gone and carries no such provenance). ids + a timestamp only (no
+-- answer text — nothing to leak). Same monotonic cardinality and project-delete-only lifecycle bound as the
+-- source table (workspace_entities FK ON DELETE CASCADE). Never a client surface; touched only by definers.
+CREATE TABLE public.ai_citation_answer_erasures (
+  user_id uuid NOT NULL,
+  project_collection text NOT NULL DEFAULT 'projects' CHECK(project_collection='projects'),
+  project_id text NOT NULL,
+  answer_id uuid NOT NULL,
+  erased_at timestamptz NOT NULL DEFAULT clock_timestamp(),
+  PRIMARY KEY(user_id,project_id,answer_id),
+  FOREIGN KEY(user_id,project_collection,project_id) REFERENCES public.workspace_entities(user_id,collection,entity_id) ON DELETE CASCADE
+);
+ALTER TABLE public.ai_citation_answer_erasures ENABLE ROW LEVEL SECURITY;
+REVOKE ALL ON public.ai_citation_answer_erasures FROM PUBLIC,anon,authenticated,service_role;
+
 -- Forget cascade (P1 retention). BOTH forget kinds are ERASURES: forget_project_knowledge('source') DELETEs
 -- the source row (cascading its records/documents) and forget_project_knowledge('record') DELETEs a record and
 -- its history. A dependent citation finding kept its OWN copy of inspected source text in
@@ -199,6 +220,72 @@ CREATE TRIGGER citation_forget_source_passages_trg
 CREATE TRIGGER citation_forget_record_passages_trg
   AFTER DELETE ON public.project_knowledge_records
   FOR EACH ROW EXECUTE FUNCTION public.citation_forget_record_passages();
+
+-- Answer-forget FIELD redactor (P2 retention; finding 4058893312). Shared by the answer-delete trigger and the
+-- save-time anti-resurrection guard: redacts ONLY the STRUCTURED answer-derived copies a finding keeps — the
+-- exact ANSWER text it pasted into recommendation.passage, support[].claimSpan and accuracy[].claimSpan — to a
+-- visible marker (never the original). support[].citedUrl and answerCapturedAt are attribution/provenance, kept
+-- (mirroring the source redactor keeping label/url); observation / hypothesis / support[].reason are free-text
+-- reviewer analysis, kept — the SAME documented scope boundary as the source redactor (prose is not auto-wiped
+-- without a deliberate mechanism, so we do NOT claim all pasted-in prose is gone). A pure jsonb transform.
+CREATE FUNCTION public.citation_redact_answer_fields(p_record jsonb) RETURNS jsonb
+LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path='' AS $$
+DECLARE r jsonb := p_record;
+BEGIN
+  IF jsonb_typeof(r->'support')='array' THEN
+    r := jsonb_set(r,'{support}',(SELECT coalesce(jsonb_agg(
+      CASE WHEN s->>'claimSpan' IS NOT NULL THEN jsonb_set(s,'{claimSpan}',to_jsonb('[redacted: answer forgotten]'::text)) ELSE s END ORDER BY ord),'[]'::jsonb)
+      FROM jsonb_array_elements(r->'support') WITH ORDINALITY q(s,ord)));
+  END IF;
+  IF jsonb_typeof(r->'accuracy')='array' THEN
+    r := jsonb_set(r,'{accuracy}',(SELECT coalesce(jsonb_agg(
+      CASE WHEN a->>'claimSpan' IS NOT NULL THEN jsonb_set(a,'{claimSpan}',to_jsonb('[redacted: answer forgotten]'::text)) ELSE a END ORDER BY ord),'[]'::jsonb)
+      FROM jsonb_array_elements(r->'accuracy') WITH ORDINALITY q(a,ord)));
+  END IF;
+  IF jsonb_typeof(r->'recommendation')='object' AND (r->'recommendation'->>'passage') IS NOT NULL THEN
+    r := jsonb_set(r,'{recommendation,passage}',to_jsonb('[redacted: answer forgotten]'::text));
+  END IF;
+  RETURN r;
+END; $$;
+REVOKE ALL ON FUNCTION public.citation_redact_answer_fields(jsonb) FROM PUBLIC,anon,authenticated,service_role;
+
+-- Answer-DELETE erasure propagation (the finding). ANY delete of an ai_answer_evidence row — the released
+-- remove_ai_answer_evidence('answer' OR 'prompt'), the prompt FK cascade, the supersedes-chain FK cascade, or a
+-- project delete — is caught by the AFTER DELETE trigger below and reaches here. It erases the copied
+-- answer-derived fields (via citation_redact_answer_fields) in EVERY version of EVERY finding of the SAME
+-- owner+project that cites the answer, and stamps evidence_erased_at so every current-status / digest-masking /
+-- new-review-block / attestation-downgrade path already keyed on erasure honors it (marking dependent finding
+-- versions erased). The answer is matched by SEMANTIC uuid (lower(e->>'id')=answer::text, so an uppercase-cited
+-- answer still matches and a source/native id never coerces). A content-free marker records the erasure for the
+-- save-time anti-resurrection guard. record_sha256 is left unchanged (a pre-erasure digest, masked from
+-- reviewers). Project-delete safe: skip when the workspace_entities project row is already gone (the released
+-- prompt/answer purge fires this trigger AFTER the project row is deleted), exactly like the source redactor —
+-- the findings/erasure rows are cascade-deleted anyway, and inserting provenance would orphan the FK (23503).
+CREATE FUNCTION public.citation_forget_redact_answer(p_user uuid,p_project text,p_answer uuid) RETURNS void
+LANGUAGE plpgsql SECURITY DEFINER SET search_path='' AS $$
+BEGIN
+  IF NOT EXISTS(SELECT 1 FROM public.workspace_entities
+       WHERE user_id=p_user AND collection='projects' AND entity_id=p_project) THEN
+    RETURN;
+  END IF;
+  INSERT INTO public.ai_citation_answer_erasures(user_id,project_id,answer_id)
+    VALUES(p_user,p_project,p_answer) ON CONFLICT(user_id,project_id,answer_id) DO NOTHING;
+  UPDATE public.ai_citation_findings f
+    SET record = public.citation_redact_answer_fields(f.record),
+        evidence_erased_at = coalesce(f.evidence_erased_at, clock_timestamp())
+    WHERE f.user_id=p_user AND f.project_id=p_project
+      AND EXISTS(SELECT 1 FROM jsonb_array_elements(
+            CASE WHEN jsonb_typeof(f.record->'evidence')='array' THEN f.record->'evidence' ELSE '[]'::jsonb END) e
+          WHERE e->>'kind'='answer' AND lower(e->>'id')=p_answer::text);
+END; $$;
+REVOKE ALL ON FUNCTION public.citation_forget_redact_answer(uuid,text,uuid) FROM PUBLIC,anon,authenticated,service_role;
+CREATE FUNCTION public.citation_forget_answer_passages() RETURNS trigger
+LANGUAGE plpgsql SECURITY DEFINER SET search_path='' AS $$
+BEGIN PERFORM public.citation_forget_redact_answer(OLD.user_id,OLD.project_id,OLD.id); RETURN OLD; END; $$;
+REVOKE ALL ON FUNCTION public.citation_forget_answer_passages() FROM PUBLIC,anon,authenticated,service_role;
+CREATE TRIGGER citation_forget_answer_passages_trg
+  AFTER DELETE ON public.ai_answer_evidence
+  FOR EACH ROW EXECUTE FUNCTION public.citation_forget_answer_passages();
 
 -- INDEPENDENT (two-person) review receipts (spec §4.5: "a second studio reviewer checks ambiguous or
 -- high-impact claims"). This is a SEPARATE, additive table — NOT a finding-record field — because the
@@ -759,6 +846,20 @@ BEGIN
             ELSE s END ORDER BY ord),'[]'::jsonb)
         FROM jsonb_array_elements(p_record->'support') WITH ORDINALITY AS a(s,ord)));
     END IF;
+    erased := true;
+  END IF;
+  -- Anti-resurrection (P2 retention; finding 4058893312): a new/altered version citing an ANSWER whose evidence
+  -- was FORGOTTEN must not re-store the copied answer-derived fields. If any cited answer carries an answer-level
+  -- erasure marker, redact recommendation.passage / support[].claimSpan / accuracy[].claimSpan (via the shared
+  -- redactor) before the INSERT and mark the row erased. Independent of the source guard above — a finding may
+  -- cite both a forgotten source and a forgotten answer, and both redactions apply. record_sha256 stays the
+  -- submitted-content pre-erasure digest; the finding is NOT blocked (unrelated input is unaffected).
+  IF EXISTS(SELECT 1 FROM jsonb_array_elements(
+        CASE WHEN jsonb_typeof(p_record->'evidence')='array' THEN p_record->'evidence' ELSE '[]'::jsonb END) e
+      JOIN public.ai_citation_answer_erasures x
+        ON x.user_id=p_user AND x.project_id=p_project AND x.answer_id::text=lower(e->>'id')
+      WHERE e->>'kind'='answer') THEN
+    p_record := public.citation_redact_answer_fields(p_record);
     erased := true;
   END IF;
   INSERT INTO public.ai_citation_findings

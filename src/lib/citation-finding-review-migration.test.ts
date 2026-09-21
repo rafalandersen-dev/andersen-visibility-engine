@@ -2090,3 +2090,202 @@ describe("evidence lifecycle: forgetting a source erases copied material and dow
     expect(await storedPassage(row)).toBe("SECRET-STATUSLESS-PASSAGE-do-not-leak");
   });
 });
+describe("answer-delete erasure propagation: forgetting an answer erases a finding's answer-derived copies (P2)", () => {
+  const REC = "SECRET-RECOMMENDATION-PASSAGE-from-answer";
+  const SUP = "SECRET-SUPPORT-CLAIMSPAN-from-answer";
+  const ACC = "SECRET-ACCURACY-CLAIMSPAN-from-answer";
+  const MARKER = "[redacted: answer forgotten]";
+  // A recommendation_accuracy finding citing ONE answer, carrying the three STRUCTURED answer-derived copies
+  // (recommendation.passage, support[].claimSpan, accuracy[].claimSpan) plus free-analysis prose (observation).
+  const answerFinding = (findingId: string, answerId: string) => ({
+    findingId,
+    family: "recommendation_accuracy" as const,
+    evidence: [{ kind: "answer" as const, id: answerId }],
+    entityMatch: "confirmed" as const,
+    capture: { answerComplete: true, citationsComplete: true },
+    observation: "Free-analysis prose that is deliberately NOT auto-wiped by an answer forget.",
+    hypothesis: null,
+    competitorCited: null,
+    ownCited: null,
+    recommendation: {
+      status: "recommended" as const,
+      passage: REC,
+      target: "the business",
+      suitability: "fits" as const,
+      review: { reviewer: user, reviewedAt: now },
+    },
+    support: [
+      {
+        claimSpan: SUP,
+        citedUrl: "https://acme.example/x",
+        answerCapturedAt: ACC_CAP,
+        status: "not_checked" as const,
+        sourcePassage: null,
+        sourceCapturedAt: null,
+        reason: null,
+        review: null,
+      },
+    ],
+    accuracy: [
+      {
+        claimSpan: ACC,
+        factKind: "price" as const,
+        status: "not_checked" as const,
+        factId: null,
+        review: null,
+      },
+    ],
+    priority: {
+      harm: "medium" as const,
+      relevance: "medium" as const,
+      fixability: "medium" as const,
+    },
+    decision: "accepted" as const,
+    review: { reviewer: user, reviewedAt: now },
+    secondReview: null,
+    linkedTaskId: null,
+  });
+  const saveRaw = async (record: unknown) => {
+    const r = await rpc("save_ai_citation_finding", {
+      p_user: user,
+      p_project: "p",
+      p_record: record,
+      p_scope: panelScope,
+    });
+    if (r.error) throw r.error;
+    return (r.data as { id: string }).id;
+  };
+  const removeAnswer = (kind: string, id: string) =>
+    rpc("remove_ai_answer_evidence", { p_user: user, p_project: "p", p_kind: kind, p_id: id });
+  const storedRecord = async (rowId: string) =>
+    JSON.stringify(
+      (
+        await db.query<{ r: unknown }>("SELECT record r FROM ai_citation_findings WHERE id=$1", [
+          rowId,
+        ])
+      ).rows[0].r,
+    );
+  it("erases the answer-derived copies across ALL versions on a real answer remove — masks the reviewer digest + receipt, blocks new reviews, keeps prose, and leaves a finding citing a different answer intact", async () => {
+    const ans = await importReal(ACC_CAP, "The captured answer under review.");
+    const ans2 = await importReal(ACC_CAP, "An unrelated captured answer.");
+    const fid = "60000000-0000-4000-8000-0000000000f0";
+    const v1 = await saveRaw(answerFinding(fid, ans));
+    const v2 = await saveRaw({
+      ...answerFinding(fid, ans),
+      observation: "Revised free-analysis prose (a new version).",
+    });
+    const other = await saveRaw(answerFinding("60000000-0000-4000-8000-0000000000f5", ans2));
+    // A reviewer records an approved receipt while the answer is live (real pin available).
+    const sha = await shaFor(v2);
+    await submit(reviewer, v2, sha, "approved");
+    // Forget the answer via the REAL released remove RPC.
+    expect((await removeAnswer("answer", ans)).error).toBeNull();
+    // Every stored version of the citing finding has the three copies redacted; each version's OWN free-analysis
+    // prose (the observation) is kept verbatim — v1 the default, v2 its revised text.
+    const proseByVersion: Record<string, string> = {
+      [v1]: "Free-analysis prose that is deliberately NOT auto-wiped by an answer forget.",
+      [v2]: "Revised free-analysis prose (a new version).",
+    };
+    for (const v of [v1, v2]) {
+      const rec = await storedRecord(v);
+      for (const secret of [REC, SUP, ACC]) expect(rec, v).not.toContain(secret);
+      expect(rec).toContain(MARKER);
+      expect(rec, v).toContain(proseByVersion[v]); // this version's free reviewer prose is NOT auto-wiped
+    }
+    // The finding is erased: the reviewer read masks the digest + the receipt, and no secret appears anywhere.
+    const view = await getCitationFindingForReview(
+      reviewer,
+      { ownerId: user, projectId: "p", findingRowId: v2 },
+      rpc,
+    );
+    expect(view.evidenceErased).toBe(true);
+    expect(view.recordSha256).toBeNull();
+    expect(view.reviews[0].recordSha256).toBeNull();
+    const whole = JSON.stringify(view);
+    for (const secret of [REC, SUP, ACC]) expect(whole).not.toContain(secret);
+    // The OWNER detail read also shows markers — a forget is a deletion, erased for everyone (not just reviewers).
+    const detail = JSON.stringify(await getCitationFinding(scope, v2, rpc));
+    for (const secret of [REC, SUP, ACC]) expect(detail).not.toContain(secret);
+    // A NEW review on the erased finding is blocked.
+    await expect(submit(reviewer, v2, "a".repeat(64), "approved")).rejects.toThrow();
+    // Answer-scoped isolation: the finding citing a DIFFERENT answer keeps its copies.
+    const otherRec = await storedRecord(other);
+    for (const secret of [REC, SUP, ACC]) expect(otherRec).toContain(secret);
+  });
+  it("prevents resurrection: an altered resave AND a fresh finding citing the deleted answer are redacted at save", async () => {
+    const ans = await importReal(ACC_CAP, "The captured answer under review.");
+    const fid = "60000000-0000-4000-8000-0000000000f1";
+    await saveRaw(answerFinding(fid, ans));
+    expect((await removeAnswer("answer", ans)).error).toBeNull();
+    const altered = await saveRaw({
+      ...answerFinding(fid, ans),
+      observation: "A materially altered observation forcing a new version.",
+    });
+    const fresh = await saveRaw(answerFinding("60000000-0000-4000-8000-0000000000f2", ans));
+    for (const row of [altered, fresh]) {
+      const rec = await storedRecord(row);
+      for (const secret of [REC, SUP, ACC]) expect(rec, row).not.toContain(secret);
+      expect(rec).toContain(MARKER);
+    }
+  });
+  it("propagates through a PROMPT removal (cascade delete of its answers)", async () => {
+    const ans = await importReal(ACC_CAP, "An answer under the prompt.");
+    const row = await saveRaw(answerFinding("60000000-0000-4000-8000-0000000000f3", ans));
+    expect((await removeAnswer("prompt", PROMPT)).error).toBeNull();
+    const rec = await storedRecord(row);
+    for (const secret of [REC, SUP, ACC]) expect(rec).not.toContain(secret);
+    expect(rec).toContain(MARKER);
+    expect(
+      (
+        await db.query<{ e: string | null }>(
+          "SELECT evidence_erased_at::text e FROM ai_citation_findings WHERE id=$1",
+          [row],
+        )
+      ).rows[0].e,
+    ).not.toBeNull();
+  });
+  it("deletes a whole project atomically on answer cascade without orphaning the answer-erasure marker, leaving another project intact", async () => {
+    const ans = await importReal(ACC_CAP, "An answer to be project-deleted.");
+    await saveRaw(answerFinding("60000000-0000-4000-8000-0000000000f6", ans));
+    // Preexisting answer-erasure marker (a second answer forgotten first, so a marker row exists for project p).
+    const ans2 = await importReal("2024-05-01T00:00:00Z", "A second answer, forgotten first.");
+    await saveRaw(answerFinding("60000000-0000-4000-8000-0000000000f7", ans2));
+    expect((await removeAnswer("answer", ans2)).error).toBeNull();
+    expect(
+      (
+        await db.query(
+          "SELECT 1 FROM ai_citation_answer_erasures WHERE user_id=$1 AND project_id='p'",
+          [user],
+        )
+      ).rows.length,
+    ).toBe(1);
+    // A q-project answer + finding must survive the delete of p.
+    await db.query(
+      "INSERT INTO workspace_entities(user_id,collection,entity_id) VALUES($1,'projects','q') ON CONFLICT DO NOTHING",
+      [user],
+    );
+    const qRow = "60000000-0000-4000-8000-0000000000f8";
+    await db.query(
+      "INSERT INTO ai_citation_findings(user_id,project_id,id,finding_id,version,family,decision,record,record_sha256,panel_id,panel_version,client_name,client_market,actor_id,reviewer_id) VALUES($1,'q',$2,$2,1,'recommendation_accuracy','accepted',$3::jsonb,$4,$5,1,'Acme','US',$1,$1)",
+      [user, qRow, JSON.stringify(answerFinding(qRow, ans)), "f".repeat(64), panelScope.panelId],
+    );
+    // Deleting the whole project p (real DELETE) cascades prompts -> answers, firing the trigger AFTER the
+    // project row is gone; the redactor's project-exists guard skips, so no orphan 23503 and the delete succeeds.
+    await db.query(
+      "DELETE FROM workspace_entities WHERE user_id=$1 AND collection='projects' AND entity_id='p'",
+      [user],
+    );
+    for (const t of ["ai_citation_findings", "ai_citation_answer_erasures", "ai_answer_evidence"]) {
+      const r = await db.query(`SELECT 1 FROM ${t} WHERE user_id=$1 AND project_id='p'`, [user]);
+      expect(r.rows.length, t).toBe(0);
+    }
+    expect(
+      (
+        await db.query(
+          "SELECT 1 FROM ai_citation_findings WHERE user_id=$1 AND project_id='q' AND id=$2",
+          [user, qRow],
+        )
+      ).rows.length,
+    ).toBe(1);
+  });
+});
