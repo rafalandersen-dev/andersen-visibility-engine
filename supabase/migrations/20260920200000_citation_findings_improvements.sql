@@ -2581,7 +2581,16 @@ BEGIN
     'sourceAvailable',public.citation_finding_sources_available(p_owner,p_project,frec),
     'accuracyStatus',public.citation_finding_accuracy_status(p_owner,p_project,frec),
     'reviewStatus',public.citation_finding_review_status(p_owner,p_project,frow.id),
-    'inspectionComplete',public.citation_finding_inspectable(p_owner,p_project,frec),
+    -- The TOP-LEVEL live inspectionComplete must agree with the mask (finding 4063490498): when the finding is
+    -- masked (erased / a cited source revoked-or-missing so passages are withheld / a cited native artifact
+    -- missing) the whole record is withheld (record:null, digest null) and a new review is BLOCKED, so a
+    -- complete independent inspection is NOT currently possible — even though citation_finding_inspectable can
+    -- still read a LIVE selected record. A record-level source forget stamps EVERY citing finding
+    -- evidence_erased_at while another selected record of that source stays live, so the bare predicate would
+    -- report a misleading `true` here. Gate it with NOT v_masked so the live signal is fail-closed and matches
+    -- record:null + the blocked save. This is the CURRENT-availability signal only; the per-receipt historical
+    -- inspection_complete (in `reviews[]`, an audit fact of what was true when written) is NOT rewritten.
+    'inspectionComplete',(NOT v_masked AND public.citation_finding_inspectable(p_owner,p_project,frec)),
     'evidence',ev_json,'facts',facts_json,'reviews',reviews,'reviewTotal',total,'reviewsTruncated',total>100);
 END; $$;
 

@@ -3337,6 +3337,55 @@ describe("evidence lifecycle: forgetting a source erases copied material and dow
     expect(forReview.reviewStatus).toBe("owner_only");
     expect(forReview.reviews[0]).toMatchObject({ decision: "approved", withdrawn: false });
   });
+  it("gates the LIVE inspectionComplete on the mask: a record forget erases the finding while its SELECTED record stays live, so inspectionComplete is false and a new review is blocked (finding 4063490498)", async () => {
+    await seedSource("active", SOURCE);
+    // The SELECTED (pinned) record stays live; a SECOND record of the SAME source is the one forgotten.
+    await seedRecord(RECORD, SOURCE, 1, "SELECTED-RECORD stays live at revision 1.");
+    await seedRecord(
+      RECORD2,
+      SOURCE,
+      1,
+      "OTHER record of the same source — this one is forgotten.",
+    );
+    const fid = "60000000-0000-4000-8000-0000000000e6";
+    const row = await saveRaw(sourceFinding(fid)); // pins RECORD (sourceRevision 1 / recordRevision 1)
+    // BEFORE: fully visible and genuinely inspectable — the pinned record resolves live.
+    const before = await getCitationFindingForReview(
+      reviewer,
+      { ownerId: user, projectId: "p", findingRowId: row },
+      rpc,
+    );
+    expect(before.record).not.toBeNull();
+    expect(before.evidenceErased).toBe(false);
+    expect(before.inspectionComplete).toBe(true);
+    // Forget the OTHER (non-pinned) record. The source stays active and the SELECTED record stays live, so the
+    // canonical inspectable predicate STILL resolves true — but a record forget stamps EVERY citing finding
+    // erased, so the whole record is withheld and a new review is blocked.
+    expect((await forget("record", RECORD2)).error).toBeNull();
+    // The selected record is genuinely still live (the predicate is not failing for lack of material)...
+    expect(
+      (
+        await db.query(
+          "SELECT 1 FROM project_knowledge_records WHERE user_id=$1 AND project_id='p' AND id=$2",
+          [user, RECORD],
+        )
+      ).rows.length,
+    ).toBe(1);
+    const after = await getCitationFindingForReview(
+      reviewer,
+      { ownerId: user, projectId: "p", findingRowId: row },
+      rpc,
+    );
+    // ...yet the finding is masked: the whole record is withheld, and the LIVE inspectionComplete is fail-closed
+    // to false (the pre-fix bug reported true here because the pinned record still resolved).
+    expect(after.record).toBeNull();
+    expect(after.evidenceErased).toBe(true);
+    expect(after.inspectionComplete).toBe(false);
+    // A new review is blocked, consistent with the masked signal — no complete-inspection-then-attest path.
+    await expect(submit(reviewer, row, "a".repeat(64), "approved")).rejects.toThrow(
+      "citation_finding_unavailable",
+    );
+  });
   it("does not silently resurrect the review or attestation when new material appears after erasure", async () => {
     await seedApproval();
     await seedPublication();
