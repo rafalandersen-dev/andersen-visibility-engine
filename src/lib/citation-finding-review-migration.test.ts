@@ -65,6 +65,7 @@ type FindingOpts = {
   family?: "citation_source" | "recommendation_accuracy";
   evidence?: Array<{ kind: "answer" | "native" | "source"; id: string }>;
   accuracy?: unknown[];
+  support?: unknown[];
 };
 const finding = (
   findingId: string,
@@ -83,7 +84,7 @@ const finding = (
     competitorCited: rec ? null : true,
     ownCited: rec ? null : false,
     recommendation: null,
-    support: [],
+    support: opts.support ?? [],
     accuracy: opts.accuracy ?? [],
     priority: {
       harm: "medium" as const,
@@ -96,6 +97,29 @@ const finding = (
     linkedTaskId: null,
   };
 };
+// A schema-valid ASSESSED support entry (finding 4059944844). `citedPassage` carries a SELECTED-EVIDENCE pin to an
+// exact stored record + source revision — the only thing that makes a source independently inspectable (the reviewer
+// then sees that ONE selected record's live material, never the source's other records). `recordedOnlyPassage` has
+// the same owner-recorded text but NO pin, so it is honest recorded-only provenance and is NOT independently
+// inspectable. An assessed status forces sourcePassage + sourceCapturedAt + review to be present (the superRefine).
+const supportBase = (passage: string) => ({
+  claimSpan: "It says massage from 500 SEK.",
+  citedUrl: "https://acme.example/services",
+  answerCapturedAt: ACC_CAP,
+  status: "supports" as const,
+  sourcePassage: passage,
+  sourceCapturedAt: ACC_CAP,
+  reason: "The recorded page excerpt confirms the claim.",
+  review: { reviewer: user, reviewedAt: now },
+});
+const citedPassage = (
+  passage: string,
+  pin: { sourceId: string; recordId: string; sourceRevision: number; recordRevision: number },
+) => ({ ...supportBase(passage), selectedRecord: pin });
+const recordedOnlyPassage = (passage: string) => ({
+  ...supportBase(passage),
+  selectedRecord: null,
+});
 const saveF = (
   findingId: string,
   decision: Parameters<typeof finding>[1] = "accepted",
@@ -191,12 +215,6 @@ const seedRecord = (
   db.query(
     "INSERT INTO project_knowledge_records(user_id,project_id,id,source_id,revision,payload) VALUES($1::uuid,'p',$2::uuid,$3::uuid,1,jsonb_build_object('ownerId',$1::text,'projectId','p','id',$2::text,'revision',1,'sourceId',$3::text,'sourceRevision',$4::int,'key','k1','category','fact','appliesTo','text','value',$5::text,'locator','Services > Pricing','status',$6::text,'updatedAt','2024-02-02T00:00:00Z')) ON CONFLICT(user_id,project_id,id) DO UPDATE SET source_id=EXCLUDED.source_id,revision=EXCLUDED.revision,payload=EXCLUDED.payload",
     [user, recordId, sourceId, sourceRevision, value, status],
-  );
-// N distinct substantive records bound to a source (each a unique row/id), for the >10 and overflow cases.
-const seedRecords = (n: number, sourceId: string, sourceRevision: number) =>
-  db.query(
-    "INSERT INTO project_knowledge_records(user_id,project_id,id,source_id,revision,payload) SELECT $1::uuid,'p',gen_random_uuid(),$2::uuid,1,jsonb_build_object('sourceId',$2::text,'sourceRevision',$3::int,'value','Bound record '||g,'status','accepted') FROM generate_series(1,$4::int) g",
-    [user, sourceId, sourceRevision, n],
   );
 const seedFact = async () =>
   (
@@ -578,11 +596,28 @@ describe("independent evidence inspection gates completed verification (spec §4
       }),
     ]);
   });
-  it("exposes bound source MATERIAL and completes a valid source-only review when real material exists", async () => {
+  it("serves ONLY the SELECTED record for a source-cited finding, never the source's other records, and completes a valid selected-evidence review (finding 4059944844)", async () => {
     await seedSource("active");
-    await seedRecord(RECORD, SOURCE, 1, "Massage from 500 SEK; open Mon-Sat.");
+    // The SELECTED (pinned) record and an UNRELATED private record, both under the SAME active source at its
+    // current revision. Only the selected record may reach the reviewer.
+    await seedRecord(RECORD, SOURCE, 1, "SELECTED-RECORD-VALUE-ALPHA: massage from 500 SEK.");
+    await seedRecord(
+      "b1000000-0000-4000-8000-0000000000b2",
+      SOURCE,
+      1,
+      "UNRELATED-PRIVATE-SECRET-BETA: must never reach a reviewer.",
+    );
+    const CITED = "OWNER-RECORDED-PASSAGE-ALPHA: the owner's own recorded copy.";
     const f = await saveF("60000000-0000-4000-8000-000000000034", "accepted", {
       evidence: [{ kind: "source", id: SOURCE }],
+      support: [
+        citedPassage(CITED, {
+          sourceId: SOURCE,
+          recordId: RECORD,
+          sourceRevision: 1,
+          recordRevision: 1,
+        }),
+      ],
     });
     const view = await getCitationFindingForReview(
       reviewer,
@@ -591,26 +626,39 @@ describe("independent evidence inspection gates completed verification (spec §4
     );
     expect(view.inspectionComplete).toBe(true);
     const src = view.evidence.find((e) => e.kind === "source")!;
+    expect(src.kind === "source" && src.available).toBe(true);
+    expect(src.kind === "source" && src.inspectable).toBe(true); // live source + a RESOLVING selected-record pin
+    expect(src.kind === "source" && src.status).toBe("active");
+    // Exactly ONE selected record is served — the pinned one — carrying its ACTUAL stored value (not the copy).
     if (src.kind === "source") {
-      // Attribution/provenance is present, AND the actual substantive material is inspectable.
-      expect(src).toMatchObject({
-        available: true,
-        inspectable: true,
-        status: "active",
-        sourceRevision: 1,
-      });
-      expect(src.label).toBe("Acme Services Page");
       expect(src.materialCount).toBe(1);
-      expect(src.material[0]?.value).toContain("500 SEK");
+      expect(src.material).toHaveLength(1);
+      expect(src.material[0]?.recordId).toBe(RECORD);
+      expect(src.material[0]?.value).toContain("SELECTED-RECORD-VALUE-ALPHA");
     }
-    // A valid source-only review with real bound material MUST work (review is not disabled).
+    // The owner's recorded passage stays visible in the record (honest recorded-only provenance).
+    expect((view.record.support[0] as { sourcePassage: string | null }).sourcePassage).toBe(CITED);
+    // The UNRELATED same-source private record never appears ANYWHERE in the reviewer response.
+    expect(JSON.stringify(view)).not.toContain("UNRELATED-PRIVATE-SECRET-BETA");
+    // A valid selected-evidence review completes.
     await submit(reviewer, f.id, view.recordSha256!, "approved");
     expect(await reviewStatusOf(f.id)).toBe("independent_reviewed");
   });
-  it("keeps a metadata-only source (no bound material) INCOMPLETE — attribution alone never completes", async () => {
-    await seedSource("active"); // active + label/url/fingerprint, but NO knowledge record material
+  it("keeps an ASSESSED passage with NO resolving pin UNINSPECTABLE even when the source has a live record — arbitrary owner text is recorded-only provenance, never independent evidence (finding 4059944844)", async () => {
+    await seedSource("active");
+    // A live record exists under the source, but the assessed support entry carries NO selected-record pin. This is
+    // exactly the hole a global passage+existence gate left open: arbitrary owner text + an unrelated live record.
+    await seedRecord(
+      RECORD,
+      SOURCE,
+      1,
+      "UNSELECTED-PRIVATE-SECRET-GAMMA: present but never pinned.",
+    );
+    const TEXT =
+      "OWNER-RECORDED-ONLY-GAMMA: an arbitrary owner passage with no selected-record pin.";
     const f = await saveF("60000000-0000-4000-8000-000000000035", "needs_second_review", {
       evidence: [{ kind: "source", id: SOURCE }],
+      support: [recordedOnlyPassage(TEXT)],
     });
     const view = await getCitationFindingForReview(
       reviewer,
@@ -619,36 +667,35 @@ describe("independent evidence inspection gates completed verification (spec §4
     );
     expect(view.inspectionComplete).toBe(false);
     const src = view.evidence.find((e) => e.kind === "source")!;
-    // Provenance is available, but with no substantive material it is NOT inspectable.
     expect(src.kind === "source" && src.available).toBe(true);
-    expect(src.kind === "source" && src.inspectable).toBe(false);
-    expect(src.kind === "source" && src.materialCount).toBe(0);
+    expect(src.kind === "source" && src.inspectable).toBe(false); // no resolving pin → not independent evidence
+    if (src.kind === "source") expect(src.materialCount).toBe(0); // nothing selected → no material served
+    // The owner's passage is shown honestly as recorded-only provenance; the unselected private record is absent.
+    expect((view.record.support[0] as { sourcePassage: string | null }).sourcePassage).toBe(TEXT);
+    expect(JSON.stringify(view)).not.toContain("UNSELECTED-PRIVATE-SECRET-GAMMA");
+    // An approve on an uninspectable required-second-review finding does NOT complete it (review/attest eligibility).
     await submit(reviewer, f.id, view.recordSha256!, "approved");
     expect(await reviewStatusOf(f.id)).toBe("second_review_pending");
   });
-  it("does not count material bound to a WRONG source or a STALE source revision", async () => {
-    await seedSource("active", SOURCE); // cited source, revision 1, no material of its own
-    await seedSource("active", SOURCE2);
-    await seedRecord(RECORD, SOURCE2, 1, "Material for a different source."); // wrong source
-    await seedRecord("b1000000-0000-4000-8000-000000000002", SOURCE, 2, "Stale-revision material."); // stale (rev 2 != 1)
-    const f = await saveF("60000000-0000-4000-8000-000000000037", "needs_second_review", {
-      evidence: [{ kind: "source", id: SOURCE }],
-    });
-    const view = await getCitationFindingForReview(
-      reviewer,
-      { ownerId: user, projectId: "p", findingRowId: f.id },
-      rpc,
-    );
-    expect(view.inspectionComplete).toBe(false);
-    expect(view.evidence.find((e) => e.kind === "source")?.inspectable).toBe(false);
-    const src = view.evidence.find((e) => e.kind === "source")!;
-    expect(src.kind === "source" && src.materialCount).toBe(0);
-  });
-  it("treats a revoked source (bytes gone) as non-inspectable even if stale material rows linger", async () => {
+  it("treats a revoked source as non-inspectable — the selected record is not served, the recorded passage is withheld, and a new review is blocked (finding 4059944844)", async () => {
     await seedSource("revoked");
-    await seedRecord(RECORD, SOURCE, 1, "Lingering material for a revoked source.");
+    await seedRecord(
+      RECORD,
+      SOURCE,
+      1,
+      "SELECTED-BUT-REVOKED-SECRET-DELTA: under a now-revoked source.",
+    );
+    const CITED = "OWNER-RECORDED-PASSAGE-REVOKED: the owner's copy under a now-revoked source.";
     const f = await saveF("60000000-0000-4000-8000-000000000038", "needs_second_review", {
       evidence: [{ kind: "source", id: SOURCE }],
+      support: [
+        citedPassage(CITED, {
+          sourceId: SOURCE,
+          recordId: RECORD,
+          sourceRevision: 1,
+          recordRevision: 1,
+        }),
+      ],
     });
     const view = await getCitationFindingForReview(
       reviewer,
@@ -659,44 +706,54 @@ describe("independent evidence inspection gates completed verification (spec §4
     const src = view.evidence.find((e) => e.kind === "source")!;
     expect(src.kind === "source" && src.inspectable).toBe(false);
     expect(src.kind === "source" && src.status).toBe("revoked");
-    // The audit digest is masked (a revoked source withholds its copied passages), so the reviewer has no pin,
-    // and a NEW review is BLOCKED (not an opinion): even a guessed 64-hex hash is refused as unavailable, so the
-    // save cannot be a stale-vs-success oracle for the withheld content.
-    expect(view.recordSha256).toBeNull();
-    await expect(submit(reviewer, f.id, "a".repeat(64), "approved")).rejects.toThrow();
-    // With no admissible receipt, the needs_second_review finding stays honestly second_review_pending.
-    expect(await reviewStatusOf(f.id)).toBe("second_review_pending");
-  });
-  it("returns ALL bound material for a source with more than 10 records (a later record is reachable, not cut)", async () => {
-    await seedSource("active");
-    await seedRecords(10, SOURCE, 1);
-    await seedRecord(RECORD, SOURCE, 1, "The eleventh LAST-RECORD-MARKER item.");
-    const f = await saveF("60000000-0000-4000-8000-000000000039", "accepted", {
-      evidence: [{ kind: "source", id: SOURCE }],
-    });
-    const view = await getCitationFindingForReview(
-      reviewer,
-      { ownerId: user, projectId: "p", findingRowId: f.id },
-      rpc,
+    if (src.kind === "source") expect(src.materialCount).toBe(0); // a revoked source serves no selected material
+    // The recorded passage is withheld (revoke response-withholding), the digest is masked, and the selected
+    // record never appears. A new review is BLOCKED (no pin), so the save cannot be a stale-vs-success oracle.
+    expect((view.record.support[0] as { sourcePassage: string | null }).sourcePassage).not.toBe(
+      CITED,
     );
-    expect(view.inspectionComplete).toBe(true);
-    const src = view.evidence.find((e) => e.kind === "source")!;
-    if (src.kind === "source") {
-      expect(src.materialCount).toBe(11);
-      expect(src.materialTruncated).toBe(false);
-      expect(src.material).toHaveLength(11); // all 11 reachable, not cut at 10
-      expect(src.material.some((m) => m.value.includes("LAST-RECORD-MARKER"))).toBe(true);
-      expect(src.material.every((m) => typeof m.recordId === "string")).toBe(true); // provenance identity
-      expect(src.inspectable).toBe(true);
-    }
-    await submit(reviewer, f.id, view.recordSha256!, "approved");
-    expect(await reviewStatusOf(f.id)).toBe("independent_reviewed");
+    expect(view.sourcePassagesWithheld).toBe(true);
+    expect(view.recordSha256).toBeNull();
+    const whole = JSON.stringify(view);
+    expect(whole).not.toContain("SELECTED-BUT-REVOKED-SECRET-DELTA");
+    expect(whole).not.toContain("OWNER-RECORDED-PASSAGE-REVOKED");
+    await expect(submit(reviewer, f.id, "a".repeat(64), "approved")).rejects.toThrow();
+    expect(await reviewStatusOf(f.id)).toBe("second_review_pending");
+    // Owner retention: revocation is not a forget, so the stored copy is untouched.
+    expect(
+      (
+        await db.query<{ p: string | null }>(
+          "SELECT (record->'support'->0->>'sourcePassage') p FROM ai_citation_findings WHERE id=$1",
+          [f.id],
+        )
+      ).rows[0].p,
+    ).toBe(CITED);
   });
-  it("marks a source whose material overflows the inspectable cap (300) INCOMPLETE, not silently complete", async () => {
-    await seedSource("active");
-    await seedRecords(301, SOURCE, 1);
-    const f = await saveF("60000000-0000-4000-8000-00000000003a", "needs_second_review", {
-      evidence: [{ kind: "source", id: SOURCE }],
+  it("cannot inspect a finding citing TWO sources when only ONE carries a resolving pin (finding 4059944844)", async () => {
+    await seedSource("active", SOURCE);
+    await seedSource("active", SOURCE2);
+    await seedRecord(RECORD, SOURCE, 1, "Selected record of the FIRST source.");
+    await seedRecord(
+      "b1000000-0000-4000-8000-0000000000c2",
+      SOURCE2,
+      1,
+      "A record of the SECOND source.",
+    );
+    // The finding cites BOTH sources but pins a record only in the first. The second source has a live record but
+    // no pin, so it is unbound → the whole finding is not independently inspectable.
+    const f = await saveF("60000000-0000-4000-8000-000000000039", "needs_second_review", {
+      evidence: [
+        { kind: "source", id: SOURCE },
+        { kind: "source", id: SOURCE2 },
+      ],
+      support: [
+        citedPassage("Bound to the first source.", {
+          sourceId: SOURCE,
+          recordId: RECORD,
+          sourceRevision: 1,
+          recordRevision: 1,
+        }),
+      ],
     });
     const view = await getCitationFindingForReview(
       reviewer,
@@ -704,10 +761,234 @@ describe("independent evidence inspection gates completed verification (spec §4
       rpc,
     );
     expect(view.inspectionComplete).toBe(false);
+    const bound = view.evidence.find((e) => e.kind === "source" && e.id === SOURCE)!;
+    const unbound = view.evidence.find((e) => e.kind === "source" && e.id === SOURCE2)!;
+    expect(bound.kind === "source" && bound.inspectable).toBe(true);
+    expect(unbound.kind === "source" && unbound.inspectable).toBe(false);
+    if (unbound.kind === "source") expect(unbound.materialCount).toBe(0);
+    await submit(reviewer, f.id, view.recordSha256!, "approved");
+    expect(await reviewStatusOf(f.id)).toBe("second_review_pending");
+  });
+  it("fails closed when the exact selected record is MISSING, and rejects a cross-project pin (finding 4059944844)", async () => {
+    await seedSource("active");
+    // The pin targets a record id that does not exist for this owner/project/source.
+    const missing = await saveF("60000000-0000-4000-8000-00000000003a", "needs_second_review", {
+      evidence: [{ kind: "source", id: SOURCE }],
+      support: [
+        citedPassage("Points at a non-existent record.", {
+          sourceId: SOURCE,
+          recordId: "b1000000-0000-4000-8000-0000000000ff",
+          sourceRevision: 1,
+          recordRevision: 1,
+        }),
+      ],
+    });
+    expect(
+      (
+        await getCitationFindingForReview(
+          reviewer,
+          { ownerId: user, projectId: "p", findingRowId: missing.id },
+          rpc,
+        )
+      ).inspectionComplete,
+    ).toBe(false);
+    // A record that exists ONLY in another project 'q' cannot back a pin from project 'p'.
+    await db.query(
+      "INSERT INTO project_knowledge_sources(user_id,project_id,id,revision,payload) VALUES($1,'q',$2,1,jsonb_build_object('status','active')) ON CONFLICT DO NOTHING",
+      [user, SOURCE],
+    );
+    const foreignRecord = "b1000000-0000-4000-8000-0000000000fe";
+    await db.query(
+      "INSERT INTO project_knowledge_records(user_id,project_id,id,source_id,revision,payload) VALUES($1::uuid,'q',$2::uuid,$3::uuid,1,jsonb_build_object('sourceId',$3::text,'sourceRevision',1,'value','FOREIGN-PROJECT-SECRET','status','accepted'))",
+      [user, foreignRecord, SOURCE],
+    );
+    const cross = await saveF("60000000-0000-4000-8000-00000000003b", "needs_second_review", {
+      evidence: [{ kind: "source", id: SOURCE }],
+      support: [
+        citedPassage("Points at a record in another project.", {
+          sourceId: SOURCE,
+          recordId: foreignRecord,
+          sourceRevision: 1,
+          recordRevision: 1,
+        }),
+      ],
+    });
+    const crossView = await getCitationFindingForReview(
+      reviewer,
+      { ownerId: user, projectId: "p", findingRowId: cross.id },
+      rpc,
+    );
+    expect(crossView.inspectionComplete).toBe(false); // the pin does not resolve across the project boundary
+    expect(JSON.stringify(crossView)).not.toContain("FOREIGN-PROJECT-SECRET");
+  });
+  it("resolves a pin with UPPERCASE ids (semantic uuid) but fails closed on a mismatched OR missing recordRevision (finding 4059944844)", async () => {
+    await seedSource("active");
+    await seedRecord(RECORD, SOURCE, 1, "SELECTED-RECORD-VALUE at revision 1.");
+    // Uppercase source/record ids in the pin still resolve — matched by semantic uuid (lower(text)=uuid::text).
+    const upper = await saveF("60000000-0000-4000-8000-00000000003c", "accepted", {
+      evidence: [{ kind: "source", id: SOURCE }],
+      support: [
+        citedPassage("Uppercase-id pin.", {
+          sourceId: SOURCE.toUpperCase(),
+          recordId: RECORD.toUpperCase(),
+          sourceRevision: 1,
+          recordRevision: 1,
+        }),
+      ],
+    });
+    const upView = await getCitationFindingForReview(
+      reviewer,
+      { ownerId: user, projectId: "p", findingRowId: upper.id },
+      rpc,
+    );
+    expect(upView.inspectionComplete).toBe(true);
+    const upSrc = upView.evidence.find((e) => e.kind === "source")!;
+    if (upSrc.kind === "source") expect(upSrc.materialCount).toBe(1);
+    // A pin whose recordRevision does NOT match the record's current version resolves nothing (fail closed) — the
+    // record is at revision 1, the pin claims revision 2.
+    const wrong = await saveF("60000000-0000-4000-8000-00000000003d", "needs_second_review", {
+      evidence: [{ kind: "source", id: SOURCE }],
+      support: [
+        citedPassage("Wrong record revision.", {
+          sourceId: SOURCE,
+          recordId: RECORD,
+          sourceRevision: 1,
+          recordRevision: 2,
+        }),
+      ],
+    });
+    const wrongView = await getCitationFindingForReview(
+      reviewer,
+      { ownerId: user, projectId: "p", findingRowId: wrong.id },
+      rpc,
+    );
+    expect(wrongView.inspectionComplete).toBe(false);
+    const wrongSrc = wrongView.evidence.find((e) => e.kind === "source")!;
+    if (wrongSrc.kind === "source") expect(wrongSrc.materialCount).toBe(0);
+    // A PARTIAL historical pin (no recordRevision) is backward-readable but never resolves — no fabricated default.
+    const partial = await saveF("60000000-0000-4000-8000-00000000003f", "needs_second_review", {
+      evidence: [{ kind: "source", id: SOURCE }],
+      support: [
+        {
+          ...supportBase("Partial pin, no recordRevision."),
+          selectedRecord: { sourceId: SOURCE, recordId: RECORD, sourceRevision: 1 },
+        },
+      ],
+    });
+    const partialView = await getCitationFindingForReview(
+      reviewer,
+      { ownerId: user, projectId: "p", findingRowId: partial.id },
+      rpc,
+    );
+    expect(partialView.inspectionComplete).toBe(false);
+    const partialSrc = partialView.evidence.find((e) => e.kind === "source")!;
+    if (partialSrc.kind === "source") expect(partialSrc.materialCount).toBe(0);
+  });
+  it("requires EVERY assessed support to resolve — one resolving pin does not certify a sibling stale pin sharing the source, and only the resolved record is served (finding 4059944844)", async () => {
+    await seedSource("active");
+    await seedRecord(RECORD, SOURCE, 1, "SELECTED-RECORD-VALUE for the valid entry.");
+    const f = await saveF("60000000-0000-4000-8000-00000000003e", "needs_second_review", {
+      evidence: [{ kind: "source", id: SOURCE }],
+      support: [
+        citedPassage("Valid, resolves.", {
+          sourceId: SOURCE,
+          recordId: RECORD,
+          sourceRevision: 1,
+          recordRevision: 1,
+        }),
+        citedPassage("Sibling assessed pin at a MISSING record of the SAME source.", {
+          sourceId: SOURCE,
+          recordId: "b1000000-0000-4000-8000-0000000000ca",
+          sourceRevision: 1,
+          recordRevision: 1,
+        }),
+      ],
+    });
+    const view = await getCitationFindingForReview(
+      reviewer,
+      { ownerId: user, projectId: "p", findingRowId: f.id },
+      rpc,
+    );
+    // The source has a resolving pin (per-item inspectable true) and only the ONE resolved record is served...
     const src = view.evidence.find((e) => e.kind === "source")!;
-    expect(src.kind === "source" && src.materialCount).toBe(301);
-    expect(src.kind === "source" && src.materialTruncated).toBe(true);
-    expect(src.kind === "source" && src.inspectable).toBe(false);
+    expect(src.kind === "source" && src.inspectable).toBe(true);
+    if (src.kind === "source") {
+      expect(src.materialCount).toBe(1);
+      expect(src.material[0]?.recordId).toBe(RECORD);
+    }
+    // ...but the WHOLE finding is NOT complete: the sibling assessed pin does not resolve, so completeness fails.
+    expect(view.inspectionComplete).toBe(false);
+    await submit(reviewer, f.id, view.recordSha256!, "approved");
+    expect(await reviewStatusOf(f.id)).toBe("second_review_pending");
+  });
+  it("does not complete when an assessed pin targets a source ABSENT from the finding's evidence (even a live one), and never serves that uncited source's material (finding 4059944844)", async () => {
+    await seedSource("active", SOURCE);
+    await seedSource("active", SOURCE2);
+    await seedRecord(RECORD, SOURCE, 1, "Cited source A material.");
+    await seedRecord(
+      "b1000000-0000-4000-8000-0000000000cb",
+      SOURCE2,
+      1,
+      "UNCITED-SOURCE-B-SECRET: never shown.",
+    );
+    // Cite ONLY sourceA, but add a second assessed support entry pinning a live record of the UNCITED sourceB.
+    const f = await saveF("60000000-0000-4000-8000-000000000040", "needs_second_review", {
+      evidence: [{ kind: "source", id: SOURCE }],
+      support: [
+        citedPassage("A: cited and resolving.", {
+          sourceId: SOURCE,
+          recordId: RECORD,
+          sourceRevision: 1,
+          recordRevision: 1,
+        }),
+        citedPassage("B: resolves, but B is NOT cited in evidence.", {
+          sourceId: SOURCE2,
+          recordId: "b1000000-0000-4000-8000-0000000000cb",
+          sourceRevision: 1,
+          recordRevision: 1,
+        }),
+      ],
+    });
+    const view = await getCitationFindingForReview(
+      reviewer,
+      { ownerId: user, projectId: "p", findingRowId: f.id },
+      rpc,
+    );
+    // Completeness fails: the uncited-source pin cannot certify (its material is never shown by the read).
+    expect(view.inspectionComplete).toBe(false);
+    // The reviewer response carries only the cited source A; sourceB's material/secret never appears.
+    expect(view.evidence.every((e) => e.kind !== "source" || e.id === SOURCE)).toBe(true);
+    expect(JSON.stringify(view)).not.toContain("UNCITED-SOURCE-B-SECRET");
+    await submit(reviewer, f.id, view.recordSha256!, "approved");
+    expect(await reviewStatusOf(f.id)).toBe("second_review_pending");
+  });
+  it("does not complete an ANSWER-only finding whose assessed support pins an uncited source (finding 4059944844)", async () => {
+    await seedSource("active", SOURCE2);
+    await seedRecord(
+      "b1000000-0000-4000-8000-0000000000cc",
+      SOURCE2,
+      1,
+      "ANSWER-ONLY-UNCITED-SECRET: never shown.",
+    );
+    // The finding cites only the substantive ANSWER, but records an assessed support pin to the uncited sourceB.
+    const f = await saveF("60000000-0000-4000-8000-000000000041", "needs_second_review", {
+      evidence: [{ kind: "answer", id: ANSWER }],
+      support: [
+        citedPassage("Pins an uncited source on an answer-only finding.", {
+          sourceId: SOURCE2,
+          recordId: "b1000000-0000-4000-8000-0000000000cc",
+          sourceRevision: 1,
+          recordRevision: 1,
+        }),
+      ],
+    });
+    const view = await getCitationFindingForReview(
+      reviewer,
+      { ownerId: user, projectId: "p", findingRowId: f.id },
+      rpc,
+    );
+    expect(view.inspectionComplete).toBe(false); // the uncited-source pin never certifies the answer-only finding
+    expect(JSON.stringify(view)).not.toContain("ANSWER-ONLY-UNCITED-SECRET");
     await submit(reviewer, f.id, view.recordSha256!, "approved");
     expect(await reviewStatusOf(f.id)).toBe("second_review_pending");
   });
@@ -1619,6 +1900,12 @@ describe("evidence lifecycle: forgetting a source erases copied material and dow
       observation?: string;
       passage?: string;
       evidence?: Array<{ kind: "answer" | "native" | "source"; id: string }>;
+      selected?: {
+        sourceId: string;
+        recordId: string;
+        sourceRevision: number;
+        recordRevision: number;
+      } | null;
     } = {},
   ) => ({
     findingId,
@@ -1646,6 +1933,17 @@ describe("evidence lifecycle: forgetting a source erases copied material and dow
         sourceCapturedAt: ACC_CAP,
         reason: "The page confirms the price.",
         review: { reviewer: user, reviewedAt: now },
+        // Default SELECTED-EVIDENCE pin to RECORD at revision 1 (seeded by the inspectability/attestation tests);
+        // `selected: null` omits it (recorded-only), or a test overrides the pin for a co-cited source.
+        selectedRecord:
+          opts.selected === undefined
+            ? {
+                sourceId: opts.source ?? SOURCE,
+                recordId: RECORD,
+                sourceRevision: 1,
+                recordRevision: 1,
+              }
+            : opts.selected,
       },
     ],
     accuracy: [],
@@ -1889,23 +2187,106 @@ describe("evidence lifecycle: forgetting a source erases copied material and dow
     );
     expect(list.reviews[0]).toMatchObject({ decision: "approved", withdrawn: false });
   });
-  it("downgrades owner_attested to connector_receipt when the bound source's revision advances past its material", async () => {
+  it("downgrades owner_attested when the bound source's revision advances past the selected record, and a replacement record at the new revision does NOT revalidate the stale pin (finding 4059944844)", async () => {
     await seedApproval();
     await seedPublication();
     await seedSource("active", SOURCE);
     await seedRecord(RECORD, SOURCE, 1, "Massage from 500 SEK.");
     const fid = "60000000-0000-4000-8000-0000000000e2";
-    await saveRaw(sourceFinding(fid));
+    await saveRaw(sourceFinding(fid)); // default pin: SOURCE / RECORD / sourceRevision 1
     const imp = await attestedImprovement(fid, "70000000-0000-4000-8000-0000000000e2");
     expect(imp.verificationStatus).toBe("owner_attested");
-    // Source stays active but advances to revision 2; the material is still bound to revision 1, so no
-    // current-revision material matches → not inspectable → owner_attested forfeited.
+    // Source stays active but advances to revision 2; the pinned record RECORD is bound to revision 1, so the
+    // selected-evidence pin no longer resolves at the CURRENT revision → not inspectable → owner_attested forfeited.
     await db.query(
       "UPDATE project_knowledge_sources SET revision=2 WHERE user_id=$1 AND project_id='p' AND id=$2",
       [user, SOURCE],
     );
+    // A brand-new replacement record appears at revision 2 — but the stale pin targets RECORD at revision 1, so it
+    // must NOT resurrect eligibility for the old unbound passage.
+    await seedRecord(
+      "b1000000-0000-4000-8000-0000000000e2",
+      SOURCE,
+      2,
+      "Replacement at revision 2.",
+    );
     const reread = await getCitationImprovement(scope, imp.id, rpc);
     expect(reread.verificationStatus).toBe("connector_receipt");
+  });
+  it("downgrades owner_attested when the SELECTED record is mutated IN PLACE via the real save_project_knowledge (r.revision bumped under the same sourceRevision); a fresh finding can pin the new revision, unrelated record untouched (finding 4059944844)", async () => {
+    await seedApproval();
+    await seedPublication();
+    await seedSource("active", SOURCE);
+    await seedRecord(RECORD, SOURCE, 1, "ORIGINAL selected value (record revision 1).");
+    await seedRecord(RECORD2, SOURCE, 1, "UNRELATED record - must stay untouched.");
+    const fid = "60000000-0000-4000-8000-0000000000ea";
+    const row = await saveRaw(sourceFinding(fid)); // default pin SOURCE / RECORD / sourceRevision 1 / recordRevision 1
+    await submit(reviewer, row, await shaFor(row), "approved");
+    const imp = await attestedImprovement(fid, "70000000-0000-4000-8000-0000000000ea");
+    expect(imp.verificationStatus).toBe("owner_attested");
+    // Mutate the SELECTED record IN PLACE through the REAL released save_project_knowledge: same source id and
+    // sourceRevision, but the record's OWN revision increments 1 -> 2 and its value changes.
+    const saved = await rpc("save_project_knowledge", {
+      p_user: user,
+      p_project: "p",
+      p_kind: "record",
+      p_id: RECORD,
+      p_expected: 1,
+      p_payload: {
+        ownerId: user,
+        projectId: "p",
+        id: RECORD,
+        revision: 2,
+        sourceId: SOURCE,
+        sourceRevision: 1,
+        key: "k1",
+        category: "fact",
+        appliesTo: "text",
+        value: "MUTATED-SELECTED-VALUE (record revision 2).",
+        locator: "Services > Pricing",
+        status: "accepted",
+        reviewedAt: "2024-02-03T00:00:00Z",
+        updatedAt: "2024-02-03T00:00:00Z",
+      },
+    });
+    expect(saved.error).toBeNull();
+    // The record advanced to revision 2, so the old finding's recordRevision-1 pin no longer resolves: it cannot
+    // inspect the changed payload, the changed value is NEVER served, and the attestation downgrades.
+    const view = await getCitationFindingForReview(
+      reviewer,
+      { ownerId: user, projectId: "p", findingRowId: row },
+      rpc,
+    );
+    expect(view.inspectionComplete).toBe(false);
+    const src = view.evidence.find((e) => e.kind === "source")!;
+    if (src.kind === "source") expect(src.materialCount).toBe(0);
+    expect(JSON.stringify(view)).not.toContain("MUTATED-SELECTED-VALUE");
+    expect((await getCitationImprovement(scope, imp.id, rpc)).verificationStatus).toBe(
+      "connector_receipt",
+    );
+    // A FRESH finding that explicitly selects the NEW revision resolves and inspects the current material.
+    const fresh = await saveRaw(
+      sourceFinding("60000000-0000-4000-8000-0000000000eb", {
+        selected: { sourceId: SOURCE, recordId: RECORD, sourceRevision: 1, recordRevision: 2 },
+      }),
+    );
+    const freshView = await getCitationFindingForReview(
+      reviewer,
+      { ownerId: user, projectId: "p", findingRowId: fresh },
+      rpc,
+    );
+    expect(freshView.inspectionComplete).toBe(true);
+    const freshSrc = freshView.evidence.find((e) => e.kind === "source")!;
+    if (freshSrc.kind === "source") {
+      expect(freshSrc.materialCount).toBe(1);
+      expect(freshSrc.material[0]?.value).toContain("MUTATED-SELECTED-VALUE");
+    }
+    // The UNRELATED record is untouched — same value, still revision 1.
+    const other = await db.query<{ v: string; rev: number }>(
+      "SELECT payload->>'value' v, revision rev FROM project_knowledge_records WHERE user_id=$1 AND project_id='p' AND id=$2",
+      [user, RECORD2],
+    );
+    expect(other.rows[0]).toMatchObject({ v: "UNRELATED record - must stay untouched.", rev: 1 });
   });
   it("fails closed: a bound source with no current material never reaches owner_attested, and a mismatched forget expectation erases nothing", async () => {
     await seedApproval();
@@ -2053,8 +2434,8 @@ describe("evidence lifecycle: forgetting a source erases copied material and dow
     expect(await reviewStatusOf(row)).toBe("independent_reviewed");
     const imp = await attestedImprovement(fid, "70000000-0000-4000-8000-0000000000dc");
     expect(imp.verificationStatus).toBe("owner_attested");
-    // Forget ONE record; the OTHER survives, so citation_finding_inspectable is still structurally satisfiable
-    // — but the finding's evidence is erased, so every CURRENT status path honors that.
+    // Forget the PINNED record; the OTHER record survives but is NOT the selected (pinned) one, so the pin no
+    // longer resolves, and the finding's evidence is erased — every CURRENT status path honors that.
     expect((await forget("record", RECORD)).error).toBeNull();
     const rec2 = await db.query(
       "SELECT 1 FROM project_knowledge_records WHERE user_id=$1 AND project_id='p' AND id=$2",
@@ -2188,14 +2569,21 @@ describe("evidence lifecycle: forgetting a source erases copied material and dow
     const rev = view.evidence.find((e) => e.kind === "source" && e.id === REVSRC)!;
     expect(rev.kind === "source" && rev.status).toBe("revoked");
     expect(rev.kind === "source" && rev.inspectable).toBe(false);
-    expect(rev.kind === "source" && rev.materialCount).toBe(0);
-    expect(rev.kind === "source" && rev.material).toEqual([]);
-    // The co-cited ACTIVE source stays inspectable with its material served.
+    // Only SELECTED records are served (finding 4059944844); a revoked source resolves none, so its material is
+    // empty — its records are never served.
+    if (rev.kind === "source") {
+      expect(rev.materialCount).toBe(0);
+      expect(rev.material).toEqual([]);
+    }
+    // The co-cited ACTIVE source stays inspectable — its ONE pinned selected record is served, nothing else.
     const act = view.evidence.find((e) => e.kind === "source" && e.id === SOURCE)!;
     expect(act.kind === "source" && act.inspectable).toBe(true);
-    expect(act.kind === "source" && act.materialCount).toBe(1);
-    // The revoked source's distinctive LIVE value/excerpt never appear ANYWHERE in the reviewer response — the
-    // material gate is not cosmetic, and the copied-field path (support[].sourcePassage) carries only the
+    if (act.kind === "source") {
+      expect(act.materialCount).toBe(1);
+      expect(act.material[0]?.recordId).toBe(RECORD);
+    }
+    // The revoked source's distinctive LIVE value/excerpt never appear ANYWHERE in the reviewer response — its
+    // records are never served, and the copied-field path (support[].sourcePassage) carries only the
     // owner-authored passage, not the live records.
     const whole = JSON.stringify(view);
     expect(whole).not.toContain("DISTINCTIVE-REVOKED-VALUE");
@@ -2225,6 +2613,7 @@ describe("evidence lifecycle: forgetting a source erases copied material and dow
     const row = await saveRaw(
       sourceFinding("60000000-0000-4000-8000-0000000000e5", {
         passage: SECRET,
+        selected: { sourceId: ACTSRC, recordId: RECORD, sourceRevision: 1, recordRevision: 1 },
         evidence: [
           { kind: "source", id: SOURCE },
           { kind: "source", id: ACTSRC },
@@ -2257,11 +2646,11 @@ describe("evidence lifecycle: forgetting a source erases copied material and dow
     );
     expect(view.sourcePassagesWithheld).toBe(true);
     expect(JSON.stringify(view)).not.toContain(SECRET);
-    // It is NOT erasure, and the co-cited ACTIVE source's live material is still served (the gate is per-source).
+    // It is NOT erasure, and the co-cited ACTIVE source stays inspectable — its ONE pinned selected record is served.
     expect(view.evidenceErased).toBe(false);
     const act = view.evidence.find((e) => e.kind === "source" && e.id === ACTSRC)!;
     expect(act.kind === "source" && act.inspectable).toBe(true);
-    expect(act.kind === "source" && act.materialCount).toBe(1);
+    if (act.kind === "source") expect(act.materialCount).toBe(1);
     // The owner's stored record AND the owner's own detail read still hold the real copied passage.
     expect(await storedPassage(row)).toBe(SECRET);
     const detail = await getCitationFinding(scope, row, rpc);
@@ -2404,6 +2793,228 @@ describe("evidence lifecycle: forgetting a source erases copied material and dow
     // Not an erasure: the owner's stored copy is retained.
     expect(view.evidenceErased).toBe(false);
     expect(await storedPassage(row)).toBe("SECRET-STATUSLESS-PASSAGE-do-not-leak");
+  });
+  it("stamps a PASSAGE-FREE finding erased on a real record forget (source kept alive), withholding its free prose + note from the reviewer while the owner retains them, unrelated source untouched (finding 4059905627)", async () => {
+    const OBS = "OBS-SECRET-9W7: the deleted record listed the private 999 cancellation fee.";
+    const HYP = "HYP-SECRET-9W7: a hypothesis paraphrasing the forgotten record.";
+    const REASON = "REASON-SECRET-9W7: a reason quoting the forgotten record text.";
+    const NOTE = "NOTE-SECRET-9W7: a reviewer note quoting the forgotten record verbatim.";
+    await seedSource("active", SOURCE);
+    await seedRecord(RECORD, SOURCE, 1, "Massage from 500 SEK.");
+    await seedRecord(RECORD2, SOURCE, 1, "Open Mon-Sat."); // a SECOND record keeps SOURCE alive after forgetting RECORD
+    await seedSource("active", SOURCE2);
+    // A finding citing SOURCE with NO copied sourcePassage — only free prose (observation / hypothesis /
+    // support[].reason) that may quote the forgotten record. The single support entry is status "not_checked",
+    // which the schema requires to carry a NULL sourcePassage, so this is the passage-free-yet-schema-valid shape.
+    const rec = (fid: string, obs: string) => ({
+      findingId: fid,
+      family: "citation_source" as const,
+      evidence: [{ kind: "source" as const, id: SOURCE }],
+      entityMatch: "confirmed" as const,
+      capture: { answerComplete: true, citationsComplete: true },
+      observation: obs,
+      hypothesis: HYP,
+      competitorCited: true,
+      ownCited: false,
+      recommendation: null,
+      support: [
+        {
+          claimSpan: "It says massage from 500 SEK.",
+          citedUrl: "https://acme.example/services",
+          answerCapturedAt: ACC_CAP,
+          status: "not_checked" as const,
+          sourcePassage: null,
+          sourceCapturedAt: null,
+          reason: REASON,
+          review: null,
+        },
+      ],
+      accuracy: [],
+      priority: {
+        harm: "medium" as const,
+        relevance: "medium" as const,
+        fixability: "medium" as const,
+      },
+      decision: "accepted" as const,
+      review: { reviewer: user, reviewedAt: now },
+      secondReview: null,
+      linkedTaskId: null,
+    });
+    const fid = "60000000-0000-4000-8000-0000000000fa";
+    const v1 = await saveRaw(rec(fid, OBS));
+    const v2 = await saveRaw(
+      rec(fid, "OBS-SECRET-9W7 (revised): still quoting the forgotten record."),
+    );
+    // An unrelated finding citing a DIFFERENT active source, with its own clean prose, must stay fully visible.
+    const unrelated = await saveRaw({
+      ...rec("60000000-0000-4000-8000-0000000000fb", "Unrelated visible prose."),
+      evidence: [{ kind: "source" as const, id: SOURCE2 }],
+      hypothesis: "Unrelated visible hypothesis.",
+      support: [
+        {
+          claimSpan: "Unrelated claim.",
+          citedUrl: "https://acme.example/other",
+          answerCapturedAt: ACC_CAP,
+          status: "not_checked" as const,
+          sourcePassage: null,
+          sourceCapturedAt: null,
+          reason: "Unrelated visible reason.",
+          review: null,
+        },
+      ],
+    });
+    // The reviewer approves v2 while everything is live, recording a NOTE that quotes the forgotten record.
+    await submit(reviewer, v2, await shaFor(v2), "approved", NOTE);
+    // A REAL record forget: RECORD is deleted, SOURCE stays alive (RECORD2 remains). No copied passage exists.
+    expect((await forget("record", RECORD)).error).toBeNull();
+    // BOTH versions are now evidence-erased — the stamp is no longer gated on a copied passage being present.
+    const erasedOf = async (rowId: string) =>
+      (
+        await db.query<{ e: string | null }>(
+          "SELECT evidence_erased_at::text e FROM ai_citation_findings WHERE id=$1",
+          [rowId],
+        )
+      ).rows[0].e;
+    expect(await erasedOf(v1)).not.toBeNull();
+    expect(await erasedOf(v2)).not.toBeNull();
+    // The reviewer for-review read withholds ALL free prose + the note, masks the digest, and leaks no secret/hash.
+    const view = await getCitationFindingForReview(
+      reviewer,
+      { ownerId: user, projectId: "p", findingRowId: v2 },
+      rpc,
+    );
+    const HIDDEN = "[withheld: finding evidence hidden]";
+    expect(view.evidenceErased).toBe(true);
+    expect(view.record.observation).toBe(HIDDEN);
+    expect(view.record.hypothesis).toBe(HIDDEN);
+    expect((view.record.support[0] as { reason: string | null }).reason).toBe(HIDDEN);
+    expect(view.reviews[0].note).toBeNull();
+    expect(view.recordSha256).toBeNull();
+    const whole = JSON.stringify(view);
+    for (const s of ["OBS-SECRET-9W7", "HYP-SECRET-9W7", "REASON-SECRET-9W7", "NOTE-SECRET-9W7"]) {
+      expect(whole).not.toContain(s);
+    }
+    // The standalone reviewer receipt list also hides the note.
+    expect(
+      (
+        await readCitationFindingReviews(
+          reviewer,
+          { ownerId: user, projectId: "p", findingRowId: v2 },
+          rpc,
+        )
+      ).reviews[0].note,
+    ).toBeNull();
+    // A NEW review on the now-erased finding is refused (no note resurrection via a fresh receipt).
+    await expect(submit(reviewer, v2, "a".repeat(64), "approved")).rejects.toThrow();
+    // The OWNER retains the free prose (honest retention); the note is erased in storage to the content-free marker.
+    expect(JSON.stringify(await getCitationFinding(scope, v2, rpc))).toContain("OBS-SECRET-9W7");
+    const stored = await db.query<{
+      obs: string;
+      hyp: string;
+      reason: string;
+      note: string | null;
+    }>(
+      "SELECT (record->>'observation') obs,(record->>'hypothesis') hyp,(record->'support'->0->>'reason') reason,(SELECT note FROM ai_citation_finding_reviews WHERE finding_row_id=$1) note FROM ai_citation_findings WHERE id=$1",
+      [v2],
+    );
+    expect(stored.rows[0].obs).toContain("OBS-SECRET-9W7");
+    expect(stored.rows[0].hyp).toBe(HYP);
+    expect(stored.rows[0].reason).toBe(REASON);
+    expect(stored.rows[0].note).toBe("[redacted: finding evidence forgotten]");
+    const ownerList = await readCitationFindingReviews(
+      user,
+      { ownerId: user, projectId: "p", findingRowId: v2 },
+      rpc,
+    );
+    expect(ownerList.reviews[0].note).toBe("[redacted: finding evidence forgotten]");
+    expect(ownerList.reviews[0].decision).toBe("approved");
+    // The unrelated finding (different, still-active source) is untouched — its prose stays visible, not erased.
+    const uview = await getCitationFindingForReview(
+      reviewer,
+      { ownerId: user, projectId: "p", findingRowId: unrelated },
+      rpc,
+    );
+    expect(uview.evidenceErased).toBe(false);
+    expect(uview.record.observation).toBe("Unrelated visible prose.");
+    expect(uview.record.hypothesis).toBe("Unrelated visible hypothesis.");
+  });
+  it("stamps EMPTY-, ABSENT-, malformed-array-, and scalar/object/null-support findings erased on a source forget, preserving support byte-for-byte and never crashing on non-array support (findings 4059905627, 4059944844)", async () => {
+    await seedSource("active", SOURCE);
+    // Insert raw records directly so the odd/historical support shapes are exercised exactly as stored, bypassing
+    // any client-side schema — the TRIGGER (not the save path) is what the fix changed, and it must tolerate them.
+    const mk = (id: string, sha: string, record: string) =>
+      db.query(
+        "INSERT INTO ai_citation_findings(user_id,project_id,id,finding_id,version,family,decision,record,record_sha256,panel_id,panel_version,client_name,client_market,actor_id,reviewer_id) VALUES($1,'p',$2,$2,1,'citation_source','accepted',$3::jsonb,$4,$5,1,'Acme','US',$1,$1)",
+        [user, id, record, sha, panelScope.panelId],
+      );
+    const ev = `[{"kind":"source","id":"${SOURCE}"}]`;
+    const emptyId = "60000000-0000-4000-8000-0000000000fc";
+    const absentId = "60000000-0000-4000-8000-0000000000fd";
+    const malformedId = "60000000-0000-4000-8000-0000000000fe";
+    const scalarId = "60000000-0000-4000-8000-0000000000ff";
+    const objectId = "60000000-0000-4000-8000-00000000010a";
+    const nullId = "60000000-0000-4000-8000-00000000010b";
+    await mk(
+      emptyId,
+      "fc".repeat(32),
+      `{"family":"citation_source","evidence":${ev},"observation":"empty-support prose","support":[]}`,
+    );
+    await mk(
+      absentId,
+      "fd".repeat(32),
+      `{"family":"citation_source","evidence":${ev},"observation":"absent-support prose"}`,
+    );
+    await mk(
+      malformedId,
+      "fe".repeat(32),
+      `{"family":"citation_source","evidence":${ev},"observation":"malformed-support prose","support":[1,"x",null]}`,
+    );
+    // Non-array support shapes (scalar / object / explicit JSON null): the redactor's CASE-normalised argument must
+    // NOT rely on boolean short-circuit to guard the array expansion — these must stamp erased and never raise.
+    await mk(
+      scalarId,
+      "a1".repeat(32),
+      `{"family":"citation_source","evidence":${ev},"observation":"scalar-support prose","support":"oops"}`,
+    );
+    await mk(
+      objectId,
+      "a2".repeat(32),
+      `{"family":"citation_source","evidence":${ev},"observation":"object-support prose","support":{"k":"v"}}`,
+    );
+    await mk(
+      nullId,
+      "a3".repeat(32),
+      `{"family":"citation_source","evidence":${ev},"observation":"null-support prose","support":null}`,
+    );
+    expect((await forget("source", SOURCE)).error).toBeNull();
+    const shape = async (id: string) =>
+      (
+        await db.query<{ e: string | null; sup: string | null }>(
+          "SELECT evidence_erased_at::text e,(record->'support')::text sup FROM ai_citation_findings WHERE id=$1",
+          [id],
+        )
+      ).rows[0];
+    const empty = await shape(emptyId);
+    const absent = await shape(absentId);
+    const malformed = await shape(malformedId);
+    const scalar = await shape(scalarId);
+    const object_ = await shape(objectId);
+    const null_ = await shape(nullId);
+    // Every citing version is stamped erased regardless of support shape...
+    expect(empty.e).not.toBeNull();
+    expect(absent.e).not.toBeNull();
+    expect(malformed.e).not.toBeNull();
+    expect(scalar.e).not.toBeNull();
+    expect(object_.e).not.toBeNull();
+    expect(null_.e).not.toBeNull();
+    // ...and the support is preserved byte-for-byte: empty stays empty, absent stays absent (no fabricated array),
+    // malformed/scalar/object/null historical support is left intact (the redactor never crashed on a non-array).
+    expect(empty.sup).toBe("[]");
+    expect(absent.sup).toBeNull();
+    expect(malformed.sup).toBe('[1, "x", null]');
+    expect(scalar.sup).toBe('"oops"');
+    expect(object_.sup).toBe('{"k": "v"}');
+    expect(null_.sup).toBe("null"); // explicit JSON null renders as the text 'null' (distinct from an absent key)
   });
 });
 describe("answer-delete erasure propagation: forgetting an answer erases a finding's answer-derived copies (P2)", () => {

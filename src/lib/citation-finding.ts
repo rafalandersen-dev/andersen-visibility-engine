@@ -44,6 +44,28 @@ export const sourceSupportSchema = z
     sourceCapturedAt: instant.nullable(),
     reason: z.string().trim().max(500).nullable(),
     review: reviewer.nullable(),
+    // Optional SELECTED-EVIDENCE pin (finding 4059944844): the EXACT stored knowledge record + the source revision
+    // the assessed passage was drawn from. When present AND it resolves — the record still exists for this exact
+    // owner/project/source at the source's CURRENT revision — the reviewer independently inspects that ONE selected
+    // record's live material (never the source's other records), and the support is independently inspectable.
+    // Absent, stale, missing, or foreign: the `sourcePassage` is owner-RECORDED provenance only, shown honestly but
+    // NEVER counted as independently resolved evidence. Optional/nullable for backward compatibility with historical
+    // unpinned findings on immutable documents.
+    selectedRecord: z
+      .object({
+        sourceId: uuid,
+        recordId: uuid,
+        sourceRevision: z.number().int().min(1).max(1000000),
+        // The EXACT record version selected (`project_knowledge_records.revision`). REQUIRED to resolve: the
+        // released save_project_knowledge can mutate a record IN PLACE under the SAME sourceRevision and increment
+        // this, so pinning only the source revision would silently resolve to changed content. Nullable/defaulted
+        // so a historical PARTIAL pin (no recordRevision) stays backward-readable but is explicitly UNINSPECTABLE —
+        // never auto-upgraded or resolved against a fabricated default revision.
+        recordRevision: z.number().int().min(1).max(1000000).nullable().default(null),
+      })
+      .strict()
+      .nullable()
+      .default(null),
   })
   .strict()
   .superRefine((s, ctx) => {
@@ -53,6 +75,12 @@ export const sourceSupportSchema = z
           code: "custom",
           path: ["sourcePassage"],
           message: "Not checked carries no passage",
+        });
+      if (s.selectedRecord !== null)
+        ctx.addIssue({
+          code: "custom",
+          path: ["selectedRecord"],
+          message: "Not checked selects no evidence",
         });
       return;
     }

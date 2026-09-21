@@ -133,11 +133,14 @@ export const citationReviewEvidenceSchema = z.discriminatedUnion("kind", [
       fingerprint: z.string().nullable(),
       observedAt: z.string().nullable(),
       sourceRevision: z.number().int().nullable(),
-      /** Substantive material bound to THIS source at its current revision, returned IN FULL up to the
-       * project record cap (300) and ordered by `recordId` for deterministic provenance. `inspectable` is
-       * true only when `1 <= materialCount <= 300` (attribution/provenance alone is not support, §4.2; a
-       * source whose material overflows the cap is `materialTruncated` and NOT inspectable — its last
-       * records would be unreachable, so review stays incomplete rather than falsely complete). */
+      // ONLY the SELECTED records are served (finding 4059944844): the exact `project_knowledge_records` a
+      // `support[].selectedRecord` pin resolves to for THIS source at its CURRENT revision — never the source's
+      // other records. An unpinned/stale/foreign passage contributes NOTHING here and leaves `material` empty. The
+      // corpus is never enumerated. `inspectable` is true only when the source is live (active) AND at least one
+      // assessed support entry's selected pin resolves to a live current-revision record (so `materialCount>=1`);
+      // attribution alone (label/url/fingerprint, §4.2), or the owner's recorded `record.support[].sourcePassage`
+      // with no resolving pin, never completes an independent review. The served value/revision are the actual
+      // stored record's, so the reviewer verifies against real selected material, not the owner's cached copy.
       material: z
         .array(
           z
@@ -147,14 +150,12 @@ export const citationReviewEvidenceSchema = z.discriminatedUnion("kind", [
               excerpt: z.string().nullable(),
               locator: z.string().nullable(),
               category: z.string().nullable(),
-              status: z.string().nullable(),
               recordRevision: z.number().int(),
             })
             .strict(),
         )
-        .max(300),
+        .max(20),
       materialCount: z.number().int().min(0),
-      materialTruncated: z.boolean(),
     })
     .strict(),
   z

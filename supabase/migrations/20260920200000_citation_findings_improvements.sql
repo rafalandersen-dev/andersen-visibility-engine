@@ -190,20 +190,33 @@ BEGIN
   -- has no source mapping, this does.
   INSERT INTO public.ai_citation_source_erasures(user_id,project_id,source_id)
     VALUES(p_user,p_project,p_source) ON CONFLICT(user_id,project_id,source_id) DO NOTHING;
+  -- Stamp EVERY version citing this source erased (finding 4059905627). A record-forget can leave the finding with
+  -- only free prose (observation / hypothesis / support[].reason) quoting the deleted record and NO copied
+  -- sourcePassage; yet reviewer prose-withholding, reviewer-digest masking and the new-review refusal ALL key on
+  -- evidence_erased_at, so the stamp MUST NOT be conditioned on a passage being present (the old passage gate left
+  -- such findings un-erased and leaking). The structured-copy redaction of support[].sourcePassage is the ONLY
+  -- record mutation and stays conditional: it runs only when support is a valid array carrying at least one non-null
+  -- sourcePassage, so a legitimately empty/absent support — or malformed historical support (a non-object element
+  -- yields NULL from ->>' ' and is left as-is) — is preserved byte-for-byte and never crashes. Free prose is NOT
+  -- touched in storage (honest owner retention; the reviewer withholding is response-only). Matched by SEMANTIC uuid
+  -- within the exact tenant+project.
   UPDATE public.ai_citation_findings f
-    SET record = jsonb_set(f.record,'{support}',(
-      SELECT coalesce(jsonb_agg(
-        CASE WHEN s->>'sourcePassage' IS NOT NULL
-          THEN jsonb_set(s,'{sourcePassage}',to_jsonb('[redacted: source forgotten]'::text))
-          ELSE s END ORDER BY ord),'[]'::jsonb)
-      FROM jsonb_array_elements(f.record->'support') WITH ORDINALITY AS a(s,ord))),
+    SET record = CASE
+        WHEN EXISTS(SELECT 1 FROM jsonb_array_elements(
+              CASE WHEN jsonb_typeof(f.record->'support')='array' THEN f.record->'support' ELSE '[]'::jsonb END) s
+            WHERE s->>'sourcePassage' IS NOT NULL)
+        THEN jsonb_set(f.record,'{support}',(
+          SELECT coalesce(jsonb_agg(
+            CASE WHEN s->>'sourcePassage' IS NOT NULL
+              THEN jsonb_set(s,'{sourcePassage}',to_jsonb('[redacted: source forgotten]'::text))
+              ELSE s END ORDER BY ord),'[]'::jsonb)
+          FROM jsonb_array_elements(f.record->'support') WITH ORDINALITY AS a(s,ord)))
+        ELSE f.record END,
       evidence_erased_at = coalesce(f.evidence_erased_at, clock_timestamp())
     WHERE f.user_id=p_user AND f.project_id=p_project
-      AND jsonb_typeof(f.record->'support')='array'
       AND EXISTS(SELECT 1 FROM jsonb_array_elements(
             CASE WHEN jsonb_typeof(f.record->'evidence')='array' THEN f.record->'evidence' ELSE '[]'::jsonb END) e
-          WHERE e->>'kind'='source' AND lower(e->>'id')=p_source::text)
-      AND EXISTS(SELECT 1 FROM jsonb_array_elements(f.record->'support') s WHERE s->>'sourcePassage' IS NOT NULL);
+          WHERE e->>'kind'='source' AND lower(e->>'id')=p_source::text);
   -- Receipt NOTES are free reviewer text that may QUOTE the forgotten source verbatim; the record redaction
   -- above does not touch them (finding 4059365606). Erase the note (content-free marker) on every NON-withdrawn
   -- receipt of a finding that cites the forgotten source — decision/reviewer/timestamps stay for audit (the same
@@ -408,11 +421,15 @@ REVOKE ALL ON FUNCTION public.citation_review_authorized(uuid,uuid,text) FROM PU
 --             within the 50000-char contract (so the whole answer is accessible in the reviewer read, never a
 --             silently-truncated snippet, and a FAILED/empty capture — '', whitespace, missing, null, or a
 --             non-string historical value — carries nothing to inspect and is NOT counted complete);
---   source -> the source row resolves, is `status='active'`, and carries substantive provenance (a non-empty
---             `label`) AND actual substantive MATERIAL — at least one released `project_knowledge_records`
---             row bound to THIS source (`source_id`) at the source's CURRENT `revision` with a non-empty
---             `value`. Label/url/fingerprint are attribution/provenance, NOT support (§4.2): a source with
---             no bound material, or only stale-revision material, is NOT inspectable;
+--   source -> the source row resolves, is `status='active'`, AND the finding recorded an ASSESSED support entry
+--             whose `selectedRecord` pin RESOLVES to a live record of THIS exact source at its CURRENT revision
+--             (finding 4059944844): pin.sourceId = the cited source, pin.recordId is a live project_knowledge_record
+--             of that source with a non-empty value, and both pin.sourceRevision and that record's sourceRevision
+--             equal the source's current revision. The reviewer independently inspects that ONE selected record's
+--             live material; the owner's recorded `support[].sourcePassage` is provenance ONLY. An unpinned passage,
+--             a stale/missing/foreign pin, or a source whose selected record was changed/removed/revision-advanced
+--             past is NOT independent evidence and fails CLOSED — a source-only finding with no resolving pin is
+--             uninspectable, and the source's other (unselected) records are never authorised to the reviewer;
 --   native -> NEVER inspectable (opaque staged bytes; the parser is P5), so ANY native evidence — including
 --             a mixed native+answer finding — makes the inspection incomplete.
 -- Plus every assessed-accuracy fact pin must still resolve to its exact fact row. When this is false, an
@@ -420,7 +437,7 @@ REVOKE ALL ON FUNCTION public.citation_review_authorized(uuid,uuid,text) FROM PU
 -- Internal-only.
 CREATE FUNCTION public.citation_finding_inspectable(p_user uuid,p_project text,p_record jsonb)
 RETURNS boolean LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path='' AS $$
-DECLARE e jsonb; ref uuid; ra text; ratype text; st text; srev integer; mcnt integer;
+DECLARE e jsonb; ref uuid; ra text; ratype text; st text; srev integer;
 BEGIN
   IF jsonb_typeof(p_record->'evidence')<>'array' OR jsonb_array_length(p_record->'evidence')=0 THEN RETURN false; END IF;
   FOR e IN SELECT jsonb_array_elements(p_record->'evidence') LOOP
@@ -440,18 +457,63 @@ BEGIN
     ELSIF e->>'kind'='source' THEN
       SELECT payload->>'status',revision INTO st,srev FROM public.project_knowledge_sources
         WHERE user_id=p_user AND project_id=p_project AND id=ref;
-      -- Count the substantive bound material at the CURRENT source revision. Inspectable requires the source
-      -- active AND at least one bound record AND no overflow beyond the exposed cap of 300 (the project record
-      -- cap, which the reviewer read returns in full) — a source whose last records would be unreachable in
-      -- the read is NOT counted complete. This 300 MUST match the reviewer read's material page/cap.
-      SELECT count(*) INTO mcnt FROM public.project_knowledge_records r
-        WHERE r.user_id=p_user AND r.project_id=p_project AND r.source_id=ref
-          AND (r.payload->>'sourceRevision')=srev::text AND coalesce(r.payload->>'value','')<>'';
-      IF st IS DISTINCT FROM 'active' OR mcnt NOT BETWEEN 1 AND 300 THEN RETURN false; END IF;
+      IF st IS DISTINCT FROM 'active' THEN RETURN false; END IF;
+      -- SELECTED-EVIDENCE binding (finding 4059944844): the cited source is inspectable only if the finding recorded
+      -- an ASSESSED support entry whose selectedRecord pin RESOLVES to a live record of THIS exact source at its
+      -- CURRENT source revision AND the record's EXACT version (project_knowledge_records.revision — the released
+      -- save_project_knowledge mutates a record in place under the same sourceRevision and bumps r.revision, so the
+      -- record-version pin is required or an old finding silently resolves to changed content). The owner's recorded
+      -- sourcePassage is provenance only — arbitrary text, an unpinned entry, or a stale/missing/foreign/partial pin
+      -- is NOT independent evidence and fails CLOSED. Semantic uuid comparison (lower(text)=uuid::text, never casting
+      -- client text); tenant/project/source scoped. The jsonb_array_elements argument is CASE-normalised so a
+      -- scalar/object/null support never raises.
+      IF NOT EXISTS(
+        SELECT 1 FROM jsonb_array_elements(
+            CASE WHEN jsonb_typeof(p_record->'support')='array' THEN p_record->'support' ELSE '[]'::jsonb END) s
+          JOIN public.project_knowledge_records r
+            ON r.user_id=p_user AND r.project_id=p_project AND r.source_id=ref
+           AND lower(s->'selectedRecord'->>'sourceId')=ref::text
+           AND lower(s->'selectedRecord'->>'recordId')=r.id::text
+           AND (s->'selectedRecord'->>'sourceRevision')=srev::text
+           AND (r.payload->>'sourceRevision')=srev::text
+           AND (s->'selectedRecord'->>'recordRevision')=r.revision::text
+           AND coalesce(r.payload->>'value','')<>''
+        WHERE s->>'status' <> 'not_checked') THEN
+        RETURN false;
+      END IF;
     ELSE
       RETURN false; -- native (opaque) or unknown kind: never a completed independent inspection
     END IF;
   END LOOP;
+  -- COMPLETENESS across EVERY assessed support entry (finding 4059944844): the per-source check above only proves a
+  -- source has AT LEAST ONE resolving pin. A completed inspection additionally requires that NO assessed support
+  -- entry is left unresolved — a sibling entry that is unpinned, partial (no recordRevision), stale (wrong source or
+  -- record revision), points at a removed record, or is foreign/cross-project must NOT be certified just because it
+  -- shares a source with a resolving entry. Recorded-only owner prose stays visible on the read but never certifies
+  -- completeness here. Each assessed entry must resolve to an ACTIVE source's live record at the exact
+  -- source+record revision with a non-empty value (semantic uuid; tenant/project/source scoped) AND that source must
+  -- actually be CITED as kind='source' evidence on THIS finding — the reviewer read only serves cited-evidence
+  -- material, so a pin to an uncited source (even a live one, e.g. on an answer-only finding) would certify a claim
+  -- whose material the reviewer never sees; it fails CLOSED and never widens the reviewer surface to extra sources.
+  IF EXISTS(
+    SELECT 1 FROM jsonb_array_elements(
+        CASE WHEN jsonb_typeof(p_record->'support')='array' THEN p_record->'support' ELSE '[]'::jsonb END) s
+    WHERE s->>'status' <> 'not_checked'
+      AND NOT EXISTS(
+        SELECT 1 FROM public.project_knowledge_sources src
+          JOIN public.project_knowledge_records r
+            ON r.user_id=src.user_id AND r.project_id=src.project_id AND r.source_id=src.id
+          WHERE src.user_id=p_user AND src.project_id=p_project AND (src.payload->>'status')='active'
+            AND lower(s->'selectedRecord'->>'sourceId')=src.id::text
+            AND EXISTS(SELECT 1 FROM jsonb_array_elements(
+                  CASE WHEN jsonb_typeof(p_record->'evidence')='array' THEN p_record->'evidence' ELSE '[]'::jsonb END) ev
+                WHERE ev->>'kind'='source' AND lower(ev->>'id')=src.id::text)
+            AND lower(s->'selectedRecord'->>'recordId')=r.id::text
+            AND (s->'selectedRecord'->>'sourceRevision')=src.revision::text
+            AND (r.payload->>'sourceRevision')=src.revision::text
+            AND (s->'selectedRecord'->>'recordRevision')=r.revision::text
+            AND coalesce(r.payload->>'value','')<>'')
+  ) THEN RETURN false; END IF;
   -- An independent inspection is only COMPLETE when every ASSESSED accuracy entry actually binds. Reuse the
   -- single canonical resolver (the same one the finding reads and the improvement gate use) — never a second
   -- partial existence check: an assessed entry that is unpinned / capture_unresolved / fact_missing /
@@ -893,7 +955,10 @@ BEGIN
   -- support passages before the INSERT and mark the row evidence-erased. The marker (not a source tombstone) is
   -- used because a RECORD forget keeps the source alive and leaves no source-mapped tombstone; the marker
   -- covers both forget kinds by semantic uuid. record_sha256 stays the submitted-content digest (the pre-erasure
-  -- anchor). This redacts the copied passage but does NOT block the finding — unrelated input is unaffected.
+  -- anchor). This redacts the copied passage but does NOT block the finding — unrelated input is unaffected. The
+  -- erased stamp (below) applies to the marker match itself, so a fresh/altered version citing the source with only
+  -- free prose and NO copied passage is still marked erased (finding 4059905627); the passage transform above is
+  -- merely skipped when support is empty/absent, never a precondition for the stamp.
   IF EXISTS(SELECT 1 FROM jsonb_array_elements(
         CASE WHEN jsonb_typeof(p_record->'evidence')='array' THEN p_record->'evidence' ELSE '[]'::jsonb END) e
       JOIN public.ai_citation_source_erasures x
@@ -1970,7 +2035,7 @@ CREATE FUNCTION public.read_ai_citation_finding_for_review(p_actor uuid,p_owner 
 RETURNS jsonb LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path='' AS $$
 DECLARE auth record; frow public.ai_citation_findings%ROWTYPE; frec jsonb; e jsonb; ref uuid;
   ev_json jsonb := '[]'::jsonb; facts_json jsonb := '[]'::jsonb; reviews jsonb; total integer;
-  ans jsonb; src jsonb; srev integer; mat jsonb; mcount integer; nat boolean;
+  ans jsonb; src jsonb; srev integer; mat jsonb; nat boolean;
   fk text; fv text; ffrom timestamptz; funtil timestamptz; ffound boolean;
   frec_response jsonb; passages_withheld boolean := false; v_masked boolean;
 BEGIN
@@ -2018,35 +2083,37 @@ BEGIN
         -- citation_finding_review_digest_masked's rule; otherwise a missing-status source would leave the copied
         -- passage AND the audit digest visible here while the digest helper masked them elsewhere.
         IF src IS NULL OR (src->>'status') IS DISTINCT FROM 'active' THEN passages_withheld := true; END IF;
-        -- Substantive source MATERIAL, GATED on the source being ACTIVE. A REVOKED source (or a missing one)
-        -- is deactivated, so its live records are WITHHELD from the reviewer here — inspectable was already
-        -- false for it, and now materialCount/material do not serialize the deactivated source's record
-        -- value/excerpt/locator either (previously they were queried and returned regardless of status). This
-        -- is ACCESS-TIME withholding of LIVE source material, distinct from ERASURE: the owner's OWN copied
-        -- support[].sourcePassage in the finding record is NOT touched by revocation (revocation is not a
-        -- forget; only a forget erases the stored copy). Scoped to the cited source at its CURRENT revision;
-        -- never the whole corpus, never the raw document bytes (service-only). label/url/fingerprint stay as
-        -- attribution (not support, §4.2) so the reviewer still sees WHY it is non-inspectable ('revoked').
+        -- The reviewer receives ONLY the SELECTED records (finding 4059944844): the exact project_knowledge_records
+        -- that an ASSESSED support[].selectedRecord pin RESOLVES to for THIS source at its CURRENT revision — never
+        -- the source's other records, and never the whole corpus (a source id alone does NOT authorise the reviewer
+        -- to see every record bound to it). Each served value/excerpt/revision is the ACTUAL stored record's, so the
+        -- reviewer verifies against real selected material, not the owner's cached sourcePassage (that stays in
+        -- `record` as recorded-only provenance). An unpinned/stale/missing/foreign pin resolves nothing, so `mat`
+        -- stays empty and the source is not inspectable. Semantic-uuid, tenant/project/source scoped; the pin's and
+        -- the record's sourceRevision must both equal the source's current revision. No raw document bytes.
         IF src IS NOT NULL AND (src->>'status')='active' THEN
-          SELECT count(*) INTO mcount FROM public.project_knowledge_records r
-            WHERE r.user_id=p_owner AND r.project_id=p_project AND r.source_id=ref
-              AND (r.payload->>'sourceRevision')=srev::text AND coalesce(r.payload->>'value','')<>'';
-          -- Material IN FULL up to 300 (the project record cap), deterministically ordered by record id, with
-          -- each record's identity/revision for provenance. The inner subquery MUST expose `id` for ORDER BY.
-          SELECT coalesce(jsonb_agg(jsonb_build_object('recordId',id,'value',payload->>'value','excerpt',payload->>'excerpt',
-            'locator',payload->>'locator','category',payload->>'category','status',payload->>'status',
-            'recordRevision',revision) ORDER BY id),'[]'::jsonb) INTO mat
-            FROM (SELECT id,payload,revision FROM public.project_knowledge_records
-              WHERE user_id=p_owner AND project_id=p_project AND source_id=ref
-                AND (payload->>'sourceRevision')=srev::text AND coalesce(payload->>'value','')<>'' ORDER BY id LIMIT 300) m;
+          SELECT coalesce(jsonb_agg(DISTINCT jsonb_build_object('recordId',r.id,'value',r.payload->>'value',
+              'excerpt',r.payload->>'excerpt','locator',r.payload->>'locator','category',r.payload->>'category',
+              'recordRevision',r.revision)),'[]'::jsonb) INTO mat
+            FROM jsonb_array_elements(
+                CASE WHEN jsonb_typeof(frec->'support')='array' THEN frec->'support' ELSE '[]'::jsonb END) s
+              JOIN public.project_knowledge_records r
+                ON r.user_id=p_owner AND r.project_id=p_project AND r.source_id=ref
+               AND lower(s->'selectedRecord'->>'sourceId')=ref::text
+               AND lower(s->'selectedRecord'->>'recordId')=r.id::text
+               AND (s->'selectedRecord'->>'sourceRevision')=srev::text
+               AND (r.payload->>'sourceRevision')=srev::text
+               AND (s->'selectedRecord'->>'recordRevision')=r.revision::text
+               AND coalesce(r.payload->>'value','')<>''
+            WHERE s->>'status' <> 'not_checked';
         ELSE
-          mcount := 0; mat := '[]'::jsonb;
+          mat := '[]'::jsonb;
         END IF;
         ev_json := ev_json || jsonb_build_object('kind','source','id',e->>'id','available',src IS NOT NULL,
-          'inspectable',src IS NOT NULL AND (src->>'status')='active' AND coalesce(mcount,0) BETWEEN 1 AND 300,
+          'inspectable',src IS NOT NULL AND (src->>'status')='active' AND jsonb_array_length(mat)>=1,
           'sourceKind',src->>'kind','status',src->>'status','label',src->>'label',
           'url',src->>'url','fingerprint',src->>'fingerprint','observedAt',src->>'observedAt','sourceRevision',srev,
-          'material',mat,'materialCount',coalesce(mcount,0),'materialTruncated',coalesce(mcount,0)>300);
+          'material',mat,'materialCount',jsonb_array_length(mat));
       ELSIF e->>'kind'='native' THEN
         SELECT EXISTS(SELECT 1 FROM public.ai_native_report_artifacts WHERE user_id=p_owner AND project_id=p_project AND id=ref) INTO nat;
         -- A native staged artifact is opaque unparsed bytes: present-or-not, but NEVER independently inspectable.

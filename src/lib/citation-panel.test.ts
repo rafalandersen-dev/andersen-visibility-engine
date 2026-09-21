@@ -1492,6 +1492,7 @@ const support = (over: Partial<Parameters<typeof sourceSupportSchema.parse>[0] &
   sourceCapturedAt: "2026-09-14T09:30:00Z",
   reason: null,
   review,
+  selectedRecord: null,
   ...over,
 });
 const facts = [
