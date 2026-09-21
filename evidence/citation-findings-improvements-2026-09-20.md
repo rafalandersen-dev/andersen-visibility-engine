@@ -592,3 +592,11 @@ Reviewed empty/malformed answer inspection, null-safe status handling, reviewer 
 ### Independent verification — 2026-09-21 04:45 UTC
 
 218 focused tests across seven suites and 6390 full tests across 388 files passed (96.23s full run). TypeScript, scoped ESLint, build and git diff --check passed. Reviewed semantic capture/approver UUID comparisons and current delegated publication approval predicate at save and status. Focused reviewer harness uses an empty scheduled_publishes stand-in for unrelated invalidation trigger; not proof of production scheduling or concurrency. Codex exception: formatter on three changed tests and this verification record. Candidate remains unapplied.
+
+### Independent integration verification — 2026-09-21 06:05 UTC
+
+Trusted dates/UUID and receipt-retention/dissent packet: 229 focused tests across seven suites passed (4.26s), TypeScript passed. Integrated production main3b2fe91c normally into P3 as dc524cba. The shared migration-chain conflict was resolved as a necessary Codex integration exception: include each released prerequisite once, classify applied20260920190000 as released and leave20260920200000 as the sole candidate. The duplicate answer-evidence prerequisite was removed. No applied migration was modified. Formatter-only exception on four changed test files.
+
+After integration: 425 focused tests across seven combined P2/P3 suites passed (4.81s), TypeScript passed, then 6598 full tests across391 files passed (45.48s), scoped ESLint, production build and git diff --check passed. P2 artifact evidence was preserved byte-for-byte while replacing an untracked copy with the identical tracked main version; backup /tmp/milo-p3-preserved-artifact-release-20260921.md. P2 production release evidence carried into this branch.
+
+These are local tests, not P3 production, genuine consumer measurement or concurrent database proof. P3 remains unapplied. Actual panel-binding completion, UI, independent destination proof, real export parsing and real-use acceptance remain open.
