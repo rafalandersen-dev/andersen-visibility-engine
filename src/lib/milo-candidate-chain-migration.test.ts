@@ -176,6 +176,10 @@ describe("candidate migration chain", () => {
     "remove_ai_citation_finding_review(uuid,uuid,text,uuid)",
     "read_ai_citation_finding_reviews(uuid,uuid,text,uuid)",
     "read_ai_citation_finding_for_review(uuid,uuid,text,uuid)",
+    // Owner-only finding-scoped evidence-review assignment grant/revoke (finding 4062796988): p_owner is the
+    // authenticated owner supplied by the middleware; client-initiated, so GRANTed to service_role only.
+    "grant_ai_citation_review_assignment(uuid,text,uuid,uuid)",
+    "revoke_ai_citation_review_assignment(uuid,text,uuid,uuid)",
   ])("%s is executable by service_role only", async (fn) => {
     expect(await allowed("service_role", fn)).toBe(true);
     for (const role of ["anon", "authenticated", "public"])
@@ -202,6 +206,9 @@ describe("candidate migration chain", () => {
     "citation_improvement_evidence(uuid,text,jsonb)",
     "citation_improvement_status(uuid,text,jsonb,uuid[],jsonb)",
     "citation_review_authorized(uuid,uuid,text)",
+    // Finding-scoped assignment check (finding 4062796988): reached only from the reviewer save/list/read RPCs
+    // to gate private evidence in ADDITION to team eligibility. REVOKEd from every role (never client-callable).
+    "citation_review_assigned(uuid,text,uuid,uuid)",
     "citation_finding_review_status(uuid,text,uuid)",
     "citation_finding_review_digest_masked(uuid,text,uuid)",
     // Selected-knowledge validity predicate (finding 4060770032): the evidence-inspection subset of the canonical
@@ -288,6 +295,9 @@ describe("candidate migration chain", () => {
       "ai_citation_fact_erasures",
       // Content-free native-artifact erasure provenance (native-delete propagation; ids + timestamp, no bytes/sha).
       "ai_citation_native_erasures",
+      // Content-free finding-scoped evidence-review assignment (finding 4062796988): owner/project/row/reviewer
+      // identities + active/revoked flag only — no evidence, hash or note; finding FK ON DELETE CASCADE.
+      "ai_citation_review_assignments",
     ]) {
       const { rows } = await db.query<{ rls: boolean; policies: string }>(
         "SELECT c.relrowsecurity rls,(SELECT count(*)::text FROM pg_policy WHERE polrelid=c.oid) policies FROM pg_class c JOIN pg_namespace s ON s.oid=c.relnamespace WHERE s.nspname='public' AND c.relname=$1",

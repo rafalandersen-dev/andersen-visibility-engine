@@ -477,6 +477,115 @@ BEGIN
 END; $$;
 REVOKE ALL ON FUNCTION public.citation_review_authorized(uuid,uuid,text) FROM PUBLIC,anon,authenticated,service_role;
 
+-- FINDING-SCOPED EVIDENCE-REVIEW ASSIGNMENT (finding 4062796988). citation_review_authorized (team role/policy)
+-- alone is INSUFFICIENT to expose a finding's PRIVATE cited answer/knowledge/fact evidence to a non-owner:
+-- publication-team membership is a broad grant, and the spec's second-review evidence contract requires the
+-- OWNER to explicitly nominate WHICH reviewer may inspect WHICH finding row. This content-free table records
+-- exactly that owner-approved, finding-row-pinned grant. It is bound to the EXACT immutable finding row
+-- (finding_row_id = ai_citation_findings.id, one row per version), so a new finding version has NO assignment
+-- and fails closed until the owner re-grants, and the ON DELETE CASCADE finding FK removes the assignment when
+-- the finding row (or, transitively, the project) is deleted — never a dangling grant. It stores NO evidence,
+-- hash or note; only the owner/project/row/reviewer identities + an active/revoked flag. RLS-closed and REVOKEd
+-- from every client role, so only the SECURITY DEFINER grant/revoke/check functions below touch it. There is no
+-- backfill from historical publication roles: every grant is an explicit owner action recorded here.
+CREATE TABLE public.ai_citation_review_assignments (
+  user_id uuid NOT NULL,               -- the project OWNER who granted the assignment (the data scope)
+  project_id text NOT NULL,
+  finding_row_id uuid NOT NULL,        -- the EXACT immutable ai_citation_findings.id (a version is one row)
+  reviewer_id uuid NOT NULL,           -- the intended independent reviewer granted evidence access to this row
+  active boolean NOT NULL DEFAULT true,
+  granted_at timestamptz NOT NULL DEFAULT clock_timestamp(),
+  revoked_at timestamptz,
+  CHECK(user_id<>reviewer_id),         -- the owner is never an "assigned reviewer" (owner uses the owner reads)
+  CHECK(active OR revoked_at IS NOT NULL),
+  PRIMARY KEY(user_id,project_id,finding_row_id,reviewer_id),
+  FOREIGN KEY(user_id,project_id,finding_row_id) REFERENCES public.ai_citation_findings(user_id,project_id,id) ON DELETE CASCADE
+);
+ALTER TABLE public.ai_citation_review_assignments ENABLE ROW LEVEL SECURITY;
+REVOKE ALL ON public.ai_citation_review_assignments FROM PUBLIC,anon,authenticated,service_role;
+
+-- LIVE finding-scoped assignment check, gating the sensitive reviewer reads/submission BELOW in ADDITION to
+-- citation_review_authorized (team eligibility stays necessary; this is a second, narrower gate, never a
+-- replacement). True only when an ACTIVE, non-revoked assignment binds this exact owner+project+finding ROW to
+-- this exact reviewer. Revocation (active=false / revoked_at set) and a finding version bump (a different row id
+-- with no assignment) both make this false, so evidence/hash/notes fail closed the instant either happens.
+-- Membership EXPIRY / removal / account ban are enforced separately and live by citation_review_authorized +
+-- assert_project_team_account at each call site, so an expired/removed/banned reviewer is refused there even
+-- while a stale assignment row lingers. Internal-only.
+CREATE FUNCTION public.citation_review_assigned(p_owner uuid,p_project text,p_finding uuid,p_reviewer uuid)
+RETURNS boolean LANGUAGE sql STABLE SECURITY DEFINER SET search_path='' AS $$
+  SELECT EXISTS(
+    SELECT 1 FROM public.ai_citation_review_assignments
+    WHERE user_id=p_owner AND project_id=p_project AND finding_row_id=p_finding
+      AND reviewer_id=p_reviewer AND active AND revoked_at IS NULL);
+$$;
+REVOKE ALL ON FUNCTION public.citation_review_assigned(uuid,text,uuid,uuid) FROM PUBLIC,anon,authenticated,service_role;
+
+-- OWNER-ONLY grant of a finding-scoped evidence-review assignment. The AUTHENTICATED caller IS p_owner (the
+-- server passes the session id; a foreign p_owner is never client-supplied, and the table is RLS-closed so no
+-- direct client write exists) — this is the same owner-authority model as every other owner write RPC. The
+-- owner workspace + account locks (assert_knowledge_project(...,true) + citation_lock_account) serialize the
+-- grant with concurrent revokes and the reviewer RPCs' authoritative re-checks; lock_timeout bounds each wait.
+-- The intended reviewer must be a CURRENTLY-eligible independent reviewer of this exact project (active,
+-- non-expired membership + a review-granting policy, via citation_review_authorized) and a live account — an
+-- owner can never fabricate an assignment for a stranger, a viewer, a removed member or the owner themselves.
+-- Eligibility is ALSO re-checked live at every read/submission, so this create-time gate never becomes the sole
+-- authority. Idempotent: re-granting an existing/prior assignment reactivates it and returns the same shape.
+CREATE FUNCTION public.grant_ai_citation_review_assignment(p_owner uuid,p_project text,p_finding uuid,p_reviewer uuid)
+RETURNS jsonb LANGUAGE plpgsql SECURITY DEFINER SET search_path='' SET lock_timeout='1500ms' AS $$
+DECLARE auth record;
+BEGIN
+  IF p_owner IS NULL OR p_project IS NULL OR p_finding IS NULL OR p_reviewer IS NULL OR p_owner=p_reviewer THEN
+    RAISE EXCEPTION 'citation_review_invalid' USING ERRCODE='22023';
+  END IF;
+  PERFORM public.assert_knowledge_project(p_owner,p_project,true);
+  PERFORM public.citation_lock_account(p_owner);
+  PERFORM public.assert_project_team_account(p_owner);
+  PERFORM public.assert_project_team_account(p_reviewer);
+  -- Currently-eligible independent reviewer of THIS project, or fail closed — no pre-assigning a non-member.
+  SELECT * INTO auth FROM public.citation_review_authorized(p_reviewer,p_owner,p_project);
+  IF NOT auth.allowed THEN RAISE EXCEPTION 'citation_review_forbidden' USING ERRCODE='22023'; END IF;
+  -- The finding row must exist under this owner/project (the FK enforces it too; the explicit check returns the
+  -- finding's own unavailable error rather than a raw FK violation).
+  IF NOT EXISTS(SELECT 1 FROM public.ai_citation_findings WHERE user_id=p_owner AND project_id=p_project AND id=p_finding) THEN
+    RAISE EXCEPTION 'citation_finding_unavailable' USING ERRCODE='22023';
+  END IF;
+  INSERT INTO public.ai_citation_review_assignments(user_id,project_id,finding_row_id,reviewer_id,active,granted_at,revoked_at)
+    VALUES(p_owner,p_project,p_finding,p_reviewer,true,clock_timestamp(),NULL)
+    ON CONFLICT(user_id,project_id,finding_row_id,reviewer_id)
+    DO UPDATE SET active=true, revoked_at=NULL;
+  RETURN jsonb_build_object('ownerId',p_owner,'projectId',p_project,'findingRowId',p_finding,'reviewerId',p_reviewer,'active',true);
+END; $$;
+REVOKE ALL ON FUNCTION public.grant_ai_citation_review_assignment(uuid,text,uuid,uuid) FROM PUBLIC,anon,authenticated,service_role;
+
+-- OWNER-ONLY revoke of a finding-scoped assignment. Owner-authority model and locks as for grant. Idempotent: a
+-- missing or already-revoked assignment is a no-op success (the goal state — no live assignment — already
+-- holds). The owner account must be current; the REVIEWER's account/membership is deliberately NOT required, so
+-- an owner can always revoke evidence access to a reviewer who has already left or been suspended. A revoke
+-- makes citation_review_assigned false immediately, so the next reviewer read/submission fails closed.
+CREATE FUNCTION public.revoke_ai_citation_review_assignment(p_owner uuid,p_project text,p_finding uuid,p_reviewer uuid)
+RETURNS boolean LANGUAGE plpgsql SECURITY DEFINER SET search_path='' SET lock_timeout='1500ms' AS $$
+BEGIN
+  IF p_owner IS NULL OR p_project IS NULL OR p_finding IS NULL OR p_reviewer IS NULL THEN
+    RAISE EXCEPTION 'citation_review_invalid' USING ERRCODE='22023';
+  END IF;
+  PERFORM public.assert_knowledge_project(p_owner,p_project,true);
+  PERFORM public.citation_lock_account(p_owner);
+  PERFORM public.assert_project_team_account(p_owner);
+  UPDATE public.ai_citation_review_assignments
+    SET active=false, revoked_at=coalesce(revoked_at,clock_timestamp())
+    WHERE user_id=p_owner AND project_id=p_project AND finding_row_id=p_finding AND reviewer_id=p_reviewer AND active;
+  RETURN true;
+END; $$;
+REVOKE ALL ON FUNCTION public.revoke_ai_citation_review_assignment(uuid,text,uuid,uuid) FROM PUBLIC,anon,authenticated,service_role;
+-- The owner-only grant/revoke endpoints are client-initiated (the middleware supplies the authenticated owner as
+-- p_owner), so — like the other citation service RPCs — they are GRANTed to service_role only. citation_review_assigned
+-- above stays fully revoked: it is reached only from the reviewer RPCs, never client-callable.
+GRANT EXECUTE ON FUNCTION
+  public.grant_ai_citation_review_assignment(uuid,text,uuid,uuid),
+  public.revoke_ai_citation_review_assignment(uuid,text,uuid,uuid)
+  TO service_role;
+
 -- Whether a SELECTED knowledge record is currently VALID EVIDENCE for citation review (finding 4060770032). This is
 -- the EVIDENCE-inspection subset of the released canonical knowledge selector (project-knowledge.ts selectProjectKnowledge):
 -- the source is active and observed no later than now, and the record is status='accepted' with a non-empty value,
@@ -1457,15 +1566,36 @@ BEGIN
   -- claimed dates are discarded, so a backdated claim collapses to the same trusted record (idempotent) and
   -- cannot reorder intervention vs retest. This does NOT turn owner_attested into independent proof: obs is still
   -- an owner observation of the destination, unchanged in meaning.
+  --
+  -- PROVENANCE-LABEL INTEGRITY (finding 4062782883): the ONLY trusted backing this branch admits is the owner's
+  -- POSITIVE inspection of the destination (shows_approved_content, validated above). So verification.method and
+  -- verification.receipt are DERIVED from that binding and the caller's raw claims are DISCARDED — the same
+  -- derive-and-discard discipline as the two instants — instead of preserved. Previously method/receipt were left
+  -- as owner free-text, so a caller could stamp method='index_inspection' or 'publication_receipt' (implying an
+  -- INDEPENDENT search-index check or a connector/publication delivery receipt), or a receipt string that reads
+  -- like independent destination proof, on top of a mere owner declaration. method is canonicalized to the actual
+  -- binding type 'owner_inspection'; receipt is rebuilt as a self-labelled owner-inspection descriptor of the
+  -- exact validated observedUrl (= the published liveUrl) at the derived observation instant, capped to the
+  -- schema's 500 chars. An owner declaration can thus NEVER be labelled index_inspection or independent
+  -- destination proof, and the stored provenance matches what was actually validated. isVerifiedImprovement /
+  -- comparablePairs read verification presence + baselineCaptureIds + verifiedAt>=approvedAt (never method/
+  -- receipt), so this only corrects the stored provenance meaning that owner detail/export surfaces display; the
+  -- before/after count is unchanged, and a forged label collapses to the same trusted record (still idempotent).
   IF v IS NOT NULL AND jsonb_typeof(v)='object' THEN
     IF obs IS NULL OR appr_at IS NULL OR (insp->>'checkResult') IS DISTINCT FROM 'shows_approved_content' THEN
       RAISE EXCEPTION 'citation_improvement_verification_unbacked' USING ERRCODE='22023';
     END IF;
     p_record := jsonb_set(
-      jsonb_set(p_record,'{change,approvedAt}',
-        to_jsonb(to_char(appr_at AT TIME ZONE 'UTC','YYYY-MM-DD"T"HH24:MI:SS.US"Z"'))),
-      '{verification,verifiedAt}',
-        to_jsonb(to_char(obs AT TIME ZONE 'UTC','YYYY-MM-DD"T"HH24:MI:SS.US"Z"')));
+      jsonb_set(
+        jsonb_set(
+          jsonb_set(p_record,'{change,approvedAt}',
+            to_jsonb(to_char(appr_at AT TIME ZONE 'UTC','YYYY-MM-DD"T"HH24:MI:SS.US"Z"'))),
+          '{verification,verifiedAt}',
+            to_jsonb(to_char(obs AT TIME ZONE 'UTC','YYYY-MM-DD"T"HH24:MI:SS.US"Z"'))),
+        '{verification,method}', to_jsonb('owner_inspection'::text)),
+      '{verification,receipt}',
+        to_jsonb(left('owner_inspection '||(insp->>'observedUrl')||' @ '
+          ||to_char(obs AT TIME ZONE 'UTC','YYYY-MM-DD"T"HH24:MI:SS.US"Z"'),500)));
   END IF;
   IF EXISTS(SELECT 1 FROM public.ai_citation_improvements
      WHERE user_id=p_user AND project_id=p_project AND improvement_id=iid
@@ -2029,6 +2159,14 @@ BEGIN
   -- refused here (citation_review_authorized), so it never queues on an arbitrary victim owner's workspace lock.
   SELECT * INTO auth FROM public.citation_review_authorized(p_actor,p_owner,p_project);
   IF NOT auth.allowed THEN RAISE EXCEPTION 'citation_review_forbidden' USING ERRCODE='22023'; END IF;
+  -- ADDITIONAL finding-scoped gate (finding 4062796988): team review eligibility is necessary but NOT sufficient
+  -- to submit against a finding's private evidence — the owner must have explicitly assigned THIS reviewer to
+  -- THIS exact finding row. An unassigned team reviewer fails closed with the SAME citation_finding_unavailable
+  -- as a missing/erased/withheld finding (below), so the save is not an oracle for whether the row exists.
+  -- Optimistic (lock-free) check; re-verified authoritatively under the owner lock after the auth re-check below.
+  IF NOT public.citation_review_assigned(p_owner,p_project,p_finding,p_actor) THEN
+    RAISE EXCEPTION 'citation_finding_unavailable' USING ERRCODE='22023';
+  END IF;
   -- OPTIMISTIC finding / hash / erasure / self-review validation BEFORE the victim workspace lock (the
   -- queue-a-write fix, mirroring remove_ai_citation_finding_review). Previously the owner workspace lock was
   -- taken FIRST and the finding/hash resolved AFTER, so an authenticated reviewer sending a schema-valid but
@@ -2087,6 +2225,12 @@ BEGIN
   PERFORM public.assert_project_team_account(p_actor);
   SELECT * INTO auth FROM public.citation_review_authorized(p_actor,p_owner,p_project);
   IF NOT auth.allowed THEN RAISE EXCEPTION 'citation_review_forbidden' USING ERRCODE='22023'; END IF;
+  -- AUTHORITATIVE re-check of the finding-scoped assignment under the owner lock: a concurrent revoke (or the
+  -- finding's deletion cascading the assignment away) that landed after the optimistic check is caught here,
+  -- before the write, and fails closed with the same citation_finding_unavailable.
+  IF NOT public.citation_review_assigned(p_owner,p_project,p_finding,p_actor) THEN
+    RAISE EXCEPTION 'citation_finding_unavailable' USING ERRCODE='22023';
+  END IF;
   SELECT record_sha256,finding_id,version,reviewer_id,record,evidence_erased_at INTO f_sha,f_id,f_ver,f_reviewer,frec,f_erased
     FROM public.ai_citation_findings WHERE user_id=p_owner AND project_id=p_project AND id=p_finding;
   IF f_sha IS NULL THEN RAISE EXCEPTION 'citation_finding_unavailable' USING ERRCODE='22023'; END IF;
@@ -2208,6 +2352,14 @@ BEGIN
     PERFORM public.assert_project_team_account(p_actor);
     SELECT * INTO auth FROM public.citation_review_authorized(p_actor,p_owner,p_project);
     IF NOT auth.allowed THEN RAISE EXCEPTION 'citation_review_forbidden' USING ERRCODE='22023'; END IF;
+    -- Finding-scoped gate (finding 4062796988): a non-owner sees the receipt list — reviewer identities,
+    -- decisions and (unmasked) notes/digests, which can quote the private evidence — ONLY for a finding row the
+    -- owner assigned them to. An unassigned team reviewer fails closed with citation_finding_unavailable,
+    -- identical to a non-existent finding, so the list is not an oracle. The owner branch skips this (always
+    -- allowed for their own data).
+    IF NOT public.citation_review_assigned(p_owner,p_project,p_finding,p_actor) THEN
+      RAISE EXCEPTION 'citation_finding_unavailable' USING ERRCODE='22023';
+    END IF;
   END IF;
   IF NOT EXISTS(SELECT 1 FROM public.ai_citation_findings WHERE user_id=p_owner AND project_id=p_project AND id=p_finding) THEN
     RAISE EXCEPTION 'citation_finding_unavailable' USING ERRCODE='22023';
@@ -2263,6 +2415,13 @@ BEGIN
   PERFORM public.assert_project_team_account(p_actor);
   SELECT * INTO auth FROM public.citation_review_authorized(p_actor,p_owner,p_project);
   IF NOT auth.allowed THEN RAISE EXCEPTION 'citation_review_forbidden' USING ERRCODE='22023'; END IF;
+  -- Finding-scoped gate (finding 4062796988) BEFORE the finding row (and thus any private answer/source/fact
+  -- evidence + hash) is read: team review eligibility is necessary but not sufficient — the owner must have
+  -- explicitly assigned THIS reviewer to THIS exact finding row. Fails closed with the same
+  -- citation_finding_unavailable as an absent row, so an unassigned reviewer cannot even probe existence.
+  IF NOT public.citation_review_assigned(p_owner,p_project,p_id,p_actor) THEN
+    RAISE EXCEPTION 'citation_finding_unavailable' USING ERRCODE='22023';
+  END IF;
   SELECT * INTO frow FROM public.ai_citation_findings WHERE user_id=p_owner AND project_id=p_project AND id=p_id;
   IF frow.id IS NULL THEN RAISE EXCEPTION 'citation_finding_unavailable' USING ERRCODE='22023'; END IF;
   frec := frow.record;

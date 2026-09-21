@@ -6,6 +6,8 @@ import {
   citationFindingReviewReceiptSchema,
   citationFindingReviewRemoveSchema,
   citationFindingReviewTargetSchema,
+  citationReviewAssignmentInputSchema,
+  citationReviewAssignmentReceiptSchema,
 } from "./citation-finding-review";
 import type { KnowledgeRpc } from "./project-knowledge.server";
 // The authenticated CALLER is the actor (an independent reviewer, or the owner for the owner-side reads);
@@ -148,4 +150,48 @@ export async function removeCitationFindingReview(
         rpc,
       ),
     );
+}
+// Owner-only endpoints for the finding-scoped evidence-review assignment (finding 4062796988). The `owner`
+// argument is the AUTHENTICATED caller supplied by the server — it becomes `p_owner`, so a caller can only
+// grant/revoke on their OWN workspace; there is no client-supplied owner-authority field to spoof, and the
+// underlying table is RLS-closed. These are the minimal owner controls for the scoped grant, not a broader
+// sharing surface.
+export async function grantCitationReviewAssignment(
+  owner: string,
+  raw: z.infer<typeof citationReviewAssignmentInputSchema>,
+  rpc?: KnowledgeRpc,
+) {
+  const o = actorId.parse(owner);
+  const input = citationReviewAssignmentInputSchema.parse(raw);
+  return citationReviewAssignmentReceiptSchema.parse(
+    await call(
+      "grant_ai_citation_review_assignment",
+      {
+        p_owner: o,
+        p_project: input.projectId,
+        p_finding: input.findingRowId,
+        p_reviewer: input.reviewerId,
+      },
+      rpc,
+    ),
+  );
+}
+export async function revokeCitationReviewAssignment(
+  owner: string,
+  raw: z.infer<typeof citationReviewAssignmentInputSchema>,
+  rpc?: KnowledgeRpc,
+) {
+  const o = actorId.parse(owner);
+  const input = citationReviewAssignmentInputSchema.parse(raw);
+  const data = await call(
+    "revoke_ai_citation_review_assignment",
+    {
+      p_owner: o,
+      p_project: input.projectId,
+      p_finding: input.findingRowId,
+      p_reviewer: input.reviewerId,
+    },
+    rpc,
+  );
+  return z.literal(true).parse(data);
 }

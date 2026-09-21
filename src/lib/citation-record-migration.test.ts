@@ -700,6 +700,51 @@ describe("intervention/retest dates are reconciled to trusted server events (no 
       Date.parse(detail.record.change.approvedAt),
     );
   });
+  it("canonicalizes verification.method/receipt from the trusted owner inspection, discarding a forged independent-proof label (finding 4062782883)", async () => {
+    const observedAt = await isoAt("- interval '1 hour'");
+    const forged = () => {
+      const rec = improvement(impId, fid, { verified: true });
+      // Forge an INDEPENDENT-proof provenance on top of a mere owner inspection: a search-index method and a
+      // receipt string that reads like a connector/index delivery proof. Both are schema-valid but untrusted
+      // (index_inspection IS an allowed method enum). The fixture builder narrows method to the
+      // "owner_inspection" literal, so type the mutable target to the raw string shape the RPC then validates —
+      // a deliberate forgery, NOT a weakened production schema.
+      const v = rec.verification! as { method: string; receipt: string };
+      v.method = "index_inspection";
+      v.receipt = "Google Search Console index coverage receipt #IDX-9931 (independent)";
+      return rec;
+    };
+    const imp = await saveI(
+      forged(),
+      binding({ inspection: { checkResult: "shows_approved_content", observedAt } }),
+    );
+    // Still only an owner attestation — canonicalizing the label never promotes it to independent proof.
+    expect(imp.verificationStatus).toBe("owner_attested");
+    const detail = await getCitationImprovement(scope, imp.id, rpc);
+    // The forged label is gone: method is the actual binding type, and receipt is a self-labelled
+    // owner-inspection descriptor of the VALIDATED observedUrl — never index_inspection / independent proof.
+    expect(detail.record.verification!.method).toBe("owner_inspection");
+    expect(detail.record.verification!.receipt).toMatch(
+      /^owner_inspection https:\/\/acme\.example\/services @ \d{4}-/,
+    );
+    expect(detail.record.verification!.receipt).not.toContain("IDX-9931");
+    expect(Date.parse(detail.record.verification!.verifiedAt)).toBe(Date.parse(observedAt));
+    // Idempotent: re-saving the SAME forged input collapses to the same trusted record — no duplicate row, and
+    // the stored provenance stays canonical (the forged label never re-appears).
+    const again = await saveI(
+      forged(),
+      binding({ inspection: { checkResult: "shows_approved_content", observedAt } }),
+    );
+    expect(again.id).toBe(imp.id);
+    const rows = await db.query<{ n: number }>(
+      "SELECT count(*)::int n FROM ai_citation_improvements WHERE user_id=$1 AND project_id='p' AND improvement_id=$2",
+      [user, impId],
+    );
+    expect(rows.rows[0].n).toBe(1);
+    const reread = await getCitationImprovement(scope, again.id, rpc);
+    expect(reread.record.verification!.method).toBe("owner_inspection");
+    expect(reread.record.verification!.receipt).not.toContain("IDX-9931");
+  });
   it("refuses a verification block with no server-validated owner inspection to anchor it (unbacked)", async () => {
     // No binding at all — nothing trusted to reconcile the retest/approval instants to.
     await expect(saveI(improvement(impId, fid, { verified: true }), null)).rejects.toThrow();

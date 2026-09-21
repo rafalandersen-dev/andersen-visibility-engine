@@ -10,8 +10,10 @@ import {
 } from "./citation-record.server";
 import {
   getCitationFindingForReview,
+  grantCitationReviewAssignment,
   readCitationFindingReviews,
   removeCitationFindingReview,
+  revokeCitationReviewAssignment,
   saveCitationFindingReview,
 } from "./citation-finding-review.server";
 import { importAnswerEvidence, saveEvidencePrompt } from "./answer-evidence.server";
@@ -123,7 +125,7 @@ const recordedOnlyPassage = (passage: string) => ({
   ...supportBase(passage),
   selectedRecord: null,
 });
-const saveF = (
+const saveFRaw = (
   findingId: string,
   decision: Parameters<typeof finding>[1] = "accepted",
   opts: FindingOpts = {},
@@ -133,6 +135,30 @@ const saveF = (
     { scope: panelScope, finding: finding(findingId, decision, opts) },
     rpc,
   );
+// Owner-only finding-scoped assignment helpers (finding 4062796988). `assign` grants; `revokeAssign` revokes.
+const assign = (rowId: string, who: string = reviewer, ownerId = user, projectId = "p") =>
+  grantCitationReviewAssignment(ownerId, { projectId, findingRowId: rowId, reviewerId: who }, rpc);
+const revokeAssign = (rowId: string, who: string = reviewer, ownerId = user, projectId = "p") =>
+  revokeCitationReviewAssignment(ownerId, { projectId, findingRowId: rowId, reviewerId: who }, rpc);
+// Auto-grant the DEFAULT reviewer to every finding the creation helpers persist, so the many legacy
+// reviewer-access tests (written before the finding-scoped evidence-review gate) keep exercising reviewer reads
+// without a per-test grant. BEST-EFFORT: if the default reviewer is not currently eligible (a suite mutated the
+// authority before creating the finding), the grant is skipped — an access test would then fail LOUDLY at the
+// read, never silently pass, so this can never turn a genuine denial into a false success. reviewer2 /
+// editorActor access is granted explicitly per-test, and the dedicated assignment SECURITY suite creates rows
+// via the non-granting saveFRaw (or grants a DIFFERENT reviewer) to prove the gate actually denies.
+const autoAssign = async (rowId: string) => {
+  try {
+    await assign(rowId, reviewer);
+  } catch {
+    /* reviewer not currently eligible at creation time; the individual test authorizes/grants as it needs */
+  }
+};
+const saveF = async (...args: Parameters<typeof saveFRaw>) => {
+  const f = await saveFRaw(...args);
+  await autoAssign(f.id);
+  return f;
+};
 const shaFor = async (rowId: string, actor = reviewer) =>
   // Non-null assertion: shaFor is only used on ACTIVE/visible findings, whose recordSha256 is the real hash a
   // reviewer pins to submit. (The digest is masked to null only on erased/withheld reviewer surfaces.)
@@ -428,6 +454,7 @@ describe("independent finding review: authority is the live team membership/poli
     const f = await saveF("60000000-0000-4000-8000-000000000004");
     await setPolicy("editors_can_approve");
     await setMember(editorActor, "editor");
+    await assign(f.id, editorActor); // finding-scoped grant to the editor (finding 4062796988)
     const receipt = await submit(editorActor, f.id, await shaFor(f.id, editorActor), "approved");
     expect(receipt.reviewerRole).toBe("editor");
     expect(await reviewStatusOf(f.id)).toBe("independent_reviewed");
@@ -1255,6 +1282,7 @@ describe("the independent inspection gate reuses the canonical accuracy resolver
     });
     if (saved.error) throw saved.error;
     const rowId = (saved.data as { id: string }).id;
+    await autoAssign(rowId);
     const view = await getCitationFindingForReview(
       reviewer,
       { ownerId: user, projectId: "p", findingRowId: rowId },
@@ -1407,6 +1435,7 @@ describe("the independent inspection gate reuses the canonical accuracy resolver
     });
     if (saved.error) throw saved.error;
     const rowId = (saved.data as { id: string }).id;
+    await autoAssign(rowId);
     const view = await getCitationFindingForReview(
       reviewer,
       { ownerId: user, projectId: "p", findingRowId: rowId },
@@ -1438,6 +1467,7 @@ describe("the independent inspection gate reuses the canonical accuracy resolver
     });
     if (saved.error) throw saved.error;
     const row = (saved.data as { id: string }).id;
+    await autoAssign(row);
     // A reviewer records a receipt whose NOTE quotes the fact, while the fact is still live.
     await submit(reviewer, row, await shaFor(row), "approved", NOTE_SECRET);
     // Delete the pinned fact via the real RPC.
@@ -1800,9 +1830,11 @@ describe("review-read identity + private-fact exposure boundaries (findings 4062
         p_scope: panelScope,
       });
       if (saved.error) throw saved.error;
+      const rowId = (saved.data as { id: string }).id;
+      await autoAssign(rowId);
       return getCitationFindingForReview(
         reviewer,
-        { ownerId: user, projectId: "p", findingRowId: (saved.data as { id: string }).id },
+        { ownerId: user, projectId: "p", findingRowId: rowId },
         rpc,
       );
     };
@@ -1902,7 +1934,9 @@ describe("native artifact deletion propagates the evidence-forget policy (findin
       p_scope: panelScope,
     });
     if (saved.error) throw saved.error;
-    return (saved.data as { id: string }).id;
+    const id = (saved.data as { id: string }).id;
+    await autoAssign(id);
+    return id;
   };
   const seedOtherNative = (id: string) =>
     db.query(
@@ -2085,6 +2119,7 @@ describe("withdrawal is reviewer-only, auditable, and never silently sanitises a
   it("does not let the owner sanitise a dissent: A dissents + B approves stays dissent until A retracts", async () => {
     await setMember(reviewer2, "reviewer");
     const f = await saveF("60000000-0000-4000-8000-000000000041");
+    await assign(f.id, reviewer2); // both independent reviewers are owner-assigned to this finding
     const sha = await shaFor(f.id);
     const dissent = await submit(reviewer, f.id, sha, "needs_changes", "Not supported.");
     await submit(reviewer2, f.id, sha, "approved");
@@ -2560,6 +2595,7 @@ describe("improvement eligibility: a required-but-missing second review caps own
     const fid = "60000000-0000-4000-8000-000000000026";
     const impId = "70000000-0000-4000-8000-000000000026";
     const f1 = await saveF(fid, "accepted");
+    await assign(f1.id, reviewer2); // reviewer B is owner-assigned so their dissent below is authorized
     // f1 is INDEPENDENTLY REVIEWED (reviewer A approves, inspection-complete), and a bound improvement is genuinely
     // owner_attested FIRST — the attestation exists before any dissent.
     await submit(reviewer, f1.id, await shaFor(f1.id), "approved");
@@ -2761,7 +2797,9 @@ describe("evidence lifecycle: forgetting a source erases copied material and dow
       p_scope: panelScope,
     });
     if (r.error) throw r.error;
-    return (r.data as { id: string }).id;
+    const id = (r.data as { id: string }).id;
+    await autoAssign(id);
+    return id;
   };
   const storedPassage = async (rowId: string) =>
     (
@@ -3914,7 +3952,9 @@ describe("answer-delete erasure propagation: forgetting an answer erases a findi
       p_scope: panelScope,
     });
     if (r.error) throw r.error;
-    return (r.data as { id: string }).id;
+    const id = (r.data as { id: string }).id;
+    await autoAssign(id);
+    return id;
   };
   const removeAnswer = (kind: string, id: string) =>
     rpc("remove_ai_answer_evidence", { p_user: user, p_project: "p", p_kind: kind, p_id: id });
@@ -4130,5 +4170,162 @@ describe("answer-delete erasure propagation: forgetting an answer erases a findi
         )
       ).rows.length,
     ).toBe(1);
+  });
+});
+describe("finding-scoped evidence-review assignment gates the sensitive reviewer surfaces (finding 4062796988)", () => {
+  // These use saveFRaw (NOT the auto-granting saveF) so the assignment gate is exercised for real: a finding
+  // exists and is fully inspectable, and the ONLY thing standing between a bona-fide team reviewer and the
+  // private evidence is the owner's explicit finding-scoped grant.
+  const forReview = (actor: string, rowId: string, ownerId = user, projectId = "p") =>
+    getCitationFindingForReview(actor, { ownerId, projectId, findingRowId: rowId }, rpc);
+  const list = (actor: string, rowId: string, ownerId = user, projectId = "p") =>
+    readCitationFindingReviews(actor, { ownerId, projectId, findingRowId: rowId }, rpc);
+  it("denies an eligible team reviewer who was NOT assigned — read, list, and submit all fail closed as citation_finding_unavailable", async () => {
+    await setMember(reviewer2, "reviewer"); // a bona-fide active reviewer, but with no assignment
+    const f = await saveFRaw("60000000-0000-4000-8000-000000000a01");
+    // A DIFFERENT reviewer is assigned, proving the grant is per-reviewer, not a blanket team capability.
+    await assign(f.id, reviewer);
+    expect((await forReview(reviewer, f.id)).id).toBe(f.id);
+    // The unassigned team reviewer is refused on EVERY sensitive surface with the generic unavailable code — the
+    // same one an absent/masked finding raises, so this is not an existence oracle either.
+    await expect(forReview(reviewer2, f.id)).rejects.toThrow("citation_finding_unavailable");
+    await expect(list(reviewer2, f.id)).rejects.toThrow("citation_finding_unavailable");
+    await expect(submit(reviewer2, f.id, await shaFor(f.id), "approved")).rejects.toThrow(
+      "citation_finding_unavailable",
+    );
+    expect((await list(reviewer, f.id)).reviewTotal).toBe(0); // nothing was written by the unassigned reviewer
+  });
+  it("denies an eligible editor (editors_can_approve) who was not assigned", async () => {
+    await setPolicy("editors_can_approve");
+    await setMember(editorActor, "editor");
+    const f = await saveFRaw("60000000-0000-4000-8000-000000000a02");
+    await expect(forReview(editorActor, f.id)).rejects.toThrow("citation_finding_unavailable");
+    await expect(submit(editorActor, f.id, "a".repeat(64), "approved")).rejects.toThrow(
+      "citation_finding_unavailable",
+    );
+  });
+  it("binds to the EXACT version row: an assignment on v1 never authorizes the superseded v2, and a different finding is never authorized (scoped, not a corpus grant)", async () => {
+    const fid = "60000000-0000-4000-8000-000000000a03";
+    const v1 = await saveFRaw(fid, "accepted");
+    await assign(v1.id, reviewer);
+    expect((await forReview(reviewer, v1.id)).id).toBe(v1.id);
+    // A genuinely distinct accepted successor is a NEW row (v2) with no assignment of its own.
+    const v2 = await saveFRaw(fid, "accepted", {
+      observation: "The answer still cites a competitor but not this business (rechecked).",
+    });
+    expect(v2.id).not.toBe(v1.id);
+    expect(v2.supersedesId).toBe(v1.id);
+    await expect(forReview(reviewer, v2.id)).rejects.toThrow("citation_finding_unavailable");
+    const other = await saveFRaw("60000000-0000-4000-8000-000000000a04");
+    await expect(forReview(reviewer, other.id)).rejects.toThrow("citation_finding_unavailable");
+    await expect(list(reviewer, other.id)).rejects.toThrow("citation_finding_unavailable");
+  });
+  it("never authorizes a foreign owner or the wrong project even for the assigned reviewer", async () => {
+    const f = await saveFRaw("60000000-0000-4000-8000-000000000a05");
+    await assign(f.id, reviewer); // assigned under (user, 'p')
+    expect((await forReview(reviewer, f.id)).id).toBe(f.id);
+    await expect(
+      forReview(reviewer, f.id, "00000000-0000-4000-8000-000000000009", "p"),
+    ).rejects.toThrow();
+    await expect(forReview(reviewer, f.id, user, "q")).rejects.toThrow();
+  });
+  it("revocation fails closed immediately, is idempotent, and a re-grant restores access", async () => {
+    const f = await saveFRaw("60000000-0000-4000-8000-000000000a06");
+    await assign(f.id, reviewer);
+    const view = await forReview(reviewer, f.id);
+    expect(view.id).toBe(f.id);
+    expect(await revokeAssign(f.id, reviewer)).toBe(true);
+    await expect(forReview(reviewer, f.id)).rejects.toThrow("citation_finding_unavailable");
+    await expect(list(reviewer, f.id)).rejects.toThrow("citation_finding_unavailable");
+    await expect(submit(reviewer, f.id, view.recordSha256!, "approved")).rejects.toThrow(
+      "citation_finding_unavailable",
+    );
+    // Idempotent: revoking again, or a never-granted pair, is a content-free no-op success.
+    expect(await revokeAssign(f.id, reviewer)).toBe(true);
+    expect(await revokeAssign(f.id, reviewer2)).toBe(true);
+    await assign(f.id, reviewer); // re-grant restores access (no lingering deny)
+    expect((await forReview(reviewer, f.id)).id).toBe(f.id);
+  });
+  it("keeps team/account eligibility NECESSARY even with an active assignment: a removed, expired, or banned reviewer is still refused", async () => {
+    const f = await saveFRaw("60000000-0000-4000-8000-000000000a07");
+    await assign(f.id, reviewer);
+    expect((await forReview(reviewer, f.id)).id).toBe(f.id);
+    await setMember(reviewer, "reviewer", false); // membership revoked
+    await expect(forReview(reviewer, f.id)).rejects.toThrow();
+    await setMember(reviewer, "reviewer", true);
+    expect((await forReview(reviewer, f.id)).id).toBe(f.id);
+    await db.query(
+      "UPDATE project_team_members SET expires_at=clock_timestamp() - interval '1 day' WHERE owner_id=$1 AND actor_id=$2",
+      [user, reviewer],
+    );
+    await expect(forReview(reviewer, f.id)).rejects.toThrow(); // membership expired
+    await db.query(
+      "UPDATE project_team_members SET expires_at=NULL WHERE owner_id=$1 AND actor_id=$2",
+      [user, reviewer],
+    );
+    await db.query(
+      "UPDATE auth.users SET banned_until=clock_timestamp() + interval '1 day' WHERE id=$1",
+      [reviewer],
+    );
+    await expect(forReview(reviewer, f.id)).rejects.toThrow(); // account banned
+    await db.query("UPDATE auth.users SET banned_until=NULL WHERE id=$1", [reviewer]);
+    expect((await forReview(reviewer, f.id)).id).toBe(f.id); // restored on all axes
+  });
+  it("grant is owner-authenticated and refuses fake/ineligible/non-owner assignments", async () => {
+    const f = await saveFRaw("60000000-0000-4000-8000-000000000a08");
+    // No fake assignments: a stranger (no membership) or a viewer is not an eligible reviewer.
+    await expect(assign(f.id, stranger)).rejects.toThrow("citation_review_forbidden");
+    await setMember(viewerActor, "viewer");
+    await expect(assign(f.id, viewerActor)).rejects.toThrow("citation_review_forbidden");
+    // The owner can never be self-assigned as an independent reviewer.
+    await expect(assign(f.id, user)).rejects.toThrow();
+    // A non-owner cannot grant/revoke on the owner's workspace: passing their OWN id reaches only their own
+    // (absent) workspace + finding, never the owner's row. There is no client-supplied owner-authority to spoof.
+    await expect(
+      grantCitationReviewAssignment(
+        stranger,
+        { projectId: "p", findingRowId: f.id, reviewerId: reviewer },
+        rpc,
+      ),
+    ).rejects.toThrow();
+    await expect(
+      revokeCitationReviewAssignment(
+        stranger,
+        { projectId: "p", findingRowId: f.id, reviewerId: reviewer },
+        rpc,
+      ),
+    ).rejects.toThrow();
+    // None of the refused attempts created a live assignment for this finding.
+    expect(
+      (
+        await db.query(
+          "SELECT 1 FROM ai_citation_review_assignments WHERE finding_row_id=$1 AND active",
+          [f.id],
+        )
+      ).rows.length,
+    ).toBe(0);
+  });
+  it("a deleted finding cascades its assignments away (fail closed, no dangling grant)", async () => {
+    const f = await saveFRaw("60000000-0000-4000-8000-000000000a09");
+    await assign(f.id, reviewer);
+    expect(
+      (
+        await db.query("SELECT 1 FROM ai_citation_review_assignments WHERE finding_row_id=$1", [
+          f.id,
+        ])
+      ).rows.length,
+    ).toBe(1);
+    // Deleting the whole project cascades findings -> assignments (the finding FK is ON DELETE CASCADE).
+    await db.query(
+      "DELETE FROM workspace_entities WHERE user_id=$1 AND collection='projects' AND entity_id='p'",
+      [user],
+    );
+    expect(
+      (
+        await db.query("SELECT 1 FROM ai_citation_review_assignments WHERE finding_row_id=$1", [
+          f.id,
+        ])
+      ).rows.length,
+    ).toBe(0);
   });
 });

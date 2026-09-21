@@ -4,6 +4,7 @@ import {
   citationFindingReviewInputSchema,
   citationFindingReviewRemoveSchema,
   citationFindingReviewTargetSchema,
+  citationReviewAssignmentInputSchema,
 } from "./citation-finding-review";
 // Unlike the owner-only citation endpoints, these do NOT require the caller to be the project owner: the
 // authenticated `context.userId` is the ACTOR (an independent reviewer, or the owner for the owner-side
@@ -42,6 +43,28 @@ export const removeCitationFindingReviewFn = createServerFn({ method: "POST" })
   .inputValidator((v: unknown) => citationFindingReviewRemoveSchema.parse(v))
   .handler(async ({ data, context }) =>
     (await import("./citation-finding-review.server")).removeCitationFindingReview(
+      context.userId,
+      data,
+    ),
+  );
+// OWNER-ONLY endpoints (finding 4062796988): unlike the four reviewer endpoints above, here the authenticated
+// `context.userId` is the OWNER (passed as `p_owner`), so a caller can only grant/revoke a finding-scoped
+// evidence-review assignment on their OWN workspace — there is no owner field in the payload to forge. These
+// are the minimal owner controls for the scoped grant, not a sharing-feature/UI surface.
+export const grantCitationReviewAssignmentFn = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((v: unknown) => citationReviewAssignmentInputSchema.parse(v))
+  .handler(async ({ data, context }) =>
+    (await import("./citation-finding-review.server")).grantCitationReviewAssignment(
+      context.userId,
+      data,
+    ),
+  );
+export const revokeCitationReviewAssignmentFn = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((v: unknown) => citationReviewAssignmentInputSchema.parse(v))
+  .handler(async ({ data, context }) =>
+    (await import("./citation-finding-review.server")).revokeCitationReviewAssignment(
       context.userId,
       data,
     ),

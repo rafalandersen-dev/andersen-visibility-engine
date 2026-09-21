@@ -6,6 +6,8 @@ const h = vi.hoisted(() => ({
   list: vi.fn(),
   view: vi.fn(),
   remove: vi.fn(),
+  grant: vi.fn(),
+  revoke: vi.fn(),
 }));
 vi.mock("@/integrations/supabase/auth-middleware", () => ({ requireSupabaseAuth: h.auth }));
 vi.mock("@tanstack/react-start", () => ({
@@ -31,11 +33,15 @@ vi.mock("./citation-finding-review.server", () => ({
   readCitationFindingReviews: h.list,
   getCitationFindingForReview: h.view,
   removeCitationFindingReview: h.remove,
+  grantCitationReviewAssignment: h.grant,
+  revokeCitationReviewAssignment: h.revoke,
 }));
 import {
   getCitationFindingForReviewFn,
+  grantCitationReviewAssignmentFn,
   readCitationFindingReviewsFn,
   removeCitationFindingReviewFn,
+  revokeCitationReviewAssignmentFn,
   saveCitationFindingReviewFn,
 } from "./citation-finding-review.functions";
 const owner = "00000000-0000-4000-8000-000000000001";
@@ -45,8 +51,8 @@ const sha = "a".repeat(64);
 const call = (fn: unknown, data: unknown, userId = reviewer) =>
   (fn as (v: unknown) => Promise<unknown>)({ data, context: { userId } });
 describe("citation finding review endpoint authentication", () => {
-  it("requires auth on all four endpoints", () => {
-    expect(h.registered).toHaveLength(4);
+  it("requires auth on all six endpoints", () => {
+    expect(h.registered).toHaveLength(6);
     for (const registration of h.registered) expect(registration).toEqual([h.auth]);
   });
   it("always uses the authenticated caller as the actor — the reviewer can never be a payload field", async () => {
@@ -90,6 +96,22 @@ describe("citation finding review endpoint authentication", () => {
       ownerId: owner,
       id: row,
     });
+  });
+  it("uses the authenticated caller as the OWNER for grant/revoke — the owner is never a payload field (finding 4062796988)", async () => {
+    const input = { projectId: "p", findingRowId: row, reviewerId: reviewer };
+    // The 1st arg is context.userId (the owner); there is no ownerId key to forge.
+    await call(grantCitationReviewAssignmentFn, input, owner);
+    expect(h.grant).toHaveBeenLastCalledWith(owner, input);
+    await call(revokeCitationReviewAssignmentFn, input, owner);
+    expect(h.revoke).toHaveBeenLastCalledWith(owner, input);
+    // A stray ownerId (or any extra key) is rejected by the strict schema — no owner-authority to spoof.
+    expect(() => call(grantCitationReviewAssignmentFn, { ...input, ownerId: reviewer })).toThrow();
+    // Malformed reviewer/finding ids and a bad project are refused.
+    expect(() => call(grantCitationReviewAssignmentFn, { ...input, reviewerId: "nope" })).toThrow();
+    expect(() =>
+      call(revokeCitationReviewAssignmentFn, { ...input, findingRowId: "no" }),
+    ).toThrow();
+    expect(() => call(grantCitationReviewAssignmentFn, { ...input, projectId: "../p" })).toThrow();
   });
   it("refuses malformed ids, a bad content hash, an off-list decision and a malformed project", () => {
     const base = {

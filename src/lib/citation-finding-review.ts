@@ -244,3 +244,21 @@ export const citationFindingReviewTargetSchema = z
 export const citationFindingReviewRemoveSchema = z
   .object({ projectId: evidenceProjectId, ownerId: uuid, id: uuid })
   .strict();
+/** Owner-only grant/revoke of a finding-scoped evidence-review assignment (finding 4062796988). The
+ * authenticated caller IS the owner (never carried here — the server passes the session id), so this schema
+ * binds only the project, the EXACT finding row and the intended reviewer. Team membership/publication
+ * approval alone never authorizes private evidence; this explicit owner grant, re-checked live, does. */
+export const citationReviewAssignmentInputSchema = z
+  .object({ projectId: evidenceProjectId, findingRowId: uuid, reviewerId: uuid })
+  .strict();
+export type CitationReviewAssignmentInput = z.infer<typeof citationReviewAssignmentInputSchema>;
+/** The stored assignment echoed on grant. All fields are server-derived; `active` is always true on grant. */
+export const citationReviewAssignmentReceiptSchema = z
+  .object({
+    ownerId: uuid,
+    projectId: z.string(),
+    findingRowId: uuid,
+    reviewerId: uuid,
+    active: z.literal(true),
+  })
+  .strict();
