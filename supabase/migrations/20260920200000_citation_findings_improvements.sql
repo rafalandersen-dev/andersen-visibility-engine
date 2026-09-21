@@ -2253,7 +2253,7 @@ RETURNS jsonb LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path='' AS $$
 DECLARE auth record; frow public.ai_citation_findings%ROWTYPE; frec jsonb; e jsonb; ref uuid;
   ev_json jsonb := '[]'::jsonb; facts_json jsonb := '[]'::jsonb; reviews jsonb; total integer;
   ans jsonb; src jsonb; srev integer; mat jsonb; nat boolean;
-  fk text; fv text; ffrom timestamptz; funtil timestamptz; ffound boolean;
+  fk text; fv text; ffrom timestamptz; funtil timestamptz;
   frec_response jsonb; passages_withheld boolean := false; native_missing boolean := false; v_masked boolean;
 BEGIN
   IF p_actor IS NULL OR p_owner IS NULL OR p_id IS NULL THEN RAISE EXCEPTION 'citation_review_invalid' USING ERRCODE='22023'; END IF;
@@ -2345,58 +2345,50 @@ BEGIN
       END IF;
     END LOOP;
   END IF;
-  -- RESPONSE-ONLY withholding of the owner's COPIED support passages when a cited source is revoked/missing.
-  -- The reviewer response previously returned frec verbatim, including support[].sourcePassage — the owner's
-  -- copy of a now-revoked source's text, delivered to the reviewer even though that source's LIVE material is
-  -- withheld above. Here we build a redacted RESPONSE COPY (never the stored row) that blanks every non-null
-  -- support passage to a marker. This is distinct from ERASURE: the owner's stored ai_citation_findings.record
-  -- is untouched (revocation is not a forget), so the owner's own detail read still returns the real passage;
-  -- only THIS reviewer response withholds it, and `sourcePassagesWithheld` surfaces that so the returned record
-  -- is never mistaken for the recordSha256 preimage (that digest still pins the UNREDACTED stored record — a
-  -- reviewer cannot attest bytes they were not shown as fully inspected, and a revoked source already forces
-  -- inspectionComplete=false). An already-erased finding keeps its stored '[redacted: source forgotten]' copy
-  -- verbatim (no live passage to leak); response-only withholding applies only while NOT erased.
-  IF frow.evidence_erased_at IS NULL AND passages_withheld AND jsonb_typeof(frec->'support')='array' THEN
-    frec_response := jsonb_set(frec,'{support}',(
-      SELECT coalesce(jsonb_agg(CASE WHEN s->>'sourcePassage' IS NOT NULL
-          THEN jsonb_set(s,'{sourcePassage}',to_jsonb('[withheld: source revoked]'::text)) ELSE s END ORDER BY ord),'[]'::jsonb)
-      FROM jsonb_array_elements(frec->'support') WITH ORDINALITY AS a(s,ord)));
-  ELSE
-    frec_response := frec;
-  END IF;
-  -- EVIDENCE-DERIVED PROSE withholding (finding 4059648507). observation / hypothesis / support[].reason are the
-  -- OWNER'S own free-text analysis and MAY quote or paraphrase the now-erased answer or the withheld source. They
-  -- are KEPT in storage (honest owner retention — the owner's own detail read still returns them, the documented
-  -- retention boundary for the owner's analysis), but the REVIEWER must not receive evidence-derived prose once
-  -- the finding is MASKED (erased, or a cited source revoked/missing). So this reviewer RESPONSE COPY blanks them
-  -- to a content-free marker whenever masked — response-only withholding, symmetric with the copied-passage and
-  -- receipt-note withholding, no stored mutation and no content-free audit lost. (The structured answer/source
-  -- copies are handled separately: storage-erased on a forget, response-withheld on a revoke.)
-  IF frow.evidence_erased_at IS NOT NULL OR passages_withheld OR native_missing THEN
-    IF (frec_response->>'observation') IS NOT NULL THEN
-      frec_response := jsonb_set(frec_response,'{observation}',to_jsonb('[withheld: finding evidence hidden]'::text));
-    END IF;
-    IF (frec_response->>'hypothesis') IS NOT NULL THEN
-      frec_response := jsonb_set(frec_response,'{hypothesis}',to_jsonb('[withheld: finding evidence hidden]'::text));
-    END IF;
-    IF jsonb_typeof(frec_response->'support')='array' THEN
-      frec_response := jsonb_set(frec_response,'{support}',(
-        SELECT coalesce(jsonb_agg(CASE WHEN s->>'reason' IS NOT NULL
-            THEN jsonb_set(s,'{reason}',to_jsonb('[withheld: finding evidence hidden]'::text)) ELSE s END ORDER BY ord),'[]'::jsonb)
-        FROM jsonb_array_elements(frec_response->'support') WITH ORDINALITY AS a(s,ord)));
-    END IF;
-  END IF;
-  -- The dated fact behind each assessed-accuracy claim (only entries that pin a fact row).
+  -- WHOLE-RECORD reviewer withholding (finding 4062101980). A MASKED finding — erased, a cited source
+  -- revoked/missing (its copied passages unverifiable), or a cited native artifact missing — can carry
+  -- owner-authored ANSWER- or source-derived content in MANY structured fields: observation / hypothesis,
+  -- recommendation.passage / target, support[].claimSpan / citedUrl / sourcePassage / reason, accuracy[].claimSpan,
+  -- and any nested/future field. Blacklisting individual prose fields is NOT sound — the answer field redactor
+  -- deliberately RETAINS citedUrl and recommendation.target/conclusions for the owner, so a reviewer added AFTER an
+  -- answer delete could still recover answer-derived content from a field the per-field blacklist missed. So the
+  -- ENTIRE owner-authored record is WITHHELD from the reviewer whenever masked — a whole-record-unavailable
+  -- contract (record := NULL). The STORED record is UNTOUCHED (owner retention: the owner's own detail read still
+  -- returns it in full — the approved retention policy, no extra owner deletion), and the truthful availability
+  -- flags below (evidenceErased / sourcePassagesWithheld) say WHY it is unavailable, while recordSha256 and the
+  -- receipt notes/digests are likewise masked. An UNMASKED finding still returns the full record verbatim so a
+  -- reviewer can inspect it; dissent, withdrawal and unrelated valid findings are unaffected (they read the
+  -- top-level status + receipts, not this record).
+  v_masked := (frow.evidence_erased_at IS NOT NULL OR passages_withheld OR native_missing);
+  frec_response := CASE WHEN v_masked THEN NULL ELSE frec END;
+  -- The dated fact behind each assessed-accuracy claim. The owner-PRIVATE fact value/metadata is served ONLY for a
+  -- FULLY VALID binding — resolution='resolved' from the canonical citation_accuracy_resolve: the entry is assessed,
+  -- its pinned row exists with fact_id / version / kind ALL agreeing, its dated validity COVERS the resolved
+  -- capture instant, and it is the sole logical fact of its kind with no newer overlapping correction (the exact
+  -- owner/project/logical-id/version/kind + dated-capture semantics the resolver enforces; semantic uuid). A
+  -- NOT_CHECKED/UNCLEAR (not_assessed), unpinned, capture-unresolved, MISSING, id/version/kind-MISMATCHED (fact_
+  -- missing / wrong_kind — a wrong/foreign/guessed row uuid), or DATED-UNRESOLVED (out_of_period / ambiguous /
+  -- superseded_correction) entry must NOT expose an owner-private fact via a bare factRowId lookup (finding
+  -- 4062040467). So reuse the resolver (the single source of truth — never an approximate independent lookup) and,
+  -- when it is not 'resolved', return TRUTHFUL unavailable metadata with NO private value (never a masked fake
+  -- validity). This is ORTHOGONAL to the erase/mask axis: the fact value is LIVE-resolved and is NEVER stored in
+  -- the finding record or its record_sha256, so gating it here changes no digest/erasure behavior; the owner's
+  -- recorded PROSE stays governed by the mask condition above (owner-recorded prose vs resolved private fact
+  -- material are distinct).
   IF jsonb_typeof(frec->'accuracy')='array' THEN
     FOR e IN SELECT jsonb_array_elements(frec->'accuracy') LOOP
       IF jsonb_typeof(e->'factRowId')='string' AND (e->>'factRowId') ~ '^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$' THEN
-        SELECT kind,value,valid_from,valid_until INTO fk,fv,ffrom,funtil FROM public.ai_citation_business_facts
-          WHERE user_id=p_owner AND project_id=p_project AND id=(e->>'factRowId')::uuid;
-        ffound := FOUND;
-        facts_json := facts_json || jsonb_build_object('factRowId',e->>'factRowId','available',ffound,
-          'kind',fk,'value',fv,
-          'validFrom',CASE WHEN ffound THEN to_char(ffrom AT TIME ZONE 'UTC','YYYY-MM-DD"T"HH24:MI:SS.US"Z"') ELSE NULL END,
-          'validUntil',CASE WHEN ffound AND funtil IS NOT NULL THEN to_char(funtil AT TIME ZONE 'UTC','YYYY-MM-DD"T"HH24:MI:SS.US"Z"') ELSE NULL END);
+        IF (public.citation_accuracy_resolve(p_owner,p_project,frec,e)->>'resolution') = 'resolved' THEN
+          SELECT kind,value,valid_from,valid_until INTO fk,fv,ffrom,funtil FROM public.ai_citation_business_facts
+            WHERE user_id=p_owner AND project_id=p_project AND id=(e->>'factRowId')::uuid;
+          facts_json := facts_json || jsonb_build_object('factRowId',e->>'factRowId','available',true,
+            'kind',fk,'value',fv,
+            'validFrom',to_char(ffrom AT TIME ZONE 'UTC','YYYY-MM-DD"T"HH24:MI:SS.US"Z"'),
+            'validUntil',CASE WHEN funtil IS NOT NULL THEN to_char(funtil AT TIME ZONE 'UTC','YYYY-MM-DD"T"HH24:MI:SS.US"Z"') ELSE NULL END);
+        ELSE
+          facts_json := facts_json || jsonb_build_object('factRowId',e->>'factRowId','available',false,
+            'kind',NULL,'value',NULL,'validFrom',NULL,'validUntil',NULL);
+        END IF;
       END IF;
     END LOOP;
   END IF;
@@ -2408,8 +2400,8 @@ BEGIN
   -- digest are masked to NULL here (this is the reviewer surface; the erased/withheld condition equals
   -- citation_finding_review_digest_masked, computed inline from the values already resolved above). The real
   -- digests are RETAINED server-side (the finding row + each receipt row) for audit; the owner detail read is
-  -- unaffected. A fully-visible finding still exposes the exact binding hash a reviewer needs to submit.
-  v_masked := (frow.evidence_erased_at IS NOT NULL OR passages_withheld OR native_missing);
+  -- unaffected. A fully-visible finding still exposes the exact binding hash a reviewer needs to submit. (v_masked
+  -- is computed once above, where it also drives the whole-record withholding.)
   SELECT count(*) INTO total FROM public.ai_citation_finding_reviews WHERE user_id=p_owner AND project_id=p_project AND finding_row_id=p_id;
   -- This is the reviewer surface (owner is refused above), so mask each note on the SAME masked condition as
   -- the digest: a note may quote the forgotten/withheld value verbatim, so it is never served to the reviewer

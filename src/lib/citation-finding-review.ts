@@ -207,7 +207,13 @@ export const citationFindingForReviewSchema = z
     // carries the exact hash a reviewer pins to submit; an erased finding already blocks new reviews, and a
     // withheld finding is non-inspectable, so neither needs the pin.
     recordSha256: sha256.nullable(),
-    record: findingSchema,
+    // Null when the finding is MASKED (erased, or a cited source revoked/missing, or a cited native artifact
+    // missing): the ENTIRE owner-authored record is withheld from the reviewer (finding 4062101980), because
+    // answer/source-derived content can live in many structured fields (recommendation.target, support[].citedUrl,
+    // claimSpans, nested fields) that a per-field blacklist would miss. The owner's stored record is untouched and
+    // the owner's own detail read still returns it in full; the availability flags below explain the withholding.
+    // A fully-visible (unmasked) finding carries the complete record the reviewer inspects.
+    record: findingSchema.nullable(),
     createdAt: z.string(),
     // True once a source/record forget erased this finding's copied passages: the recordSha256 above (and any
     // receipt referencing it) is a PRE-erasure digest, historic — never an attestation of the current payload.

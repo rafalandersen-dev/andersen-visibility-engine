@@ -99,10 +99,15 @@ export async function readCitationFindingReviews(
       rpc,
     ),
   );
+  // Defensive re-check that the RPC scoped to what we asked. ownerId/findingRowId are validated UUIDs: the RPC
+  // returns them canonically LOWERCASE, but the caller may pass a valid UPPERCASE UUID, so compare them
+  // case-insensitively (finding 4062040465) — a raw !== wrongly rejected a legitimate uppercase identity. projectId
+  // is free text scope and stays an EXACT compare (scope is never weakened); a genuinely different owner/row/project
+  // still mismatches. Comparison only — the returned result (and any hash/document) is never mutated.
   if (
-    result.ownerId !== input.ownerId ||
+    result.ownerId.toLowerCase() !== input.ownerId.toLowerCase() ||
     result.projectId !== input.projectId ||
-    result.findingRowId !== input.findingRowId
+    result.findingRowId.toLowerCase() !== input.findingRowId.toLowerCase()
   )
     throw Error("citation_review_unavailable");
   return result;
@@ -121,7 +126,10 @@ export async function getCitationFindingForReview(
       rpc,
     ),
   );
-  if (result.id !== input.findingRowId) throw Error("citation_review_unavailable");
+  // Case-insensitive UUID identity re-check (finding 4062040465): the RPC returns the canonical lowercase row id;
+  // a valid uppercase findingRowId input must not be spuriously rejected. Comparison only, no mutation.
+  if (result.id.toLowerCase() !== input.findingRowId.toLowerCase())
+    throw Error("citation_review_unavailable");
   return result;
 }
 export async function removeCitationFindingReview(

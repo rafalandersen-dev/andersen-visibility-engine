@@ -373,7 +373,7 @@ describe("independent finding review: authority is the live team membership/poli
     );
     expect(view.reviewStatus).toBe("owner_only");
     expect(view.inspectionComplete).toBe(true);
-    expect(view.record.findingId).toBe("60000000-0000-4000-8000-000000000001");
+    expect(view.record!.findingId).toBe("60000000-0000-4000-8000-000000000001");
     const receipt = await submit(
       reviewer,
       f.id,
@@ -642,7 +642,7 @@ describe("independent evidence inspection gates completed verification (spec §4
       expect(src.material[0]?.value).toContain("SELECTED-RECORD-VALUE-ALPHA");
     }
     // The owner's recorded passage stays visible in the record (honest recorded-only provenance).
-    expect((view.record.support[0] as { sourcePassage: string | null }).sourcePassage).toBe(CITED);
+    expect((view.record!.support[0] as { sourcePassage: string | null }).sourcePassage).toBe(CITED);
     // The UNRELATED same-source private record never appears ANYWHERE in the reviewer response.
     expect(JSON.stringify(view)).not.toContain("UNRELATED-PRIVATE-SECRET-BETA");
     // A valid selected-evidence review completes.
@@ -676,7 +676,7 @@ describe("independent evidence inspection gates completed verification (spec §4
     expect(src.kind === "source" && src.inspectable).toBe(false); // no resolving pin → not independent evidence
     if (src.kind === "source") expect(src.materialCount).toBe(0); // nothing selected → no material served
     // The owner's passage is shown honestly as recorded-only provenance; the unselected private record is absent.
-    expect((view.record.support[0] as { sourcePassage: string | null }).sourcePassage).toBe(TEXT);
+    expect((view.record!.support[0] as { sourcePassage: string | null }).sourcePassage).toBe(TEXT);
     expect(JSON.stringify(view)).not.toContain("UNSELECTED-PRIVATE-SECRET-GAMMA");
     // An approve on an uninspectable required-second-review finding does NOT complete it (review/attest eligibility).
     await submit(reviewer, f.id, view.recordSha256!, "approved");
@@ -712,11 +712,9 @@ describe("independent evidence inspection gates completed verification (spec §4
     expect(src.kind === "source" && src.inspectable).toBe(false);
     expect(src.kind === "source" && src.status).toBe("revoked");
     if (src.kind === "source") expect(src.materialCount).toBe(0); // a revoked source serves no selected material
-    // The recorded passage is withheld (revoke response-withholding), the digest is masked, and the selected
-    // record never appears. A new review is BLOCKED (no pin), so the save cannot be a stale-vs-success oracle.
-    expect((view.record.support[0] as { sourcePassage: string | null }).sourcePassage).not.toBe(
-      CITED,
-    );
+    // The whole record is withheld (masked -> record null), the digest is masked, and the selected record never
+    // appears. A new review is BLOCKED (no pin), so the save cannot be a stale-vs-success oracle.
+    expect(view.record).toBeNull();
     expect(view.sourcePassagesWithheld).toBe(true);
     expect(view.recordSha256).toBeNull();
     const whole = JSON.stringify(view);
@@ -1460,7 +1458,7 @@ describe("the independent inspection gate reuses the canonical accuracy resolver
       rpc,
     );
     expect(view.evidenceErased).toBe(true);
-    expect(view.record.observation).toBe("[withheld: finding evidence hidden]");
+    expect(view.record).toBeNull();
     expect(view.reviews[0].note).toBeNull();
     const whole = JSON.stringify(view);
     expect(whole).not.toContain("OBS-SECRET-6M2P");
@@ -1609,7 +1607,7 @@ describe("the independent inspection gate reuses the canonical accuracy resolver
       rpc,
     );
     expect(view.evidenceErased).toBe(true);
-    expect(view.record.observation).toBe("[withheld: finding evidence hidden]");
+    expect(view.record).toBeNull();
     expect(view.reviews[0].note).toBeNull();
     // Resolution is UNTOUCHED — the entry still resolves unresolved; erasure never rebinds or marks it resolved.
     expect(view.accuracyStatus).toBe("unresolved");
@@ -1677,7 +1675,7 @@ describe("the independent inspection gate reuses the canonical accuracy resolver
       rpc,
     );
     expect(freshView.evidenceErased).toBe(true);
-    expect(freshView.record.observation).toBe("[withheld: finding evidence hidden]");
+    expect(freshView.record).toBeNull();
     expect(JSON.stringify(freshView)).not.toContain("FRESH-SECRET-4X8");
     await expect(
       submit(reviewer, fresh.id, "a".repeat(64), "approved", "resurrected note"),
@@ -1696,6 +1694,161 @@ describe("the independent inspection gate reuses the canonical accuracy resolver
         )
       ).rows[0].n,
     ).toBe(0);
+  });
+});
+describe("review-read identity + private-fact exposure boundaries (findings 4062040465, 4062040467)", () => {
+  it("accepts a valid UPPERCASE finding-row UUID (canonical lowercase response) on both reviewer reads, scope not weakened (finding 4062040465)", async () => {
+    const f = await saveF("60000000-0000-4000-8000-000000000070", "accepted");
+    const upper = f.id.toUpperCase(); // a server-generated row UUID (effectively always carries hex letters)
+    // Both reviewer reads accept the uppercase identity and return the canonical LOWERCASE id (previously a raw
+    // !== re-check rejected the legitimate uppercase input).
+    expect(
+      (
+        await getCitationFindingForReview(
+          reviewer,
+          { ownerId: user, projectId: "p", findingRowId: upper },
+          rpc,
+        )
+      ).id,
+    ).toBe(f.id);
+    expect(
+      (
+        await readCitationFindingReviews(
+          reviewer,
+          { ownerId: user, projectId: "p", findingRowId: upper },
+          rpc,
+        )
+      ).findingRowId,
+    ).toBe(f.id);
+    // Scope is NOT weakened: a genuinely different row, owner, or project is still rejected.
+    await expect(
+      getCitationFindingForReview(
+        reviewer,
+        { ownerId: user, projectId: "p", findingRowId: "60000000-0000-4000-8000-0000000000ee" },
+        rpc,
+      ),
+    ).rejects.toThrow();
+    await expect(
+      getCitationFindingForReview(
+        reviewer,
+        { ownerId: "00000000-0000-4000-8000-000000000009", projectId: "p", findingRowId: f.id },
+        rpc,
+      ),
+    ).rejects.toThrow();
+    await expect(
+      getCitationFindingForReview(
+        reviewer,
+        { ownerId: user, projectId: "q", findingRowId: f.id },
+        rpc,
+      ),
+    ).rejects.toThrow();
+  });
+  it("exposes a private fact ONLY for a genuinely resolved assessed pin; hides it for unassessed / mismatched id·version·kind / missing / foreign / dated-unresolved pins (finding 4062040467)", async () => {
+    const SECRET = "SECRET-FACT-9931 confidential rate 777 EUR";
+    const FOREIGN = "FOREIGN-SECRET-5522 open 24-7";
+    const savefact = (record: Record<string, unknown>) =>
+      rpc("save_ai_citation_business_fact", { p_user: user, p_project: "p", p_record: record });
+    const secretFact = (
+      await savefact({
+        factId: FACT,
+        kind: "price",
+        value: SECRET,
+        confirmedBy: user,
+        confirmedAt: "2026-01-02T00:00:00Z",
+        validFrom: "2024-01-01T00:00:00Z",
+        validUntil: null,
+      })
+    ).data as { id: string; version: number };
+    // A SECOND, unrelated private fact (different logical id AND kind, so it never makes the price pin ambiguous).
+    const foreignFact = (
+      await savefact({
+        factId: "a1000000-0000-4000-8000-000000000002",
+        kind: "hours",
+        value: FOREIGN,
+        confirmedBy: user,
+        confirmedAt: "2026-01-02T00:00:00Z",
+        validFrom: "2024-01-01T00:00:00Z",
+        validUntil: null,
+      })
+    ).data as { id: string };
+    const early = await importReal("2023-06-01T00:00:00Z", "An older captured answer.");
+    const ANS_EV = [{ kind: "answer" as const, id: ANSWER }];
+    const accEntry = (over: Record<string, unknown>) => ({
+      claimSpan: "The price is 777 EUR.",
+      factKind: "price",
+      status: "accurate_at_capture",
+      factId: FACT,
+      factVersion: secretFact.version,
+      factRowId: secretFact.id,
+      captureEvidenceId: ANSWER,
+      review: { reviewer: user, reviewedAt: now },
+      ...over,
+    });
+    const readCase = async (
+      fid: string,
+      evidence: Array<{ kind: "answer"; id: string }>,
+      over: Record<string, unknown>,
+    ) => {
+      const saved = await rpc("save_ai_citation_finding", {
+        p_user: user,
+        p_project: "p",
+        p_record: finding(fid, "accepted", {
+          family: "recommendation_accuracy",
+          evidence,
+          accuracy: [accEntry(over)],
+        }),
+        p_scope: panelScope,
+      });
+      if (saved.error) throw saved.error;
+      return getCitationFindingForReview(
+        reviewer,
+        { ownerId: user, projectId: "p", findingRowId: (saved.data as { id: string }).id },
+        rpc,
+      );
+    };
+    const hidden: Array<[string, Array<{ kind: "answer"; id: string }>, Record<string, unknown>]> =
+      [
+        ["not_checked", ANS_EV, { status: "not_checked", factId: null, review: null }],
+        ["unclear", ANS_EV, { status: "unclear", factId: null, review: null }],
+        ["mismatched factId", ANS_EV, { factId: "a1000000-0000-4000-8000-0000000000ee" }],
+        ["mismatched factVersion", ANS_EV, { factVersion: 2 }],
+        ["mismatched factKind", ANS_EV, { factKind: "hours" }],
+        ["missing row", ANS_EV, { factRowId: "b2000000-0000-4000-8000-0000000000ff" }],
+        ["foreign row (points at another fact)", ANS_EV, { factRowId: foreignFact.id }],
+        [
+          "dated-unresolved (out_of_period)",
+          [{ kind: "answer", id: early }],
+          { captureEvidenceId: early },
+        ],
+      ];
+    let seq = 0;
+    for (const [label, evidence, over] of hidden) {
+      seq += 1;
+      const view = await readCase(
+        `60000000-0000-4000-8000-0000000009${String(seq).padStart(2, "0")}`,
+        evidence,
+        over,
+      );
+      const whole = JSON.stringify(view);
+      expect(whole, label).not.toContain("SECRET-FACT-9931");
+      expect(whole, label).not.toContain("FOREIGN-SECRET-5522");
+      // Any emitted fact entry is truthfully unavailable — never a private value.
+      expect(
+        view.facts.every((x) => x.value === null),
+        label,
+      ).toBe(true);
+    }
+    // POSITIVE: a genuinely RESOLVED pin shows the selected fact — and only it (the foreign fact never appears).
+    const okView = await readCase("60000000-0000-4000-8000-0000000000f0", ANS_EV, {});
+    expect(okView.facts).toEqual([
+      expect.objectContaining({
+        factRowId: secretFact.id,
+        available: true,
+        kind: "price",
+        value: SECRET,
+      }),
+    ]);
+    expect(JSON.stringify(okView)).not.toContain("FOREIGN-SECRET-5522");
   });
 });
 describe("native artifact deletion propagates the evidence-forget policy (finding 4061786099)", () => {
@@ -1789,7 +1942,7 @@ describe("native artifact deletion propagates the evidence-forget policy (findin
       rpc,
     );
     expect(view.evidenceErased).toBe(true);
-    expect(view.record.observation).toBe("[withheld: finding evidence hidden]");
+    expect(view.record).toBeNull();
     expect(view.recordSha256).toBeNull();
     expect(view.reviews[0].note).toBeNull();
     expect(view.reviews[0].recordSha256).toBeNull();
@@ -2207,7 +2360,7 @@ describe("save review pre-lock boundary: finding/hash resolved and idempotency a
     expect(view.evidenceErased).toBe(false);
     expect(view.sourcePassagesWithheld).toBe(true);
     expect(view.recordSha256).toBeNull();
-    expect(view.record.observation).toBe("[withheld: finding evidence hidden]");
+    expect(view.record).toBeNull();
     // (2) A HISTORICAL missing-id source (straight through the RPC, bypassing the client's non-empty id) fails
     // CLOSED to masked WITHOUT a cast crash (the null id never reaches ::uuid).
     const nullSaved = await rpc("save_ai_citation_finding", {
@@ -2655,8 +2808,8 @@ describe("evidence lifecycle: forgetting a source erases copied material and dow
       { ownerId: user, projectId: "p", findingRowId: v2 },
       rpc,
     );
-    const sup = view.record.support[0] as { sourcePassage: string | null };
-    expect(sup.sourcePassage).toBe(REDACTED);
+    // The whole record is withheld from the reviewer on erasure (record null); the owner retains the redacted copy.
+    expect(view.record).toBeNull();
     // The erasure is surfaced explicitly on the reviewer response, so the retained recordSha256 (and any
     // receipt referencing it) reads as a pre-erasure digest, not an attestation of the current payload.
     expect(view.evidenceErased).toBe(true);
@@ -2785,7 +2938,7 @@ describe("evidence lifecycle: forgetting a source erases copied material and dow
       rpc,
     );
     expect(view.evidenceErased).toBe(true);
-    expect(view.record.observation).toBe("[withheld: finding evidence hidden]");
+    expect(view.record).toBeNull();
     expect(JSON.stringify(view)).not.toContain("SECRET-4K9Z");
     // The OWNER retains the real observation in storage (honest retention; the reviewer withholding is response-only).
     expect(JSON.stringify(await getCitationFinding(scope, row, rpc))).toContain("SECRET-4K9Z");
@@ -2796,7 +2949,7 @@ describe("evidence lifecycle: forgetting a source erases copied material and dow
       rpc,
     );
     expect(unrelatedView.evidenceErased).toBe(false);
-    expect(unrelatedView.record.observation).toBe("Unrelated visible prose.");
+    expect(unrelatedView.record!.observation).toBe("Unrelated visible prose.");
   });
   it("downgrades a previously owner_attested improvement to connector_receipt after a record-only forget, leaving the historical receipt auditable", async () => {
     await seedApproval();
@@ -3277,8 +3430,7 @@ describe("evidence lifecycle: forgetting a source erases copied material and dow
     // Revocation is NOT erasure — but because a cited source is revoked, this reviewer response conservatively
     // WITHHOLDS the owner's copied support passage too (the copied-field boundary; asserted in full by the next
     // test). The finding is not evidence-erased, the withholding is flagged, and the owner's stored copy stays.
-    const sup = view.record.support[0] as { sourcePassage: string | null };
-    expect(sup.sourcePassage).not.toBe(PASSAGE);
+    expect(view.record).toBeNull();
     expect(view.sourcePassagesWithheld).toBe(true);
     expect(view.evidenceErased).toBe(false);
     expect(await storedPassage(row)).toBe(PASSAGE);
@@ -3312,7 +3464,7 @@ describe("evidence lifecycle: forgetting a source erases copied material and dow
       { ownerId: user, projectId: "p", findingRowId: row },
       rpc,
     );
-    expect((before.record.support[0] as { sourcePassage: string | null }).sourcePassage).toBe(
+    expect((before.record!.support[0] as { sourcePassage: string | null }).sourcePassage).toBe(
       SECRET,
     );
     expect(before.sourcePassagesWithheld).toBe(false);
@@ -3326,10 +3478,9 @@ describe("evidence lifecycle: forgetting a source erases copied material and dow
       { ownerId: user, projectId: "p", findingRowId: row },
       rpc,
     );
-    // The reviewer response withholds the copied passage + flags it; the secret appears NOWHERE in the response.
-    expect((view.record.support[0] as { sourcePassage: string | null }).sourcePassage).not.toBe(
-      SECRET,
-    );
+    // The reviewer response withholds the WHOLE record (masked -> record null) + flags it; the secret appears
+    // NOWHERE in the response.
+    expect(view.record).toBeNull();
     expect(view.sourcePassagesWithheld).toBe(true);
     expect(JSON.stringify(view)).not.toContain(SECRET);
     // It is NOT erasure, and the co-cited ACTIVE source stays inspectable — its ONE pinned selected record is served.
@@ -3470,9 +3621,7 @@ describe("evidence lifecycle: forgetting a source erases copied material and dow
       rpc,
     );
     expect(view.sourcePassagesWithheld).toBe(true);
-    expect((view.record.support[0] as { sourcePassage: string | null }).sourcePassage).not.toBe(
-      "SECRET-STATUSLESS-PASSAGE-do-not-leak",
-    );
+    expect(view.record).toBeNull();
     expect(JSON.stringify(view)).not.toContain("SECRET-STATUSLESS-PASSAGE-do-not-leak");
     // The digest is masked too (unified with citation_finding_review_digest_masked), closing the oracle.
     expect(view.recordSha256).toBeNull();
@@ -3569,11 +3718,10 @@ describe("evidence lifecycle: forgetting a source erases copied material and dow
       { ownerId: user, projectId: "p", findingRowId: v2 },
       rpc,
     );
-    const HIDDEN = "[withheld: finding evidence hidden]";
     expect(view.evidenceErased).toBe(true);
-    expect(view.record.observation).toBe(HIDDEN);
-    expect(view.record.hypothesis).toBe(HIDDEN);
-    expect((view.record.support[0] as { reason: string | null }).reason).toBe(HIDDEN);
+    // The whole owner-authored record is withheld from the reviewer on erasure (record null); observation,
+    // hypothesis and support[].reason are therefore all gone from the response.
+    expect(view.record).toBeNull();
     expect(view.reviews[0].note).toBeNull();
     expect(view.recordSha256).toBeNull();
     const whole = JSON.stringify(view);
@@ -3621,8 +3769,8 @@ describe("evidence lifecycle: forgetting a source erases copied material and dow
       rpc,
     );
     expect(uview.evidenceErased).toBe(false);
-    expect(uview.record.observation).toBe("Unrelated visible prose.");
-    expect(uview.record.hypothesis).toBe("Unrelated visible hypothesis.");
+    expect(uview.record!.observation).toBe("Unrelated visible prose.");
+    expect(uview.record!.hypothesis).toBe("Unrelated visible hypothesis.");
   });
   it("stamps EMPTY-, ABSENT-, malformed-array-, and scalar/object/null-support findings erased on a source forget, preserving support byte-for-byte and never crashing on non-array support (findings 4059905627, 4059944844)", async () => {
     await seedSource("active", SOURCE);
@@ -3816,7 +3964,7 @@ describe("answer-delete erasure propagation: forgetting an answer erases a findi
     expect(view.evidenceErased).toBe(true);
     expect(view.recordSha256).toBeNull();
     expect(view.reviews[0].recordSha256).toBeNull();
-    expect(view.record.observation).toBe("[withheld: finding evidence hidden]");
+    expect(view.record).toBeNull();
     const whole = JSON.stringify(view);
     for (const secret of [REC, SUP, ACC]) expect(whole).not.toContain(secret);
     expect(whole).not.toContain("free-analysis prose"); // the reviewer never receives the owner's prose
@@ -3830,6 +3978,82 @@ describe("answer-delete erasure propagation: forgetting an answer erases a findi
     // Answer-scoped isolation: the finding citing a DIFFERENT answer keeps its copies.
     const otherRec = await storedRecord(other);
     for (const secret of [REC, SUP, ACC]) expect(otherRec).toContain(secret);
+  });
+  it("withholds the WHOLE record from a reviewer once the cited answer is deleted — RETAINED answer-derived fields (citedUrl, recommendation.target) cannot be recovered, while the owner keeps its audit copy (finding 4062101980)", async () => {
+    // Unique secrets across BOTH the storage-erased answer copies (passage/claimSpans) AND the fields the answer
+    // redactor deliberately RETAINS for the owner (recommendation.target, support[].citedUrl) — the exact fields a
+    // per-field prose blacklist missed, letting a reviewer added after an answer delete recover them.
+    const P = "SECRET-PASSAGE-4L2"; // recommendation.passage — storage-erased by the redactor
+    const T = "SECRET-TARGET-4L2"; // recommendation.target — RETAINED (previously leaked to the reviewer)
+    const CLAIM = "SECRET-CLAIM-4L2"; // support[].claimSpan — storage-erased
+    const URLSECRET = "SECRET-URL-4L2"; // support[].citedUrl — RETAINED (previously leaked)
+    const ACCS = "SECRET-ACC-4L2"; // accuracy[].claimSpan — storage-erased
+    const OBS = "SECRET-OBS-4L2"; // observation — RETAINED for owner, reviewer-withheld
+    const ans = await importReal(ACC_CAP, "The captured answer under review.");
+    const rec = {
+      ...answerFinding("60000000-0000-4000-8000-000000000f10", ans),
+      observation: OBS,
+      recommendation: {
+        status: "recommended" as const,
+        passage: P,
+        target: T,
+        suitability: "fits" as const,
+        review: { reviewer: user, reviewedAt: now },
+      },
+      support: [
+        {
+          claimSpan: CLAIM,
+          citedUrl: `https://acme.example/${URLSECRET}`,
+          answerCapturedAt: ACC_CAP,
+          status: "not_checked" as const,
+          sourcePassage: null,
+          sourceCapturedAt: null,
+          reason: null,
+          review: null,
+        },
+      ],
+      accuracy: [
+        {
+          claimSpan: ACCS,
+          factKind: "price" as const,
+          status: "not_checked" as const,
+          factId: null,
+          review: null,
+        },
+      ],
+    };
+    const row = await saveRaw(rec);
+    const unrelated = await saveRaw(
+      answerFinding(
+        "60000000-0000-4000-8000-000000000f11",
+        await importReal(ACC_CAP, "Unrelated captured answer."),
+      ),
+    );
+    // Delete the cited answer via the REAL released RPC -> the finding is erased.
+    expect((await removeAnswer("answer", ans)).error).toBeNull();
+    // A reviewer added AFTER the delete: the whole record is withheld (null), so NONE of the secrets — INCLUDING
+    // the retained citedUrl / recommendation.target — appear ANYWHERE in the serialized response.
+    const view = await getCitationFindingForReview(
+      reviewer,
+      { ownerId: user, projectId: "p", findingRowId: row },
+      rpc,
+    );
+    expect(view.evidenceErased).toBe(true);
+    expect(view.record).toBeNull();
+    const whole = JSON.stringify(view);
+    for (const s of [P, T, CLAIM, URLSECRET, ACCS, OBS]) expect(whole, s).not.toContain(s);
+    // OWNER audit copy: the redactor storage-erases only the answer-derived passage/claimSpans, so the RETAINED
+    // fields (target, citedUrl) and the owner's own prose stay present for the owner (honest retention).
+    const owner = await storedRecord(row);
+    for (const s of [T, URLSECRET, OBS]) expect(owner, s).toContain(s);
+    for (const s of [P, CLAIM, ACCS]) expect(owner, s).not.toContain(s);
+    // An UNRELATED valid finding (different, still-live answer) is fully readable — record present, not withheld.
+    const uview = await getCitationFindingForReview(
+      reviewer,
+      { ownerId: user, projectId: "p", findingRowId: unrelated },
+      rpc,
+    );
+    expect(uview.record).not.toBeNull();
   });
   it("prevents resurrection: an altered resave AND a fresh finding citing the deleted answer are redacted at save", async () => {
     const ans = await importReal(ACC_CAP, "The captured answer under review.");
