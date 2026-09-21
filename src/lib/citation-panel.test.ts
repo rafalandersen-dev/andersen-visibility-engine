@@ -292,6 +292,90 @@ describe("weekly discovery schedule policy (spec §§5.1 Frequency, 5.2 Time, 5.
       "capture_window_overrun",
     ]);
   });
+  it("compares fractional seconds to the millisecond and refuses sub-millisecond precision", () => {
+    const withSchedule = (slots: Array<{ round: number; intendedAt: string }>) =>
+      panelProtocolSchema.parse({ ...panel(), schedule: { timezone: "Europe/Stockholm", slots } });
+    const at = (round: number, frac: string) =>
+      `2026-09-${String(7 * round).padStart(2, "0")}T07:00:00.${frac}`;
+    // Same fractional second across all rounds (.500) is a consistent weekly cadence → valid.
+    expect(
+      discoveryScheduleValid(
+        withSchedule([1, 2, 3, 4].map((r) => ({ round: r, intendedAt: at(r, "500Z") }))),
+      ),
+    ).toBe(true);
+    // Differing fractional seconds (round 2 at .500, others .000) is a real MILLISECOND-level cadence
+    // difference — pre-fix the whole-second wall clock dropped the fraction and wrongly accepted it; now
+    // rejected, matching the SQL lock's full-precision comparison.
+    expect(
+      discoveryScheduleValid(
+        withSchedule([
+          { round: 1, intendedAt: at(1, "000Z") },
+          { round: 2, intendedAt: at(2, "500Z") },
+          { round: 3, intendedAt: at(3, "000Z") },
+          { round: 4, intendedAt: at(4, "000Z") },
+        ]),
+      ),
+    ).toBe(false);
+    // Sub-millisecond (microsecond) precision is the unsupported precision → invalid (fail closed), even
+    // when consistent across rounds — so a .000001 variant cannot slip past.
+    expect(
+      discoveryScheduleValid(
+        withSchedule([1, 2, 3, 4].map((r) => ({ round: r, intendedAt: at(r, "000001Z") }))),
+      ),
+    ).toBe(false);
+  });
+  it("keeps fractional-second precision through equivalent offsets and the DST last-round window", () => {
+    // Equivalent offsets: 09:00:00.500+02:00 == 07:00:00.500Z (same instant, same fraction) — an on-slot
+    // capture spelling its intended slot with the local offset still matches its round's slot.
+    const p = panelProtocolSchema.parse({
+      ...panel(),
+      schedule: {
+        timezone: "Europe/Stockholm",
+        slots: [1, 2, 3, 4].map((r) => ({
+          round: r,
+          intendedAt: `2026-09-${String(7 * r).padStart(2, "0")}T07:00:00.500Z`,
+        })),
+      },
+    });
+    expect(
+      discoveryScheduleDeviations(
+        p,
+        context(1, 1, {
+          time: {
+            capturedAt: "2026-09-07T07:00:00.500Z",
+            intendedSlotAt: "2026-09-07T09:00:00.500+02:00",
+            delayMinutes: 0,
+          },
+        }),
+      ),
+    ).toEqual([]);
+    // DST last-round window with a fraction: round 4 at .500 near the autumn transition; the window ends
+    // one Stockholm wall-clock week later at the SAME fraction (2026-10-25T08:00:00.500Z, CET) — neither
+    // shifted (a fixed 168h would give 07:00:00.500Z) nor stripped of its .500 millisecond.
+    const autumn = panelProtocolSchema.parse({
+      ...panel(),
+      schedule: {
+        timezone: "Europe/Stockholm",
+        slots: [
+          { round: 1, intendedAt: "2026-09-27T07:00:00.500Z" },
+          { round: 2, intendedAt: "2026-10-04T07:00:00.500Z" },
+          { round: 3, intendedAt: "2026-10-11T07:00:00.500Z" },
+          { round: 4, intendedAt: "2026-10-18T07:00:00.500Z" },
+        ],
+      },
+    });
+    const r4 = (capturedAt: string, delayMinutes: number) =>
+      discoveryScheduleDeviations(
+        autumn,
+        context(4, 1, {
+          time: { capturedAt, intendedSlotAt: "2026-10-18T07:00:00.500Z", delayMinutes },
+        }),
+      );
+    // One minute before the wall-clock week boundary (08:00:00.500Z) → still within the round's week.
+    expect(r4("2026-10-25T07:59:00.500Z", 10139)).toEqual([]);
+    // Exactly at the boundary (same .500 fraction) → the next week → overrun.
+    expect(r4("2026-10-25T08:00:00.500Z", 10140)).toEqual(["capture_window_overrun"]);
+  });
 });
 describe("panel protocol and planned observations (CI11-T13, T14)", () => {
   it("plans exactly forty discovery slots and includes the fourth-round re-test", () => {

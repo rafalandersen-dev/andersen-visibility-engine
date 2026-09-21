@@ -888,19 +888,51 @@ the actual "ten questions, once weekly for four weeks" methodology (spec §§5.1
   never `complete`; and the locked schedule is frozen immutably. The resolver/pure tests also cover
   same-day, untruthful-delay and missing-schedule demotion and a timezone-equivalent on-schedule complete.
 
+### Review round 25 — TS/SQL schedule-instant precision consistency (P1 4058548632)
+
+Round 24's TS wall clock (`stockholmParts`/`stockholmWallClock`) dropped fractional seconds while the SQL
+lock compares full-precision `timestamptz` local time. A schedule whose rounds differ in fractional seconds
+(e.g. round 1 at `.000`, round 2 at `.500`) therefore passed `lockedPanelSchema` but the SQL lock rejected
+it (surfacing as the generic unavailable error) — a TS/SQL divergence. Separately, `Date.parse` is
+millisecond-precision while `timestamptz` is microsecond, so slot-equality and delay could diverge on
+sub-millisecond variants.
+
+- **Explicit supported precision: milliseconds**, enforced identically in TS and SQL across ALL schedule
+  paths — cadence validation, slot equality, delay, and the final-week window. The TS Stockholm wall clock
+  now includes milliseconds (`fractionalSecondDigits: 3`, comparing millisecond-of-day), so a differing
+  fractional second is a real cadence difference in both layers; `stockholmWeekLater` carries the
+  millisecond so the last round's DST window is neither shifted nor stripped of its fraction.
+- **Sub-millisecond precision is refused at NEW admission** (narrow): the SQL lock rejects any slot where
+  `ts <> date_trunc('milliseconds', ts)`, the SQL capture RPC rejects a sub-millisecond `intendedSlotAt` or
+  `capturedAt`, and `lockedPanelSchema` (via `discoveryScheduleValid`) rejects a sub-millisecond slot. A
+  historical finer instant **reads fail-closed** — `discoveryScheduleValid`/`discoveryScheduleDeviations`
+  return invalid/off-schedule — and the stored document is never rewritten. This avoids "solving only
+  `.001`": a `.000001` variant is refused, not silently truncated, so TS and SQL cannot disagree on it.
+- **Preserved:** immutable historical documents (no rewrite), truthful comparisons (a consistent fractional
+  second such as all-`.500` is a valid weekly cadence and locks; the fraction round-trips verbatim), and
+  every round-24 invariant. Only the candidate SQL, `citation-panel.ts` (the precision helpers) and the
+  three P2 test files changed.
+- Tests: pure helpers — same-fraction valid, differing-fraction invalid, sub-millisecond invalid;
+  equivalent-offset with a fraction on-schedule; the DST last-round window with a `.500` fraction (within
+  vs at the wall-clock boundary). `lockedPanelSchema` — same-fraction locks, differing/sub-millisecond
+  rejected. Resolver — a sub-millisecond capture demotes (fail closed). Real SQL — the lock rejects
+  differing-fraction and sub-millisecond schedules and locks a same-fraction one (fraction preserved on
+  read); the capture RPC refuses a sub-millisecond `intendedSlotAt` (mismatch) and `capturedAt`
+  (delay-untruthful), proving TS and SQL now agree.
+
 ## Files
 
 | File | Change |
 | --- | --- |
 | `src/lib/pg-uuid.ts` | New (leaf, no imports). Shared semantic-UUID identity: `PG_UUID_RE`, `canonicalUuid`, `canonicalRun`. Imported by the citation-protocol layer and the legacy answer-evidence intake without a circular import. |
-| `src/lib/citation-panel.ts` | Released PR137 contract, extended COMPATIBLY (round 24): an optional immutable `schedule` on `panelProtocolSchema` (`scheduleSlotSchema`/`discoveryScheduleSchema`) plus pure helpers `discoveryScheduleValid` and `discoveryScheduleDeviations` (Europe/Stockholm weekly cadence, DST-correct via `stockholmWeekLater`). Additive only — the field is optional (historical panels parse unchanged) and `protocolDeviations`/`slotOutcome`/`panelCounts`/`comparablePairs` signatures/behaviour are untouched. |
+| `src/lib/citation-panel.ts` | Released PR137 contract, extended COMPATIBLY (round 24): an optional immutable `schedule` on `panelProtocolSchema` (`scheduleSlotSchema`/`discoveryScheduleSchema`) plus pure helpers `discoveryScheduleValid` and `discoveryScheduleDeviations` (Europe/Stockholm weekly cadence, DST-correct via `stockholmWeekLater`). Round 25: the Stockholm wall clock compares to the MILLISECOND (`fractionalSecondDigits: 3`, `stockholmWeekLater` carries the fraction) and sub-millisecond precision is refused at admission / fails closed on read (`isMillisecondPrecise`), matching the SQL lock. Additive only — the field is optional (historical panels parse unchanged) and `protocolDeviations`/`slotOutcome`/`panelCounts`/`comparablePairs` signatures/behaviour are untouched. |
 | `src/lib/citation-protocol.ts` | New. Pure storage contract: `panelDraftSchema`, `lockedPanelSchema` (now also requires a valid prospective weekly schedule for a discovery lock / no schedule for brand), `citationProtocolStateSchema`, `brandRunApprovalSchema`, `parseManualCaptureInput`, `resolveStoredCaptures` (semantic-uuid identity; discovery-baseline-ambiguity flag; per-capture weekly-schedule gate), `citationReport`/`citationReports`, caps. Exports the shared `panelVersionKey(panelId, version)`. Re-exports `canonicalUuid`/`canonicalRun` from `./pg-uuid`. Reuses PR137 schemas; never redefines them. |
 | `src/lib/citation-protocol.server.ts` | New. Service RPC helpers: read, save draft, lock, approve brand run, import capture, read+resolve. Owner/time/approval derived server-side; network-free. Draft panelId, prompt binding and the lock/brand owner-receipt checks compare by SEMANTIC uuid value (`canonicalUuid`); the per-version erasure-metadata maps are keyed via the shared `panelVersionKey`. |
 | `src/lib/citation-protocol.functions.ts` | New. Six `requireSupabaseAuth` endpoints, each refusing an owner mismatch and never accepting a client approval/reviewer/timestamp. |
 | `src/lib/citation-protocol.test.ts` | New. Pure-contract + mocked-server unit tests. |
 | `src/lib/citation-protocol.functions.test.ts` | New. Endpoint authentication/validation tests. |
 | `src/lib/citation-protocol-migration.test.ts` | New. Real PGlite SQL round trips (isolation, auth, missing project, reference forgery, approval version, protocol binding, capacity, deletion, idempotency). |
-| `supabase/migrations/20260920190000_citation_protocol.sql` | New (one migration). Three tables (panels, brand runs, content-free capture tombstones) + five service-only SECURITY DEFINER RPCs + one internal `IMMUTABLE` helper (`citation_ctx_run`, semantic brandRunId identity, granted to no role) + an `AFTER DELETE` tombstone trigger on `ai_answer_evidence`; RLS on, project-scoped FKs, project-deletion cascade. Round 24: `lock_citation_panel` requires a discovery lock to carry a NULL-safe, prospective Europe/Stockholm weekly schedule (one slot per round, exact wall-clock cadence) and forbids a brand schedule; `save_citation_capture` binds a discovery capture's `intendedSlotAt` to its round's approved slot and a truthful delay. |
+| `supabase/migrations/20260920190000_citation_protocol.sql` | New (one migration). Three tables (panels, brand runs, content-free capture tombstones) + five service-only SECURITY DEFINER RPCs + one internal `IMMUTABLE` helper (`citation_ctx_run`, semantic brandRunId identity, granted to no role) + an `AFTER DELETE` tombstone trigger on `ai_answer_evidence`; RLS on, project-scoped FKs, project-deletion cascade. Round 24: `lock_citation_panel` requires a discovery lock to carry a NULL-safe, prospective Europe/Stockholm weekly schedule (one slot per round, exact wall-clock cadence) and forbids a brand schedule; `save_citation_capture` binds a discovery capture's `intendedSlotAt` to its round's approved slot and a truthful delay. Round 25: both refuse sub-millisecond precision (`date_trunc('milliseconds', ...)`), the supported precision that matches the TS validator. |
 | `src/lib/answer-evidence.ts` | Additive only: optional opaque `captureContext` on `answerEvidenceSchema` so reads tolerate capture-bound records. Legacy documents are byte-identical (field absent). |
 | `src/lib/answer-evidence.server.ts` | Additive only: `importAnswerEvidence` refuses a capture context (legacy path stays capture-blind; captures must use the panel-aware path), and now compares the predecessor and prompt by SEMANTIC uuid value (`canonicalUuid` from `./pg-uuid`) so an UPPERCASE `supersedesId` cannot bypass `evidence_capture_correction_requires_context`. |
 | `product/CITATION_PROTOCOL_IMPLEMENTATION_2026_09_19.md`, `evidence/citation-protocol-storage-2026-09-19.md` | New. This doc and the evidence record. |
@@ -1084,6 +1116,17 @@ failed/missed/truncated evidence is preserved; no approval/date is backfilled; t
 and the one-baseline/UUID/idempotency/erasure/cap invariants are unchanged. Only the candidate SQL
 (`20260920190000`), `citation-panel.ts` (compatible extension), `citation-protocol.ts`, the P2 test files
 and these docs changed — no applied migration, no P3, no provider, no commit/deploy.
+Round 25 (this turn, on `f555e00`) fixes P1 4058548632: the round-24 TS wall clock dropped fractional
+seconds while the SQL lock compares full-precision `timestamptz` local time, so a schedule whose rounds
+differed in fractional seconds passed `lockedPanelSchema` but the SQL lock rejected it (generic
+unavailable) — a TS/SQL divergence; and `Date.parse` (ms) vs `timestamptz` (µs) could diverge on
+sub-millisecond variants. The fix sets an explicit supported precision of **milliseconds** enforced
+identically in TS and SQL across cadence, slot equality, delay and the final-week window (the Stockholm
+wall clock now compares to the millisecond; `stockholmWeekLater` carries the fraction), and **refuses
+sub-millisecond precision at new admission** (SQL lock + capture RPC + `lockedPanelSchema`) with a
+**historical-read-fail-closed** validator — never rewriting stored evidence. A consistent fraction (e.g.
+all-`.500`) remains a valid weekly cadence. Only the candidate SQL, `citation-panel.ts` (precision helpers)
+and the three P2 test files changed — no applied migration, no P3, no provider, no commit/deploy.
 **HONEST RUN STATUS.** The prior worktree process for round 24 terminated on a plan/credit limit, not
 success; its partial Codex verification was `tsc` PASS but **150 tests PASS / 38 FAIL** in
 `citation-protocol-migration.test.ts` — a **FAILED prior attempt of this work, not a passing baseline**. Two
@@ -1094,11 +1137,13 @@ recent-PAST approval + schedule so on-schedule captures land at now-past slots t
 (b) a `round: 5` fixture built "September 35" and threw a RangeError before the out-of-panel admission was
 exercised — resolved by real Date arithmetic in the slot helper. **No production future-date or
 prospective-approval guard was weakened, no storage assertion was replaced with a mock, and no public
-admission was bypassed to make tests pass.** All earlier PASS counts (including the pre-round-24 Codex run on
-`9cc5b971`: 141 focused / 6336 full PASS) are a prior stage and **do not carry over**; every check below —
-including the round-16…23 suites and the new round-24 weekly-schedule tests (lock/admission/resolver, the
-malformed-schedule NULL/bool_and rejection, and the spring/autumn DST last-round window) — is UNRUN in this
-worktree and must be re-executed by Codex; this assistant did not run tests and claims no PASS. The
+admission was bypassed to make tests pass.** All earlier PASS counts — including the latest verified Codex
+baseline on `f555e00` (193 focused / 6357 full PASS, the round-24 weekly-schedule stage) — are a prior stage
+and **do not carry over**; every check below — including the round-16…23 suites, the round-24
+weekly-schedule tests, and the new round-25 precision tests (fractional-second cadence, sub-millisecond
+refusal at lock/capture, the DST last-round window with a fraction, and lockedPanelSchema/SQL agreement) —
+is UNRUN in this worktree and must be re-executed by Codex; this assistant did not run tests and claims no
+PASS. The
 repository-wide lint is separately RED (~3790 errors / 14 warnings, pre-existing across the repo); this
 packet does NOT mass-format or claim a global-lint pass — only the SCOPED lint on the touched files applies.
 The released P1 SQL migrations, global migration inventory, and P3/R09 files were not touched; the released

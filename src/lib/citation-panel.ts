@@ -171,6 +171,14 @@ export function plannedSlots(panel: PanelProtocol) {
  * schedule itself (see `discoveryScheduleDeviations`).
  */
 const SCHEDULE_TZ = "Europe/Stockholm";
+// MILLISECOND is the explicit supported precision for every schedule slot and capture instant, chosen so
+// TS and SQL compare IDENTICALLY: JS `Date.parse` is millisecond-precision and PostgreSQL `timestamptz`
+// is microsecond-precision, so a finer (sub-millisecond) instant would be seen differently by the two
+// layers (TS admits, the SQL lock rejects). Sub-millisecond precision is therefore refused at NEW
+// admission (the lock RPC + `lockedPanelSchema` via `discoveryScheduleValid`; the capture RPC) and reads
+// fail-closed (`discoveryScheduleValid`/`discoveryScheduleDeviations` reject it), never rewriting the
+// stored document. The Stockholm wall clock is computed to the millisecond, so a differing fractional
+// second across rounds (e.g. .000 vs .500) is a real cadence difference in BOTH layers.
 const stockholmFmt = new Intl.DateTimeFormat("en-CA", {
   timeZone: SCHEDULE_TZ,
   year: "numeric",
@@ -179,40 +187,62 @@ const stockholmFmt = new Intl.DateTimeFormat("en-CA", {
   hour: "2-digit",
   minute: "2-digit",
   second: "2-digit",
+  fractionalSecondDigits: 3,
   hourCycle: "h23",
 });
-/** The Stockholm wall-clock day-number (days since the epoch for the local Y-M-D) and second-of-day for
- * an instant, or null if unparseable. The weekly cadence is checked on these LOCAL parts, so it is
- * DST-correct: two instants one Stockholm week apart share a second-of-day and are seven day-numbers
- * apart even when their UTC gap is 167 or 169 hours across a spring/autumn transition. */
+/** Whether an ISO instant carries NO sub-millisecond precision — the supported precision. No fractional
+ * seconds, ≤3 fractional digits, or only-zero digits beyond the third all qualify; a nonzero microsecond
+ * digit does not. Used to refuse a finer instant at new admission and to fail closed on read. */
+function isMillisecondPrecise(iso: string): boolean {
+  const m = /T\d{2}:\d{2}:\d{2}\.(\d+)/.exec(iso);
+  return !m || m[1].length <= 3 || /^0*$/.test(m[1].slice(3));
+}
+/** The Stockholm wall-clock day-number (days since the epoch for the local Y-M-D) and MILLISECOND-of-day
+ * for an instant, or null if unparseable. The weekly cadence is checked on these LOCAL parts to the
+ * millisecond, so it is DST-correct (two instants one Stockholm week apart share a millisecond-of-day and
+ * are seven day-numbers apart even when their UTC gap is 167 or 169 hours) AND consistent with the SQL
+ * lock's full-precision `loc::time` comparison once sub-millisecond precision is refused at admission. */
 function stockholmParts(instantMs: number): Record<string, number> {
   const parts: Record<string, number> = {};
   for (const part of stockholmFmt.formatToParts(new Date(instantMs)))
     if (part.type !== "literal") parts[part.type] = Number(part.value);
   return parts;
 }
-function stockholmWallClock(iso: string): { dayNumber: number; secondOfDay: number } | null {
+function stockholmWallClock(iso: string): { dayNumber: number; msOfDay: number } | null {
   const ms = Date.parse(iso);
   if (!Number.isFinite(ms)) return null;
-  const parts = stockholmParts(ms);
-  const dayNumber = Math.floor(Date.UTC(parts.year, parts.month - 1, parts.day) / 86400000);
-  return { dayNumber, secondOfDay: parts.hour * 3600 + parts.minute * 60 + parts.second };
+  const p = stockholmParts(ms);
+  const dayNumber = Math.floor(Date.UTC(p.year, p.month - 1, p.day) / 86400000);
+  const msOfDay = p.hour * 3600000 + p.minute * 60000 + p.second * 1000 + (p.fractionalSecond ?? 0);
+  return { dayNumber, msOfDay };
 }
 /** The offset in ms between the Stockholm wall clock and UTC at a given instant: (local-as-UTC − instant),
- * i.e. +2h in CEST, +1h in CET. */
+ * i.e. +2h in CEST, +1h in CET. Includes the millisecond so it cancels exactly. */
 function stockholmOffsetMs(instantMs: number): number {
   const p = stockholmParts(instantMs);
-  return Date.UTC(p.year, p.month - 1, p.day, p.hour, p.minute, p.second) - instantMs;
+  return (
+    Date.UTC(p.year, p.month - 1, p.day, p.hour, p.minute, p.second, p.fractionalSecond ?? 0) -
+    instantMs
+  );
 }
-/** The instant exactly one Stockholm WALL-CLOCK week later (same local time, seven local days later),
- * DST-correct — so the LAST round's window uses the same weekly cadence as the explicit inter-round gaps
- * even across a spring/autumn transition (a fixed 168h would be an hour off). Resolves the target local
- * wall clock to an instant by subtracting the offset and refining once for any DST change in that week. */
+/** The instant exactly one Stockholm WALL-CLOCK week later (same local time to the millisecond, seven
+ * local days later), DST-correct — so the LAST round's window uses the same weekly cadence as the
+ * explicit inter-round gaps even across a spring/autumn transition (a fixed 168h would be an hour off),
+ * and a fractional-second slot's window is neither shifted nor lost. Resolves the target local wall clock
+ * to an instant by subtracting the offset and refining once for any DST change in that week. */
 function stockholmWeekLater(iso: string): number | null {
   const ms = Date.parse(iso);
   if (!Number.isFinite(ms)) return null;
   const p = stockholmParts(ms);
-  const targetLocalAsUTC = Date.UTC(p.year, p.month - 1, p.day + 7, p.hour, p.minute, p.second);
+  const targetLocalAsUTC = Date.UTC(
+    p.year,
+    p.month - 1,
+    p.day + 7,
+    p.hour,
+    p.minute,
+    p.second,
+    p.fractionalSecond ?? 0,
+  );
   let guess = targetLocalAsUTC - stockholmOffsetMs(ms);
   guess = targetLocalAsUTC - stockholmOffsetMs(guess);
   return guess;
@@ -230,15 +260,19 @@ export function discoveryScheduleValid(panel: PanelProtocol): boolean {
   const byRound = new Map<number, string>();
   for (const s of sched.slots) {
     if (s.round < 1 || s.round > panel.rounds || byRound.has(s.round)) return false;
+    // Sub-millisecond precision is unsupported (TS/SQL would compare it differently): a NEW lock is
+    // refused here (via lockedPanelSchema) and a historical finer slot fails closed on read.
+    if (!isMillisecondPrecise(s.intendedAt)) return false;
     byRound.set(s.round, s.intendedAt);
   }
-  let prev: { dayNumber: number; secondOfDay: number } | null = null;
+  let prev: { dayNumber: number; msOfDay: number } | null = null;
   for (let r = 1; r <= panel.rounds; r += 1) {
     const at = byRound.get(r);
     if (at === undefined) return false;
     const wall = stockholmWallClock(at);
     if (!wall) return false;
-    if (prev && (wall.secondOfDay !== prev.secondOfDay || wall.dayNumber !== prev.dayNumber + 7))
+    // Same local time-of-day (to the millisecond) and exactly seven local days later — once per week.
+    if (prev && (wall.msOfDay !== prev.msOfDay || wall.dayNumber !== prev.dayNumber + 7))
       return false;
     prev = wall;
   }
@@ -267,9 +301,19 @@ export function discoveryScheduleDeviations(
   const slotMs = slot ? Date.parse(slot.intendedAt) : NaN;
   const intendedMs = Date.parse(context.time.intendedSlotAt);
   const capturedMs = Date.parse(context.time.capturedAt);
-  if (!slot || !Number.isFinite(slotMs) || !Number.isFinite(intendedMs) || slotMs !== intendedMs)
+  // Compare at the supported MILLISECOND precision (matching the SQL admission binding). A capture instant
+  // finer than a millisecond is unsupported: the intended slot fails to match / the delay is untruthful,
+  // so a historical sub-millisecond capture reads deviant (fail closed) exactly as the RPC refuses a new one.
+  if (
+    !slot ||
+    !isMillisecondPrecise(context.time.intendedSlotAt) ||
+    !Number.isFinite(slotMs) ||
+    !Number.isFinite(intendedMs) ||
+    slotMs !== intendedMs
+  )
     return ["intended_slot_mismatch"];
   if (
+    !isMillisecondPrecise(context.time.capturedAt) ||
     !Number.isFinite(capturedMs) ||
     capturedMs < slotMs ||
     context.time.delayMinutes === null ||

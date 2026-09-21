@@ -335,12 +335,15 @@ BEGIN
       RAISE EXCEPTION 'citation_panel_schedule_invalid';
     END IF;
     -- Every slot must be the exact sequence rounds 1..N (one each), one Stockholm WALL-CLOCK week apart at
-    -- the same local time (DST-correct via AT TIME ZONE), and PROSPECTIVE. Each per-row predicate makes a
-    -- NULL field yield FALSE (not a NULL that bool_and would SKIP), so a malformed slot can never be
-    -- silently ignored into a passing aggregate. An empty set (impossible here — count = rounds >= 1)
-    -- would yield NULL, which `IS NOT TRUE` also rejects.
+    -- the same local time (DST-correct via AT TIME ZONE), PROSPECTIVE, and at the supported MILLISECOND
+    -- precision (`ts = date_trunc('milliseconds', ts)` — a sub-millisecond microsecond is refused so the TS
+    -- validator, which compares to the millisecond, and this full-precision `loc::time` comparison agree).
+    -- Each per-row predicate makes a NULL field yield FALSE (not a NULL that bool_and would SKIP), so a
+    -- malformed slot can never be silently ignored into a passing aggregate. An empty set (impossible here —
+    -- count = rounds >= 1) would yield NULL, which `IS NOT TRUE` also rejects.
     SELECT bool_and(
         rnd IS NOT NULL AND ts IS NOT NULL AND loc IS NOT NULL
+        AND ts = date_trunc('milliseconds', ts)
         AND rnd = ord
         AND (prev_loc IS NULL OR (loc::time = prev_loc::time AND loc::date = prev_loc::date + 7))
         AND ts >= v_now)
@@ -501,11 +504,20 @@ BEGIN
       SELECT s->>'intendedAt' INTO v_slot_at
         FROM jsonb_array_elements(panel_doc->'schedule'->'slots') AS t(s)
         WHERE (s->>'round')::integer=rnd;
+      -- The intended slot must equal the approved instant AND be at the supported MILLISECOND precision
+      -- (a sub-millisecond microsecond is refused so this and the TS resolver, which compares to the
+      -- millisecond, agree; an equivalent offset spelling of the same instant still matches).
       IF v_slot_at IS NULL
-        OR (ctx->'time'->>'intendedSlotAt')::timestamptz IS DISTINCT FROM v_slot_at::timestamptz THEN
+        OR (ctx->'time'->>'intendedSlotAt')::timestamptz IS DISTINCT FROM v_slot_at::timestamptz
+        OR (ctx->'time'->>'intendedSlotAt')::timestamptz
+           IS DISTINCT FROM date_trunc('milliseconds',(ctx->'time'->>'intendedSlotAt')::timestamptz) THEN
         RAISE EXCEPTION 'citation_intended_slot_mismatch';
       END IF;
+      -- The run is at/after the slot, at millisecond precision, and delayMinutes is the truthful whole
+      -- minutes; the millisecond guard keeps this floor identical to the TS `Math.floor((cap-slot)/60000)`.
       IF (ctx->'time'->>'capturedAt')::timestamptz < v_slot_at::timestamptz
+        OR (ctx->'time'->>'capturedAt')::timestamptz
+           IS DISTINCT FROM date_trunc('milliseconds',(ctx->'time'->>'capturedAt')::timestamptz)
         OR ctx->'time'->>'delayMinutes' IS NULL
         OR (ctx->'time'->>'delayMinutes')::integer IS DISTINCT FROM
            floor(extract(epoch FROM ((ctx->'time'->>'capturedAt')::timestamptz - v_slot_at::timestamptz))/60)::integer THEN

@@ -3117,4 +3117,105 @@ describe("CI-2 weekly discovery schedule at lock and capture admission (spec §�
       ).rejects.toThrow(/citation_panel_schedule_invalid/);
     }
   });
+  it("agrees with the TS validator on fractional-second precision (differing/sub-ms rejected, same-fraction locks)", async () => {
+    // The reported bug: a schedule whose rounds differ in fractional seconds passed lockedPanelSchema
+    // (whole-second TS wall clock) but the SQL lock rejected it (full-precision loc::time). Both now
+    // reject differing fractions and sub-millisecond precision, and both accept a consistent fraction.
+    // Rejected shapes are direct-SQL locked BEFORE any baseline exists, so the schedule guard is reached.
+    const differing = {
+      timezone: "Europe/Stockholm",
+      slots: [
+        { round: 1, intendedAt: "2099-09-07T07:00:00.000Z" },
+        { round: 2, intendedAt: "2099-09-14T07:00:00.500Z" }, // half-second off → different local time
+        { round: 3, intendedAt: "2099-09-21T07:00:00.000Z" },
+        { round: 4, intendedAt: "2099-09-28T07:00:00.000Z" },
+      ],
+    };
+    await db.query(
+      "INSERT INTO citation_panels(user_id,project_id,panel_id,version,document) VALUES($1,'p',$2,1,$3)",
+      [user, uuid(741), draftDiscovery({ panelId: uuid(741), schedule: differing })],
+    );
+    await expect(
+      db.query("SELECT lock_citation_panel($1,'p',$2,$3)", [user, uuid(741), 1]),
+    ).rejects.toThrow(/citation_panel_schedule_invalid/);
+    // Sub-millisecond (microsecond) slots — the ".000001" variants — are refused at the DB boundary.
+    const subMs = {
+      timezone: "Europe/Stockholm",
+      slots: [1, 2, 3, 4].map((round) => ({
+        round,
+        intendedAt: `2099-09-${String(7 * round).padStart(2, "0")}T07:00:00.000001Z`,
+      })),
+    };
+    await db.query(
+      "INSERT INTO citation_panels(user_id,project_id,panel_id,version,document) VALUES($1,'p',$2,1,$3)",
+      [user, uuid(742), draftDiscovery({ panelId: uuid(742), schedule: subMs })],
+    );
+    await expect(
+      db.query("SELECT lock_citation_panel($1,'p',$2,$3)", [user, uuid(742), 1]),
+    ).rejects.toThrow(/citation_panel_schedule_invalid/);
+    // A consistent fractional second (all .500) is a valid weekly cadence → locks, and the fraction is
+    // preserved verbatim on read (weeklyInstant carries the base fraction across the 7-day steps).
+    const sameFrac = {
+      timezone: "Europe/Stockholm",
+      slots: [1, 2, 3, 4].map((round) => ({
+        round,
+        intendedAt: weeklyInstant("2099-09-07T07:00:00.500Z", round),
+      })),
+    };
+    await saveCitationPanelDraft(
+      scope,
+      uuid(743),
+      0,
+      draftDiscovery({ panelId: uuid(743), schedule: sameFrac }),
+      rpc,
+    );
+    const locked = await lockCitationPanel(scope, uuid(743), 1, rpc);
+    expect(locked.schedule?.slots.map((s) => s.intendedAt)).toEqual(
+      [1, 2, 3, 4].map((round) => weeklyInstant("2099-09-07T07:00:00.500Z", round)),
+    );
+  });
+  it("refuses a discovery capture whose intended slot or capture instant is sub-millisecond (SQL matches TS)", async () => {
+    await saveCitationPanelDraft(scope, discoveryPanelId, 0, draftDiscovery(), rpc);
+    await lockCitationPanel(scope, discoveryPanelId, 1, rpc);
+    await backdatePanelApproval(discoveryPanelId); // past ms-precise schedule + approval
+    await importManualCapture(scope, discoveryCapture(), rpc); // round 1, on-schedule (supplies prompt/analysis)
+    const base = (await readAnswerEvidence(scope, rpc)).answers[0];
+    const doc = (input: unknown) => ({ input, prompt: base.prompt, analysis: base.analysis });
+    // A sub-millisecond intended slot (round 2) is refused — it cannot equal the millisecond-precise slot.
+    const subMsIntended = discoveryCapture(
+      {
+        slot: { round: 2, questionId: "SY-D01" },
+        time: {
+          capturedAt: new Date(Date.parse(slotInstant(2)) + 60000).toISOString(),
+          intendedSlotAt: `${slotInstant(2).slice(0, 19)}.000001Z`,
+          delayMinutes: 1,
+        },
+      },
+      { rawAnswer: "sub-ms intended slot" },
+    );
+    await expect(
+      db.query("SELECT save_citation_capture($1,'p',$2)", [user, doc(subMsIntended)]),
+    ).rejects.toThrow(/citation_intended_slot_mismatch/);
+    await expect(importManualCapture(scope, subMsIntended, rpc)).rejects.toThrow();
+    // A sub-millisecond capture instant is refused — the recorded delay cannot be a truthful whole minute
+    // at a precision the millisecond floor does not support.
+    const subMsCaptured = discoveryCapture(
+      {
+        slot: { round: 2, questionId: "SY-D01" },
+        time: {
+          capturedAt: new Date(Date.parse(slotInstant(2)) + 60000)
+            .toISOString()
+            .replace(".000Z", ".000001Z"),
+          intendedSlotAt: slotInstant(2),
+          delayMinutes: 1,
+        },
+      },
+      { rawAnswer: "sub-ms captured" },
+    );
+    await expect(
+      db.query("SELECT save_citation_capture($1,'p',$2)", [user, doc(subMsCaptured)]),
+    ).rejects.toThrow(/citation_delay_untruthful/);
+    // Only the one valid round-1 capture persisted; no sub-millisecond row was stored.
+    expect((await readAnswerEvidence(scope, rpc)).answers).toHaveLength(1);
+  });
 });

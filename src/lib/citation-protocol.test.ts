@@ -819,6 +819,52 @@ describe("weekly discovery schedule at lock and resolve (spec §§5.1 Frequency,
     expect(r).toMatchObject({ outcome: "complete" });
     expect(r.deviations).toEqual([]);
   });
+  it("locks a same-fraction schedule but rejects differing or sub-millisecond fractions (TS matches SQL)", () => {
+    const withSchedule = (slots: Array<{ round: number; intendedAt: string }>) =>
+      discoveryPanel({ schedule: { timezone: "Europe/Stockholm", slots } });
+    const at = (round: number, frac: string) => `${slotInstant(round).slice(0, 19)}.${frac}`;
+    // All rounds at the same fractional second (.500) — a consistent weekly cadence → locks.
+    expect(
+      lockedPanelSchema.safeParse(
+        withSchedule([1, 2, 3, 4].map((r) => ({ round: r, intendedAt: at(r, "500Z") }))),
+      ).success,
+    ).toBe(true);
+    // Differing fractional seconds (round 2 at .500) — pre-fix the whole-second wall clock dropped the
+    // fraction and wrongly admitted this while the SQL lock rejected. Now the TS side rejects it too.
+    expect(
+      lockedPanelSchema.safeParse(
+        withSchedule([
+          { round: 1, intendedAt: at(1, "000Z") },
+          { round: 2, intendedAt: at(2, "500Z") },
+          { round: 3, intendedAt: at(3, "000Z") },
+          { round: 4, intendedAt: at(4, "000Z") },
+        ]),
+      ).success,
+    ).toBe(false);
+    // Sub-millisecond precision is unsupported at admission.
+    expect(
+      lockedPanelSchema.safeParse(
+        withSchedule([1, 2, 3, 4].map((r) => ({ round: r, intendedAt: at(r, "000001Z") }))),
+      ).success,
+    ).toBe(false);
+  });
+  it("demotes a capture whose instant carries sub-millisecond precision (fail closed)", () => {
+    const [r] = resolveStoredCaptures(
+      [
+        cap(1, {
+          time: {
+            capturedAt: "2026-09-07T08:00:00.000001Z",
+            intendedSlotAt: slotInstant(1),
+            delayMinutes: 60,
+          },
+        }),
+      ],
+      [discoveryPanel()],
+      [],
+    );
+    expect(r.outcome).toBe("protocol_deviant");
+    expect(r.deviations).toContain("delay_untruthful");
+  });
 });
 
 describe("citation protocol erased-slot resolution (content-free tombstones)", () => {
