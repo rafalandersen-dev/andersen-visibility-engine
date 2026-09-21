@@ -218,6 +218,10 @@ describe("candidate migration chain", () => {
     "citation_redact_answer_fields(jsonb)",
     "citation_forget_redact_answer(uuid,text,uuid)",
     "citation_forget_answer_passages()",
+    // Native-artifact-forget objects (finding 4061786099): the native-delete redactor and the trigger function
+    // fired by AFTER DELETE on the released ai_native_report_artifacts. Both REVOKEd from every role.
+    "citation_forget_redact_native(uuid,text,uuid)",
+    "citation_forget_native_records()",
     // Fact-delete erasure objects: the fact-reference matcher (row-pin OR logical id+version, finding 4061340380),
     // the fact redactor and the trigger function fired by AFTER DELETE on ai_citation_business_facts. All REVOKEd
     // from every role — the matcher is reached only from the redactor/save guard, the redactor only from the trigger.
@@ -282,6 +286,8 @@ describe("candidate migration chain", () => {
       "ai_citation_finding_dissent_tombstones",
       // Content-free fact-level erasure provenance (fact-delete propagation; ids + timestamp only).
       "ai_citation_fact_erasures",
+      // Content-free native-artifact erasure provenance (native-delete propagation; ids + timestamp, no bytes/sha).
+      "ai_citation_native_erasures",
     ]) {
       const { rows } = await db.query<{ rls: boolean; policies: string }>(
         "SELECT c.relrowsecurity rls,(SELECT count(*)::text FROM pg_policy WHERE polrelid=c.oid) policies FROM pg_class c JOIN pg_namespace s ON s.oid=c.relnamespace WHERE s.nspname='public' AND c.relname=$1",

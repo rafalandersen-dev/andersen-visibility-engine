@@ -1698,6 +1698,209 @@ describe("the independent inspection gate reuses the canonical accuracy resolver
     ).toBe(0);
   });
 });
+describe("native artifact deletion propagates the evidence-forget policy (finding 4061786099)", () => {
+  const rawSubmitN = async (
+    actor: string,
+    row: string,
+    sha: string,
+    decision = "approved",
+    note: string | null = null,
+  ) => {
+    try {
+      await db.query("SELECT public.save_ai_citation_finding_review($1,$2,'p',$3,$4,$5,$6)", [
+        actor,
+        user,
+        row,
+        sha,
+        decision,
+        note,
+      ]);
+      return "ok";
+    } catch (e) {
+      return (e as Error).message;
+    }
+  };
+  const erasedOf = async (rowId: string) =>
+    (
+      await db.query<{ e: string | null }>(
+        "SELECT evidence_erased_at::text e FROM ai_citation_findings WHERE id=$1",
+        [rowId],
+      )
+    ).rows[0].e;
+  const maskedN = async (rowId: string) =>
+    (
+      await db.query<{ m: boolean }>(
+        "SELECT public.citation_finding_review_digest_masked($1,'p',$2) m",
+        [user, rowId],
+      )
+    ).rows[0].m;
+  // A finding citing a native artifact, created through the RPC so a native-only shape (which isolates native
+  // masking from any source/answer confounder) is stored exactly as it would live.
+  const nativeFinding = async (fid: string, nativeId: string | null, observation: string) => {
+    const base = finding(fid, "accepted", { evidence: [{ kind: "native", id: "x" }] });
+    const saved = await rpc("save_ai_citation_finding", {
+      p_user: user,
+      p_project: "p",
+      p_record: {
+        ...base,
+        observation,
+        evidence: nativeId === null ? [{ kind: "native" }] : [{ kind: "native", id: nativeId }],
+      },
+      p_scope: panelScope,
+    });
+    if (saved.error) throw saved.error;
+    return (saved.data as { id: string }).id;
+  };
+  const seedOtherNative = (id: string) =>
+    db.query(
+      "INSERT INTO ai_native_report_artifacts(user_id,project_id,id,scope_key,artifact_sha256,byte_length,bytes,metadata,actor_id) VALUES($1::uuid,'p',$2::uuid,'sk2',$3::text,1,'\\x00'::bytea,'{}'::jsonb,$1::uuid)",
+      [user, id, "e".repeat(64)],
+    );
+  it("erases a finding citing a DELETED native artifact — prose/digest/notes hidden on both reviewer routes, owner retention, new reviews blocked, no digest oracle (finding 4061786099)", async () => {
+    const OBS_SECRET = "OBS-SECRET-NTV: the deleted native report measured a private 42% lift.";
+    const NOTE_SECRET = "NOTE-SECRET-NTV: this note quotes the deleted native report.";
+    await seedNative();
+    const row = await nativeFinding("60000000-0000-4000-8000-000000000060", NATIVE, OBS_SECRET);
+    // While the artifact is PRESENT the finding is visible (native present -> NOT masked) though non-inspectable.
+    expect(await maskedN(row)).toBe(false);
+    const before = await getCitationFindingForReview(
+      reviewer,
+      { ownerId: user, projectId: "p", findingRowId: row },
+      rpc,
+    );
+    expect(before.evidenceErased).toBe(false);
+    expect(before.evidence.find((x) => x.kind === "native")?.inspectable).toBe(false);
+    const receipt = await submit(reviewer, row, before.recordSha256!, "approved", NOTE_SECRET);
+    // Delete the native artifact via the REAL released RPC -> the AFTER DELETE trigger propagates erasure.
+    expect(
+      (
+        await rpc("remove_ai_native_report_artifact", {
+          p_user: user,
+          p_project: "p",
+          p_id: NATIVE,
+        })
+      ).error,
+    ).toBeNull();
+    expect(await erasedOf(row)).not.toBeNull();
+    expect(await maskedN(row)).toBe(true);
+    const view = await getCitationFindingForReview(
+      reviewer,
+      { ownerId: user, projectId: "p", findingRowId: row },
+      rpc,
+    );
+    expect(view.evidenceErased).toBe(true);
+    expect(view.record.observation).toBe("[withheld: finding evidence hidden]");
+    expect(view.recordSha256).toBeNull();
+    expect(view.reviews[0].note).toBeNull();
+    expect(view.reviews[0].recordSha256).toBeNull();
+    const whole = JSON.stringify(view);
+    expect(whole).not.toContain("OBS-SECRET-NTV");
+    expect(whole).not.toContain("NOTE-SECRET-NTV");
+    // The standalone reviewer receipt list masks the note + digest too.
+    const rlist = await readCitationFindingReviews(
+      reviewer,
+      { ownerId: user, projectId: "p", findingRowId: row },
+      rpc,
+    );
+    expect(rlist.reviews[0].note).toBeNull();
+    expect(rlist.reviews[0].recordSha256).toBeNull();
+    // The OWNER retains the prose; the note is storage-erased to the content-free marker (decision kept).
+    expect(JSON.stringify(await getCitationFinding(scope, row, rpc))).toContain("OBS-SECRET-NTV");
+    const ownerList = await readCitationFindingReviews(
+      user,
+      { ownerId: user, projectId: "p", findingRowId: row },
+      rpc,
+    );
+    expect(ownerList.reviews[0].note).toBe("[redacted: finding evidence forgotten]");
+    expect(ownerList.reviews[0].decision).toBe("approved");
+    const stored = await db.query<{ n: string | null; o: string }>(
+      "SELECT (SELECT note FROM ai_citation_finding_reviews WHERE id=$2) n, (record->>'observation') o FROM ai_citation_findings WHERE id=$1",
+      [row, receipt.id],
+    );
+    expect(stored.rows[0].n).toBe("[redacted: finding evidence forgotten]");
+    expect(stored.rows[0].o).toBe(OBS_SECRET);
+    // A new review is blocked: a wrong hash and the finding's REAL stored digest raise the SAME unavailable error
+    // (no stale-vs-success oracle for the hidden digest), and NO new receipt is written.
+    const storedSha = (
+      await db.query<{ s: string }>(
+        "SELECT record_sha256 s FROM ai_citation_findings WHERE id=$1",
+        [row],
+      )
+    ).rows[0].s;
+    for (const sha of ["c".repeat(64), storedSha])
+      expect(await rawSubmitN(reviewer, row, sha)).toMatch(/citation_finding_unavailable/);
+    expect(await rawSubmitN(reviewer, row, storedSha, "approved", "new note")).toMatch(
+      /citation_finding_unavailable/,
+    );
+    expect(
+      (
+        await db.query<{ n: number }>(
+          "SELECT count(*)::int n FROM ai_citation_finding_reviews WHERE finding_row_id=$1 AND note='new note'",
+          [row],
+        )
+      ).rows[0].n,
+    ).toBe(0);
+  });
+  it("blocks native-erased resurrection at save, isolates an unrelated surviving artifact, masks missing/malformed/null native refs without a cast crash, and survives a project delete (finding 4061786099)", async () => {
+    await seedNative(); // NATIVE
+    const OTHER = "d0000000-0000-4000-8000-0000000000a1";
+    await seedOtherNative(OTHER);
+    const survivingRow = await nativeFinding(
+      "60000000-0000-4000-8000-000000000061",
+      OTHER,
+      "unrelated",
+    );
+    // Delete NATIVE; the finding citing the SURVIVING OTHER artifact is untouched (semantic-uuid scoped).
+    await rpc("remove_ai_native_report_artifact", { p_user: user, p_project: "p", p_id: NATIVE });
+    expect(await erasedOf(survivingRow)).toBeNull();
+    expect(await maskedN(survivingRow)).toBe(false);
+    // A FRESH finding citing the now-deleted NATIVE is erased at save (resurrection blocked via the marker).
+    const freshRow = await nativeFinding(
+      "60000000-0000-4000-8000-000000000062",
+      NATIVE,
+      "FRESH-SECRET-NTV quotes the deleted native.",
+    );
+    expect(await erasedOf(freshRow)).not.toBeNull();
+    const freshView = await getCitationFindingForReview(
+      reviewer,
+      { ownerId: user, projectId: "p", findingRowId: freshRow },
+      rpc,
+    );
+    expect(freshView.evidenceErased).toBe(true);
+    expect(JSON.stringify(freshView)).not.toContain("FRESH-SECRET-NTV");
+    await expect(submit(reviewer, freshRow, "a".repeat(64), "approved", "x")).rejects.toThrow();
+    // A MALFORMED id, a MISSING (never-existent uuid) artifact, and a NULL id all fail CLOSED to masked with NO
+    // cast crash (the non-uuid/null id never reaches ::uuid).
+    const malformedRow = await nativeFinding(
+      "60000000-0000-4000-8000-000000000063",
+      "not-a-uuid-native",
+      "m",
+    );
+    const missingRow = await nativeFinding(
+      "60000000-0000-4000-8000-000000000064",
+      "d0000000-0000-4000-8000-0000000000ff",
+      "m2",
+    );
+    const nullRow = await nativeFinding("60000000-0000-4000-8000-000000000065", null, "m3");
+    expect(await maskedN(malformedRow)).toBe(true);
+    expect(await maskedN(missingRow)).toBe(true);
+    expect(await maskedN(nullRow)).toBe(true);
+    // A whole-project delete cascades findings + native artifacts + markers cleanly (the redactor's project-exists
+    // guard skips, so no orphaned marker / FK 23503).
+    await db.query(
+      "DELETE FROM workspace_entities WHERE user_id=$1 AND collection='projects' AND entity_id='p'",
+      [user],
+    );
+    expect(
+      (
+        await db.query<{ n: number }>(
+          "SELECT count(*)::int n FROM ai_citation_native_erasures WHERE user_id=$1 AND project_id='p'",
+          [user],
+        )
+      ).rows[0].n,
+    ).toBe(0);
+  });
+});
 describe("withdrawal is reviewer-only, auditable, and never silently sanitises a dissent (gap 4)", () => {
   it("lets only the receipt's own reviewer withdraw (a content-free tombstone), never the owner or a stranger", async () => {
     const f = await saveF("60000000-0000-4000-8000-000000000040");

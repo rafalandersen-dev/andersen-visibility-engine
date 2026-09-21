@@ -142,6 +142,24 @@ CREATE TABLE public.ai_citation_answer_erasures (
 );
 ALTER TABLE public.ai_citation_answer_erasures ENABLE ROW LEVEL SECURITY;
 REVOKE ALL ON public.ai_citation_answer_erasures FROM PUBLIC,anon,authenticated,service_role;
+-- Native-artifact forget provenance (finding 4061786099). The released remove_ai_native_report_artifact
+-- (20260919165000) merely DELETEs the opaque staged artifact row, with NO erasure propagation — so a finding
+-- citing that native kept its prose/notes visible and its digest unmasked. This records, per (owner, project,
+-- native), that a native artifact was forgotten, so a later resave / fresh finding citing that native id is caught
+-- at save. ids + a timestamp ONLY — never the artifact bytes, sha256 or metadata (nothing to leak; native stays
+-- opaque and uninspectable, no parsing invented). Same monotonic cardinality and project-delete-only lifecycle
+-- bound as the source/answer tables (workspace_entities FK ON DELETE CASCADE). Never a client surface.
+CREATE TABLE public.ai_citation_native_erasures (
+  user_id uuid NOT NULL,
+  project_collection text NOT NULL DEFAULT 'projects' CHECK(project_collection='projects'),
+  project_id text NOT NULL,
+  native_id uuid NOT NULL,
+  erased_at timestamptz NOT NULL DEFAULT clock_timestamp(),
+  PRIMARY KEY(user_id,project_id,native_id),
+  FOREIGN KEY(user_id,project_collection,project_id) REFERENCES public.workspace_entities(user_id,collection,entity_id) ON DELETE CASCADE
+);
+ALTER TABLE public.ai_citation_native_erasures ENABLE ROW LEVEL SECURITY;
+REVOKE ALL ON public.ai_citation_native_erasures FROM PUBLIC,anon,authenticated,service_role;
 
 -- Forget cascade (P1 retention). BOTH forget kinds are ERASURES: forget_project_knowledge('source') DELETEs
 -- the source row (cascading its records/documents) and forget_project_knowledge('record') DELETEs a record and
@@ -323,6 +341,50 @@ REVOKE ALL ON FUNCTION public.citation_forget_answer_passages() FROM PUBLIC,anon
 CREATE TRIGGER citation_forget_answer_passages_trg
   AFTER DELETE ON public.ai_answer_evidence
   FOR EACH ROW EXECUTE FUNCTION public.citation_forget_answer_passages();
+-- Native-artifact forget cascade (finding 4061786099). A native artifact is OPAQUE staged bytes referenced by id
+-- only — the finding copies NOTHING from it (no passage/claim; parsing is P5), so there is NO structured field to
+-- scrub (like the fact redactor, unlike the answer redactor). But the finding's free prose (observation /
+-- hypothesis / support[].reason) and its receipt NOTES may DESCRIBE that report, so a native delete marks every
+-- version of every finding of the SAME owner+project citing the DELETED native id (SEMANTIC uuid, so an uppercase
+-- cite still matches and a source/answer id never coerces) evidence-erased — activating the same machinery:
+-- reviewer digest + receipt + free prose masked/withheld, new reviews blocked, review/improvement status
+-- downgraded. Receipt notes are erased in storage to the content-free marker. record_sha256 is left as the
+-- pre-erasure digest (masked from reviewers). Owner prose is retained in storage (honest owner retention). A
+-- content-free marker records the erasure for the save-time anti-resurrection guard. Project-delete safe: skip
+-- when the workspace_entities project row is already gone (the FK cascade purges artifacts AFTER the project row;
+-- inserting provenance would orphan the FK 23503), exactly like the source/answer/fact redactors.
+CREATE FUNCTION public.citation_forget_redact_native(p_user uuid,p_project text,p_native uuid) RETURNS void
+LANGUAGE plpgsql SECURITY DEFINER SET search_path='' AS $$
+BEGIN
+  IF NOT EXISTS(SELECT 1 FROM public.workspace_entities
+       WHERE user_id=p_user AND collection='projects' AND entity_id=p_project) THEN
+    RETURN;
+  END IF;
+  INSERT INTO public.ai_citation_native_erasures(user_id,project_id,native_id)
+    VALUES(p_user,p_project,p_native) ON CONFLICT(user_id,project_id,native_id) DO NOTHING;
+  UPDATE public.ai_citation_findings f
+    SET evidence_erased_at = coalesce(f.evidence_erased_at, clock_timestamp())
+    WHERE f.user_id=p_user AND f.project_id=p_project
+      AND EXISTS(SELECT 1 FROM jsonb_array_elements(
+            CASE WHEN jsonb_typeof(f.record->'evidence')='array' THEN f.record->'evidence' ELSE '[]'::jsonb END) e
+          WHERE e->>'kind'='native' AND lower(e->>'id')=p_native::text);
+  UPDATE public.ai_citation_finding_reviews r
+    SET note='[redacted: finding evidence forgotten]'
+    WHERE r.user_id=p_user AND r.project_id=p_project AND NOT r.withdrawn AND r.note IS NOT NULL
+      AND EXISTS(SELECT 1 FROM public.ai_citation_findings f
+        WHERE f.id=r.finding_row_id AND f.user_id=p_user AND f.project_id=p_project
+          AND jsonb_typeof(f.record->'evidence')='array'
+          AND EXISTS(SELECT 1 FROM jsonb_array_elements(f.record->'evidence') e
+            WHERE e->>'kind'='native' AND lower(e->>'id')=p_native::text));
+END; $$;
+REVOKE ALL ON FUNCTION public.citation_forget_redact_native(uuid,text,uuid) FROM PUBLIC,anon,authenticated,service_role;
+CREATE FUNCTION public.citation_forget_native_records() RETURNS trigger
+LANGUAGE plpgsql SECURITY DEFINER SET search_path='' AS $$
+BEGIN PERFORM public.citation_forget_redact_native(OLD.user_id,OLD.project_id,OLD.id); RETURN OLD; END; $$;
+REVOKE ALL ON FUNCTION public.citation_forget_native_records() FROM PUBLIC,anon,authenticated,service_role;
+CREATE TRIGGER citation_forget_native_records_trg
+  AFTER DELETE ON public.ai_native_report_artifacts
+  FOR EACH ROW EXECUTE FUNCTION public.citation_forget_native_records();
 
 -- INDEPENDENT (two-person) review receipts (spec §4.5: "a second studio reviewer checks ambiguous or
 -- high-impact claims"). This is a SEPARATE, additive table — NOT a finding-record field — because the
@@ -681,6 +743,19 @@ BEGIN
         SELECT payload->>'status' INTO st FROM public.project_knowledge_sources
           WHERE user_id=p_user AND project_id=p_project AND id=(e->>'id')::uuid;
         IF st IS DISTINCT FROM 'active' THEN RETURN true; END IF;
+      END IF;
+      IF e->>'kind'='native' THEN
+        -- A cited native artifact that is MISSING (deleted — the released remove_ai_native_report_artifact just
+        -- DELETEs the opaque row) or has a malformed/null id resolves to no artifact, so the finding's prose /
+        -- receipt notes describing that report can no longer be verified and MUST mask, EXACTLY as
+        -- read_ai_citation_finding_for_review treats it (native_missing) — finding 4061786099. (A present native is
+        -- available but never inspectable; it does NOT mask.) Guard the uuid shape SEPARATELY, then check
+        -- existence (a non-uuid/null id never reaches the cast; fails CLOSED to masked without a cast crash).
+        IF (e->>'id') IS NULL OR (e->>'id') !~ '^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$' THEN
+          RETURN true;
+        END IF;
+        IF NOT EXISTS(SELECT 1 FROM public.ai_native_report_artifacts
+             WHERE user_id=p_user AND project_id=p_project AND id=(e->>'id')::uuid) THEN RETURN true; END IF;
       END IF;
     END LOOP;
   END IF;
@@ -1076,6 +1151,18 @@ BEGIN
         ON x.user_id=p_user AND x.project_id=p_project AND x.answer_id::text=lower(e->>'id')
       WHERE e->>'kind'='answer') THEN
     p_record := public.citation_redact_answer_fields(p_record);
+    erased := true;
+  END IF;
+  -- Native anti-resurrection (finding 4061786099): a new/altered version citing a DELETED native artifact must not
+  -- become a fresh un-erased attestation whose prose / receipt notes describing that report could re-surface. There
+  -- is NO copied field in the record to scrub (native is opaque), so just mark the row evidence-erased. Matched by
+  -- SEMANTIC uuid against the content-free native-erasure marker (a delete-then-recreate gets a new row id and is
+  -- unaffected). Independent of the source/answer/fact guards.
+  IF EXISTS(SELECT 1 FROM jsonb_array_elements(
+        CASE WHEN jsonb_typeof(p_record->'evidence')='array' THEN p_record->'evidence' ELSE '[]'::jsonb END) e
+      JOIN public.ai_citation_native_erasures x
+        ON x.user_id=p_user AND x.project_id=p_project AND x.native_id::text=lower(e->>'id')
+      WHERE e->>'kind'='native') THEN
     erased := true;
   END IF;
   -- Anti-resurrection (findings 4059689464 + 4061340380): a new/altered version whose accuracy[] REFERENCES a
@@ -2167,7 +2254,7 @@ DECLARE auth record; frow public.ai_citation_findings%ROWTYPE; frec jsonb; e jso
   ev_json jsonb := '[]'::jsonb; facts_json jsonb := '[]'::jsonb; reviews jsonb; total integer;
   ans jsonb; src jsonb; srev integer; mat jsonb; nat boolean;
   fk text; fv text; ffrom timestamptz; funtil timestamptz; ffound boolean;
-  frec_response jsonb; passages_withheld boolean := false; v_masked boolean;
+  frec_response jsonb; passages_withheld boolean := false; native_missing boolean := false; v_masked boolean;
 BEGIN
   IF p_actor IS NULL OR p_owner IS NULL OR p_id IS NULL THEN RAISE EXCEPTION 'citation_review_invalid' USING ERRCODE='22023'; END IF;
   PERFORM public.assert_knowledge_project(p_owner,p_project);
@@ -2250,6 +2337,10 @@ BEGIN
       ELSIF e->>'kind'='native' THEN
         SELECT EXISTS(SELECT 1 FROM public.ai_native_report_artifacts WHERE user_id=p_owner AND project_id=p_project AND id=ref) INTO nat;
         -- A native staged artifact is opaque unparsed bytes: present-or-not, but NEVER independently inspectable.
+        -- A MISSING (deleted) or malformed-id native (ref NULL -> nat false) means the finding's prose/notes
+        -- describing that report can no longer be verified, so it MASKS the digest/prose/notes below — matching
+        -- citation_finding_review_digest_masked exactly (finding 4061786099). A present native does NOT mask.
+        IF NOT nat THEN native_missing := true; END IF;
         ev_json := ev_json || jsonb_build_object('kind','native','id',e->>'id','available',nat,'inspectable',false);
       END IF;
     END LOOP;
@@ -2281,7 +2372,7 @@ BEGIN
   -- to a content-free marker whenever masked — response-only withholding, symmetric with the copied-passage and
   -- receipt-note withholding, no stored mutation and no content-free audit lost. (The structured answer/source
   -- copies are handled separately: storage-erased on a forget, response-withheld on a revoke.)
-  IF frow.evidence_erased_at IS NOT NULL OR passages_withheld THEN
+  IF frow.evidence_erased_at IS NOT NULL OR passages_withheld OR native_missing THEN
     IF (frec_response->>'observation') IS NOT NULL THEN
       frec_response := jsonb_set(frec_response,'{observation}',to_jsonb('[withheld: finding evidence hidden]'::text));
     END IF;
@@ -2309,15 +2400,16 @@ BEGIN
       END IF;
     END LOOP;
   END IF;
-  -- DIGEST MASKING for this REVIEWER response. When the reviewed material is hidden — the finding is erased, or
-  -- a cited source is revoked/missing so its copied passages are withheld above — the record_sha256 is a digest
+  -- DIGEST MASKING for this REVIEWER response. When the reviewed material is hidden — the finding is erased, a
+  -- cited source is revoked/missing so its copied passages are withheld above, OR a cited native artifact is
+  -- missing/deleted (finding 4061786099) — the record_sha256 is a digest
   -- of content the reviewer can no longer see, and with the rest of the record visible a short forgotten/withheld
   -- value would be offline brute-forceable against it. So the top-level digest AND every embedded receipt's
   -- digest are masked to NULL here (this is the reviewer surface; the erased/withheld condition equals
   -- citation_finding_review_digest_masked, computed inline from the values already resolved above). The real
   -- digests are RETAINED server-side (the finding row + each receipt row) for audit; the owner detail read is
   -- unaffected. A fully-visible finding still exposes the exact binding hash a reviewer needs to submit.
-  v_masked := (frow.evidence_erased_at IS NOT NULL OR passages_withheld);
+  v_masked := (frow.evidence_erased_at IS NOT NULL OR passages_withheld OR native_missing);
   SELECT count(*) INTO total FROM public.ai_citation_finding_reviews WHERE user_id=p_owner AND project_id=p_project AND finding_row_id=p_id;
   -- This is the reviewer surface (owner is refused above), so mask each note on the SAME masked condition as
   -- the digest: a note may quote the forgotten/withheld value verbatim, so it is never served to the reviewer
