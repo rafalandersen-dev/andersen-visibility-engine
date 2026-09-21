@@ -44,6 +44,28 @@ export const sourceSupportSchema = z
     sourceCapturedAt: instant.nullable(),
     reason: z.string().trim().max(500).nullable(),
     review: reviewer.nullable(),
+    // Optional SELECTED-EVIDENCE pin (finding 4059944844): the EXACT stored knowledge record + the source revision
+    // the assessed passage was drawn from. When present AND it resolves — the record still exists for this exact
+    // owner/project/source at the source's CURRENT revision — the reviewer independently inspects that ONE selected
+    // record's live material (never the source's other records), and the support is independently inspectable.
+    // Absent, stale, missing, or foreign: the `sourcePassage` is owner-RECORDED provenance only, shown honestly but
+    // NEVER counted as independently resolved evidence. Optional/nullable for backward compatibility with historical
+    // unpinned findings on immutable documents.
+    selectedRecord: z
+      .object({
+        sourceId: uuid,
+        recordId: uuid,
+        sourceRevision: z.number().int().min(1).max(1000000),
+        // The EXACT record version selected (`project_knowledge_records.revision`). REQUIRED to resolve: the
+        // released save_project_knowledge can mutate a record IN PLACE under the SAME sourceRevision and increment
+        // this, so pinning only the source revision would silently resolve to changed content. Nullable/defaulted
+        // so a historical PARTIAL pin (no recordRevision) stays backward-readable but is explicitly UNINSPECTABLE —
+        // never auto-upgraded or resolved against a fabricated default revision.
+        recordRevision: z.number().int().min(1).max(1000000).nullable().default(null),
+      })
+      .strict()
+      .nullable()
+      .default(null),
   })
   .strict()
   .superRefine((s, ctx) => {
@@ -53,6 +75,12 @@ export const sourceSupportSchema = z
           code: "custom",
           path: ["sourcePassage"],
           message: "Not checked carries no passage",
+        });
+      if (s.selectedRecord !== null)
+        ctx.addIssue({
+          code: "custom",
+          path: ["selectedRecord"],
+          message: "Not checked selects no evidence",
         });
       return;
     }
@@ -111,8 +139,19 @@ export const accuracySchema = z
     claimSpan: text(4000),
     factKind: businessFactSchema.shape.kind,
     status: z.enum(ACCURACY_STATES),
-    /** The dated fact the claim was compared with; required for assessed states. */
+    /** The dated fact the claim was compared with (logical id); required for assessed states. */
     factId: uuid.nullable(),
+    /** The EXACT immutable stored fact ROW id (not the reusable numeric version) the reviewer compared
+     * against, so a deleted-then-recreated fact cannot silently rebind; the server verifies its
+     * logical id / version / kind agree. Optional/back-compatible; the accuracy resolution reports
+     * `unpinned` when it (or the cross-checks) are absent for an assessed state. */
+    factRowId: uuid.nullish(),
+    /** Cross-check of the pinned fact's numeric version (verified to agree with the pinned row). */
+    factVersion: z.number().int().min(1).max(10000).nullish(),
+    /** The finding's OWN answer-evidence reference whose SAVED capture time anchors the comparison. The
+     * capture instant is resolved server-side from that scoped saved record (never accepted as owner
+     * free-text); a native-only finding has no such anchor and stays unresolved for answer-at-capture. */
+    captureEvidenceId: uuid.nullish(),
     review: reviewer.nullable(),
   })
   .strict()
@@ -267,13 +306,37 @@ export const improvementSchema = z
       });
   });
 export type Improvement = z.infer<typeof improvementSchema>;
-export function isVerifiedImprovement(i: Improvement) {
+/**
+ * An improvement paired with its AUTHORITATIVE LIVE verification status — the server-derived delivery ladder
+ * (citation-record `CITATION_VERIFICATION_STATUSES`), re-derived on every read from live dependencies. The
+ * status is NOT a field of the immutable record and is never a caller boolean; only `owner_attested` is a
+ * proven owner before/after. Downstream verified counts and experiment comparisons consume THIS shape — never
+ * a bare record — so an approval revoke / baseline delete / finding dismissal or dissent / source forget that
+ * downgrades the live status (while the immutable record is unchanged) drops the improvement from those counts.
+ */
+export interface LiveVerifiedImprovement {
+  /** Server-derived live status. Anything other than "owner_attested" — including a missing/unknown value —
+   * fails closed (not a verified before/after). Typed as `string` so it accepts the citation-record enum
+   * without a circular import; the server read boundary validates it against that enum. */
+  verificationStatus: string;
+  /** The immutable owner-authored record — audit history, never accepted as live verification on its own. */
+  record: Improvement;
+}
+export function isVerifiedImprovement(i: LiveVerifiedImprovement) {
+  // AUTHORITATIVE gate (finding 4063851250): the LIVE status must be owner_attested — the only status that is
+  // a proven owner before/after (current approval + a positive structured owner inspection + a resolving
+  // scoped baseline, all re-derived server-side). A bare/immutable record NEVER qualifies on its own: after an
+  // approval revoke, a baseline delete, a finding dismissal, an independent dissent, or a source forget the
+  // stored record.verification is unchanged yet the live status downgrades, and that downgrade MUST remove the
+  // improvement from verified counts and comparisons. A missing/unknown status fails closed here.
+  if (i.verificationStatus !== "owner_attested") return false;
+  const record = i.record;
+  // Defence in depth on the immutable record (owner_attested already implies these server-side): a recorded
+  // verification block, the baseline captures it improves on, and a retest on/after the approval.
   return (
-    i.verification !== null &&
-    // No baseline captures means no before/after evidence, so the change is not yet a verified
-    // improvement even if a receipt exists (defence in depth alongside the schema refinement).
-    i.baselineCaptureIds.length > 0 &&
-    Date.parse(i.verification.verifiedAt) >= Date.parse(i.change.approvedAt)
+    record.verification !== null &&
+    record.baselineCaptureIds.length > 0 &&
+    Date.parse(record.verification.verifiedAt) >= Date.parse(record.change.approvedAt)
   );
 }
 /**
@@ -355,6 +418,10 @@ export function countDistinctSubstantiveChanges(improvements: Improvement[]): nu
  * clones with fresh UUIDs do not count. Panel/client binding of the evidence is enforced by the
  * retest gate in `comparablePairs`, which resolves each improvement's findings and baseline
  * captures against actual records for the exact panel and client before calling this. */
-export function verifiedImprovementCount(improvements: Improvement[]) {
-  return countDistinctSubstantiveChanges(improvements.filter(isVerifiedImprovement));
+export function verifiedImprovementCount(improvements: LiveVerifiedImprovement[]) {
+  // Only improvements whose LIVE status is owner_attested are counted; a downgraded live status drops the
+  // record here even though its immutable verification block is unchanged (finding 4063851250).
+  return countDistinctSubstantiveChanges(
+    improvements.filter(isVerifiedImprovement).map((i) => i.record),
+  );
 }

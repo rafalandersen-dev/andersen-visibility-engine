@@ -3,8 +3,14 @@ import { readFileSync, readdirSync } from "node:fs";
 import { beforeAll, afterAll, describe, expect, it } from "vitest";
 /** Applies every unapplied candidate migration in production (filename) order on top of
  * the released chain and asserts the grant matrix of each function a candidate creates
- * or recreates. A recreated function starts with EXECUTE for PUBLIC, so this guards the
- * REVOKE/GRANT that must follow every DROP/CREATE (local security review, 14 September). */
+ * or recreates, plus the RLS/closed-table state of the stores it adds. A recreated function
+ * starts with EXECUTE for PUBLIC, so this guards the REVOKE/GRANT that must follow every
+ * DROP/CREATE (local security review, 14 September). The sole unapplied candidate is the P3
+ * citation candidate 20260920200000; it is applied here on top of its REAL released
+ * prerequisites (project knowledge, publication approval/evidence, answer evidence, native
+ * artifacts, project team reads/policy) so its migration actually executes and its
+ * service-only RPCs, internal-helper REVOKEs and closed stores are genuinely tested. There is
+ * no P2 citation panel candidate in this worktree (a separate open author owns it). */
 let db: PGlite;
 const released = [
   "20260907150000_operational_notifications.sql",
@@ -18,6 +24,10 @@ const released = [
   "20260911030000_project_team_membership.sql",
   "20260911040000_project_team_comments.sql",
   "20260910170000_publication_approval.sql",
+  // Released prerequisites the UNAPPLIED P3 citation candidate binds to: the publication attempt/evidence
+  // store and the owner-supplied answer evidence + prompts. Reused verbatim (the focused citation suites use
+  // the same real migrations), never invented substitutes; both predate the candidate cutoff.
+  "20260910200000_publication_evidence.sql",
   "20260911050000_project_team_edits.sql",
   "20260911060000_project_team_approval_policy.sql",
   "20260911070000_project_team_review_context.sql",
@@ -56,7 +66,10 @@ const releasedConversationPacket = [
   // PR148 applied and verified on 20 September.
   "20260920180000_milo_conversation_checkpoint_lock_wait.sql",
 ];
-const candidates = ["20260920190000_citation_protocol.sql"];
+// PR146 applied and verified on 21 September; immutable released prerequisite for P3.
+const releasedCitationProtocol = ["20260920190000_citation_protocol.sql"];
+// P3 is the only unapplied migration after integrating the released protocol.
+const candidates = ["20260920200000_citation_findings_improvements.sql"];
 const allowed = async (role: string, fn: string) =>
   (
     await db.query<{ allowed: boolean }>("SELECT has_function_privilege($1,$2,'EXECUTE') allowed", [
@@ -93,6 +106,7 @@ beforeAll(async () => {
     ...released,
     ...releasedAfterCutoff,
     ...releasedConversationPacket,
+    ...releasedCitationProtocol,
     ...candidates,
   ])
     await db.exec(readFileSync(`supabase/migrations/${file}`, "utf8"));
@@ -109,7 +123,11 @@ describe("candidate migration chain", () => {
     // are already released; subtract exactly their known suffixes. Any other file
     // after the cutoff stays in `unapplied` and fails below, so a future
     // migration is surfaced rather than silently treated as released.
-    const applied = [...releasedAfterCutoff, ...releasedConversationPacket].sort();
+    const applied = [
+      ...releasedAfterCutoff,
+      ...releasedConversationPacket,
+      ...releasedCitationProtocol,
+    ].sort();
     expect(files.filter((file) => applied.includes(file))).toEqual(applied);
     const unapplied = files.filter((file) => !applied.includes(file));
     expect(unapplied).toEqual(candidates);
@@ -133,10 +151,35 @@ describe("candidate migration chain", () => {
     "count_project_team_seats(uuid,text)",
     "create_project_team_invitation(uuid,uuid,text,uuid,text,text,integer,integer)",
     "change_project_team_member(uuid,uuid,text,uuid,bigint,text,boolean,integer,integer)",
-    // Redefined by candidate 20260920180000 (CREATE OR REPLACE keeps service_role-only).
+    // Redefined by the applied 20260920180000 migration (CREATE OR REPLACE keeps service_role-only).
     "claim_milo_conversation_turn(uuid,uuid,text,uuid,uuid)",
     "advance_milo_conversation_turn(uuid,uuid,text,uuid,uuid,uuid,integer,jsonb,text)",
     "check_milo_conversation_execution(uuid,uuid,text,uuid,uuid,uuid)",
+    // P3 UNAPPLIED citation candidate 20260920200000 service RPCs: REVOKEd from PUBLIC/anon/authenticated,
+    // GRANTed to service_role only (the middleware supplies the authenticated actor). Findings/improvements:
+    "save_ai_citation_finding(uuid,text,jsonb,jsonb)",
+    "read_ai_citation_findings(uuid,text)",
+    "read_ai_citation_finding(uuid,text,uuid)",
+    "remove_ai_citation_finding(uuid,text,uuid)",
+    "save_ai_citation_improvement(uuid,text,jsonb,jsonb,jsonb)",
+    "read_ai_citation_improvements(uuid,text)",
+    "read_ai_citation_improvement(uuid,text,uuid)",
+    "remove_ai_citation_improvement(uuid,text,uuid)",
+    // Dated business facts + the finding accuracy read:
+    "save_ai_citation_business_fact(uuid,text,jsonb)",
+    "read_ai_citation_business_facts(uuid,text)",
+    "read_ai_citation_business_fact(uuid,text,uuid)",
+    "remove_ai_citation_business_fact(uuid,text,uuid)",
+    "read_ai_citation_finding_accuracy(uuid,text,uuid)",
+    // Independent (two-person) review — actor is the authenticated caller, owner/project/finding supplied:
+    "save_ai_citation_finding_review(uuid,uuid,text,uuid,text,text,text)",
+    "remove_ai_citation_finding_review(uuid,uuid,text,uuid)",
+    "read_ai_citation_finding_reviews(uuid,uuid,text,uuid)",
+    "read_ai_citation_finding_for_review(uuid,uuid,text,uuid)",
+    // Owner-only finding-scoped evidence-review assignment grant/revoke (finding 4062796988): p_owner is the
+    // authenticated owner supplied by the middleware; client-initiated, so GRANTed to service_role only.
+    "grant_ai_citation_review_assignment(uuid,text,uuid,uuid)",
+    "revoke_ai_citation_review_assignment(uuid,text,uuid,uuid)",
   ])("%s is executable by service_role only", async (fn) => {
     expect(await allowed("service_role", fn)).toBe(true);
     for (const role of ["anon", "authenticated", "public"])
@@ -148,9 +191,50 @@ describe("candidate migration chain", () => {
     "milo_conversation_turn_view(public.milo_conversation_turns)",
     "assert_milo_conversation_access(uuid,uuid,text)",
     "assert_project_team_seat(uuid,text,text,text,integer,integer)",
-    // New internal helper added by candidate 20260920180000: the executor-only bounded
+    // Internal helper added by the applied 20260920180000 migration: the executor-only bounded
     // access assert, granted to no role and reachable only from the definer RPCs.
     "assert_milo_conversation_execution(uuid,uuid,text)",
+    // P3 UNAPPLIED citation candidate 20260920200000 internal helpers: SECURITY DEFINER, REVOKEd from
+    // PUBLIC/anon/authenticated/service_role, reached only from the P3 service RPCs (never client-callable).
+    "citation_lock_account(uuid)",
+    "citation_finding_sources_available(uuid,text,jsonb)",
+    "citation_finding_head_id(uuid,text,uuid,uuid,integer,text,text)",
+    "citation_finding_inspectable(uuid,text,jsonb)",
+    "citation_finding_accuracy(uuid,text,jsonb)",
+    "citation_finding_accuracy_status(uuid,text,jsonb)",
+    "citation_accuracy_resolve(uuid,text,jsonb,jsonb)",
+    "citation_improvement_evidence(uuid,text,jsonb)",
+    "citation_improvement_status(uuid,text,jsonb,uuid[],jsonb)",
+    "citation_review_authorized(uuid,uuid,text)",
+    // Finding-scoped assignment check (finding 4062796988): reached only from the reviewer save/list/read RPCs
+    // to gate private evidence in ADDITION to team eligibility. REVOKEd from every role (never client-callable).
+    "citation_review_assigned(uuid,text,uuid,uuid)",
+    "citation_finding_review_status(uuid,text,uuid)",
+    "citation_finding_review_digest_masked(uuid,text,uuid)",
+    // Selected-knowledge validity predicate (finding 4060770032): the evidence-inspection subset of the canonical
+    // knowledge selector, called only from the inspectable/read definer functions. REVOKEd from every role.
+    "citation_knowledge_selectable(jsonb,jsonb,timestamptz)",
+    // Forget-cascade objects added by this candidate: the shared passage redactor plus the two trigger
+    // functions fired by AFTER DELETE on the released project_knowledge_sources / project_knowledge_records.
+    // All REVOKEd from every role — reached only from their triggers.
+    "citation_forget_redact_source(uuid,text,uuid)",
+    "citation_forget_source_passages()",
+    "citation_forget_record_passages()",
+    // Answer-forget objects (P2): the pure answer-field redactor, the answer-delete redactor, and the trigger
+    // function fired by AFTER DELETE on the released ai_answer_evidence. All REVOKEd from every role.
+    "citation_redact_answer_fields(jsonb)",
+    "citation_forget_redact_answer(uuid,text,uuid)",
+    "citation_forget_answer_passages()",
+    // Native-artifact-forget objects (finding 4061786099): the native-delete redactor and the trigger function
+    // fired by AFTER DELETE on the released ai_native_report_artifacts. Both REVOKEd from every role.
+    "citation_forget_redact_native(uuid,text,uuid)",
+    "citation_forget_native_records()",
+    // Fact-delete erasure objects: the fact-reference matcher (row-pin OR logical id+version, finding 4061340380),
+    // the fact redactor and the trigger function fired by AFTER DELETE on ai_citation_business_facts. All REVOKEd
+    // from every role — the matcher is reached only from the redactor/save guard, the redactor only from the trigger.
+    "citation_fact_ref_matches(jsonb,uuid,uuid,integer)",
+    "citation_forget_redact_fact(uuid,text,uuid,uuid,integer)",
+    "citation_forget_fact_records()",
   ])("%s is reachable only from definer functions", async (fn) => {
     for (const role of ["anon", "authenticated", "service_role", "public"])
       expect(await allowed(role, fn)).toBe(false);
@@ -160,7 +244,7 @@ describe("candidate migration chain", () => {
       "begin_milo_conversation_turn",
       "create_project_team_invitation",
       "change_project_team_member",
-      // Candidate 20260920180000 CREATE OR REPLACEs these with identical signatures — it
+      // The applied 20260920180000 migration CREATE OR REPLACEs these with identical signatures — it
       // must not fork a second overload (a signature typo would leave the old NOWAIT body
       // live alongside the new one).
       "claim_milo_conversation_turn",
@@ -195,6 +279,25 @@ describe("candidate migration chain", () => {
       "milo_conversation_dispatch_attempts",
       "project_team_members",
       "project_team_invitations",
+      // P3 UNAPPLIED citation candidate 20260920200000 stores: RLS enabled, no policies, REVOKEd from every
+      // client role (service_role reaches them only via the SECURITY DEFINER RPCs above).
+      "ai_citation_findings",
+      "ai_citation_improvements",
+      "ai_citation_finding_reviews",
+      "ai_citation_business_facts",
+      // Content-free source-level erasure provenance for the forget cascade (ids + timestamp only).
+      "ai_citation_source_erasures",
+      // Content-free answer-level erasure provenance (P2 answer-delete propagation; ids + timestamp only).
+      "ai_citation_answer_erasures",
+      // Content-free logical-finding dissent tombstone (a dissent survives a version/head delete; ids + timestamp).
+      "ai_citation_finding_dissent_tombstones",
+      // Content-free fact-level erasure provenance (fact-delete propagation; ids + timestamp only).
+      "ai_citation_fact_erasures",
+      // Content-free native-artifact erasure provenance (native-delete propagation; ids + timestamp, no bytes/sha).
+      "ai_citation_native_erasures",
+      // Content-free finding-scoped evidence-review assignment (finding 4062796988): owner/project/row/reviewer
+      // identities + active/revoked flag only — no evidence, hash or note; finding FK ON DELETE CASCADE.
+      "ai_citation_review_assignments",
     ]) {
       const { rows } = await db.query<{ rls: boolean; policies: string }>(
         "SELECT c.relrowsecurity rls,(SELECT count(*)::text FROM pg_policy WHERE polrelid=c.oid) policies FROM pg_class c JOIN pg_namespace s ON s.oid=c.relnamespace WHERE s.nspname='public' AND c.relname=$1",

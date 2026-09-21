@@ -4,6 +4,7 @@ import {
   countDistinctSubstantiveChanges,
   isVerifiedImprovement,
   type Improvement,
+  type LiveVerifiedImprovement,
 } from "./citation-finding";
 /**
  * Citation Intelligence v1, CI-2 record design (product/CITATION_INTELLIGENCE_SPEC.md §5, §8).
@@ -760,12 +761,14 @@ export interface ScopedFinding {
   panelVersion: number;
   client: { name: string; market: string };
 }
-/** The explicit evidence a retest is proved against: this panel's scoped captures and findings
- * and the improvement records. Nothing is trusted by a bare asserted panel id on the improvement. */
+/** The explicit evidence a retest is proved against: this panel's scoped captures and findings and the
+ * improvements paired with their AUTHORITATIVE LIVE verification status (never a bare record — a downgraded
+ * live status must drop the improvement from the comparison, finding 4063851250). Nothing is trusted by a bare
+ * asserted panel id on the improvement. */
 export interface ComparableEvidence {
   captures: ScopedCapture[];
   findings: ScopedFinding[];
-  improvements: Improvement[];
+  improvements: LiveVerifiedImprovement[];
 }
 /** Exact panel-and-client scope key. Same panel id, same version and same client. */
 function panelClientKey(scope: {
@@ -774,7 +777,11 @@ function panelClientKey(scope: {
   client: { name: string; market: string };
 }): string {
   return JSON.stringify([
-    scope.panelId,
+    // The panel id is a validated UUID: compare it by SEMANTIC identity (canonical lowercase) so a scope
+    // asserted with an uppercase UUID still matches the canonical (lowercase) DB row, while the textual client
+    // name/market stay EXACT (never case-folded) so a genuinely different client is still a foreign scope
+    // (finding 4064342170).
+    scope.panelId.toLowerCase(),
     scope.panelVersion,
     scope.client.name,
     scope.client.market,
@@ -811,23 +818,30 @@ export function comparablePairs(
     panelVersion: panel.version,
     client: panel.client,
   });
+  // Validated UUID identities (capture/finding/panel ids and the improvement's finding/baseline refs) are
+  // compared by SEMANTIC identity: the schema/SQL preserve the owner's original (possibly uppercase) UUID
+  // casing on the immutable record, but DB row ids are canonical lowercase, so a live comparison must fold BOTH
+  // sides or a legitimate uppercase reference against a lowercase row wrongly throws (finding 4064342170). A
+  // mixed-case duplicate of the same UUID is therefore still caught, and textual client/market/question ids,
+  // URLs, records and hashes are NEVER case-folded. Error messages keep the raw id for readability.
+  const canon = (id: string) => id.toLowerCase();
   // Index the scoped evidence, rejecting any record that belongs to another panel/client or
   // reuses an identity. These are the only records an improvement may resolve against.
   const captureById = new Map<string, ScopedCapture>();
   for (const c of captures) {
     if (panelClientKey(c) !== panelScope)
       throw new Error(`comparablePairs: capture ${c.captureId} belongs to another panel or client`);
-    if (captureById.has(c.captureId))
+    if (captureById.has(canon(c.captureId)))
       throw new Error(`comparablePairs: duplicate capture id ${c.captureId}`);
-    captureById.set(c.captureId, c);
+    captureById.set(canon(c.captureId), c);
   }
   const findingById = new Map<string, ScopedFinding>();
   for (const f of findings) {
     if (panelClientKey(f) !== panelScope)
       throw new Error(`comparablePairs: finding ${f.findingId} belongs to another panel or client`);
-    if (findingById.has(f.findingId))
+    if (findingById.has(canon(f.findingId)))
       throw new Error(`comparablePairs: duplicate finding id ${f.findingId}`);
-    findingById.set(f.findingId, f);
+    findingById.set(canon(f.findingId), f);
   }
   const refusal = (reason: string) => ({
     pairs: [] as Array<{
@@ -853,21 +867,27 @@ export function comparablePairs(
   // captures, then keep only those verified strictly after every baseline capture they improve
   // on. Foreign, missing or duplicated references are rejected outright.
   const bound: Improvement[] = [];
-  for (const imp of improvements) {
-    if (!isVerifiedImprovement(imp)) continue;
-    if (new Set(imp.findingIds).size !== imp.findingIds.length)
+  for (const live of improvements) {
+    // Only a LIVE owner_attested improvement is counted; a downgraded status (approval revoked, baseline
+    // deleted, finding dismissed/dissented, source forgotten) drops it here even though its immutable record
+    // is unchanged (finding 4063851250). Everything below reads the immutable record's structure.
+    if (!isVerifiedImprovement(live)) continue;
+    const imp = live.record;
+    // Duplicate detection is semantic too: a mixed-case repeat of the same finding/baseline UUID is a
+    // duplicate, not two references.
+    if (new Set(imp.findingIds.map(canon)).size !== imp.findingIds.length)
       throw new Error(`comparablePairs: improvement ${imp.improvementId} duplicates a finding id`);
-    if (new Set(imp.baselineCaptureIds).size !== imp.baselineCaptureIds.length)
+    if (new Set(imp.baselineCaptureIds.map(canon)).size !== imp.baselineCaptureIds.length)
       throw new Error(
         `comparablePairs: improvement ${imp.improvementId} duplicates a baseline capture id`,
       );
     for (const fid of imp.findingIds)
-      if (!findingById.has(fid))
+      if (!findingById.has(canon(fid)))
         throw new Error(
           `comparablePairs: finding ${fid} is not recorded for this panel and client`,
         );
     const baselineAts = imp.baselineCaptureIds.map((cid) => {
-      const capture = captureById.get(cid);
+      const capture = captureById.get(canon(cid));
       if (!capture)
         throw new Error(
           `comparablePairs: baseline capture ${cid} is not recorded for this panel and client`,
