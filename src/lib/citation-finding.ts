@@ -306,13 +306,37 @@ export const improvementSchema = z
       });
   });
 export type Improvement = z.infer<typeof improvementSchema>;
-export function isVerifiedImprovement(i: Improvement) {
+/**
+ * An improvement paired with its AUTHORITATIVE LIVE verification status — the server-derived delivery ladder
+ * (citation-record `CITATION_VERIFICATION_STATUSES`), re-derived on every read from live dependencies. The
+ * status is NOT a field of the immutable record and is never a caller boolean; only `owner_attested` is a
+ * proven owner before/after. Downstream verified counts and experiment comparisons consume THIS shape — never
+ * a bare record — so an approval revoke / baseline delete / finding dismissal or dissent / source forget that
+ * downgrades the live status (while the immutable record is unchanged) drops the improvement from those counts.
+ */
+export interface LiveVerifiedImprovement {
+  /** Server-derived live status. Anything other than "owner_attested" — including a missing/unknown value —
+   * fails closed (not a verified before/after). Typed as `string` so it accepts the citation-record enum
+   * without a circular import; the server read boundary validates it against that enum. */
+  verificationStatus: string;
+  /** The immutable owner-authored record — audit history, never accepted as live verification on its own. */
+  record: Improvement;
+}
+export function isVerifiedImprovement(i: LiveVerifiedImprovement) {
+  // AUTHORITATIVE gate (finding 4063851250): the LIVE status must be owner_attested — the only status that is
+  // a proven owner before/after (current approval + a positive structured owner inspection + a resolving
+  // scoped baseline, all re-derived server-side). A bare/immutable record NEVER qualifies on its own: after an
+  // approval revoke, a baseline delete, a finding dismissal, an independent dissent, or a source forget the
+  // stored record.verification is unchanged yet the live status downgrades, and that downgrade MUST remove the
+  // improvement from verified counts and comparisons. A missing/unknown status fails closed here.
+  if (i.verificationStatus !== "owner_attested") return false;
+  const record = i.record;
+  // Defence in depth on the immutable record (owner_attested already implies these server-side): a recorded
+  // verification block, the baseline captures it improves on, and a retest on/after the approval.
   return (
-    i.verification !== null &&
-    // No baseline captures means no before/after evidence, so the change is not yet a verified
-    // improvement even if a receipt exists (defence in depth alongside the schema refinement).
-    i.baselineCaptureIds.length > 0 &&
-    Date.parse(i.verification.verifiedAt) >= Date.parse(i.change.approvedAt)
+    record.verification !== null &&
+    record.baselineCaptureIds.length > 0 &&
+    Date.parse(record.verification.verifiedAt) >= Date.parse(record.change.approvedAt)
   );
 }
 /**
@@ -394,6 +418,10 @@ export function countDistinctSubstantiveChanges(improvements: Improvement[]): nu
  * clones with fresh UUIDs do not count. Panel/client binding of the evidence is enforced by the
  * retest gate in `comparablePairs`, which resolves each improvement's findings and baseline
  * captures against actual records for the exact panel and client before calling this. */
-export function verifiedImprovementCount(improvements: Improvement[]) {
-  return countDistinctSubstantiveChanges(improvements.filter(isVerifiedImprovement));
+export function verifiedImprovementCount(improvements: LiveVerifiedImprovement[]) {
+  // Only improvements whose LIVE status is owner_attested are counted; a downgraded live status drops the
+  // record here even though its immutable verification block is unchanged (finding 4063851250).
+  return countDistinctSubstantiveChanges(
+    improvements.filter(isVerifiedImprovement).map((i) => i.record),
+  );
 }

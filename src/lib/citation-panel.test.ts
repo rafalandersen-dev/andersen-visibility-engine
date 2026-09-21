@@ -31,6 +31,7 @@ import {
   verifiedImprovementCount,
   type Finding,
   type Improvement,
+  type LiveVerifiedImprovement,
 } from "./citation-finding";
 /** Fixtures only. The question texts are synthetic placeholders, not the owner-reviewed
  * Appendix A panel; nothing here is a collected observation (spec §12 CI11-T13…T31, T36…T38). */
@@ -800,8 +801,11 @@ const verifiedImprovement = (
   id: number,
   verifiedAt: string,
   over: ImprovementOverrides = {},
-): Improvement =>
-  improvementSchema.parse({
+): LiveVerifiedImprovement => ({
+  // A fixture improvement paired with a LIVE owner_attested status — the only status a verified before/after
+  // count/comparison accepts (finding 4063851250). Tests needing a downgraded live status build it explicitly.
+  verificationStatus: "owner_attested",
+  record: improvementSchema.parse({
     improvementId: uuid(id),
     findingIds: over.findingIds ?? [uuid(60)],
     taskId: over.taskId ?? uuid(81),
@@ -822,13 +826,14 @@ const verifiedImprovement = (
       verifiedAt,
       reviewer: owner,
     },
-  });
+  }),
+});
 /** A second, substantively distinct verified change (different task, destination and version). */
 const secondChange = (
   id: number,
   verifiedAt: string,
   over: ImprovementOverrides = {},
-): Improvement =>
+): LiveVerifiedImprovement =>
   verifiedImprovement(id, verifiedAt, {
     taskId: uuid(82),
     approvedVersion: "v2",
@@ -1675,6 +1680,13 @@ describe("verified improvements (CI11-T36)", () => {
     verification: null,
     ...over,
   });
+  // Pair a record with its LIVE status for the status-gated verified helpers (finding 4063851250). Defaults to
+  // owner_attested (a genuine live-verified before/after); pass a downgraded status to prove the SAME immutable
+  // record no longer qualifies once the live status drops.
+  const live = (
+    record: Improvement,
+    verificationStatus = "owner_attested",
+  ): LiveVerifiedImprovement => ({ verificationStatus, record });
   it("counts only destination-verified changes, not drafts or acknowledgements", () => {
     const draft = improvementSchema.parse(improvement());
     const verified = improvementSchema.parse(
@@ -1699,12 +1711,18 @@ describe("verified improvements (CI11-T36)", () => {
         },
       }),
     );
-    expect(isVerifiedImprovement(draft)).toBe(false);
-    expect(isVerifiedImprovement(verified)).toBe(true);
-    expect(isVerifiedImprovement(stale)).toBe(false);
-    expect(verifiedImprovementCount([draft, verified, stale])).toBe(1);
+    expect(isVerifiedImprovement(live(draft))).toBe(false);
+    expect(isVerifiedImprovement(live(verified))).toBe(true);
+    expect(isVerifiedImprovement(live(stale))).toBe(false);
+    // AUTHORITATIVE gate (finding 4063851250): the SAME verified record with a DOWNGRADED live status — what an
+    // approval revoke / baseline delete / finding dismissal or dissent / source forget produces — is NOT a
+    // verified before/after, though its immutable verification block is unchanged and still inspectable.
+    expect(isVerifiedImprovement(live(verified, "connector_receipt"))).toBe(false);
+    expect(isVerifiedImprovement(live(verified, "approval_bound"))).toBe(false);
+    expect(isVerifiedImprovement(live(verified, "unverified"))).toBe(false);
+    expect(verifiedImprovementCount([live(draft), live(verified), live(stale)])).toBe(1);
     // Two copies of one verified improvement are a single distinct change, never two.
-    expect(verifiedImprovementCount([verified, structuredClone(verified)])).toBe(1);
+    expect(verifiedImprovementCount([live(verified), live(structuredClone(verified))])).toBe(1);
     // A clone with a fresh improvement id but the same task, destination and version is still one
     // substantive change; a fresh UUID cannot manufacture a second.
     const clone = improvementSchema.parse(
@@ -1718,17 +1736,19 @@ describe("verified improvements (CI11-T36)", () => {
         },
       }),
     );
-    expect(verifiedImprovementCount([verified, clone])).toBe(1);
+    expect(verifiedImprovementCount([live(verified), live(clone)])).toBe(1);
     // Sharing only the destination and approved version (different task) is also one change.
     expect(
       verifiedImprovementCount([
-        verified,
-        improvementSchema.parse(
-          improvement({
-            improvementId: uuid(85),
-            taskId: uuid(88),
-            verification: verified.verification,
-          }),
+        live(verified),
+        live(
+          improvementSchema.parse(
+            improvement({
+              improvementId: uuid(85),
+              taskId: uuid(88),
+              verification: verified.verification,
+            }),
+          ),
         ),
       ]),
     ).toBe(1);
@@ -1752,12 +1772,15 @@ describe("verified improvements (CI11-T36)", () => {
         },
       }),
     );
-    expect(verifiedImprovementCount([verified, second])).toBe(2);
+    expect(verifiedImprovementCount([live(verified), live(second)])).toBe(2);
+    // But if the second distinct change's LIVE status is downgraded, only the first counts — the count follows
+    // the authoritative live status, never the bare immutable records (finding 4063851250).
+    expect(verifiedImprovementCount([live(verified), live(second, "connector_receipt")])).toBe(1);
   });
   it("requires baseline captures for a verified improvement but allows a draft without them", () => {
     // An unverified draft may be recorded before its baseline evidence is assembled.
     const draftWithoutBaseline = improvementSchema.parse(improvement({ baselineCaptureIds: [] }));
-    expect(isVerifiedImprovement(draftWithoutBaseline)).toBe(false);
+    expect(isVerifiedImprovement(live(draftWithoutBaseline))).toBe(false);
     const liveVerification = {
       method: "owner_inspection" as const,
       receipt: "Owner inspected the live page",
@@ -1774,23 +1797,25 @@ describe("verified improvements (CI11-T36)", () => {
     // And even bypassing the schema, the predicate does not treat it as a verified improvement.
     expect(
       isVerifiedImprovement(
-        improvement({ baselineCaptureIds: [], verification: liveVerification }),
+        live(improvement({ baselineCaptureIds: [], verification: liveVerification })),
       ),
     ).toBe(false);
   });
   it("counts substantive changes by canonical destination identity, not the verbatim reference (4053596293)", () => {
-    const verified = (id: number, over: Partial<Improvement>) =>
-      improvementSchema.parse(
-        improvement({
-          improvementId: uuid(id),
-          verification: {
-            method: "owner_inspection",
-            receipt: "Owner inspected the live page",
-            verifiedAt: "2026-09-26T10:00:00Z",
-            reviewer: owner,
-          },
-          ...over,
-        }),
+    const verified = (id: number, over: Partial<Improvement>): LiveVerifiedImprovement =>
+      live(
+        improvementSchema.parse(
+          improvement({
+            improvementId: uuid(id),
+            verification: {
+              method: "owner_inspection",
+              receipt: "Owner inspected the live page",
+              verifiedAt: "2026-09-26T10:00:00Z",
+              reviewer: owner,
+            },
+            ...over,
+          }),
+        ),
       );
     const publicUrl = (reference: string) => ({ kind: "public_url" as const, reference });
     // Two different tasks pointing at the SAME page (differing only by host case, the default port

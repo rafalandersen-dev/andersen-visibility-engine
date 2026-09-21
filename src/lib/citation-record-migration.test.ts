@@ -10,6 +10,7 @@ import {
   saveCitationImprovement,
 } from "./citation-record.server";
 import { importAnswerEvidence, saveEvidencePrompt } from "./answer-evidence.server";
+import { isVerifiedImprovement, verifiedImprovementCount } from "./citation-finding";
 import type { KnowledgeRpc } from "./project-knowledge.server";
 let db: PGlite;
 const user = "00000000-0000-4000-8000-000000000001",
@@ -373,6 +374,42 @@ describe("improvement verification binds to trusted publication/approval records
     );
     expect(imp.verificationStatus).toBe("owner_attested");
     expect(imp.evidenceStatus).toBe("baseline_recorded");
+  });
+  it("gates the downstream verified count on the LIVE detail status — a revoked approval or dismissed finding drops the improvement from counts though its immutable record is unchanged, and a restored positive re-qualifies (finding 4063851250)", async () => {
+    const fid = "60000000-0000-4000-8000-0000000000c1";
+    await seedFinding(fid);
+    const observedAt = await isoAt("- interval '1 hour'");
+    const imp = await saveI(
+      improvement("70000000-0000-4000-8000-0000000000c1", fid, { verified: true }),
+      binding({ inspection: { checkResult: "shows_approved_content", observedAt } }),
+    );
+    expect(imp.verificationStatus).toBe("owner_attested");
+    // BEFORE: the REAL detail read (live status) flows through the downstream predicate/count as verified.
+    const before = await getCitationImprovement(scope, imp.id, rpc);
+    expect(before.verificationStatus).toBe("owner_attested");
+    expect(isVerifiedImprovement(before)).toBe(true);
+    expect(verifiedImprovementCount([before])).toBe(1);
+    // INVALIDATE #1 — revoke the approval (released side). The live detail status downgrades; the immutable
+    // record.verification is UNCHANGED (audit history stays inspectable), but it no longer counts as verified.
+    await seedApproval(false);
+    const revoked = await getCitationImprovement(scope, imp.id, rpc);
+    expect(revoked.verificationStatus).not.toBe("owner_attested");
+    expect(revoked.record.verification).not.toBeNull(); // history preserved, never rewritten
+    expect(isVerifiedImprovement(revoked)).toBe(false);
+    expect(verifiedImprovementCount([revoked])).toBe(0);
+    // RESTORE — a current positive re-qualifies at the truthful assurance level (never a permanent block).
+    await seedApproval(true);
+    const restored = await getCitationImprovement(scope, imp.id, rpc);
+    expect(restored.verificationStatus).toBe("owner_attested");
+    expect(verifiedImprovementCount([restored])).toBe(1);
+    // INVALIDATE #2 — dismiss the finding via a NEW head. The pinned finding's current head is dismissed, so the
+    // live status downgrades again and the count drops, while the improvement's immutable record stays intact.
+    await saveF({ ...finding(fid), decision: "dismissed" as const });
+    const dismissed = await getCitationImprovement(scope, imp.id, rpc);
+    expect(dismissed.verificationStatus).not.toBe("owner_attested");
+    expect(dismissed.record.verification).not.toBeNull();
+    expect(isVerifiedImprovement(dismissed)).toBe(false);
+    expect(verifiedImprovementCount([dismissed])).toBe(0);
   });
   it("stays approval_bound (never connector_receipt) for a rejected/unknown connector outcome", async () => {
     const fid = "60000000-0000-4000-8000-000000000013";

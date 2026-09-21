@@ -4,6 +4,7 @@ import {
   countDistinctSubstantiveChanges,
   isVerifiedImprovement,
   type Improvement,
+  type LiveVerifiedImprovement,
 } from "./citation-finding";
 /**
  * Citation Intelligence v1, CI-2 record design (product/CITATION_INTELLIGENCE_SPEC.md §5, §8).
@@ -760,12 +761,14 @@ export interface ScopedFinding {
   panelVersion: number;
   client: { name: string; market: string };
 }
-/** The explicit evidence a retest is proved against: this panel's scoped captures and findings
- * and the improvement records. Nothing is trusted by a bare asserted panel id on the improvement. */
+/** The explicit evidence a retest is proved against: this panel's scoped captures and findings and the
+ * improvements paired with their AUTHORITATIVE LIVE verification status (never a bare record — a downgraded
+ * live status must drop the improvement from the comparison, finding 4063851250). Nothing is trusted by a bare
+ * asserted panel id on the improvement. */
 export interface ComparableEvidence {
   captures: ScopedCapture[];
   findings: ScopedFinding[];
-  improvements: Improvement[];
+  improvements: LiveVerifiedImprovement[];
 }
 /** Exact panel-and-client scope key. Same panel id, same version and same client. */
 function panelClientKey(scope: {
@@ -853,8 +856,12 @@ export function comparablePairs(
   // captures, then keep only those verified strictly after every baseline capture they improve
   // on. Foreign, missing or duplicated references are rejected outright.
   const bound: Improvement[] = [];
-  for (const imp of improvements) {
-    if (!isVerifiedImprovement(imp)) continue;
+  for (const live of improvements) {
+    // Only a LIVE owner_attested improvement is counted; a downgraded status (approval revoked, baseline
+    // deleted, finding dismissed/dissented, source forgotten) drops it here even though its immutable record
+    // is unchanged (finding 4063851250). Everything below reads the immutable record's structure.
+    if (!isVerifiedImprovement(live)) continue;
+    const imp = live.record;
     if (new Set(imp.findingIds).size !== imp.findingIds.length)
       throw new Error(`comparablePairs: improvement ${imp.improvementId} duplicates a finding id`);
     if (new Set(imp.baselineCaptureIds).size !== imp.baselineCaptureIds.length)
