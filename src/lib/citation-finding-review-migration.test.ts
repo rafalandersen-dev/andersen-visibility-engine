@@ -66,6 +66,9 @@ type FindingOpts = {
   evidence?: Array<{ kind: "answer" | "native" | "source"; id: string }>;
   accuracy?: unknown[];
   support?: unknown[];
+  // Override the default observation prose. Used only to make a genuinely DISTINCT accepted successor version
+  // (different record -> different digest) through the REAL save path, so production idempotency/dedup stands.
+  observation?: string;
 };
 const finding = (
   findingId: string,
@@ -79,7 +82,7 @@ const finding = (
     evidence: opts.evidence ?? [{ kind: "answer" as const, id: ANSWER }],
     entityMatch: "confirmed" as const,
     capture: { answerComplete: true, citationsComplete: true },
-    observation: "The answer cites a competitor but not this business.",
+    observation: opts.observation ?? "The answer cites a competitor but not this business.",
     hypothesis: null,
     competitorCited: rec ? null : true,
     ownCited: rec ? null : false,
@@ -204,7 +207,9 @@ const seedSource = (status = "active", id = SOURCE) =>
     "INSERT INTO project_knowledge_sources(user_id,project_id,id,revision,payload) VALUES($1::uuid,'p',$2::uuid,1,jsonb_build_object('ownerId',$1::text,'projectId','p','id',$2::text,'revision',1,'kind','website','label','Acme Services Page','fingerprint',$3::text,'status',$4::text,'observedAt','2024-02-01T00:00:00Z','url','https://acme.example/services')) ON CONFLICT(user_id,project_id,id) DO UPDATE SET payload=EXCLUDED.payload",
     [user, id, "e".repeat(64), status],
   );
-// A released knowledge record carrying substantive source MATERIAL, bound to a source id + source revision.
+// A released knowledge record carrying substantive source MATERIAL, bound to a source id + source revision. Its
+// timestamps are real and valid (reviewedAt >= updatedAt, both in the past) with status 'accepted' by default, so it
+// is currently-valid citation evidence (finding 4060770032); validity tests seed their own explicit timestamps.
 const seedRecord = (
   recordId: string,
   sourceId: string,
@@ -213,7 +218,7 @@ const seedRecord = (
   status = "accepted",
 ) =>
   db.query(
-    "INSERT INTO project_knowledge_records(user_id,project_id,id,source_id,revision,payload) VALUES($1::uuid,'p',$2::uuid,$3::uuid,1,jsonb_build_object('ownerId',$1::text,'projectId','p','id',$2::text,'revision',1,'sourceId',$3::text,'sourceRevision',$4::int,'key','k1','category','fact','appliesTo','text','value',$5::text,'locator','Services > Pricing','status',$6::text,'updatedAt','2024-02-02T00:00:00Z')) ON CONFLICT(user_id,project_id,id) DO UPDATE SET source_id=EXCLUDED.source_id,revision=EXCLUDED.revision,payload=EXCLUDED.payload",
+    "INSERT INTO project_knowledge_records(user_id,project_id,id,source_id,revision,payload) VALUES($1::uuid,'p',$2::uuid,$3::uuid,1,jsonb_build_object('ownerId',$1::text,'projectId','p','id',$2::text,'revision',1,'sourceId',$3::text,'sourceRevision',$4::int,'key','k1','category','fact','appliesTo','text','value',$5::text,'locator','Services > Pricing','status',$6::text,'updatedAt','2024-02-02T00:00:00Z','reviewedAt','2024-02-02T01:00:00Z')) ON CONFLICT(user_id,project_id,id) DO UPDATE SET source_id=EXCLUDED.source_id,revision=EXCLUDED.revision,payload=EXCLUDED.payload",
     [user, recordId, sourceId, sourceRevision, value, status],
   );
 const seedFact = async () =>
@@ -991,6 +996,155 @@ describe("independent evidence inspection gates completed verification (spec §4
     expect(JSON.stringify(view)).not.toContain("ANSWER-ONLY-UNCITED-SECRET");
     await submit(reviewer, f.id, view.recordSha256!, "approved");
     expect(await reviewStatusOf(f.id)).toBe("second_review_pending");
+  });
+  it("requires the SELECTED record to be currently-valid ACCEPTED knowledge; non-accepted / expired / future / unreviewed / review-before-update all fail closed, valid passes, and the read agrees with the canonical predicate (finding 4060770032)", async () => {
+    await seedSource("active"); // active, observedAt 2024-02-01 (in the past)
+    const base = {
+      ownerId: user,
+      projectId: "p",
+      revision: 1,
+      sourceId: SOURCE,
+      sourceRevision: 1,
+      key: "k1",
+      category: "fact",
+      appliesTo: "text",
+      value: "Selected record value.",
+      locator: "Services > Pricing",
+      status: "accepted",
+      updatedAt: "2024-02-02T00:00:00Z",
+      reviewedAt: "2024-02-02T01:00:00Z",
+    };
+    const seedRec = (recordId: string, over: Record<string, unknown>) =>
+      db.query(
+        "INSERT INTO project_knowledge_records(user_id,project_id,id,source_id,revision,payload) VALUES($1::uuid,'p',$2::uuid,$3::uuid,1,$4::jsonb) ON CONFLICT(user_id,project_id,id) DO UPDATE SET payload=EXCLUDED.payload",
+        [user, recordId, SOURCE, JSON.stringify({ ...base, id: recordId, ...over })],
+      );
+    const cases: Array<[string, string, Record<string, unknown>, boolean]> = [
+      ["proposed", "b1000000-0000-4000-8000-000000000a01", { status: "proposed" }, false],
+      ["disputed", "b1000000-0000-4000-8000-000000000a02", { status: "disputed" }, false],
+      ["expired-status", "b1000000-0000-4000-8000-000000000a03", { status: "expired" }, false],
+      ["rejected", "b1000000-0000-4000-8000-000000000a04", { status: "rejected" }, false],
+      [
+        "expired-validUntil",
+        "b1000000-0000-4000-8000-000000000a05",
+        { validUntil: "2024-03-01T00:00:00Z" },
+        false,
+      ],
+      [
+        "future-updated",
+        "b1000000-0000-4000-8000-000000000a06",
+        { updatedAt: "2999-01-01T00:00:00Z", reviewedAt: "2999-01-02T00:00:00Z" },
+        false,
+      ],
+      [
+        "future-reviewed",
+        "b1000000-0000-4000-8000-000000000a07",
+        { reviewedAt: "2999-01-01T00:00:00Z" },
+        false,
+      ],
+      [
+        "review-before-update",
+        "b1000000-0000-4000-8000-000000000a08",
+        { updatedAt: "2024-02-02T02:00:00Z", reviewedAt: "2024-02-02T01:00:00Z" },
+        false,
+      ],
+      ["missing-review", "b1000000-0000-4000-8000-000000000a09", { reviewedAt: null }, false],
+      [
+        "malformed-updated",
+        "b1000000-0000-4000-8000-000000000a0b",
+        { updatedAt: "not-a-timestamp" },
+        false,
+      ],
+      // Syntactically-ISO but IMPOSSIBLE instants pass the regex frame yet RAISE at ::timestamptz — an invalid
+      // calendar date (month/day 99) and an invalid zone displacement (+99:99). The controlled datetime-only
+      // exception in citation_knowledge_selectable must fail these CLOSED without crashing the reviewer read
+      // (finding 4060770032 delta) — a poisoned historical record leaves `material` empty, not an error.
+      [
+        "impossible-date",
+        "b1000000-0000-4000-8000-000000000a0c",
+        { updatedAt: "2026-99-99T00:00:00Z" },
+        false,
+      ],
+      [
+        "impossible-offset",
+        "b1000000-0000-4000-8000-000000000a0d",
+        { reviewedAt: "2024-02-02T01:00:00+99:99" },
+        false,
+      ],
+      ["valid", "b1000000-0000-4000-8000-000000000a10", {}, true],
+    ];
+    let seq = 0;
+    for (const [label, recordId, over, expectInspectable] of cases) {
+      await seedRec(recordId, over);
+      seq += 1;
+      const fid = `60000000-0000-4000-8000-0000000009${String(seq).padStart(2, "0")}`;
+      const f = await saveF(fid, "accepted", {
+        evidence: [{ kind: "source", id: SOURCE }],
+        support: [
+          citedPassage(`pin for ${label}`, {
+            sourceId: SOURCE,
+            recordId,
+            sourceRevision: 1,
+            recordRevision: 1,
+          }),
+        ],
+      });
+      const view = await getCitationFindingForReview(
+        reviewer,
+        { ownerId: user, projectId: "p", findingRowId: f.id },
+        rpc,
+      );
+      expect(view.inspectionComplete, label).toBe(expectInspectable);
+      const src = view.evidence.find((e) => e.kind === "source")!;
+      expect(src.kind === "source" && src.inspectable, label).toBe(expectInspectable);
+      if (src.kind === "source") {
+        expect(src.materialCount, label).toBe(expectInspectable ? 1 : 0);
+        // Only a valid record is served, and it carries its own status + validity metadata (never misrepresented).
+        if (expectInspectable) {
+          expect(src.material[0]?.status).toBe("accepted");
+          expect(src.material[0]?.validUntil).toBeNull();
+        }
+      }
+      // The reviewer read and the canonical inspection predicate agree exactly.
+      const canonical = await db.query<{ ok: boolean }>(
+        "SELECT public.citation_finding_inspectable($1,'p',(SELECT record FROM ai_citation_findings WHERE id=$2)) ok",
+        [user, f.id],
+      );
+      expect(canonical.rows[0].ok, label).toBe(expectInspectable);
+    }
+  });
+  it("citation_knowledge_selectable fails closed on a non-finite/NULL clock and on impossible calendar dates/offsets, never raising (finding 4060770032, helper boundary)", async () => {
+    const src = JSON.stringify({ status: "active", observedAt: "2024-02-01T00:00:00Z" });
+    const rec = JSON.stringify({
+      status: "accepted",
+      value: "v",
+      updatedAt: "2024-02-02T00:00:00Z",
+      reviewedAt: "2024-02-02T01:00:00Z",
+    });
+    const sel = async (s: string, r: string, now: string) =>
+      (
+        await db.query<{ ok: boolean | null }>(
+          `SELECT public.citation_knowledge_selectable($1::jsonb,$2::jsonb,${now}) ok`,
+          [s, r],
+        )
+      ).rows[0].ok;
+    // A real, finite clock with valid material -> selectable (positive control).
+    expect(await sel(src, rec, "'2024-03-01T00:00:00Z'::timestamptz")).toBe(true);
+    // p_now must be finite/non-null, or every future/expiry comparison would pass vacuously -> fail closed.
+    expect(await sel(src, rec, "NULL::timestamptz")).toBe(false);
+    expect(await sel(src, rec, "'infinity'::timestamptz")).toBe(false);
+    expect(await sel(src, rec, "'-infinity'::timestamptz")).toBe(false);
+    // Impossible calendar date / zone displacement in ANY timestamp field is caught at the cast (returns false,
+    // never RAISEs) — checked on the record's updatedAt, the record's reviewedAt offset, and the source observedAt.
+    const badDate = JSON.stringify({ ...JSON.parse(rec), updatedAt: "2026-99-99T00:00:00Z" });
+    const badOffset = JSON.stringify({
+      ...JSON.parse(rec),
+      reviewedAt: "2024-02-02T01:00:00+99:99",
+    });
+    const badObserved = JSON.stringify({ status: "active", observedAt: "2026-13-40T00:00:00Z" });
+    expect(await sel(src, badDate, "'2024-03-01T00:00:00Z'::timestamptz")).toBe(false);
+    expect(await sel(src, badOffset, "'2024-03-01T00:00:00Z'::timestamptz")).toBe(false);
+    expect(await sel(badObserved, rec, "'2024-03-01T00:00:00Z'::timestamptz")).toBe(false);
   });
   it("treats a MIXED native+answer finding as incomplete — the opaque native blocks completion", async () => {
     await seedNative();
@@ -1831,6 +1985,78 @@ describe("improvement eligibility: a required-but-missing second review caps own
     // The historic pin/receipt are untouched: f1 read on its own is still independent_reviewed.
     expect((await getCitationFinding(scope, f1.id, rpc)).reviewStatus).toBe("independent_reviewed");
   });
+  it("keeps a PREVIOUSLY owner_attested improvement capped once its version is dissented and then SUPERSEDED by a genuinely distinct accepted successor (no delete) — a dissent is sticky to the logical finding and only its reviewer can clear it (finding 4060794798)", async () => {
+    await setMember(reviewer2, "reviewer");
+    const fid = "60000000-0000-4000-8000-000000000026";
+    const impId = "70000000-0000-4000-8000-000000000026";
+    const f1 = await saveF(fid, "accepted");
+    // f1 is INDEPENDENTLY REVIEWED (reviewer A approves, inspection-complete), and a bound improvement is genuinely
+    // owner_attested FIRST — the attestation exists before any dissent.
+    await submit(reviewer, f1.id, await shaFor(f1.id), "approved");
+    const imp = await attestedImprovement(fid, impId);
+    expect(imp.verificationStatus).toBe("owner_attested");
+    // Reviewer B THEN DISSENTS on that exact version -> the finding reads independent_dissent and the previously
+    // attested improvement drops to connector_receipt (an approval never overrides a live dissent).
+    const dissent = await submit(
+      reviewer2,
+      f1.id,
+      await shaFor(f1.id),
+      "needs_changes",
+      "Not accurate.",
+    );
+    expect(await reviewStatusOf(f1.id)).toBe("independent_dissent");
+    expect((await getCitationImprovement(scope, imp.id, rpc)).verificationStatus).toBe(
+      "connector_receipt",
+    );
+    // The owner inserts a GENUINELY DISTINCT accepted successor (an altered record via the real save path, so
+    // production idempotency stands — an identical re-save would just dedup back to f1). It SUPERSEDES f1 with NO
+    // delete, gets a new row id and version, and — carrying no receipts and no second-review decision — reads
+    // owner_only ON ITS OWN...
+    const f2 = await saveF(fid, "accepted", {
+      observation: "The answer still cites a competitor but not this business (rechecked).",
+    });
+    expect(f2.supersedesId).toBe(f1.id);
+    expect(f2.id).not.toBe(f1.id);
+    expect(await reviewStatusOf(f2.id)).toBe("owner_only");
+    // ...while the dissented f1 SURVIVES with its live receipt (nothing was deleted, so NO tombstone was created —
+    // exactly the gap the delete-tombstone path never covers). Read the superseded row directly (the finding list
+    // surfaces only the head); its own row-scoped status is still independent_dissent.
+    expect((await getCitationFinding(scope, f1.id, rpc)).reviewStatus).toBe("independent_dissent");
+    // (1) OLD PINNED: the stored improvement still pins f1 and must NOT silently regain owner_attested.
+    const existing = await getCitationImprovement(scope, imp.id, rpc);
+    expect(existing.boundFindingRowIds).toEqual([f1.id]);
+    expect(existing.verificationStatus).toBe("connector_receipt");
+    // (2) EXPLICIT REBIND: re-attesting now REBINDS to the accepted successor f2, but the logical finding's
+    // still-live dissent caps it just the same — supersession cannot launder a standing rejection.
+    const rebound = await attestedImprovement(fid, impId);
+    expect(rebound.verificationStatus).toBe("connector_receipt");
+    // Re-attesting re-pins to the successor: read the NEW improvement version's own row (rebound.id, a v2 that
+    // supersedes the v1 still pinned to f1 above) to confirm it bound to f2 yet is still capped.
+    const reboundRead = await getCitationImprovement(scope, rebound.id, rpc);
+    expect(reboundRead.boundFindingRowIds).toEqual([f2.id]);
+    expect(reboundRead.verificationStatus).toBe("connector_receipt");
+    // ISOLATION: an unrelated finding (no dissent) is entirely unaffected and attests normally meanwhile.
+    const other = await saveF("60000000-0000-4000-8000-000000000027", "accepted");
+    expect(other.supersedesId).toBeNull();
+    expect(
+      (
+        await attestedImprovement(
+          "60000000-0000-4000-8000-000000000027",
+          "70000000-0000-4000-8000-000000000027",
+        )
+      ).verificationStatus,
+    ).toBe("owner_attested");
+    // POSITIVE — only the ACTUAL reviewer can clear the dissent (never the owner, never through supersession). A
+    // legitimate withdrawal removes the standing objection, and the accepted current head is then a proper basis
+    // that reaches owner_attested — so the cap is never a permanent blanket block on correction.
+    await removeCitationFindingReview(
+      reviewer2,
+      { ownerId: user, projectId: "p", id: dissent.id },
+      rpc,
+    );
+    expect(await reviewStatusOf(f2.id)).toBe("owner_only");
+    expect((await attestedImprovement(fid, impId)).verificationStatus).toBe("owner_attested");
+  });
   it("removing a DISSENTED successor head does not silently regain owner_attested — the dissent survives as a content-free logical tombstone (finding 4059365611)", async () => {
     const fid = "60000000-0000-4000-8000-000000000023";
     const f1 = await saveF(fid, "accepted");
@@ -2287,6 +2513,49 @@ describe("evidence lifecycle: forgetting a source erases copied material and dow
       [user, RECORD2],
     );
     expect(other.rows[0]).toMatchObject({ v: "UNRELATED record - must stay untouched.", rev: 1 });
+  });
+  it("downgrades owner_attested when the selected record's validUntil PASSES (expiry via now), without rewriting the finding's pin or hash (finding 4060770032)", async () => {
+    await seedApproval();
+    await seedPublication();
+    await seedSource("active", SOURCE);
+    // A currently-valid accepted record that expires far in the future (so it attests now).
+    await db.query(
+      "INSERT INTO project_knowledge_records(user_id,project_id,id,source_id,revision,payload) VALUES($1::uuid,'p',$2::uuid,$3::uuid,1,jsonb_build_object('ownerId',$1::text,'projectId','p','id',$2::text,'revision',1,'sourceId',$3::text,'sourceRevision',1,'key','k1','category','fact','appliesTo','text','value','Massage from 500 SEK.','locator','Services > Pricing','status','accepted','updatedAt','2024-02-02T00:00:00Z','reviewedAt','2024-02-02T01:00:00Z','validUntil','2999-01-01T00:00:00Z'))",
+      [user, RECORD, SOURCE],
+    );
+    const fid = "60000000-0000-4000-8000-0000000000ec";
+    const row = await saveRaw(sourceFinding(fid)); // default pin SOURCE / RECORD / sourceRevision 1 / recordRevision 1
+    await submit(reviewer, row, await shaFor(row), "approved");
+    const imp = await attestedImprovement(fid, "70000000-0000-4000-8000-0000000000ec");
+    expect(imp.verificationStatus).toBe("owner_attested");
+    const before = await db.query<{ s: string; pin: string | null }>(
+      "SELECT record_sha256 s, (record->'support'->0->'selectedRecord'->>'recordRevision') pin FROM ai_citation_findings WHERE id=$1",
+      [row],
+    );
+    // Time passes the validUntil — simulated by moving it into the PAST. The record revision is unchanged, so the
+    // finding's selectedRecord pin still matches; only current validity changes (now() > validUntil → expired).
+    await db.query(
+      "UPDATE project_knowledge_records SET payload=jsonb_set(payload,'{validUntil}','\"2024-03-01T00:00:00Z\"') WHERE user_id=$1 AND project_id='p' AND id=$2",
+      [user, RECORD],
+    );
+    const view = await getCitationFindingForReview(
+      reviewer,
+      { ownerId: user, projectId: "p", findingRowId: row },
+      rpc,
+    );
+    expect(view.inspectionComplete).toBe(false);
+    const src = view.evidence.find((e) => e.kind === "source")!;
+    if (src.kind === "source") expect(src.materialCount).toBe(0);
+    expect((await getCitationImprovement(scope, imp.id, rpc)).verificationStatus).toBe(
+      "connector_receipt",
+    );
+    // The finding's stored pin AND content hash are untouched by the expiry — nothing was rewritten.
+    const after = await db.query<{ s: string; pin: string | null }>(
+      "SELECT record_sha256 s, (record->'support'->0->'selectedRecord'->>'recordRevision') pin FROM ai_citation_findings WHERE id=$1",
+      [row],
+    );
+    expect(after.rows[0].s).toBe(before.rows[0].s);
+    expect(after.rows[0].pin).toBe("1");
   });
   it("fails closed: a bound source with no current material never reaches owner_attested, and a mismatched forget expectation erases nothing", async () => {
     await seedApproval();

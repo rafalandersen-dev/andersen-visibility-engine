@@ -151,6 +151,12 @@ export const citationReviewEvidenceSchema = z.discriminatedUnion("kind", [
               locator: z.string().nullable(),
               category: z.string().nullable(),
               recordRevision: z.number().int(),
+              // Only currently-VALID evidence is served (finding 4060770032): `status` is the record's own status
+              // (always `accepted` here — a proposed/disputed/expired/rejected or future/unreviewed selected record
+              // is withheld and leaves `material` empty, never misrepresented as usable) and `validUntil` surfaces
+              // the record's expiry window so the reviewer sees its validity.
+              status: z.string(),
+              validUntil: z.string().nullable(),
             })
             .strict(),
         )

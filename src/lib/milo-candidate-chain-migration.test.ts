@@ -204,6 +204,9 @@ describe("candidate migration chain", () => {
     "citation_review_authorized(uuid,uuid,text)",
     "citation_finding_review_status(uuid,text,uuid)",
     "citation_finding_review_digest_masked(uuid,text,uuid)",
+    // Selected-knowledge validity predicate (finding 4060770032): the evidence-inspection subset of the canonical
+    // knowledge selector, called only from the inspectable/read definer functions. REVOKEd from every role.
+    "citation_knowledge_selectable(jsonb,jsonb,timestamptz)",
     // Forget-cascade objects added by this candidate: the shared passage redactor plus the two trigger
     // functions fired by AFTER DELETE on the released project_knowledge_sources / project_knowledge_records.
     // All REVOKEd from every role — reached only from their triggers.

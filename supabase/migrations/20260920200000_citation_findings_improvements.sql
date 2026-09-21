@@ -415,6 +415,53 @@ BEGIN
 END; $$;
 REVOKE ALL ON FUNCTION public.citation_review_authorized(uuid,uuid,text) FROM PUBLIC,anon,authenticated,service_role;
 
+-- Whether a SELECTED knowledge record is currently VALID EVIDENCE for citation review (finding 4060770032). This is
+-- the EVIDENCE-inspection subset of the released canonical knowledge selector (project-knowledge.ts selectProjectKnowledge):
+-- the source is active and observed no later than now, and the record is status='accepted' with a non-empty value,
+-- updated no later than now, REVIEWED (a real review of THIS version: reviewedAt present, no later than now, and NOT
+-- before updatedAt), and not expired (validUntil absent or still in the future). It deliberately OMITS the
+-- OUTPUT-applicability policy (appliesTo / validCoverageRecord / coverage-conflicts) — that governs which records feed
+-- text/visual GENERATION output, not whether a record is valid evidence a reviewer may inspect. Timestamps are TEXT
+-- in the payload, so each is FAIL-CLOSED: cast ONLY when it matches a strict ISO-8601-with-offset pattern (otherwise
+-- the record is not valid), never a bare cast that could raise on malformed historical data. A proposed/disputed/
+-- expired/rejected, future-dated, or unreviewed record is not selectable. Pure on its inputs; granted to no role.
+CREATE FUNCTION public.citation_knowledge_selectable(p_src jsonb,p_rec jsonb,p_now timestamptz) RETURNS boolean
+LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path='' AS $$
+DECLARE ts constant text := '^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(\.\d+)?(Z|[+-]\d{2}:?\d{2})$';
+  s_obs text; r_upd text; r_rev text; r_val text;
+  t_obs timestamptz; t_upd timestamptz; t_rev timestamptz; t_val timestamptz;
+BEGIN
+  -- p_now is the comparison clock. If an internal caller ever passes NULL or a non-finite (±infinity) instant,
+  -- every "future"/"expired" test would silently pass vacuously, so guard it FIRST and fail closed.
+  IF p_now IS NULL OR NOT isfinite(p_now) THEN RETURN false; END IF;
+  IF p_src IS NULL OR (p_src->>'status') IS DISTINCT FROM 'active' THEN RETURN false; END IF;
+  IF p_rec IS NULL OR (p_rec->>'status') IS DISTINCT FROM 'accepted' OR coalesce(p_rec->>'value','')='' THEN RETURN false; END IF;
+  s_obs := p_src->>'observedAt'; r_upd := p_rec->>'updatedAt'; r_rev := p_rec->>'reviewedAt'; r_val := p_rec->>'validUntil';
+  -- SHAPE gate first: a NULL or non-matching string never reaches a cast (control flow, not OR short-circuit,
+  -- which Postgres does not guarantee). But the regex fixes only the syntactic FRAME — a syntactically-ISO yet
+  -- IMPOSSIBLE instant (a 2026-99-99 calendar overflow, a +99:99 zone displacement) still matches and then RAISES
+  -- at ::timestamptz. So the actual casts run inside a CONTROLLED sub-block that catches ONLY the datetime cast
+  -- errors and fails closed, letting a poisoned historical record leave `material` empty instead of aborting the
+  -- reviewer read (finding 4060770032). Unrelated errors are NOT swallowed — they propagate.
+  IF s_obs IS NULL OR s_obs !~ ts THEN RETURN false; END IF;
+  IF r_upd IS NULL OR r_upd !~ ts THEN RETURN false; END IF;
+  IF r_rev IS NULL OR r_rev !~ ts THEN RETURN false; END IF;
+  IF r_val IS NOT NULL AND r_val !~ ts THEN RETURN false; END IF;
+  BEGIN
+    t_obs := s_obs::timestamptz; t_upd := r_upd::timestamptz; t_rev := r_rev::timestamptz;
+    IF r_val IS NOT NULL THEN t_val := r_val::timestamptz; END IF;
+  EXCEPTION WHEN invalid_datetime_format OR datetime_field_overflow OR invalid_time_zone_displacement_value THEN
+    RETURN false;
+  END;
+  -- All comparisons are now on already-parsed, finite timestamptz values (no further casts).
+  IF t_obs > p_now THEN RETURN false; END IF;
+  IF t_upd > p_now THEN RETURN false; END IF;
+  IF t_rev > p_now OR t_rev < t_upd THEN RETURN false; END IF;
+  IF t_val IS NOT NULL AND t_val <= p_now THEN RETURN false; END IF;
+  RETURN true;
+END; $$;
+REVOKE ALL ON FUNCTION public.citation_knowledge_selectable(jsonb,jsonb,timestamptz) FROM PUBLIC,anon,authenticated,service_role;
+
 -- Whether a finding's cited evidence is sufficient for a COMPLETED independent inspection. EVERY cited
 -- evidence item must be genuinely readable for THIS finding (not merely present):
 --   answer -> the answer row resolves AND its rawAnswer is a SUBSTANTIVE string (non-empty after trimming)
@@ -437,7 +484,7 @@ REVOKE ALL ON FUNCTION public.citation_review_authorized(uuid,uuid,text) FROM PU
 -- Internal-only.
 CREATE FUNCTION public.citation_finding_inspectable(p_user uuid,p_project text,p_record jsonb)
 RETURNS boolean LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path='' AS $$
-DECLARE e jsonb; ref uuid; ra text; ratype text; st text; srev integer;
+DECLARE e jsonb; ref uuid; ra text; ratype text; ssrc jsonb; srev integer;
 BEGIN
   IF jsonb_typeof(p_record->'evidence')<>'array' OR jsonb_array_length(p_record->'evidence')=0 THEN RETURN false; END IF;
   FOR e IN SELECT jsonb_array_elements(p_record->'evidence') LOOP
@@ -455,18 +502,20 @@ BEGIN
       -- read's full-content contract) is unchanged and kept ALIGNED with the per-item reviewer gate.
       IF ratype IS DISTINCT FROM 'string' OR ra IS NULL OR btrim(ra, E' \t\n\r\f\v')='' OR char_length(ra) > 50000 THEN RETURN false; END IF;
     ELSIF e->>'kind'='source' THEN
-      SELECT payload->>'status',revision INTO st,srev FROM public.project_knowledge_sources
+      SELECT payload,revision INTO ssrc,srev FROM public.project_knowledge_sources
         WHERE user_id=p_user AND project_id=p_project AND id=ref;
-      IF st IS DISTINCT FROM 'active' THEN RETURN false; END IF;
+      IF ssrc IS NULL OR (ssrc->>'status') IS DISTINCT FROM 'active' THEN RETURN false; END IF;
       -- SELECTED-EVIDENCE binding (finding 4059944844): the cited source is inspectable only if the finding recorded
       -- an ASSESSED support entry whose selectedRecord pin RESOLVES to a live record of THIS exact source at its
       -- CURRENT source revision AND the record's EXACT version (project_knowledge_records.revision — the released
       -- save_project_knowledge mutates a record in place under the same sourceRevision and bumps r.revision, so the
-      -- record-version pin is required or an old finding silently resolves to changed content). The owner's recorded
-      -- sourcePassage is provenance only — arbitrary text, an unpinned entry, or a stale/missing/foreign/partial pin
-      -- is NOT independent evidence and fails CLOSED. Semantic uuid comparison (lower(text)=uuid::text, never casting
-      -- client text); tenant/project/source scoped. The jsonb_array_elements argument is CASE-normalised so a
-      -- scalar/object/null support never raises.
+      -- record-version pin is required or an old finding silently resolves to changed content) AND the record is
+      -- currently VALID evidence — status='accepted', reviewed, unexpired, not future-dated (citation_knowledge_selectable,
+      -- finding 4060770032), so proposed/disputed/expired/rejected or future/unreviewed material never completes review.
+      -- The owner's recorded sourcePassage is provenance only — arbitrary text, an unpinned entry, or a
+      -- stale/missing/foreign/partial pin is NOT independent evidence and fails CLOSED. Semantic uuid comparison
+      -- (lower(text)=uuid::text, never casting client text); tenant/project/source scoped. The jsonb_array_elements
+      -- argument is CASE-normalised so a scalar/object/null support never raises.
       IF NOT EXISTS(
         SELECT 1 FROM jsonb_array_elements(
             CASE WHEN jsonb_typeof(p_record->'support')='array' THEN p_record->'support' ELSE '[]'::jsonb END) s
@@ -477,7 +526,7 @@ BEGIN
            AND (s->'selectedRecord'->>'sourceRevision')=srev::text
            AND (r.payload->>'sourceRevision')=srev::text
            AND (s->'selectedRecord'->>'recordRevision')=r.revision::text
-           AND coalesce(r.payload->>'value','')<>''
+           AND public.citation_knowledge_selectable(ssrc,r.payload,now())
         WHERE s->>'status' <> 'not_checked') THEN
         RETURN false;
       END IF;
@@ -503,7 +552,7 @@ BEGIN
         SELECT 1 FROM public.project_knowledge_sources src
           JOIN public.project_knowledge_records r
             ON r.user_id=src.user_id AND r.project_id=src.project_id AND r.source_id=src.id
-          WHERE src.user_id=p_user AND src.project_id=p_project AND (src.payload->>'status')='active'
+          WHERE src.user_id=p_user AND src.project_id=p_project
             AND lower(s->'selectedRecord'->>'sourceId')=src.id::text
             AND EXISTS(SELECT 1 FROM jsonb_array_elements(
                   CASE WHEN jsonb_typeof(p_record->'evidence')='array' THEN p_record->'evidence' ELSE '[]'::jsonb END) ev
@@ -512,7 +561,7 @@ BEGIN
             AND (s->'selectedRecord'->>'sourceRevision')=src.revision::text
             AND (r.payload->>'sourceRevision')=src.revision::text
             AND (s->'selectedRecord'->>'recordRevision')=r.revision::text
-            AND coalesce(r.payload->>'value','')<>'')
+            AND public.citation_knowledge_selectable(src.payload,r.payload,now()))
   ) THEN RETURN false; END IF;
   -- An independent inspection is only COMPLETE when every ASSESSED accuracy entry actually binds. Reuse the
   -- single canonical resolver (the same one the finding reads and the improvement gate use) — never a second
@@ -804,6 +853,35 @@ BEGIN
     -- owner_attested — the stale f1 approval can never approve the new head. SpecCI-3 (accepted AND reviewed):
     -- the dismissed gate above already enforces the accepted half on the head; this enforces the reviewed half.
     IF public.citation_finding_review_status(p_user,p_project,head_row) IN ('second_review_pending','independent_dissent') THEN
+      review_incomplete := true;
+    END IF;
+    -- ...AND an independent DISSENT is STICKY to the whole logical finding, not just whichever version is the
+    -- current head (finding 4060794798). The head check above only reads receipts ON the head row: it catches
+    -- the owner turning an accepted, reviewed f1 into a needs_second_review f2 (the receipt-less new head reads
+    -- second_review_pending), and — via the review-status tombstone — a DELETED dissented head. It does NOT catch
+    -- a standing rejection on a version the owner SUPERSEDES with an ORDINARY accepted successor WITHOUT deleting
+    -- it: the successor carries no receipts and no second-review decision, so the head reads owner_only and the
+    -- improvement (whether still pinned to the dissented row, or freshly rebound to the successor) would silently
+    -- regain owner_attested while the reviewer's live rejection still stands — the delete tombstone never fires
+    -- because nothing was deleted, and the dissented row survives. So look for an active (non-owner, un-withdrawn)
+    -- rejected/needs_changes receipt on ANY surviving version of this bound finding's logical chain and cap at
+    -- connector_receipt. This mirrors the delete-tombstone philosophy exactly — the owner cannot erase another
+    -- reviewer's dissent indirectly, here through supersession instead of deletion. It releases the moment the
+    -- ACTUAL reviewer WITHDRAWS (a withdrawn receipt no longer counts, so legitimate correction/withdrawal is
+    -- never permanently blocked). Unlike a needs_second_review DECISION (the owner's own request, which stays
+    -- head-governed above so the owner may legitimately re-decide it), a dissent is an independent objection and
+    -- only its author can clear it. A genuinely independently-reviewed proper current basis (no live dissent
+    -- anywhere) is unaffected and progresses per spec.
+    IF EXISTS(
+      SELECT 1 FROM public.ai_citation_findings a
+        JOIN public.ai_citation_findings sib
+          ON sib.user_id=a.user_id AND sib.project_id=a.project_id AND sib.finding_id=a.finding_id
+         AND sib.panel_id=a.panel_id AND sib.panel_version=a.panel_version
+         AND sib.client_name=a.client_name AND sib.client_market=a.client_market
+        JOIN public.ai_citation_finding_reviews rv
+          ON rv.user_id=sib.user_id AND rv.project_id=sib.project_id AND rv.finding_row_id=sib.id
+      WHERE a.id=p_bound[i] AND a.user_id=p_user AND a.project_id=p_project
+        AND rv.decision IN ('rejected','needs_changes') AND rv.reviewer_id<>p_user AND NOT rv.withdrawn) THEN
       review_incomplete := true;
     END IF;
     -- CURRENT substantive-material dependency (fix): sources_available above only proves the source ROW still
@@ -2086,15 +2164,18 @@ BEGIN
         -- The reviewer receives ONLY the SELECTED records (finding 4059944844): the exact project_knowledge_records
         -- that an ASSESSED support[].selectedRecord pin RESOLVES to for THIS source at its CURRENT revision — never
         -- the source's other records, and never the whole corpus (a source id alone does NOT authorise the reviewer
-        -- to see every record bound to it). Each served value/excerpt/revision is the ACTUAL stored record's, so the
-        -- reviewer verifies against real selected material, not the owner's cached sourcePassage (that stays in
-        -- `record` as recorded-only provenance). An unpinned/stale/missing/foreign pin resolves nothing, so `mat`
-        -- stays empty and the source is not inspectable. Semantic-uuid, tenant/project/source scoped; the pin's and
-        -- the record's sourceRevision must both equal the source's current revision. No raw document bytes.
+        -- to see every record bound to it). A record is served ONLY when it is currently VALID evidence
+        -- (citation_knowledge_selectable — accepted, reviewed, unexpired, not future-dated; finding 4060770032), so a
+        -- proposed/disputed/expired/rejected or future/unreviewed selected record is NOT served and the source reads
+        -- not inspectable (never misrepresented as usable). Each served value/excerpt/revision is the ACTUAL stored
+        -- record's, plus its own status + validUntil so the reviewer sees the record's validity, not the owner's
+        -- cached sourcePassage (that stays in `record` as recorded-only provenance). An unpinned/stale/missing/foreign/
+        -- invalid pin resolves nothing, so `mat` stays empty. Semantic-uuid, tenant/project/source scoped; the pin's
+        -- and the record's sourceRevision must both equal the source's current revision. No raw document bytes.
         IF src IS NOT NULL AND (src->>'status')='active' THEN
           SELECT coalesce(jsonb_agg(DISTINCT jsonb_build_object('recordId',r.id,'value',r.payload->>'value',
               'excerpt',r.payload->>'excerpt','locator',r.payload->>'locator','category',r.payload->>'category',
-              'recordRevision',r.revision)),'[]'::jsonb) INTO mat
+              'recordRevision',r.revision,'status',r.payload->>'status','validUntil',r.payload->>'validUntil')),'[]'::jsonb) INTO mat
             FROM jsonb_array_elements(
                 CASE WHEN jsonb_typeof(frec->'support')='array' THEN frec->'support' ELSE '[]'::jsonb END) s
               JOIN public.project_knowledge_records r
@@ -2104,7 +2185,7 @@ BEGIN
                AND (s->'selectedRecord'->>'sourceRevision')=srev::text
                AND (r.payload->>'sourceRevision')=srev::text
                AND (s->'selectedRecord'->>'recordRevision')=r.revision::text
-               AND coalesce(r.payload->>'value','')<>''
+               AND public.citation_knowledge_selectable(src,r.payload,now())
             WHERE s->>'status' <> 'not_checked';
         ELSE
           mat := '[]'::jsonb;
