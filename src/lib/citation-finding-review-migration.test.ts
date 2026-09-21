@@ -1120,6 +1120,97 @@ describe("withdrawal is reviewer-only, auditable, and never silently sanitises a
     expect(await reviewStatusOf(f.id)).toBe("independent_reviewed");
   });
 });
+describe("save review pre-lock boundary: finding/hash resolved and idempotency assessed before the victim workspace lock", () => {
+  const VALID_SHA = "a".repeat(64); // schema-valid 64-hex sha that will not match any real finding
+  const rawSubmit = async (
+    actor: string,
+    finding: string,
+    sha: string,
+    decision = "approved",
+    note: string | null = null,
+  ) => {
+    try {
+      await db.query("SELECT public.save_ai_citation_finding_review($1,$2,'p',$3,$4,$5,$6)", [
+        actor,
+        user,
+        finding,
+        sha,
+        decision,
+        note,
+      ]);
+      return "ok";
+    } catch (e) {
+      return (e as Error).message;
+    }
+  };
+  it("resolves finding/hash BEFORE the workspace lock: an authorized reviewer's bogus finding or stale hash fails with the finding's own error even when the owner's workspace_meta is gone", async () => {
+    const f = await saveF("60000000-0000-4000-8000-000000000050");
+    const goodSha = await shaFor(f.id);
+    // Delete the owner's workspace_meta: citation_lock_account FAILS CLOSED (citation_record_unavailable) if the
+    // victim workspace lock is ever reached. So a pre-lock rejection with the finding's OWN error proves the
+    // finding/hash is resolved before any lock — the queue-a-write DoS vector is closed at the source.
+    await db.query("DELETE FROM workspace_meta WHERE user_id=$1", [user]);
+    // A schema-valid but RANDOM finding id by an authorized reviewer -> the finding's own error, not the lock's.
+    expect(await rawSubmit(reviewer, "60000000-0000-4000-8000-0000000000dd", VALID_SHA)).toMatch(
+      /citation_finding_unavailable/,
+    );
+    // A REAL finding with a STALE (wrong) hash -> stale, again before the lock.
+    expect(await rawSubmit(reviewer, f.id, VALID_SHA)).toMatch(/citation_review_stale/);
+    // Sanity: only a genuine NEW-receipt mutation (real finding + correct hash) proceeds to the lock and hits the
+    // deleted workspace_meta — confirming the lock is genuinely downstream, reached only for the write.
+    expect(await rawSubmit(reviewer, f.id, goodSha)).toMatch(/citation_record_unavailable/);
+    // None of these wrote a receipt.
+    expect(
+      (await db.query("SELECT 1 FROM ai_citation_finding_reviews WHERE finding_row_id=$1", [f.id]))
+        .rows.length,
+    ).toBe(0);
+  });
+  it("returns an IDENTICAL receipt idempotently WITHOUT taking the workspace lock, while a changed decision still requires the lock (missing-workspace tripwire)", async () => {
+    const f = await saveF("60000000-0000-4000-8000-000000000051");
+    const sha = await shaFor(f.id);
+    const first = await submit(reviewer, f.id, sha, "approved", "a note");
+    // Delete workspace_meta: an identical resubmit is a pure no-op and must STILL return the same receipt without
+    // reaching the (now-unavailable) lock.
+    await db.query("DELETE FROM workspace_meta WHERE user_id=$1", [user]);
+    const again = await saveCitationFindingReview(
+      reviewer,
+      {
+        projectId: "p",
+        ownerId: user,
+        findingRowId: f.id,
+        expectedSha: sha,
+        decision: "approved",
+        note: "a note",
+      },
+      rpc,
+    );
+    expect(again.id).toBe(first.id);
+    expect(again.withdrawn).toBe(false);
+    // A CHANGED decision on the same content is a MUTATION (conflict): it must reach the now-unavailable lock and
+    // fail, never silently overwrite the recorded decision before the lock.
+    expect(await rawSubmit(reviewer, f.id, sha, "rejected", "a note")).toMatch(
+      /citation_record_unavailable/,
+    );
+    // The stored decision is unchanged (still approved) — no pre-lock mutation occurred.
+    const row = await db.query<{ decision: string }>(
+      "SELECT decision FROM ai_citation_finding_reviews WHERE id=$1",
+      [first.id],
+    );
+    expect(row.rows[0].decision).toBe("approved");
+  });
+  it("declares a bounded per-lock wait (SET lock_timeout='1500ms') and a pinned search_path in its function config", async () => {
+    // The mutation path takes blocking FOR UPDATE locks (assert_knowledge_project + citation_lock_account) whose
+    // released bodies have no timeout, so this RPC must declare its own lock_timeout to bound each wait. A single
+    // in-memory PGlite connection cannot exercise a real concurrent lock WAIT, so this asserts the DECLARED bound
+    // (and the pinned empty search_path), not an observed timeout.
+    const cfg = await db.query<{ proconfig: string[] | null }>(
+      "SELECT proconfig FROM pg_proc WHERE proname='save_ai_citation_finding_review'",
+    );
+    const proconfig = cfg.rows[0]?.proconfig ?? [];
+    expect(proconfig.some((c) => c.startsWith("lock_timeout=") && c.includes("1500ms"))).toBe(true);
+    expect(proconfig.some((c) => c.startsWith("search_path="))).toBe(true);
+  });
+});
 describe("improvement eligibility: a required-but-missing second review caps owner_attested", () => {
   beforeEach(async () => {
     await seedApproval();
@@ -1142,6 +1233,26 @@ describe("improvement eligibility: a required-but-missing second review caps own
     await submit(reviewer, f.id, await shaFor(f.id), "needs_changes", "Needs another look.");
     const dropped = await attestedImprovement(fid, "70000000-0000-4000-8000-000000000021");
     expect(dropped.verificationStatus).toBe("connector_receipt");
+  });
+  it("caps a delivered improvement at connector_receipt when the CURRENT head becomes needs_second_review, even though its pinned reviewed head keeps its approval (no stale approval on the new head)", async () => {
+    const fid = "60000000-0000-4000-8000-000000000022";
+    const f1 = await saveF(fid, "accepted");
+    // f1 is independently APPROVED (completed), so ON ITS OWN it reads independent_reviewed.
+    await submit(reviewer, f1.id, await shaFor(f1.id), "approved");
+    const imp = await attestedImprovement(fid, "70000000-0000-4000-8000-000000000022");
+    expect(imp.verificationStatus).toBe("owner_attested");
+    // The owner turns the finding into a needs_second_review correction — a NEW head supersedes f1.
+    const f2 = await saveF(fid, "needs_second_review");
+    expect(f2.supersedesId).toBe(f1.id);
+    // The stored improvement still pins f1 (immutable), and f1 still carries its approval — but the CURRENT head
+    // f2 is a pending second review with NO receipts of its own, so the review gate (evaluated on the head, not
+    // the pinned row) reads second_review_pending and the improvement drops to connector_receipt. The stale f1
+    // approval never approves the new head; current-truth is honored without rewriting the pin or the receipt.
+    const read = await getCitationImprovement(scope, imp.id, rpc);
+    expect(read.boundFindingRowIds).toEqual([f1.id]);
+    expect(read.verificationStatus).toBe("connector_receipt");
+    // The historic pin/receipt are untouched: f1 read on its own is still independent_reviewed.
+    expect((await getCitationFinding(scope, f1.id, rpc)).reviewStatus).toBe("independent_reviewed");
   });
 });
 // Two linked evidence-lifecycle fixes, exercised through the ACTUAL released forget_project_knowledge RPC:

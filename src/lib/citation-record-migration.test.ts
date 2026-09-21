@@ -653,20 +653,69 @@ describe("live invalidation and non-silent rebinding", () => {
     expect(v2.version).toBe(2);
     expect(v2.verificationStatus).toBe("approval_bound");
   });
-  it("resaving the identical payload after the finding head is superseded pins the new head (not a stale rebind)", async () => {
+  it("resaving the identical payload after an ACCEPTED correction supersedes the head pins the new head (not a stale rebind)", async () => {
     const f1 = await saveF(finding(fid));
     const imp1 = await saveI(improvement("70000000-0000-4000-8000-000000000032", fid), binding());
     expect(imp1.version).toBe(1);
-    // Supersede the referenced finding: a new version becomes the head under the same logical id + scope.
-    const f2 = await saveF({ ...finding(fid), decision: "dismissed" as const });
+    // Supersede the referenced finding with an ACCEPTED correction (changed content, decision still accepted):
+    // a new version becomes the head under the same logical id + scope, and — being accepted — it stays
+    // bindable, so idempotent rebinding to the current correction is preserved (not broken by the decision gate).
+    const f2 = await saveF({
+      ...finding(fid),
+      observation: "Corrected: the answer now cites this business but with a stale price.",
+    });
     expect(f2.supersedesId).toBe(f1.id);
-    // The identical improvement payload + binding now resolves to the NEW head row, so the resolved pinned
-    // ids differ, the digest differs, and a v2 is recorded pinning the current correction — the stale v1 is
-    // never silently returned. v1 stays pinned to f1 (immutable), which still exists.
+    expect(f2.decision).toBe("accepted");
+    // The identical improvement payload + binding now resolves to the NEW accepted head row, so the resolved
+    // pinned ids differ, the digest differs, and a v2 is recorded pinning the current correction — the stale v1
+    // is never silently returned. v1 stays pinned to f1 (immutable), which still exists.
     const imp2 = await saveI(improvement("70000000-0000-4000-8000-000000000032", fid), binding());
     expect(imp2.version).toBe(2);
     expect((await getCitationImprovement(scope, imp2.id, rpc)).boundFindingRowIds).toEqual([f2.id]);
     expect((await getCitationImprovement(scope, imp1.id, rpc)).boundFindingRowIds).toEqual([f1.id]);
+  });
+  it("refuses to bind an improvement to a DISMISSED head, downgrades a historic binding whose head is later dismissed, and keeps a provisional needs_second_review head bindable", async () => {
+    const dfid = "60000000-0000-4000-8000-000000000033";
+    const f1 = await saveF(finding(dfid));
+    // A valid accepted head → a delivered improvement (connector_receipt).
+    const imp = await saveI(improvement("70000000-0000-4000-8000-000000000033", dfid), binding());
+    expect(imp.verificationStatus).toBe("connector_receipt");
+    // The owner DISMISSES the finding via a NEW head superseding the accepted one.
+    const f2 = await saveF({ ...finding(dfid), decision: "dismissed" as const });
+    expect(f2.supersedesId).toBe(f1.id);
+    // Immutable pin vs current truth: the improvement still pins f1 (auditable), but its CURRENT status collapses
+    // to unverified — the owner's dismissal is NOT bypassed via the old accepted pinned row.
+    const read = await getCitationImprovement(scope, imp.id, rpc);
+    expect(read.boundFindingRowIds).toEqual([f1.id]);
+    expect(read.verificationStatus).toBe("unverified");
+    // A NEW improvement cannot bind to the now-dismissed head at all (save refuses; no fallback to f1).
+    await expect(
+      saveI(improvement("70000000-0000-4000-8000-000000000034", dfid), binding()),
+    ).rejects.toThrow();
+    // needs_second_review is PROVISIONAL, not rejected: a binding to such a head is NOT refused — it delivers
+    // (connector_receipt) and is only held back from owner_attested by the review-incomplete gate (proved in
+    // the review-migration suite), so the deliver-then-attest flow is preserved. Only a DISMISSED head is barred.
+    const nfid = "60000000-0000-4000-8000-000000000035";
+    await saveF({ ...finding(nfid), decision: "needs_second_review" as const });
+    const nImp = await saveI(improvement("70000000-0000-4000-8000-000000000036", nfid), binding());
+    expect(nImp.verificationStatus).toBe("connector_receipt");
+    // Scope isolation: an unrelated ACCEPTED finding's improvement in the same project is untouched.
+    const ofid = "60000000-0000-4000-8000-000000000038";
+    await saveF(finding(ofid));
+    const okImp = await saveI(improvement("70000000-0000-4000-8000-000000000039", ofid), binding());
+    expect(okImp.verificationStatus).toBe("connector_receipt");
+  });
+  it("the status helper itself downgrades a binding to a dismissed finding head to unverified (historical bad row)", async () => {
+    // Simulates a binding stored BEFORE the save-time guard: a bound row whose chain head is dismissed. The
+    // status helper (called directly, as in the closed-helper test) resolves the head decision and returns
+    // unverified regardless of an otherwise-shaped binding — the decision gate fires before publication checks.
+    const bfid = "60000000-0000-4000-8000-000000000037";
+    const f = await saveF({ ...finding(bfid), decision: "dismissed" as const });
+    const s = await db.query<{ s: string }>(
+      "SELECT citation_improvement_status($1,'p','{}'::jsonb,ARRAY[$2::uuid],'{\"publicationId\":\"x\"}'::jsonb) s",
+      [user, f.id],
+    );
+    expect(s.rows[0].s).toBe("unverified");
   });
 });
 describe("isolation and access boundaries", () => {

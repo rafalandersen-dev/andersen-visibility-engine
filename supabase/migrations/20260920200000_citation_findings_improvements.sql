@@ -434,7 +434,11 @@ END; $$;
 REVOKE ALL ON FUNCTION public.citation_finding_sources_available(uuid,text,jsonb) FROM PUBLIC,anon,authenticated,service_role;
 
 -- The row id of the current (unsuperseded) head of a logical finding in a declared scope, or NULL. Used
--- at improvement save to PIN the exact finding version rows the improvement is recorded against.
+-- at improvement save to PIN the exact finding version rows the improvement is recorded against. It returns
+-- the NEWEST head regardless of decision (it is also the chain-head resolver for current-truth reads); the
+-- improvement save additionally REFUSES a 'dismissed' current head and never falls back to an older accepted
+-- version, so an owner-dismissed finding cannot be bound (a provisional needs_second_review head stays bindable
+-- but is capped at connector_receipt by the review-incomplete gate until independently approved).
 CREATE FUNCTION public.citation_finding_head_id(p_user uuid,p_project text,p_finding uuid,
   p_panel uuid,p_panel_version integer,p_client_name text,p_client_market text)
 RETURNS uuid LANGUAGE sql STABLE SECURITY DEFINER SET search_path='' AS $$
@@ -484,8 +488,11 @@ REVOKE ALL ON FUNCTION public.citation_improvement_evidence(uuid,text,jsonb) FRO
 -- Server-derived verification STATUS from the STRUCTURED publication/approval binding + LIVE dependency
 -- state. Never a client boolean, never an independent/system content check (none exists here), and no
 -- causal claim. The distinct ladder (strongest resolved):
---   'unverified'        no binding; an unresolved pinned finding/source; the bound publication is gone; or
---                       the pinned version is not the CURRENTLY approved version for the asset.
+--   'unverified'        no binding; an unresolved pinned finding/source; a bound finding whose chain's CURRENT
+--                       head is owner-DISMISSED (now, or a historic row wrongly bound to a dismissed head);
+--                       the bound publication is gone; or the pinned version is not the CURRENTLY approved
+--                       version for the asset. (A provisional needs_second_review head is NOT unverified here;
+--                       it is capped at connector_receipt by the review-incomplete gate until approved.)
 --   'approval_bound'    the pinned version_hash is currently approved for the asset in this project.
 --   'connector_receipt' plus a 'published' attempt carrying a connector response (outcome_data) whose
 --                       liveUrl equals the improvement's destination and whose snapshot Plan action equals
@@ -506,6 +513,7 @@ RETURNS text LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path='' AS $$
 DECLARE frec jsonb; i integer; pub public.publication_evidence%ROWTYPE;
   b_asset text; b_vhash text; live_url text; insp jsonb; status text; appr_at timestamptz; obs timestamptz;
   acc_unresolved boolean := false; review_incomplete boolean := false; material_uninspectable boolean := false; f_erased timestamptz;
+  head_dec text; head_row uuid;
 BEGIN
   IF p_binding IS NULL OR jsonb_typeof(p_binding)<>'object' THEN RETURN 'unverified'; END IF;
   -- Every PINNED finding version row must still exist with resolvable in-scope sources. A bound finding
@@ -518,6 +526,28 @@ BEGIN
     IF frec IS NULL OR NOT public.citation_finding_sources_available(p_user,p_project,frec) THEN
       RETURN 'unverified';
     END IF;
+    -- CURRENT DECISION truth of the bound finding's chain. The improvement PINS this exact version row
+    -- (immutable, auditable — never rewritten here), but its CURRENT verification status must honor the owner's
+    -- CURRENT decision on the finding. Resolve the chain's current (unsuperseded) head — mirroring
+    -- citation_finding_head_id's ordering — and return 'unverified' if the owner has DISMISSED it, INCLUDING via
+    -- a NEW dismissed head that supersedes this pinned accepted row (the owner's rejection is not bypassed
+    -- through the old accepted pinned row), and likewise for a historic row that was wrongly bound to a
+    -- dismissed head before the save-time guard. A 'needs_second_review' head is NOT downgraded here — it is a
+    -- provisional (not rejected) finding, capped at connector_receipt by the review-incomplete gate below until
+    -- an independent approval, matching the shipped deliver-then-attest flow. Immutable-historic pin vs
+    -- current-truth status are thus explicit and distinct: the stored binding stays inspectable, only the LIVE
+    -- status collapses on a dismissed basis.
+    SELECT h.id,h.decision INTO head_row,head_dec
+      FROM public.ai_citation_findings a
+      JOIN public.ai_citation_findings h
+        ON h.user_id=a.user_id AND h.project_id=a.project_id AND h.finding_id=a.finding_id
+       AND h.panel_id=a.panel_id AND h.panel_version=a.panel_version
+       AND h.client_name=a.client_name AND h.client_market=a.client_market
+      WHERE a.id=p_bound[i] AND a.user_id=p_user AND a.project_id=p_project
+        AND NOT EXISTS(SELECT 1 FROM public.ai_citation_findings s
+          WHERE s.user_id=a.user_id AND s.project_id=a.project_id AND s.supersedes_id=h.id)
+      ORDER BY h.version DESC,h.created_at DESC,h.id DESC LIMIT 1;
+    IF head_dec = 'dismissed' THEN RETURN 'unverified'; END IF;
     -- A bound finding whose cited evidence was FORGOTTEN (evidence_erased_at set) forfeits the owner_attested
     -- before/after claim even if another record of the source still makes it inspectable NOW: the SPECIFIC
     -- reviewed content was erased, so a stale receipt must not be treated as current attestation. The finding
@@ -528,8 +558,13 @@ BEGIN
     END IF;
     -- A bound finding that ASKED for a second review but lacks an independent approval, or that an
     -- independent reviewer flagged, forfeits the owner_attested before/after claim below (reported honestly,
-    -- never fabricated into a fully-attested improvement). It still keeps the finding available.
-    IF public.citation_finding_review_status(p_user,p_project,p_bound[i]) IN ('second_review_pending','independent_dissent') THEN
+    -- never fabricated into a fully-attested improvement). It still keeps the finding available. This is
+    -- evaluated on the CURRENT HEAD row (head_row), NOT the pinned old row: if the owner turns an accepted,
+    -- independently-reviewed f1 into a needs_second_review f2, the new head carries NO receipts (they are keyed
+    -- to f1's finding_row_id), so the head reads 'second_review_pending' and the improvement drops from
+    -- owner_attested — the stale f1 approval can never approve the new head. SpecCI-3 (accepted AND reviewed):
+    -- the dismissed gate above already enforces the accepted half on the head; this enforces the reviewed half.
+    IF public.citation_finding_review_status(p_user,p_project,head_row) IN ('second_review_pending','independent_dissent') THEN
       review_incomplete := true;
     END IF;
     -- CURRENT substantive-material dependency (fix): sources_available above only proves the source ROW still
@@ -812,6 +847,20 @@ BEGIN
     END IF;
     row_id := public.citation_finding_head_id(p_user,p_project,fid::uuid,panel,pver,cname,cmarket);
     IF row_id IS NULL THEN
+      RAISE EXCEPTION 'citation_improvement_finding_unresolved' USING ERRCODE='22023';
+    END IF;
+    -- The CURRENT head must NOT be owner-DISMISSED to be bound. citation_finding_head_id returns the NEWEST
+    -- unsuperseded head; if the owner's current decision on it is 'dismissed' (the finding was REJECTED, not a
+    -- real gap) the reference is refused rather than bound — and we deliberately do NOT fall back to an older
+    -- accepted version of the same chain (binding a superseded accepted row would ignore the owner's current
+    -- dismissal, letting a dismissed finding become a verified improvement). A genuine ACCEPTED correction
+    -- resave (a NEW accepted head) still resolves here to that exact new head, so idempotent rebinding to the
+    -- current correction is preserved. A 'needs_second_review' head is a PROVISIONAL (not rejected) finding and
+    -- stays bindable: the existing review-incomplete gate in citation_improvement_status caps such a binding at
+    -- connector_receipt — never owner_attested — until an independent approval lifts it, so the owner's
+    -- not-yet-confirmed state is honored without refusing an honest delivery record.
+    IF (SELECT decision FROM public.ai_citation_findings
+          WHERE user_id=p_user AND project_id=p_project AND id=row_id) = 'dismissed' THEN
       RAISE EXCEPTION 'citation_improvement_finding_unresolved' USING ERRCODE='22023';
     END IF;
     bound := array_append(bound,row_id);
@@ -1344,7 +1393,7 @@ GRANT EXECUTE ON FUNCTION
 -- impersonate a reviewer (the receipt reviewer is always the caller, and the owner is refused as an
 -- independent reviewer). Publication/spend permissions are entirely separate and untouched.
 CREATE FUNCTION public.save_ai_citation_finding_review(p_actor uuid,p_owner uuid,p_project text,p_finding uuid,p_expected_sha text,p_decision text,p_note text)
-RETURNS jsonb LANGUAGE plpgsql SECURITY DEFINER SET search_path='' AS $$
+RETURNS jsonb LANGUAGE plpgsql SECURITY DEFINER SET search_path='' SET lock_timeout='1500ms' AS $$
 DECLARE auth record; f_sha text; f_id uuid; f_ver integer; f_reviewer uuid; frec jsonb; insp boolean; new_id uuid; f_erased timestamptz;
   existing public.ai_citation_finding_reviews%ROWTYPE;
 BEGIN
@@ -1354,19 +1403,58 @@ BEGIN
      OR (p_note IS NOT NULL AND octet_length(p_note) NOT BETWEEN 1 AND 6000) THEN
     RAISE EXCEPTION 'citation_review_invalid' USING ERRCODE='22023';
   END IF;
-  -- OPTIMISTIC admission BEFORE any lock: current (not deleted/banned) owner AND actor accounts plus an
-  -- active review-permitting membership. A stale/suspended/non-reviewer session is refused here, so it never
-  -- queues on an arbitrary victim owner's workspace lock (same pattern read_project_team_snapshot uses).
+  -- OPTIMISTIC membership admission BEFORE any lock: a non-reviewer / foreign / suspended-membership session is
+  -- refused here (citation_review_authorized), so it never queues on an arbitrary victim owner's workspace lock.
   SELECT * INTO auth FROM public.citation_review_authorized(p_actor,p_owner,p_project);
   IF NOT auth.allowed THEN RAISE EXCEPTION 'citation_review_forbidden' USING ERRCODE='22023'; END IF;
-  -- Serialize under the owner workspace + account locks (a concurrent version bump or membership change is
-  -- seen consistently).
+  -- OPTIMISTIC finding / hash / erasure / self-review validation BEFORE the victim workspace lock (the
+  -- queue-a-write fix, mirroring remove_ai_citation_finding_review). Previously the owner workspace lock was
+  -- taken FIRST and the finding/hash resolved AFTER, so an authenticated reviewer sending a schema-valid but
+  -- RANDOM finding id or STALE hash could queue DB work behind an arbitrary owner's workspace lock — and a
+  -- serverPromise.race timeout cannot cancel work already queued in the database, so the only real defence is to
+  -- never enqueue it. These lock-free reads reject a bogus/foreign finding, a forgotten (erased) finding, a self
+  -- second-review, and a stale hash before any lock is taken. They are re-run AUTHORITATIVELY under the lock
+  -- below; nothing trusts this optimistic-only state for the mutation. The finding read fails with the finding's
+  -- OWN error (not an account/workspace-unavailable) even when the victim workspace is gone — a missing-workspace
+  -- tripwire proves the resolution precedes the lock.
+  SELECT record_sha256,finding_id,version,reviewer_id,record,evidence_erased_at INTO f_sha,f_id,f_ver,f_reviewer,frec,f_erased
+    FROM public.ai_citation_findings WHERE user_id=p_owner AND project_id=p_project AND id=p_finding;
+  IF f_sha IS NULL THEN RAISE EXCEPTION 'citation_finding_unavailable' USING ERRCODE='22023'; END IF;
+  IF f_erased IS NOT NULL THEN RAISE EXCEPTION 'citation_finding_unavailable' USING ERRCODE='22023'; END IF;
+  IF f_reviewer = p_actor THEN RAISE EXCEPTION 'citation_review_forbidden' USING ERRCODE='22023'; END IF;
+  IF f_sha <> p_expected_sha THEN RAISE EXCEPTION 'citation_review_stale' USING ERRCODE='22023'; END IF;
+  -- Current-account admission (assert_project_team_account = a FOR SHARE NOWAIT probe of auth.users: fail-fast,
+  -- NEVER a wait, and NOT the workspace lock) for the acting session AND the owner: a suspended/deleted/banned
+  -- session is refused before reaching the workspace lock.
+  PERFORM public.assert_project_team_account(p_owner);
+  PERFORM public.assert_project_team_account(p_actor);
+  -- Assess IDENTICAL-receipt idempotency BEFORE the lock where safe: an identical decision+note on the SAME
+  -- content (matching the current record_sha256) is a pure no-op, so return the existing receipt WITHOUT ever
+  -- taking the victim workspace lock (the missing-workspace tripwire path). Every OTHER outcome — a first
+  -- receipt, a withdrawn-receipt reactivation, a changed-decision/note conflict, or the capacity cap — is a
+  -- MUTATION and falls through to the locked, authoritative section below; dissent / withdrawal / receipt-cap
+  -- semantics are unchanged.
+  SELECT * INTO existing FROM public.ai_citation_finding_reviews
+    WHERE user_id=p_owner AND project_id=p_project AND finding_row_id=p_finding AND reviewer_id=p_actor;
+  IF existing.id IS NOT NULL AND NOT existing.withdrawn
+     AND existing.record_sha256=p_expected_sha AND existing.decision=p_decision AND existing.note IS NOT DISTINCT FROM p_note THEN
+    RETURN (SELECT jsonb_build_object('id',id,'findingRowId',finding_row_id,'findingId',finding_id,
+      'findingVersion',finding_version,'recordSha256',record_sha256,'reviewerId',reviewer_id,
+      'reviewerRole',reviewer_role,'decision',decision,'note',note,'inspectionComplete',inspection_complete,
+      'withdrawn',withdrawn,'createdAt',created_at)
+      FROM public.ai_citation_finding_reviews WHERE user_id=p_owner AND project_id=p_project AND id=existing.id);
+  END IF;
+  -- Serialize the MUTATION under the OWNER workspace + account locks. assert_knowledge_project(...,true) and
+  -- citation_lock_account each take a BLOCKING FOR UPDATE with no timeout of their own; this RPC bounds every
+  -- such wait with SET lock_timeout='1500ms' (PER LOCK ACQUISITION, not a whole-RPC deadline; an exceeded wait
+  -- raises 55P03 BEFORE any mutation). Account-first lock order matches the other write RPCs, adding no new
+  -- deadlock cycle.
   PERFORM public.assert_knowledge_project(p_owner,p_project,true);
   PERFORM public.citation_lock_account(p_owner);
-  -- AUTHORITATIVE live re-check under the lock: the released FOR SHARE account admission for BOTH owner and
-  -- actor (a suspension landing after the optimistic check is caught), then the membership/policy re-read
-  -- (membership writes serialize on this same owner lock). This reuses the real team admission contract
-  -- rather than trusting the policy/role predicate alone.
+  -- AUTHORITATIVE re-check under the lock: re-probe BOTH accounts, RE-READ membership/policy (membership writes
+  -- serialize on this same owner lock), and RE-READ the finding — a version bump, an erasure, a suspension or a
+  -- membership change landing after the optimistic reads is caught here, and the receipt is stamped with the
+  -- authoritative role/policy/membership revisions. Nothing trusts the optimistic-only state for the write.
   PERFORM public.assert_project_team_account(p_owner);
   PERFORM public.assert_project_team_account(p_actor);
   SELECT * INTO auth FROM public.citation_review_authorized(p_actor,p_owner,p_project);
