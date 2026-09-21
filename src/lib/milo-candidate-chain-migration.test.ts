@@ -199,6 +199,7 @@ describe("candidate migration chain", () => {
     "citation_improvement_status(uuid,text,jsonb,uuid[],jsonb)",
     "citation_review_authorized(uuid,uuid,text)",
     "citation_finding_review_status(uuid,text,uuid)",
+    "citation_finding_review_digest_masked(uuid,text,uuid)",
     // Forget-cascade objects added by this candidate: the shared passage redactor plus the two trigger
     // functions fired by AFTER DELETE on the released project_knowledge_sources / project_knowledge_records.
     // All REVOKEd from every role — reached only from their triggers.

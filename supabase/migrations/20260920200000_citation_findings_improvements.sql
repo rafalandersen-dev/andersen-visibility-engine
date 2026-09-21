@@ -293,8 +293,10 @@ REVOKE ALL ON FUNCTION public.citation_review_authorized(uuid,uuid,text) FROM PU
 
 -- Whether a finding's cited evidence is sufficient for a COMPLETED independent inspection. EVERY cited
 -- evidence item must be genuinely readable for THIS finding (not merely present):
---   answer -> the answer row resolves AND its full rawAnswer content is within the 50000-char contract
---             (so the whole answer is accessible in the reviewer read, never a silently-truncated snippet);
+--   answer -> the answer row resolves AND its rawAnswer is a SUBSTANTIVE string (non-empty after trimming)
+--             within the 50000-char contract (so the whole answer is accessible in the reviewer read, never a
+--             silently-truncated snippet, and a FAILED/empty capture — '', whitespace, missing, null, or a
+--             non-string historical value — carries nothing to inspect and is NOT counted complete);
 --   source -> the source row resolves, is `status='active'`, and carries substantive provenance (a non-empty
 --             `label`) AND actual substantive MATERIAL — at least one released `project_knowledge_records`
 --             row bound to THIS source (`source_id`) at the source's CURRENT `revision` with a non-empty
@@ -307,16 +309,23 @@ REVOKE ALL ON FUNCTION public.citation_review_authorized(uuid,uuid,text) FROM PU
 -- Internal-only.
 CREATE FUNCTION public.citation_finding_inspectable(p_user uuid,p_project text,p_record jsonb)
 RETURNS boolean LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path='' AS $$
-DECLARE e jsonb; ref uuid; ra text; st text; srev integer; mcnt integer;
+DECLARE e jsonb; ref uuid; ra text; ratype text; st text; srev integer; mcnt integer;
 BEGIN
   IF jsonb_typeof(p_record->'evidence')<>'array' OR jsonb_array_length(p_record->'evidence')=0 THEN RETURN false; END IF;
   FOR e IN SELECT jsonb_array_elements(p_record->'evidence') LOOP
     IF (e->>'id') !~ '^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$' THEN RETURN false; END IF;
     ref := (e->>'id')::uuid;
     IF e->>'kind'='answer' THEN
-      SELECT document->'input'->>'rawAnswer' INTO ra FROM public.ai_answer_evidence
-        WHERE user_id=p_user AND project_id=p_project AND id=ref;
-      IF ra IS NULL OR char_length(ra) > 50000 THEN RETURN false; END IF;
+      SELECT document->'input'->>'rawAnswer', jsonb_typeof(document->'input'->'rawAnswer') INTO ra,ratype
+        FROM public.ai_answer_evidence WHERE user_id=p_user AND project_id=p_project AND id=ref;
+      -- SUBSTANTIVE answer content is REQUIRED for a completed inspection. A FAILED/empty capture (rawAnswer ''
+      -- or whitespace-only), a MISSING key, an explicit JSON null, or a NON-STRING historical value carries
+      -- nothing to independently inspect — so it is NOT counted complete (previously ra IS NULL only caught the
+      -- missing/null case, and '' passed the <=50000 test, letting an empty failed capture read as fully
+      -- inspected). The finding stays available with a truthful non-inspectable status; nothing is fabricated or
+      -- dropped. A substantive but partial capture is still inspectable. The upper 50000 bound (the reviewer
+      -- read's full-content contract) is unchanged and kept ALIGNED with the per-item reviewer gate.
+      IF ratype IS DISTINCT FROM 'string' OR ra IS NULL OR btrim(ra, E' \t\n\r\f\v')='' OR char_length(ra) > 50000 THEN RETURN false; END IF;
     ELSIF e->>'kind'='source' THEN
       SELECT payload->>'status',revision INTO st,srev FROM public.project_knowledge_sources
         WHERE user_id=p_user AND project_id=p_project AND id=ref;
@@ -387,6 +396,38 @@ BEGIN
   RETURN 'owner_only';
 END; $$;
 REVOKE ALL ON FUNCTION public.citation_finding_review_status(uuid,text,uuid) FROM PUBLIC,anon,authenticated,service_role;
+
+-- Whether a finding's REVIEWED material is currently hidden from an independent reviewer — its copied passages
+-- were ERASED by a forget (evidence_erased_at set), OR a cited source is REVOKED/MISSING (so those passages are
+-- withheld at the reviewer response). When true, the finding's record_sha256 is a digest of content the reviewer
+-- can NO LONGER see; with the rest of the record visible to them, a SHORT forgotten/withheld value (a price,
+-- opening hours) is offline brute-forceable against that digest. So every REVIEWER-facing surface (the for-review
+-- detail and the reviewer's receipt list, standalone AND embedded) masks the digest to NULL, while the real
+-- digest is RETAINED server-side (ai_citation_findings.record_sha256 + each receipt row) for audit and is never
+-- destroyed. OWNER surfaces are unaffected (owner retention vs reviewer access). This mirrors
+-- read_ai_citation_finding_for_review's own erased/withheld decision (same rule: erased, or any cited source not
+-- 'active') so the detail read and the receipt list agree. Internal-only.
+CREATE FUNCTION public.citation_finding_review_digest_masked(p_user uuid,p_project text,p_row uuid)
+RETURNS boolean LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path='' AS $$
+DECLARE frec jsonb; er timestamptz; e jsonb; st text;
+BEGIN
+  SELECT record,evidence_erased_at INTO frec,er FROM public.ai_citation_findings
+    WHERE user_id=p_user AND project_id=p_project AND id=p_row;
+  IF frec IS NULL THEN RETURN false; END IF;
+  IF er IS NOT NULL THEN RETURN true; END IF;
+  IF jsonb_typeof(frec->'evidence')='array' THEN
+    FOR e IN SELECT jsonb_array_elements(frec->'evidence') LOOP
+      IF e->>'kind'='source'
+         AND (e->>'id') ~ '^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$' THEN
+        SELECT payload->>'status' INTO st FROM public.project_knowledge_sources
+          WHERE user_id=p_user AND project_id=p_project AND id=(e->>'id')::uuid;
+        IF st IS DISTINCT FROM 'active' THEN RETURN true; END IF;
+      END IF;
+    END LOOP;
+  END IF;
+  RETURN false;
+END; $$;
+REVOKE ALL ON FUNCTION public.citation_finding_review_digest_masked(uuid,text,uuid) FROM PUBLIC,anon,authenticated,service_role;
 
 -- Are every source a finding cites still present as a TRUSTED in-scope record? evidence[] of kind:
 --   'source' -> public.project_knowledge_sources, required still ACTIVE (NOT inline — the record carries
@@ -1420,7 +1461,13 @@ BEGIN
   SELECT record_sha256,finding_id,version,reviewer_id,record,evidence_erased_at INTO f_sha,f_id,f_ver,f_reviewer,frec,f_erased
     FROM public.ai_citation_findings WHERE user_id=p_owner AND project_id=p_project AND id=p_finding;
   IF f_sha IS NULL THEN RAISE EXCEPTION 'citation_finding_unavailable' USING ERRCODE='22023'; END IF;
-  IF f_erased IS NOT NULL THEN RAISE EXCEPTION 'citation_finding_unavailable' USING ERRCODE='22023'; END IF;
+  -- MASKED-MATERIAL block BEFORE the hash comparison AND before idempotency (and before any lock): if the finding
+  -- is erased, OR a cited source is revoked/missing so its copied passages are withheld from the reviewer, a NEW
+  -- review is UNAVAILABLE (a blocked review, not an opinion). Enforcing it HERE means a guessed vs the correct
+  -- expected_sha both raise the SAME error at the SAME point, so the save is not a stale-vs-success oracle for the
+  -- withheld price/hours, and no receipt — new OR idempotent — ever returns the real digest for a masked finding.
+  -- citation_finding_review_digest_masked subsumes the erasure check (er IS NOT NULL) and adds revoked/missing.
+  IF public.citation_finding_review_digest_masked(p_owner,p_project,p_finding) THEN RAISE EXCEPTION 'citation_finding_unavailable' USING ERRCODE='22023'; END IF;
   IF f_reviewer = p_actor THEN RAISE EXCEPTION 'citation_review_forbidden' USING ERRCODE='22023'; END IF;
   IF f_sha <> p_expected_sha THEN RAISE EXCEPTION 'citation_review_stale' USING ERRCODE='22023'; END IF;
   -- Current-account admission (assert_project_team_account = a FOR SHARE NOWAIT probe of auth.users: fail-fast,
@@ -1462,10 +1509,12 @@ BEGIN
   SELECT record_sha256,finding_id,version,reviewer_id,record,evidence_erased_at INTO f_sha,f_id,f_ver,f_reviewer,frec,f_erased
     FROM public.ai_citation_findings WHERE user_id=p_owner AND project_id=p_project AND id=p_finding;
   IF f_sha IS NULL THEN RAISE EXCEPTION 'citation_finding_unavailable' USING ERRCODE='22023'; END IF;
-  -- A finding whose cited evidence has been FORGOTTEN (its copied passages erased) can no longer be
-  -- independently attested: a new receipt would otherwise pin the retained PRE-erasure record_sha256 to a
-  -- redacted payload. Refuse — the finding's evidence is unavailable. Existing historical receipts are kept.
-  IF f_erased IS NOT NULL THEN RAISE EXCEPTION 'citation_finding_unavailable' USING ERRCODE='22023'; END IF;
+  -- MASKED-MATERIAL block, re-checked AUTHORITATIVELY under the lock (an erasure or a source revoke landing
+  -- after the optimistic read is caught here): an erased finding — whose new receipt would otherwise pin the
+  -- retained PRE-erasure record_sha256 to a redacted payload — OR a revoked/missing-source finding whose copied
+  -- passages are withheld is UNAVAILABLE for a new review, refused BEFORE the hash comparison and idempotency
+  -- below (no oracle, no unhashed receipt return). Existing historical receipts are kept; withdrawal is separate.
+  IF public.citation_finding_review_digest_masked(p_owner,p_project,p_finding) THEN RAISE EXCEPTION 'citation_finding_unavailable' USING ERRCODE='22023'; END IF;
   -- No self second-review: the finding's primary reviewer (the owner) cannot also be the independent one.
   IF f_reviewer = p_actor THEN RAISE EXCEPTION 'citation_review_forbidden' USING ERRCODE='22023'; END IF;
   -- Bind to the EXACT reviewed content: attesting to content that is no longer this row (e.g. a version
@@ -1567,7 +1616,7 @@ END; $$;
 -- pagination. Withdrawn receipts are shown (note erased, withdrawn:true) for audit but do not count.
 CREATE FUNCTION public.read_ai_citation_finding_reviews(p_actor uuid,p_owner uuid,p_project text,p_finding uuid)
 RETURNS jsonb LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path='' AS $$
-DECLARE auth record; reviews jsonb; total integer; active_dissent integer; active_approved integer;
+DECLARE auth record; reviews jsonb; total integer; active_dissent integer; active_approved integer; v_masked boolean;
 BEGIN
   IF p_actor IS NULL OR p_owner IS NULL OR p_finding IS NULL THEN RAISE EXCEPTION 'citation_review_invalid' USING ERRCODE='22023'; END IF;
   PERFORM public.assert_knowledge_project(p_owner,p_project);
@@ -1582,6 +1631,12 @@ BEGIN
   IF NOT EXISTS(SELECT 1 FROM public.ai_citation_findings WHERE user_id=p_owner AND project_id=p_project AND id=p_finding) THEN
     RAISE EXCEPTION 'citation_finding_unavailable' USING ERRCODE='22023';
   END IF;
+  -- Mask the audit digest for a REVIEWER (never the owner) when the finding's reviewed material is hidden
+  -- (erased, or a cited source revoked/missing) — otherwise this receipt-list digest, combined with the
+  -- redacted record from the for-review read, would be an offline brute-force oracle for the forgotten/withheld
+  -- value. The OWNER (p_actor=p_owner) always sees the real digest (owner retention). The digest is retained
+  -- server-side on every receipt row for audit regardless.
+  v_masked := (p_actor<>p_owner AND public.citation_finding_review_digest_masked(p_owner,p_project,p_finding));
   SELECT count(*),
     count(*) FILTER (WHERE NOT withdrawn AND decision IN ('rejected','needs_changes') AND reviewer_id<>p_owner),
     count(*) FILTER (WHERE NOT withdrawn AND decision='approved' AND reviewer_id<>p_owner)
@@ -1590,7 +1645,7 @@ BEGIN
   SELECT coalesce(jsonb_agg(jsonb_build_object('id',id,'reviewerId',reviewer_id,'mine',reviewer_id=p_actor,
     'owner',reviewer_id=p_owner,'reviewerRole',reviewer_role,'decision',decision,'note',note,
     'inspectionComplete',inspection_complete,'withdrawn',withdrawn,'withdrawnAt',withdrawn_at,
-    'findingVersion',finding_version,'recordSha256',record_sha256,'createdAt',created_at)
+    'findingVersion',finding_version,'recordSha256',CASE WHEN v_masked THEN NULL ELSE record_sha256 END,'createdAt',created_at)
     ORDER BY created_at DESC,id DESC),'[]'::jsonb)
     INTO reviews FROM (SELECT * FROM public.ai_citation_finding_reviews
       WHERE user_id=p_owner AND project_id=p_project AND finding_row_id=p_finding ORDER BY created_at DESC,id DESC LIMIT 100) recent;
@@ -1613,7 +1668,7 @@ DECLARE auth record; frow public.ai_citation_findings%ROWTYPE; frec jsonb; e jso
   ev_json jsonb := '[]'::jsonb; facts_json jsonb := '[]'::jsonb; reviews jsonb; total integer;
   ans jsonb; src jsonb; srev integer; mat jsonb; mcount integer; nat boolean;
   fk text; fv text; ffrom timestamptz; funtil timestamptz; ffound boolean;
-  frec_response jsonb; passages_withheld boolean := false;
+  frec_response jsonb; passages_withheld boolean := false; v_masked boolean;
 BEGIN
   IF p_actor IS NULL OR p_owner IS NULL OR p_id IS NULL THEN RAISE EXCEPTION 'citation_review_invalid' USING ERRCODE='22023'; END IF;
   PERFORM public.assert_knowledge_project(p_owner,p_project);
@@ -1633,9 +1688,14 @@ BEGIN
         SELECT document INTO ans FROM public.ai_answer_evidence WHERE user_id=p_owner AND project_id=p_project AND id=ref;
         -- The FULL answer content (rawAnswer is contract-capped at 50000 chars, exposed in full), the actual
         -- supplied citation URLs, and capture provenance — not a 4000-char snippet. contentTruncated makes
-        -- any (contract-violating) over-cap answer explicit rather than silently "complete".
+        -- any (contract-violating) over-cap answer explicit rather than silently "complete". `inspectable`
+        -- requires SUBSTANTIVE content (a string, non-empty after trimming, within the 50000 cap) — ALIGNED with
+        -- citation_finding_inspectable — so a FAILED/empty/whitespace/missing/null/non-string capture reads
+        -- available:true (the failed attempt stays visible with its real, possibly-empty content) but
+        -- inspectable:false, never completing an independent inspection on no material.
         ev_json := ev_json || jsonb_build_object('kind','answer','id',e->>'id','available',ans IS NOT NULL,
-          'inspectable',ans IS NOT NULL AND char_length(coalesce(ans->'input'->>'rawAnswer',''))<=50000,
+          'inspectable',coalesce(ans IS NOT NULL AND jsonb_typeof(ans->'input'->'rawAnswer')='string'
+            AND btrim(ans->'input'->>'rawAnswer', E' \t\n\r\f\v')<>'' AND char_length(ans->'input'->>'rawAnswer')<=50000, false),
           'capturedAt',ans->'input'->>'capturedAt','surface',ans->'input'->>'surface','mode',ans->'input'->>'mode',
           'method',ans->'input'->>'method','status',ans->'input'->>'status',
           'promptId',ans->'input'->>'promptId','promptRevision',(ans->'input'->>'promptRevision')::integer,
@@ -1646,10 +1706,14 @@ BEGIN
           'contentTruncated',coalesce(char_length(ans->'input'->>'rawAnswer'),0)>50000);
       ELSIF e->>'kind'='source' THEN
         SELECT payload,revision INTO src,srev FROM public.project_knowledge_sources WHERE user_id=p_owner AND project_id=p_project AND id=ref;
-        -- Any cited source that is revoked or missing taints the reviewer's copied-passage view (see below):
-        -- support[] carries no per-passage source pin, so once one cited source is deactivated we cannot prove
-        -- which owner-copied passage came from a still-live source, and conservatively withhold ALL of them.
-        IF src IS NULL OR (src->>'status')<>'active' THEN passages_withheld := true; END IF;
+        -- Any cited source that is NOT active (revoked, missing, or a missing/null status key) taints the
+        -- reviewer's copied-passage view (see below): support[] carries no per-passage source pin, so once one
+        -- cited source is not live we cannot prove which owner-copied passage came from a still-live source, and
+        -- conservatively withhold ALL of them. The test is the NULL-SAFE `IS DISTINCT FROM 'active'` (not `<>`,
+        -- which is NULL — not true — for a missing/null status), so it fails CLOSED and stays IDENTICAL to
+        -- citation_finding_review_digest_masked's rule; otherwise a missing-status source would leave the copied
+        -- passage AND the audit digest visible here while the digest helper masked them elsewhere.
+        IF src IS NULL OR (src->>'status') IS DISTINCT FROM 'active' THEN passages_withheld := true; END IF;
         -- Substantive source MATERIAL, GATED on the source being ACTIVE. A REVOKED source (or a missing one)
         -- is deactivated, so its live records are WITHHELD from the reviewer here — inspectable was already
         -- false for it, and now materialCount/material do not serialize the deactivated source's record
@@ -1719,18 +1783,27 @@ BEGIN
       END IF;
     END LOOP;
   END IF;
+  -- DIGEST MASKING for this REVIEWER response. When the reviewed material is hidden — the finding is erased, or
+  -- a cited source is revoked/missing so its copied passages are withheld above — the record_sha256 is a digest
+  -- of content the reviewer can no longer see, and with the rest of the record visible a short forgotten/withheld
+  -- value would be offline brute-forceable against it. So the top-level digest AND every embedded receipt's
+  -- digest are masked to NULL here (this is the reviewer surface; the erased/withheld condition equals
+  -- citation_finding_review_digest_masked, computed inline from the values already resolved above). The real
+  -- digests are RETAINED server-side (the finding row + each receipt row) for audit; the owner detail read is
+  -- unaffected. A fully-visible finding still exposes the exact binding hash a reviewer needs to submit.
+  v_masked := (frow.evidence_erased_at IS NOT NULL OR passages_withheld);
   SELECT count(*) INTO total FROM public.ai_citation_finding_reviews WHERE user_id=p_owner AND project_id=p_project AND finding_row_id=p_id;
   SELECT coalesce(jsonb_agg(jsonb_build_object('id',id,'reviewerId',reviewer_id,'mine',reviewer_id=p_actor,
     'owner',reviewer_id=p_owner,'reviewerRole',reviewer_role,'decision',decision,'note',note,
     'inspectionComplete',inspection_complete,'withdrawn',withdrawn,'withdrawnAt',withdrawn_at,
-    'findingVersion',finding_version,'recordSha256',record_sha256,'createdAt',created_at)
+    'findingVersion',finding_version,'recordSha256',CASE WHEN v_masked THEN NULL ELSE record_sha256 END,'createdAt',created_at)
     ORDER BY created_at DESC,id DESC),'[]'::jsonb)
     INTO reviews FROM (SELECT * FROM public.ai_citation_finding_reviews
       WHERE user_id=p_owner AND project_id=p_project AND finding_row_id=p_id ORDER BY created_at DESC,id DESC LIMIT 100) recent;
   RETURN jsonb_build_object('id',frow.id,'findingId',frow.finding_id,'version',frow.version,'family',frow.family,
     'decision',frow.decision,'panelId',frow.panel_id,'panelVersion',frow.panel_version,
     'client',jsonb_build_object('name',frow.client_name,'market',frow.client_market),
-    'recordSha256',frow.record_sha256,'record',frec_response,'createdAt',frow.created_at,
+    'recordSha256',CASE WHEN v_masked THEN NULL ELSE frow.record_sha256 END,'record',frec_response,'createdAt',frow.created_at,
     'evidenceErased',(frow.evidence_erased_at IS NOT NULL),
     'sourcePassagesWithheld',(frow.evidence_erased_at IS NULL AND passages_withheld),
     'sourceAvailable',public.citation_finding_sources_available(p_owner,p_project,frec),

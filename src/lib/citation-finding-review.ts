@@ -67,7 +67,12 @@ export const citationFindingReviewEntrySchema = z
     withdrawn: z.boolean(),
     withdrawnAt: z.string().nullable(),
     findingVersion: z.number().int().min(1),
-    recordSha256: sha256,
+    // Null when the server MASKS the audit digest on a REVIEWER surface: for an erased finding, or one whose
+    // cited source is revoked/missing (its copied passages withheld), the pre-erasure/pre-withholding
+    // recordSha256 is a digest of content the reviewer can no longer see and would be an offline brute-force
+    // oracle for a short forgotten/withheld value. The real digest is retained server-side for audit; owner
+    // reads and fully-visible reviewer reads still carry the exact hash.
+    recordSha256: sha256.nullable(),
     createdAt: z.string(),
   })
   .strict();
@@ -189,7 +194,12 @@ export const citationFindingForReviewSchema = z
     panelId: uuid,
     panelVersion: z.number().int().min(1),
     client: z.object({ name: text(200), market: text(120) }).strict(),
-    recordSha256: sha256,
+    // Null when the server MASKS the audit digest (this finding is erased, or a cited source is
+    // revoked/missing so its copied passages are withheld below): the digest would otherwise be an offline
+    // brute-force oracle for the hidden content. Retained server-side for audit. A fully-visible finding
+    // carries the exact hash a reviewer pins to submit; an erased finding already blocks new reviews, and a
+    // withheld finding is non-inspectable, so neither needs the pin.
+    recordSha256: sha256.nullable(),
     record: findingSchema,
     createdAt: z.string(),
     // True once a source/record forget erased this finding's copied passages: the recordSha256 above (and any

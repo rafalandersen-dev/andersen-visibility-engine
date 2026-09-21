@@ -107,13 +107,15 @@ const saveF = (
     rpc,
   );
 const shaFor = async (rowId: string, actor = reviewer) =>
+  // Non-null assertion: shaFor is only used on ACTIVE/visible findings, whose recordSha256 is the real hash a
+  // reviewer pins to submit. (The digest is masked to null only on erased/withheld reviewer surfaces.)
   (
     await getCitationFindingForReview(
       actor,
       { ownerId: user, projectId: "p", findingRowId: rowId },
       rpc,
     )
-  ).recordSha256;
+  ).recordSha256!;
 const reviewStatusOf = async (rowId: string) =>
   (await readCitationFindings(scope, rpc)).findings.find((r) => r.id === rowId)?.reviewStatus;
 const setPolicy = (mode: string) =>
@@ -346,7 +348,7 @@ describe("independent finding review: authority is the live team membership/poli
     const receipt = await submit(
       reviewer,
       f.id,
-      view.recordSha256,
+      view.recordSha256!,
       "approved",
       "Checked the answer.",
     );
@@ -596,7 +598,7 @@ describe("independent evidence inspection gates completed verification (spec §4
       expect(src.material[0]?.value).toContain("500 SEK");
     }
     // A valid source-only review with real bound material MUST work (review is not disabled).
-    await submit(reviewer, f.id, view.recordSha256, "approved");
+    await submit(reviewer, f.id, view.recordSha256!, "approved");
     expect(await reviewStatusOf(f.id)).toBe("independent_reviewed");
   });
   it("keeps a metadata-only source (no bound material) INCOMPLETE — attribution alone never completes", async () => {
@@ -615,7 +617,7 @@ describe("independent evidence inspection gates completed verification (spec §4
     expect(src.kind === "source" && src.available).toBe(true);
     expect(src.kind === "source" && src.inspectable).toBe(false);
     expect(src.kind === "source" && src.materialCount).toBe(0);
-    await submit(reviewer, f.id, view.recordSha256, "approved");
+    await submit(reviewer, f.id, view.recordSha256!, "approved");
     expect(await reviewStatusOf(f.id)).toBe("second_review_pending");
   });
   it("does not count material bound to a WRONG source or a STALE source revision", async () => {
@@ -651,7 +653,12 @@ describe("independent evidence inspection gates completed verification (spec §4
     const src = view.evidence.find((e) => e.kind === "source")!;
     expect(src.kind === "source" && src.inspectable).toBe(false);
     expect(src.kind === "source" && src.status).toBe("revoked");
-    await submit(reviewer, f.id, view.recordSha256, "approved");
+    // The audit digest is masked (a revoked source withholds its copied passages), so the reviewer has no pin,
+    // and a NEW review is BLOCKED (not an opinion): even a guessed 64-hex hash is refused as unavailable, so the
+    // save cannot be a stale-vs-success oracle for the withheld content.
+    expect(view.recordSha256).toBeNull();
+    await expect(submit(reviewer, f.id, "a".repeat(64), "approved")).rejects.toThrow();
+    // With no admissible receipt, the needs_second_review finding stays honestly second_review_pending.
     expect(await reviewStatusOf(f.id)).toBe("second_review_pending");
   });
   it("returns ALL bound material for a source with more than 10 records (a later record is reachable, not cut)", async () => {
@@ -676,7 +683,7 @@ describe("independent evidence inspection gates completed verification (spec §4
       expect(src.material.every((m) => typeof m.recordId === "string")).toBe(true); // provenance identity
       expect(src.inspectable).toBe(true);
     }
-    await submit(reviewer, f.id, view.recordSha256, "approved");
+    await submit(reviewer, f.id, view.recordSha256!, "approved");
     expect(await reviewStatusOf(f.id)).toBe("independent_reviewed");
   });
   it("marks a source whose material overflows the inspectable cap (300) INCOMPLETE, not silently complete", async () => {
@@ -695,7 +702,7 @@ describe("independent evidence inspection gates completed verification (spec §4
     expect(src.kind === "source" && src.materialCount).toBe(301);
     expect(src.kind === "source" && src.materialTruncated).toBe(true);
     expect(src.kind === "source" && src.inspectable).toBe(false);
-    await submit(reviewer, f.id, view.recordSha256, "approved");
+    await submit(reviewer, f.id, view.recordSha256!, "approved");
     expect(await reviewStatusOf(f.id)).toBe("second_review_pending");
   });
   it("treats a MIXED native+answer finding as incomplete — the opaque native blocks completion", async () => {
@@ -714,7 +721,7 @@ describe("independent evidence inspection gates completed verification (spec §4
     expect(view.inspectionComplete).toBe(false);
     expect(view.evidence.find((e) => e.kind === "answer")?.inspectable).toBe(true);
     expect(view.evidence.find((e) => e.kind === "native")?.inspectable).toBe(false);
-    const receipt = await submit(reviewer, f.id, view.recordSha256, "approved");
+    const receipt = await submit(reviewer, f.id, view.recordSha256!, "approved");
     expect(receipt.inspectionComplete).toBe(false);
     expect(await reviewStatusOf(f.id)).toBe("second_review_pending");
   });
@@ -733,7 +740,7 @@ describe("independent evidence inspection gates completed verification (spec §4
     expect(view.evidence).toEqual([
       expect.objectContaining({ kind: "native", available: true, inspectable: false }),
     ]);
-    const receipt = await submit(reviewer, f.id, view.recordSha256, "approved");
+    const receipt = await submit(reviewer, f.id, view.recordSha256!, "approved");
     expect(receipt.inspectionComplete).toBe(false);
     // The finding REQUIRED a second review; an un-inspectable opinion does not complete it.
     expect(await reviewStatusOf(f.id)).toBe("second_review_pending");
@@ -967,7 +974,7 @@ describe("the independent inspection gate reuses the canonical accuracy resolver
       rpc,
     );
     expect(view.inspectionComplete).toBe(false);
-    const receipt = await submit(reviewer, rowId, view.recordSha256, "approved");
+    const receipt = await submit(reviewer, rowId, view.recordSha256!, "approved");
     // The stored receipt is honestly an opinion; the required second review is NOT satisfied by it.
     expect(receipt.inspectionComplete).toBe(false);
     expect(await reviewStatusOf(rowId)).toBe("second_review_pending");
@@ -1209,6 +1216,147 @@ describe("save review pre-lock boundary: finding/hash resolved and idempotency a
     const proconfig = cfg.rows[0]?.proconfig ?? [];
     expect(proconfig.some((c) => c.startsWith("lock_timeout=") && c.includes("1500ms"))).toBe(true);
     expect(proconfig.some((c) => c.startsWith("search_path="))).toBe(true);
+  });
+  it("BLOCKS a new review on a MASKED (revoked-source) finding — the correct old hash and a guessed hash both fail unavailable before the lock, an identical retry cannot unmask, and a visible save still works", async () => {
+    await seedSource("active", SOURCE);
+    await seedRecord(RECORD, SOURCE, 1, "Massage from 500 SEK.");
+    const fid = "60000000-0000-4000-8000-000000000052";
+    const f = await saveF(fid, "accepted", { evidence: [{ kind: "source", id: SOURCE }] });
+    // While the source is ACTIVE the finding is fully visible: the reviewer gets the real pin and a NEW receipt
+    // is written — normal visible save works.
+    const sha = await shaFor(f.id);
+    const first = await submit(reviewer, f.id, sha, "approved");
+    expect(first.recordSha256).toBe(sha);
+    // Revoke the cited source -> the copied passages are withheld, so the finding is MASKED. Delete workspace_meta
+    // so the owner lock would fail-closed (citation_record_unavailable) if the flow ever reached it.
+    await db.query(
+      "UPDATE project_knowledge_sources SET payload=jsonb_set(payload,'{status}','\"revoked\"') WHERE user_id=$1 AND project_id='p' AND id=$2",
+      [user, SOURCE],
+    );
+    await db.query("DELETE FROM workspace_meta WHERE user_id=$1", [user]);
+    // The CORRECT old hash and a GUESSED wrong hash raise the SAME unavailable error BEFORE the lock — the save
+    // is not a stale-vs-success oracle for the withheld passage (a stale hash would otherwise read differently).
+    expect(await rawSubmit(reviewer, f.id, sha)).toMatch(/citation_finding_unavailable/);
+    expect(await rawSubmit(reviewer, f.id, "b".repeat(64))).toMatch(/citation_finding_unavailable/);
+    // An IDENTICAL retry (matching the existing receipt) is refused before idempotency too — it cannot unmask.
+    expect(await rawSubmit(reviewer, f.id, sha, "approved", null)).toMatch(
+      /citation_finding_unavailable/,
+    );
+    // The pre-existing receipt is untouched and still records the real hash server-side (owner audit intact).
+    expect(
+      (
+        await db.query<{ s: string }>(
+          "SELECT record_sha256 s FROM ai_citation_finding_reviews WHERE id=$1",
+          [first.id],
+        )
+      ).rows[0].s,
+    ).toBe(sha);
+  });
+});
+describe("a failed/empty answer capture is visible but never completes an independent inspection (spec §4.5)", () => {
+  beforeEach(async () => {
+    await seedApproval();
+    await seedPublication();
+  });
+  // Import a valid answer, then overwrite/remove its rawAnswer to simulate a FAILED / historical capture that
+  // the current import contract would reject but that can exist in storage (nothing is fabricated in the read).
+  const failedAnswer = async (raw: unknown) => {
+    const id = await importReal(ACC_CAP, "placeholder to be overwritten below");
+    await db.query(
+      "UPDATE ai_answer_evidence SET document=jsonb_set(document,'{input,rawAnswer}',$2::jsonb) WHERE user_id=$1 AND project_id='p' AND id=$3",
+      [user, JSON.stringify(raw), id],
+    );
+    return id;
+  };
+  it.each([
+    ["empty", "", "60", "60"],
+    ["whitespace-only", "   \n\t", "61", "61"],
+  ])(
+    "treats a %s answer as available but NOT inspectable across the canonical predicate, the reviewer read, the receipt, and the improvement",
+    async (label, raw, fsfx, isfx) => {
+      const ans = await failedAnswer(raw);
+      const fid = `60000000-0000-4000-8000-0000000000${fsfx}`;
+      const f = await saveF(fid, "accepted", { evidence: [{ kind: "answer", id: ans }] });
+      // Per-item reviewer read: the failed attempt stays VISIBLE (available:true, its real empty content shown)
+      // but is NOT inspectable, and the whole finding cannot complete an inspection.
+      const view = await getCitationFindingForReview(
+        reviewer,
+        { ownerId: user, projectId: "p", findingRowId: f.id },
+        rpc,
+      );
+      const item = view.evidence.find((e) => e.kind === "answer" && e.id === ans)!;
+      expect(item.kind === "answer" && item.available, label).toBe(true);
+      expect(item.kind === "answer" && item.inspectable, label).toBe(false);
+      expect(view.inspectionComplete, label).toBe(false);
+      // An 'approved' receipt records inspection_complete=false (an opinion, not a completed verification); the
+      // finding's current reviewStatus is independent_opinion, NEVER independent_reviewed.
+      const r = await submit(reviewer, f.id, view.recordSha256!, "approved");
+      expect(r.inspectionComplete).toBe(false);
+      expect(await reviewStatusOf(f.id)).toBe("independent_opinion");
+      // A delivered improvement bound to it can be connector_receipt (the delivery is real) but NEVER
+      // owner_attested — there is no inspectable material behind the attestation.
+      const imp = await attestedImprovement(fid, `70000000-0000-4000-8000-0000000000${isfx}`);
+      expect(imp.verificationStatus).toBe("connector_receipt");
+    },
+  );
+  it("also rejects a missing, null, or non-string historical rawAnswer (canonical predicate + per-item gate)", async () => {
+    // Import ALL placeholders while they are VALID first — importAnswerEvidence reads and strict-parses existing
+    // answer rows on each import, so a row must not be corrupted before a later import reads it. Corrupt each
+    // only AFTER all imports. This isolates the fixture without weakening the production strict input schema.
+    const missingId = await importReal(ACC_CAP, "placeholder that loses its rawAnswer key");
+    const nullId = await importReal(ACC_CAP, "placeholder that becomes json null");
+    const numId = await importReal(ACC_CAP, "placeholder that becomes a number");
+    await db.query(
+      "UPDATE ai_answer_evidence SET document=document #- '{input,rawAnswer}' WHERE user_id=$1 AND project_id='p' AND id=$2",
+      [user, missingId],
+    );
+    await db.query(
+      "UPDATE ai_answer_evidence SET document=jsonb_set(document,'{input,rawAnswer}','null'::jsonb) WHERE user_id=$1 AND project_id='p' AND id=$2",
+      [user, nullId],
+    );
+    await db.query(
+      "UPDATE ai_answer_evidence SET document=jsonb_set(document,'{input,rawAnswer}','123'::jsonb) WHERE user_id=$1 AND project_id='p' AND id=$2",
+      [user, numId],
+    );
+    const cases: Array<[string, string, string]> = [
+      ["missing", missingId, "62"],
+      ["null", nullId, "63"],
+      ["number", numId, "64"],
+    ];
+    for (const [name, ans, sfx] of cases) {
+      const f = await saveF(`60000000-0000-4000-8000-0000000000${sfx}`, "accepted", {
+        evidence: [{ kind: "answer", id: ans }],
+      });
+      const view = await getCitationFindingForReview(
+        reviewer,
+        { ownerId: user, projectId: "p", findingRowId: f.id },
+        rpc,
+      );
+      const item = view.evidence.find((e) => e.kind === "answer" && e.id === ans)!;
+      expect(item.kind === "answer" && item.inspectable, name).toBe(false);
+      expect(view.inspectionComplete, name).toBe(false);
+    }
+  });
+  it("leaves a normal non-empty answer fully inspectable and attestable (valid-capture regression preserved)", async () => {
+    const ans = await importReal(
+      ACC_CAP,
+      "A substantive captured answer with real content to inspect.",
+    );
+    const fid = "60000000-0000-4000-8000-000000000065";
+    const f = await saveF(fid, "accepted", { evidence: [{ kind: "answer", id: ans }] });
+    const view = await getCitationFindingForReview(
+      reviewer,
+      { ownerId: user, projectId: "p", findingRowId: f.id },
+      rpc,
+    );
+    const item = view.evidence.find((e) => e.kind === "answer" && e.id === ans)!;
+    expect(item.kind === "answer" && item.inspectable).toBe(true);
+    expect(view.inspectionComplete).toBe(true);
+    const r = await submit(reviewer, f.id, view.recordSha256!, "approved");
+    expect(r.inspectionComplete).toBe(true);
+    expect(await reviewStatusOf(f.id)).toBe("independent_reviewed");
+    const imp = await attestedImprovement(fid, "70000000-0000-4000-8000-000000000065");
+    expect(imp.verificationStatus).toBe("owner_attested");
   });
 });
 describe("improvement eligibility: a required-but-missing second review caps owner_attested", () => {
@@ -1802,5 +1950,143 @@ describe("evidence lifecycle: forgetting a source erases copied material and dow
     expect(await storedPassage(row)).toBe(SECRET);
     const detail = await getCitationFinding(scope, row, rpc);
     expect(JSON.stringify(detail)).toContain(SECRET);
+  });
+  it("MASKS the pre-erasure recordSha256 from the reviewer (detail + standalone + embedded receipts) after a forget, retaining it server-side and for the owner", async () => {
+    await seedSource("active", SOURCE);
+    await seedRecord(RECORD, SOURCE, 1, "Massage from 500 SEK.");
+    const fid = "60000000-0000-4000-8000-0000000000e6";
+    const row = await saveRaw(sourceFinding(fid));
+    // While active, the reviewer sees the REAL binding hash (needed to submit) and records an approved receipt.
+    const active = await getCitationFindingForReview(
+      reviewer,
+      { ownerId: user, projectId: "p", findingRowId: row },
+      rpc,
+    );
+    expect(active.recordSha256).toMatch(/^[a-f0-9]{64}$/);
+    const realSha = active.recordSha256!;
+    await submit(reviewer, row, realSha, "approved");
+    // Forget the source -> the finding is erased; record_sha256 stays the PRE-erasure digest (an oracle for the
+    // now-redacted price/hours passage) — so the reviewer surfaces must mask it.
+    expect((await forget("source", SOURCE)).error).toBeNull();
+    const view = await getCitationFindingForReview(
+      reviewer,
+      { ownerId: user, projectId: "p", findingRowId: row },
+      rpc,
+    );
+    expect(view.evidenceErased).toBe(true);
+    expect(view.recordSha256).toBeNull();
+    expect(view.reviews[0].recordSha256).toBeNull();
+    // The real digest appears NOWHERE in the reviewer response (no offline brute-force oracle).
+    expect(JSON.stringify(view)).not.toContain(realSha);
+    // The reviewer's standalone receipt list is masked too.
+    const revList = await readCitationFindingReviews(
+      reviewer,
+      { ownerId: user, projectId: "p", findingRowId: row },
+      rpc,
+    );
+    expect(revList.reviews[0].recordSha256).toBeNull();
+    // OWNER audit vs reviewer access: the owner's receipt list retains the real digest.
+    const ownerList = await readCitationFindingReviews(
+      user,
+      { ownerId: user, projectId: "p", findingRowId: row },
+      rpc,
+    );
+    expect(ownerList.reviews[0].recordSha256).toBe(realSha);
+    // Server audit rows RETAIN the real digest (never destroyed) on both the finding and the receipt.
+    expect(
+      (
+        await db.query<{ s: string }>(
+          "SELECT record_sha256 s FROM ai_citation_findings WHERE id=$1",
+          [row],
+        )
+      ).rows[0].s,
+    ).toBe(realSha);
+    expect(
+      (
+        await db.query<{ s: string }>(
+          "SELECT record_sha256 s FROM ai_citation_finding_reviews WHERE finding_row_id=$1",
+          [row],
+        )
+      ).rows[0].s,
+    ).toBe(realSha);
+  });
+  it("MASKS recordSha256 from the reviewer when a cited source is REVOKED (not erased), closing the copied-text digest oracle, while owner + server retain it", async () => {
+    await seedSource("active", SOURCE);
+    await seedRecord(RECORD, SOURCE, 1, "Massage from 500 SEK.");
+    const fid = "60000000-0000-4000-8000-0000000000e7";
+    const row = await saveRaw(sourceFinding(fid));
+    const active = await getCitationFindingForReview(
+      reviewer,
+      { ownerId: user, projectId: "p", findingRowId: row },
+      rpc,
+    );
+    const realSha = active.recordSha256!;
+    await submit(reviewer, row, realSha, "approved");
+    // Revoke the cited source (status flip, NOT a forget): its copied passages are withheld at the reviewer
+    // response, so the digest of the (unchanged, still-real) record would be an oracle for the withheld passage.
+    await db.query(
+      "UPDATE project_knowledge_sources SET payload=jsonb_set(payload,'{status}','\"revoked\"') WHERE user_id=$1 AND project_id='p' AND id=$2",
+      [user, SOURCE],
+    );
+    const view = await getCitationFindingForReview(
+      reviewer,
+      { ownerId: user, projectId: "p", findingRowId: row },
+      rpc,
+    );
+    expect(view.sourcePassagesWithheld).toBe(true);
+    expect(view.evidenceErased).toBe(false);
+    expect(view.recordSha256).toBeNull();
+    expect(view.reviews[0].recordSha256).toBeNull();
+    expect(JSON.stringify(view)).not.toContain(realSha);
+    const revList = await readCitationFindingReviews(
+      reviewer,
+      { ownerId: user, projectId: "p", findingRowId: row },
+      rpc,
+    );
+    expect(revList.reviews[0].recordSha256).toBeNull();
+    // Owner + server retain the real digest (revocation is not erasure; the audit trail is intact).
+    const ownerList = await readCitationFindingReviews(
+      user,
+      { ownerId: user, projectId: "p", findingRowId: row },
+      rpc,
+    );
+    expect(ownerList.reviews[0].recordSha256).toBe(realSha);
+    expect(
+      (
+        await db.query<{ s: string }>(
+          "SELECT record_sha256 s FROM ai_citation_findings WHERE id=$1",
+          [row],
+        )
+      ).rows[0].s,
+    ).toBe(realSha);
+  });
+  it("treats a source with a MISSING/null status key as NOT active — withholding the copied passage AND masking the digest (fail-closed, unified with the digest helper)", async () => {
+    // A source row that exists but whose payload has NO 'status' key (a malformed/legacy row): a NULL status
+    // must fail CLOSED to withheld+masked, not slip through a `<> 'active'` NULL comparison as visible. This is
+    // the divergence the for-review read's `IS DISTINCT FROM 'active'` now closes, matching the helper.
+    await db.query(
+      "INSERT INTO project_knowledge_sources(user_id,project_id,id,revision,payload) VALUES($1,'p',$2,1,'{}'::jsonb)",
+      [user, SOURCE],
+    );
+    const row = await saveRaw(
+      sourceFinding("60000000-0000-4000-8000-0000000000e8", {
+        passage: "SECRET-STATUSLESS-PASSAGE-do-not-leak",
+      }),
+    );
+    const view = await getCitationFindingForReview(
+      reviewer,
+      { ownerId: user, projectId: "p", findingRowId: row },
+      rpc,
+    );
+    expect(view.sourcePassagesWithheld).toBe(true);
+    expect((view.record.support[0] as { sourcePassage: string | null }).sourcePassage).not.toBe(
+      "SECRET-STATUSLESS-PASSAGE-do-not-leak",
+    );
+    expect(JSON.stringify(view)).not.toContain("SECRET-STATUSLESS-PASSAGE-do-not-leak");
+    // The digest is masked too (unified with citation_finding_review_digest_masked), closing the oracle.
+    expect(view.recordSha256).toBeNull();
+    // Not an erasure: the owner's stored copy is retained.
+    expect(view.evidenceErased).toBe(false);
+    expect(await storedPassage(row)).toBe("SECRET-STATUSLESS-PASSAGE-do-not-leak");
   });
 });
