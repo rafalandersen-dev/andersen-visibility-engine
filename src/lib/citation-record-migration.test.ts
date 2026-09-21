@@ -13,7 +13,11 @@ import { importAnswerEvidence, saveEvidencePrompt } from "./answer-evidence.serv
 import type { KnowledgeRpc } from "./project-knowledge.server";
 let db: PGlite;
 const user = "00000000-0000-4000-8000-000000000001",
-  other = "00000000-0000-4000-8000-000000000002";
+  other = "00000000-0000-4000-8000-000000000002",
+  // A delegated team reviewer (distinct from the owner: project_team_members enforces owner_id<>actor_id).
+  // Hex-lettered on purpose so an UPPERCASE-declared approvedBy is a real case difference (the all-digit ids
+  // above are case-invariant), exercising the semantic case-fold in the approvedBy reconciliation.
+  delegate = "00000000-0000-4000-8000-0000000000ab";
 const scope = { ownerId: user, projectId: "p" };
 // Answer-evidence ids come from the RELEASED importAnswerEvidence service (real saved shape), assigned in
 // beforeEach. ANSWER anchors accuracy capture (capturedAt = ACC_CAP); BASELINE is a distinct baseline.
@@ -234,9 +238,9 @@ const seedPublication = async (
 beforeAll(async () => {
   db = new PGlite();
   await db.exec(
-    "CREATE ROLE anon;CREATE ROLE authenticated;CREATE ROLE service_role;CREATE SCHEMA auth;CREATE TABLE auth.users(id uuid PRIMARY KEY);CREATE TABLE workspace_meta(user_id uuid PRIMARY KEY,rev bigint DEFAULT 1);CREATE TABLE workspace_entities(user_id uuid,collection text,entity_id text,data jsonb DEFAULT '{}'::jsonb,PRIMARY KEY(user_id,collection,entity_id));",
+    "CREATE ROLE anon;CREATE ROLE authenticated;CREATE ROLE service_role;CREATE SCHEMA auth;CREATE TABLE auth.users(id uuid PRIMARY KEY,deleted_at timestamptz,banned_until timestamptz);CREATE TABLE workspace_meta(user_id uuid PRIMARY KEY,rev bigint DEFAULT 1);CREATE TABLE workspace_entities(user_id uuid,collection text,entity_id text,data jsonb DEFAULT '{}'::jsonb,PRIMARY KEY(user_id,collection,entity_id));",
   );
-  await db.query("INSERT INTO auth.users VALUES($1),($2)", [user, other]);
+  await db.query("INSERT INTO auth.users(id) VALUES($1),($2),($3)", [user, other, delegate]);
   await db.query("INSERT INTO workspace_meta(user_id) VALUES($1),($2)", [user, other]);
   for (const name of [
     "20260909200000_project_knowledge.sql",
@@ -244,12 +248,24 @@ beforeAll(async () => {
     "20260910200000_publication_evidence.sql",
     "20260910210000_answer_evidence.sql",
     "20260919165000_native_report_artifacts.sql",
+    // Real released delegated-approval dependencies. The candidate's improvement binding + status now reuse the
+    // CANONICAL delegate-aware read_publication_approval, which lives in 20260911060000 together with the
+    // publication_approvals delegate columns and the project_team_members it joins (from 20260911020000). These
+    // are the actual released migrations — no stub predicate / hand-cut policy table — so a delegate approval
+    // whose reviewer's membership expired / account was banned / membership+policy revision changed is exercised
+    // against the real predicate. (Its unrelated scheduled_publishes invalidation trigger only fires on member/
+    // policy UPDATE|DELETE, which these tests never do — negatives are seeded by direct INSERT and the post-save
+    // downgrade bans via auth.users — so scheduled_publishes is never reached.)
+    "20260911020000_project_team_reads.sql",
+    "20260911060000_project_team_approval_policy.sql",
     "20260920200000_citation_findings_improvements.sql",
   ])
     await db.exec(readFileSync("supabase/migrations/" + name, "utf8"));
 }, 30000);
 beforeEach(async () => {
-  await db.exec("RESET ROLE;TRUNCATE workspace_entities CASCADE;");
+  await db.exec(
+    "RESET ROLE;UPDATE auth.users SET deleted_at=NULL,banned_until=NULL;TRUNCATE workspace_entities CASCADE;",
+  );
   await db.query("INSERT INTO workspace_meta(user_id) VALUES($1),($2) ON CONFLICT DO NOTHING", [
     user,
     other,
@@ -486,6 +502,168 @@ describe("declared approval facts must reconcile with the actually-bound approva
         binding({ publicationId: PUB_STARTED }),
       ),
     ).rejects.toThrow();
+  });
+});
+describe("delegated (team) approval binding reuses the CURRENT canonical predicate, not a stale approved flag", () => {
+  const fid = "60000000-0000-4000-8000-0000000000a0";
+  const impId = "70000000-0000-4000-8000-0000000000a0";
+  // Revisions the VALID delegate approval pins; each negative diverges exactly one axis.
+  const POLICY_REV = 4;
+  const MEMBER_REV = 2;
+  beforeEach(async () => {
+    await saveF(finding(fid));
+  });
+  // Seed a DELEGATE approval the way the released save_project_team_approval would leave it: a reviewer
+  // membership row + an approval-policy row + a publication_approvals row carrying delegate_actor_id and the
+  // membership/policy revisions it was granted under. The members/policy rows are INSERT-only (20260911060000's
+  // invalidation trigger fires only on their UPDATE|DELETE and would require scheduled_publishes) — negatives
+  // diverge a SEEDED value and the post-save downgrade bans via auth.users, so that trigger is never reached.
+  const seedDelegateApproval = async (
+    o: {
+      approved?: boolean;
+      active?: boolean;
+      role?: string;
+      mode?: string;
+      memberExpires?: string; // SQL interval appended to clock_timestamp(); omit => no expiry (valid)
+      memberRevision?: number;
+      policyRevision?: number;
+      apprMemberRevision?: number;
+      apprPolicyRevision?: number;
+    } = {},
+  ) => {
+    await db.query(
+      "INSERT INTO project_team_approval_policy(owner_id,project_id,mode,revision) VALUES($1::uuid,'p',$2::text,$3::bigint)",
+      [user, o.mode ?? "separate_reviewers", o.policyRevision ?? POLICY_REV],
+    );
+    const expiresSql = o.memberExpires ? `clock_timestamp() ${o.memberExpires}` : "NULL";
+    await db.query(
+      "INSERT INTO project_team_members(owner_id,project_id,actor_id,role,revision,active,expires_at) VALUES($1::uuid,'p',$2::uuid,$3::text,$4::bigint,$5::boolean," +
+        expiresSql +
+        ")",
+      [user, delegate, o.role ?? "reviewer", o.memberRevision ?? MEMBER_REV, o.active ?? true],
+    );
+    // Upsert (the beforeEach seedApproval left an OWNER row) into a delegate approval; approved stays true so a
+    // negative proves the CANONICAL predicate — not a missing approved flag — is what refuses the binding.
+    await db.query(
+      "INSERT INTO publication_approvals(user_id,project_id,asset_id,algorithm,version_hash,approved,updated_at,delegate_actor_id,delegate_membership_revision,delegate_policy_revision) VALUES($1::uuid,'p',$2::text,'milo-publication-v1',$3::text,$4::boolean,clock_timestamp() - interval '3 hours',$5::uuid,$6::bigint,$7::bigint) ON CONFLICT(user_id,project_id,asset_id) DO UPDATE SET version_hash=EXCLUDED.version_hash,approved=EXCLUDED.approved,updated_at=EXCLUDED.updated_at,delegate_actor_id=EXCLUDED.delegate_actor_id,delegate_membership_revision=EXCLUDED.delegate_membership_revision,delegate_policy_revision=EXCLUDED.delegate_policy_revision",
+      [
+        user,
+        ASSET,
+        VERSION,
+        o.approved ?? true,
+        delegate,
+        o.apprMemberRevision ?? MEMBER_REV,
+        o.apprPolicyRevision ?? POLICY_REV,
+      ],
+    );
+  };
+  const saveDelegate = (b: unknown = binding(), approvedBy: string = delegate) =>
+    saveI(improvement(impId, fid, { approvedBy }), b);
+  const banDelegate = () =>
+    db.query(
+      "UPDATE auth.users SET banned_until=clock_timestamp() + interval '1 day' WHERE id=$1",
+      [delegate],
+    );
+
+  it("binds a delegated approval by its REAL reviewer (approvedBy == the delegate, never the owner)", async () => {
+    await seedDelegateApproval();
+    const imp = await saveDelegate();
+    expect(imp.verificationStatus).toBe("connector_receipt");
+    // The stored change.approvedBy is the ACTUAL delegate reviewer — not rewritten to a fabricated owner.
+    const stored = await db.query<{ by: string }>(
+      "SELECT record->'change'->>'approvedBy' by FROM ai_citation_improvements WHERE user_id=$1 AND improvement_id=$2",
+      [user, impId],
+    );
+    expect(stored.rows[0].by).toBe(delegate);
+  });
+  it("refuses a delegate approval declared as the OWNER (no fabricated owner attribution)", async () => {
+    await seedDelegateApproval();
+    await expect(saveDelegate(binding(), user)).rejects.toThrow();
+  });
+  it("reconciles the delegate approvedBy case-insensitively (UPPERCASE UUID accepted, not a mismatch)", async () => {
+    await seedDelegateApproval();
+    // The delegate id is hex-lettered, so this is a REAL case difference vs the lowercase-stored delegate_actor_id;
+    // a raw text-vs-uuid::text compare would spuriously reject it. Acceptance (connector_receipt, not a mismatch
+    // raise) proves the semantic case-fold; the stored approver equals the delegate up to case (no rewrite that
+    // would drop the real reviewer). Robust to any client-side casing normalization.
+    const imp = await saveDelegate(binding(), delegate.toUpperCase());
+    expect(imp.verificationStatus).toBe("connector_receipt");
+    const stored = await db.query<{ by: string }>(
+      "SELECT record->'change'->>'approvedBy' by FROM ai_citation_improvements WHERE user_id=$1 AND improvement_id=$2",
+      [user, impId],
+    );
+    expect(stored.rows[0].by.toLowerCase()).toBe(delegate);
+  });
+  it("fails closed on a malformed non-uuid approvedBy submitted straight to the RPC (no unsafe cast)", async () => {
+    await seedDelegateApproval();
+    // Bypass the client schema (which would reject a non-uuid) to exercise the SQL reconciliation directly: it
+    // must be a CONTROLLED mismatch via lower()-on-text — never a uuid cast that would raise a different error
+    // — and must store nothing. approvedVersion still matches, so only the approver axis is exercised.
+    const r = await rpc("save_ai_citation_improvement", {
+      p_user: user,
+      p_project: "p",
+      p_record: improvement(impId, fid, { approvedBy: "NOT-a-uuid" }),
+      p_scope: panelScope,
+      p_binding: binding(),
+    });
+    expect(r.error).toBeTruthy();
+    const n = await db.query<{ n: number }>(
+      "SELECT count(*)::int n FROM ai_citation_improvements WHERE user_id=$1 AND improvement_id=$2",
+      [user, impId],
+    );
+    expect(n.rows[0].n).toBe(0);
+  });
+  for (const [label, opts] of [
+    ["an inactive membership", { active: false }],
+    ["an expired membership", { memberExpires: "- interval '1 hour'" }],
+    ["a superseded membership revision", { apprMemberRevision: MEMBER_REV + 1 }],
+    ["a superseded policy revision", { apprPolicyRevision: POLICY_REV + 1 }],
+    ["a role the policy no longer authorizes", { role: "viewer" }],
+  ] as const) {
+    it(`refuses binding a delegate approval with ${label} (approved flag stays true)`, async () => {
+      await seedDelegateApproval(opts);
+      await expect(saveDelegate()).rejects.toThrow();
+    });
+  }
+  it("refuses binding when the delegate reviewer's account is banned OR deleted", async () => {
+    await seedDelegateApproval();
+    await banDelegate();
+    await expect(saveDelegate()).rejects.toThrow();
+    // A deleted (soft) account is likewise not a live approver; the seeded delegate approval is unchanged.
+    await db.query(
+      "UPDATE auth.users SET banned_until=NULL,deleted_at=clock_timestamp() WHERE id=$1",
+      [delegate],
+    );
+    await expect(saveDelegate()).rejects.toThrow();
+  });
+  it("collapses a bound delegate improvement to unverified once the reviewer is banned (immutable pin kept)", async () => {
+    await seedDelegateApproval();
+    const imp = await saveDelegate();
+    expect(imp.verificationStatus).toBe("connector_receipt");
+    // No trigger sweeps the stored approved flag on a read-time ban, but the status reuses the canonical
+    // predicate, so the LIVE status downgrades while the immutable pinned binding is untouched.
+    await banDelegate();
+    const read = await getCitationImprovement(scope, imp.id, rpc);
+    expect(read.verificationStatus).toBe("unverified");
+    expect(read.boundFindingRowIds.length).toBe(1);
+    const stored = await db.query<{ by: string }>(
+      "SELECT record->'change'->>'approvedBy' by FROM ai_citation_improvements WHERE user_id=$1 AND improvement_id=$2",
+      [user, impId],
+    );
+    expect(stored.rows[0].by).toBe(delegate);
+  });
+  it("leaves a direct OWNER approval (delegate_actor_id null) valid regardless of team membership", async () => {
+    // No delegate seed: the beforeEach owner approval stands and binds with approvedBy == the owner.
+    const imp = await saveI(
+      improvement(impId, fid, { approvedBy: user }),
+      binding({ publicationId: PUB_STARTED }),
+    );
+    expect(imp.verificationStatus).toBe("approval_bound");
+    // Banning a team member never withdraws an owner-held approval.
+    await banDelegate();
+    expect((await getCitationImprovement(scope, imp.id, rpc)).verificationStatus).toBe(
+      "approval_bound",
+    );
   });
 });
 describe("before/after baseline axis is reported separately and gates owner_attested", () => {

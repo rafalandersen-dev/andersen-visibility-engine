@@ -715,11 +715,20 @@ BEGIN
     RETURN 'unverified';
   END IF;
   -- The CURRENT approval for the asset (and its time) — a re-approval bumps updated_at and can post-date an
-  -- earlier inspection, which then no longer attests the current approved state.
+  -- earlier inspection, which then no longer attests the current approved state. A raw approved=true row is NOT
+  -- current authority on its own: a DELEGATE (team) approval stays approved after the reviewer's live membership
+  -- expired, their account was banned/deleted, or the membership/role-policy revision changed, and there is no
+  -- invalidation trigger for read-time expiry/ban. So reuse the CANONICAL read_publication_approval
+  -- (delegate-aware) as the current predicate. The appr_at NULL guard runs FIRST (separate statement, not an OR)
+  -- so read_publication_approval — which raises if the asset no longer exists — is only reached once an approved
+  -- row, hence the asset, is known to exist; a downgraded delegate approval then collapses the LIVE status to
+  -- unverified while the immutable pinned binding above stays untouched. updated_at is still read for the
+  -- re-approval-post-dates-inspection check below.
   SELECT updated_at INTO appr_at FROM public.publication_approvals
     WHERE user_id=p_user AND project_id=p_project AND asset_id=b_asset
       AND algorithm='milo-publication-v1' AND version_hash=b_vhash AND approved;
   IF appr_at IS NULL THEN RETURN 'unverified'; END IF;
+  IF NOT public.read_publication_approval(p_user,p_project,b_asset,b_vhash) THEN RETURN 'unverified'; END IF;
   status := 'approval_bound';
   live_url := CASE WHEN jsonb_typeof(pub.outcome_data)='object' THEN pub.outcome_data->>'liveUrl' END;
   IF pub.outcome='published' AND live_url IS NOT NULL
@@ -935,7 +944,7 @@ DECLARE digest text; existing uuid; head uuid; new_id uuid; next_version integer
   iid uuid; v jsonb; fid text; cid text; row_id uuid; bound uuid[] := '{}';
   panel uuid; pver integer; cname text; cmarket text;
   pub public.publication_evidence%ROWTYPE; b_asset text; b_vhash text; b_live text; insp jsonb;
-  appr_at timestamptz; obs timestamptz;
+  appr_at timestamptz; appr_delegate uuid; obs timestamptz;
 BEGIN
   PERFORM public.assert_knowledge_project(p_user,p_project,true);
   PERFORM public.citation_lock_account(p_user);
@@ -1043,20 +1052,37 @@ BEGIN
     IF pub.id IS NULL OR pub.asset_id<>b_asset OR pub.version_hash<>b_vhash THEN
       RAISE EXCEPTION 'citation_improvement_binding_unresolved' USING ERRCODE='22023';
     END IF;
-    SELECT updated_at INTO appr_at FROM public.publication_approvals
+    -- The bound approval AND its real approver. A raw approved=true row is NOT current authority on its own: a
+    -- DELEGATE (team) approval keeps approved=true after the reviewer's live membership expired, their account
+    -- was banned/deleted, or the membership/role-policy revision changed, with no invalidation trigger for
+    -- read-time expiry/ban. delegate_actor_id is the ACTUAL approver when the approval was delegated (NULL for a
+    -- direct owner approval), captured here for the approvedBy reconciliation below.
+    SELECT updated_at,delegate_actor_id INTO appr_at,appr_delegate FROM public.publication_approvals
       WHERE user_id=p_user AND project_id=p_project AND asset_id=b_asset
         AND algorithm='milo-publication-v1' AND version_hash=b_vhash AND approved;
     IF appr_at IS NULL THEN
       RAISE EXCEPTION 'citation_improvement_binding_unapproved' USING ERRCODE='22023';
     END IF;
+    -- Reuse the CANONICAL read_publication_approval (delegate-aware) as the current predicate so a delegate
+    -- approval whose reviewer lost live/unexpired membership, was banned/deleted, or whose membership/role-policy
+    -- revision changed is refused HERE rather than binding a stale approval. Separate statement (not an OR after
+    -- the NULL guard) so its asset-exists precondition is only reached once an approved row — hence the asset —
+    -- is known to exist.
+    IF NOT public.read_publication_approval(p_user,p_project,b_asset,b_vhash) THEN
+      RAISE EXCEPTION 'citation_improvement_binding_unapproved' USING ERRCODE='22023';
+    END IF;
     -- The record's DECLARED approval facts may not contradict the actually-bound approval: the declared
-    -- approvedVersion must be the bound version_hash, and the declared approvedBy must be the authenticated
-    -- owner who holds the approval (publication_approvals is owner-keyed). That table records no separate
-    -- approver identity or human approvedAt, so those declared fields are reconciled to the owner and the
-    -- bound version and NOT otherwise endorsed here; a forged approver/version alongside a real binding is
-    -- refused rather than co-existing with an authenticated approval_bound.
+    -- approvedVersion must be the bound version_hash, and the declared approvedBy must be the ACTUAL current
+    -- approver — the delegate reviewer (delegate_actor_id) when the approval is delegated, else the owner. The
+    -- table DOES record a delegate approver, so approvedBy is reconciled to coalesce(delegate_actor_id, owner):
+    -- a genuine delegate approval keeps its real reviewer as approvedBy (no fabricated owner attribution) and a
+    -- forged approver/version alongside a real binding is refused rather than co-existing with approval_bound.
+    -- approvedBy is a UUID string the client accepts in either case, so compare it SEMANTICALLY via a
+    -- case-fold on text (`lower(...)` both sides) — never a uuid CAST on the arbitrary declared value, so a
+    -- malformed/non-uuid approvedBy cannot raise and simply fails closed to a mismatch. version_hash is a
+    -- lowercase-hex contract, compared as-is.
     IF (p_record->'change'->>'approvedVersion') IS DISTINCT FROM b_vhash
-       OR (p_record->'change'->>'approvedBy') IS DISTINCT FROM p_user::text THEN
+       OR lower(p_record->'change'->>'approvedBy') IS DISTINCT FROM lower(coalesce(appr_delegate,p_user)::text) THEN
       RAISE EXCEPTION 'citation_improvement_binding_approval_mismatch' USING ERRCODE='22023';
     END IF;
     IF (pub.snapshot->>'actionId') IS DISTINCT FROM (p_record->>'taskId') THEN
@@ -1393,10 +1419,17 @@ BEGIN
   IF (a->>'factVersion')::integer NOT BETWEEN 1 AND 10000 THEN
     RETURN jsonb_build_object('resolution','unpinned','capturedAt',NULL::text);
   END IF;
-  -- The capture evidence must be one of THIS finding's own answer references.
+  -- The capture evidence must be one of THIS finding's own answer references. Compare by SEMANTIC uuid: the
+  -- captureEvidenceId is stage-1 regex-validated to be a uuid, and the finding's evidence id is a free text(200)
+  -- string that may be stored in a DIFFERENT case, so a raw e->>'id'=(a->>'captureEvidenceId') text match would
+  -- miss a same-uuid uppercase/lowercase pair (wrongly reading capture_unresolved and blocking a complete
+  -- inspection / owner_attested). lower() on both is a safe case-fold on text (NO cast on the arbitrary evidence
+  -- id, so a non-uuid native/source id cannot raise); the downstream answer lookup already casts the validated
+  -- captureEvidenceId to uuid (case-insensitive by type). This matches the lower()-normalised comparison the
+  -- forget redactors use.
   IF NOT EXISTS(SELECT 1 FROM jsonb_array_elements(
       CASE WHEN jsonb_typeof(p_record->'evidence')='array' THEN p_record->'evidence' ELSE '[]'::jsonb END) e
-      WHERE e->>'kind'='answer' AND e->>'id'=(a->>'captureEvidenceId')) THEN
+      WHERE e->>'kind'='answer' AND lower(e->>'id')=lower(a->>'captureEvidenceId')) THEN
     RETURN jsonb_build_object('resolution','capture_unresolved','capturedAt',NULL::text);
   END IF;
   -- Resolve the capture instant from the ACTUAL saved answer contract: the owner-supplied answer document

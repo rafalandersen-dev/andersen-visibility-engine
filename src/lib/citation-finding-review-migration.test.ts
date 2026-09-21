@@ -301,15 +301,21 @@ beforeAll(async () => {
     "20260910210000_answer_evidence.sql",
     "20260919165000_native_report_artifacts.sql",
     "20260920200000_citation_findings_improvements.sql",
-    // The REAL team admission contract (real project_team_members + assert_project_team_account + the
-    // deleted/banned/lock admission the citation review authority reuses).
+    // The REAL released delegated-approval prerequisites the citation review authority AND the improvement
+    // binding reuse: project_team_members + assert_project_team_account + the deleted/banned/lock admission
+    // (20260911020000), then the publication_approvals delegate columns / approval-policy table / the CANONICAL
+    // delegate-aware read_publication_approval (20260911060000). This is the ACTUAL released predicate, not a
+    // hand-cut policy stub — a delegated approval whose reviewer's authority lapsed is refused by the real code.
     "20260911020000_project_team_reads.sql",
+    "20260911060000_project_team_approval_policy.sql",
   ])
     await db.exec(readFileSync("supabase/migrations/" + name, "utf8"));
-  // The approval-policy lookup the authority reads for role/mode (its own migration adds an unrelated
-  // scheduled_publishes trigger); columns match the released contract.
+  // 20260911060000's invalidation trigger (an UNRELATED release concern) fires on a member/policy UPDATE|DELETE
+  // and UPDATEs public.scheduled_publishes — a table created by an out-of-tree migration (there is NO CREATE for
+  // it in this worktree). These tests never enqueue a publish, so a minimal empty stand-in lets the REAL trigger
+  // run as a harmless 0-row no-op; it is NOT the predicate under test and does not weaken read_publication_approval.
   await db.exec(
-    "CREATE TABLE public.project_team_approval_policy(owner_id uuid NOT NULL,project_id text NOT NULL,mode text NOT NULL CHECK(mode IN ('disabled','separate_reviewers','editors_can_approve')),revision bigint NOT NULL,PRIMARY KEY(owner_id,project_id));",
+    "CREATE TABLE public.scheduled_publishes(user_id uuid NOT NULL,project_id text NOT NULL,asset_id text NOT NULL,status text NOT NULL,updated_at timestamptz NOT NULL DEFAULT clock_timestamp());",
   );
 }, 30000);
 beforeEach(async () => {

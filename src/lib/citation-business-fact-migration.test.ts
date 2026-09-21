@@ -390,6 +390,59 @@ describe("accuracy binds to the immutable fact ROW + saved capture time, recompu
     ]);
     expect(await resolutions(bound.id)).toEqual(["capture_unresolved"]);
   });
+  it("resolves the capture evidence by SEMANTIC uuid regardless of case (both directions), unblocks inspection, and keeps malformed/unrelated fail-closed", async () => {
+    const f = await saveFact(fact(FACT, { validFrom: T0, validUntil: null }));
+    const UP = ANSWER.toUpperCase();
+    // Direction A: lowercase evidence id, UPPERCASE captureEvidenceId — previously a spurious capture_unresolved.
+    const a = await saveAccFinding(
+      "60000000-0000-4000-8000-0000000000a1",
+      [accFor(f, UP)],
+      [ANSWER],
+    );
+    expect(await resolutions(a.id)).toEqual(["resolved"]);
+    // Direction B: UPPERCASE evidence id, lowercase captureEvidenceId.
+    const b = await saveAccFinding(
+      "60000000-0000-4000-8000-0000000000a2",
+      [accFor(f, ANSWER)],
+      [UP],
+    );
+    expect(await resolutions(b.id)).toEqual(["resolved"]);
+    // Completeness: the canonical inspectable predicate (which reuses this resolver) now counts the
+    // case-mismatched finding complete — so it can reach owner_attested rather than being blocked.
+    const rec = (
+      await db.query<{ r: unknown }>("SELECT record r FROM ai_citation_findings WHERE id=$1", [
+        a.id,
+      ])
+    ).rows[0].r;
+    const insp = await db.query<{ ok: boolean }>(
+      "SELECT citation_finding_inspectable($1,'p',$2::jsonb) ok",
+      [user, JSON.stringify(rec)],
+    );
+    expect(insp.rows[0].ok).toBe(true);
+    // Read-only: the resolver never rewrites the record or its hash.
+    const stored = (
+      await db.query<{ r: string; s: string }>(
+        "SELECT record::text r, record_sha256 s FROM ai_citation_findings WHERE id=$1",
+        [a.id],
+      )
+    ).rows[0];
+    expect(stored.r).toContain("The price is 500 SEK for 60 minutes.");
+    expect(stored.s).toMatch(/^[a-f0-9]{64}$/);
+    // Fail-closed: an UNRELATED valid-uuid captureEvidenceId (not one of the finding's answers) stays unresolved.
+    const unrel = await saveAccFinding(
+      "60000000-0000-4000-8000-0000000000a3",
+      [accFor(f, ANSWER2)],
+      [ANSWER],
+    );
+    expect(await resolutions(unrel.id)).toEqual(["capture_unresolved"]);
+    // Fail-closed / no crash: a NON-uuid answer evidence id compared via lower() stays unresolved (no cast error).
+    const badEvidence = await saveAccFinding(
+      "60000000-0000-4000-8000-0000000000a4",
+      [accFor(f, ANSWER)],
+      ["not-a-uuid-evidence-id"],
+    );
+    expect(await resolutions(badEvidence.id)).toEqual(["capture_unresolved"]);
+  });
   it("pins the immutable ROW: deleting then recreating the same fact stays fact_missing (no numeric rebind)", async () => {
     const f = await saveFact(fact(FACT, { value: "500 SEK", validFrom: T0, validUntil: null }));
     const finding = await saveAccFinding("60000000-0000-4000-8000-000000000007", [accFor(f)]);
