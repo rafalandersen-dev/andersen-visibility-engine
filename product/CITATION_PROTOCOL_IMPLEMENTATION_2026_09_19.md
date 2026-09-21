@@ -920,13 +920,67 @@ sub-millisecond variants.
   read); the capture RPC refuses a sub-millisecond `intendedSlotAt` (mismatch) and `capturedAt`
   (delay-untruthful), proving TS and SQL now agree.
 
+### Review round 26 — surface a malformed auxiliary captureContext as explicit invalid evidence (P2 4058641656)
+
+`captureContext` is stored OPAQUELY (`answerEvidenceSchema` keeps it a bounded JSON value), so a
+PRESENT-but-malformed context passes the SQL/server state read and reaches `resolveStoredCaptures`, where
+the strict `captureContextSchema` parse fails. The pre-fix branch did `if (!parsed.success) continue;` —
+silently dropping the row even when its panel/run/slot identity was recognizable. A discovery slot then
+read a false `neverObserved`, and a brand attempt the authoritative SQL `runConsumed` already counted was
+hidden. (A context-LESS legacy row is a different case: ordinary answer evidence, never a capture, still
+skipped at the null guard.)
+
+- **Surface, don't drop.** The malformed branch now emits an explicit INVALID `ResolvedCapture` carrying
+  ONLY recognizable scoped identity (nothing invented): it resolves the panel by canonical uuid against the
+  locked+approved panels, and recognizes the slot ONLY when `questionId` is a real grid question AND `round`
+  is in range for the kind/run. `outcome: protocol_deviant`, deviations `malformed_capture_context` (+
+  `panel_unresolved` when the panel is unrecognizable, + `unknown_slot` when the panel is known but the slot
+  is not), `contextMalformed: true`, recognized `slot`/`brandRunId` or null, `captureContext: null`.
+- **Known slot → observed-invalid; unknown slot → coverage unknown; unknown panel → orphan.** A recognized
+  slot is counted `observed` (never `complete`), so it occupies the slot and is not a false `neverObserved`;
+  a brand row at a recognized run/slot increments `runObserved`, cohering `observed` with the authoritative
+  `consumed`. An unrecognizable slot is `excluded` and sets a per-version `unknownAttempt` → `coverageComplete`
+  false → `neverObserved` null (absence UNKNOWN, never a false known-never-observed); the consumed>observed
+  gap IS the surfaced excluded attempt. An unrecognizable PANEL is an orphan (`panelResolved: false`) in no
+  per-panel report.
+- **Deterministic at a shared slot (follow-up review).** The slot-duplicate collapse now counts EVERY
+  panel-resolved capture with a recognized slot (valid OR malformed) as a slot occupant, so a valid original
+  and an INDEPENDENT malformed original at the same planned slot deterministically collapse to ONE
+  `protocol_deviant`/`duplicate_slot` entry regardless of input order (before this the malformed row skipped
+  the collapse and `citationReport`'s first-wins slot dedup made the slot read `complete` or invalid by
+  order). Orphans and unknown-slot malformed rows carry no comparable slot and pass through unchanged.
+- **Fold a failed correction (follow-up review).** A context-less/malformed successor whose `supersedesId`
+  points at a still-surviving capture (a new `survivingCaptureIds` set = present-context, not valid-superseded)
+  is a FAILED CORRECTION re-describing that survivor's already-resolved observation: it is folded (skipped),
+  so it never supersedes the survivor (only a valid successor does) and is never re-surfaced as a phantom
+  independent attempt that would demote the survivor. A malformed row whose predecessor does NOT survive
+  (independent original, or correction of a deleted/context-less/superseded row) is still surfaced. This also
+  reconciles the round-3 regression: a malformed successor of a surviving capture folds, so the valid
+  predecessor alone resolves — without dropping genuinely independent malformed rows.
+- **Preserved.** `ResolvedCapture` gained `contextMalformed`, `slot|null`, `brandRunId|null`, and a nullable
+  `captureContext`; live/erased slot keys stay the shared canonical 5-tuple. The raw document/hash is never
+  rewritten (inspectable via `readAnswerEvidence`); caps/correction-leaf/tenant/scope/UUID/erasure/duplicate
+  accounting and strict NEW writes are unchanged. Only `citation-protocol.ts` and the two P2 test files
+  changed — `citation-panel.ts` and the candidate SQL are untouched (the read keeps captureContext opaque).
+- Tests: pure resolver/report — recognized-slot observed-invalid (observed 1, neverObserved 39, never
+  `complete`); unknown-slot excluded (coverageComplete false, neverObserved null, no invented absence);
+  unrecognized-panel orphan (touches no coverage); legacy context-less skipped vs malformed-present surfaced;
+  brand recognized-slot observed matching SQL-consumed, brand unknown-slot excluded while consumed stays
+  authoritative; a malformed correction of a surviving capture FOLDS (original stays `complete`, never
+  demoted); a valid + INDEPENDENT-malformed pair at one slot collapses deterministically in BOTH input
+  orders; a malformed independent original at a KNOWN erased slot flags `erased_duplicate_slot`. Real SQL —
+  a stored answer row whose `captureContext` is corrupted (recognized vs unknown slot) via direct `jsonb_set`
+  flows through `readResolvedCaptures` → `citationReport` as observed-invalid vs excluded for BOTH discovery
+  and brand (brand: consumed 1/observed 1 recognized, consumed 1/observed 0/excluded 1 unknown), raw document
+  still inspectable.
+
 ## Files
 
 | File | Change |
 | --- | --- |
 | `src/lib/pg-uuid.ts` | New (leaf, no imports). Shared semantic-UUID identity: `PG_UUID_RE`, `canonicalUuid`, `canonicalRun`. Imported by the citation-protocol layer and the legacy answer-evidence intake without a circular import. |
 | `src/lib/citation-panel.ts` | Released PR137 contract, extended COMPATIBLY (round 24): an optional immutable `schedule` on `panelProtocolSchema` (`scheduleSlotSchema`/`discoveryScheduleSchema`) plus pure helpers `discoveryScheduleValid` and `discoveryScheduleDeviations` (Europe/Stockholm weekly cadence, DST-correct via `stockholmWeekLater`). Round 25: the Stockholm wall clock compares to the MILLISECOND (`fractionalSecondDigits: 3`, `stockholmWeekLater` carries the fraction) and sub-millisecond precision is refused at admission / fails closed on read (`isMillisecondPrecise`), matching the SQL lock. Additive only — the field is optional (historical panels parse unchanged) and `protocolDeviations`/`slotOutcome`/`panelCounts`/`comparablePairs` signatures/behaviour are untouched. |
-| `src/lib/citation-protocol.ts` | New. Pure storage contract: `panelDraftSchema`, `lockedPanelSchema` (now also requires a valid prospective weekly schedule for a discovery lock / no schedule for brand), `citationProtocolStateSchema`, `brandRunApprovalSchema`, `parseManualCaptureInput`, `resolveStoredCaptures` (semantic-uuid identity; discovery-baseline-ambiguity flag; per-capture weekly-schedule gate), `citationReport`/`citationReports`, caps. Exports the shared `panelVersionKey(panelId, version)`. Re-exports `canonicalUuid`/`canonicalRun` from `./pg-uuid`. Reuses PR137 schemas; never redefines them. |
+| `src/lib/citation-protocol.ts` | New. Pure storage contract: `panelDraftSchema`, `lockedPanelSchema` (now also requires a valid prospective weekly schedule for a discovery lock / no schedule for brand), `citationProtocolStateSchema`, `brandRunApprovalSchema`, `parseManualCaptureInput`, `resolveStoredCaptures` (semantic-uuid identity; discovery-baseline-ambiguity flag; per-capture weekly-schedule gate), `citationReport`/`citationReports`, caps. Exports the shared `panelVersionKey(panelId, version)`. Re-exports `canonicalUuid`/`canonicalRun` from `./pg-uuid`. Reuses PR137 schemas; never redefines them. Round 26: a PRESENT-but-malformed opaque `captureContext` is surfaced as an explicit invalid `ResolvedCapture` (`contextMalformed`, recognized `slot`/`brandRunId` or null, `captureContext: null`) instead of being silently dropped — a known slot reads observed-invalid, an unknown slot makes the version's coverage unknown (`neverObserved` null), an unknown panel is an orphan; legacy context-less rows are still skipped and the raw document is never rewritten. |
 | `src/lib/citation-protocol.server.ts` | New. Service RPC helpers: read, save draft, lock, approve brand run, import capture, read+resolve. Owner/time/approval derived server-side; network-free. Draft panelId, prompt binding and the lock/brand owner-receipt checks compare by SEMANTIC uuid value (`canonicalUuid`); the per-version erasure-metadata maps are keyed via the shared `panelVersionKey`. |
 | `src/lib/citation-protocol.functions.ts` | New. Six `requireSupabaseAuth` endpoints, each refusing an owner mismatch and never accepting a client approval/reviewer/timestamp. |
 | `src/lib/citation-protocol.test.ts` | New. Pure-contract + mocked-server unit tests. |
@@ -1127,6 +1181,23 @@ sub-millisecond precision at new admission** (SQL lock + capture RPC + `lockedPa
 **historical-read-fail-closed** validator — never rewriting stored evidence. A consistent fraction (e.g.
 all-`.500`) remains a valid weekly cadence. Only the candidate SQL, `citation-panel.ts` (precision helpers)
 and the three P2 test files changed — no applied migration, no P3, no provider, no commit/deploy.
+Round 26 (this turn, on `033e94e6`) fixes P2 4058641656: `resolveStoredCaptures` silently `continue`d on a
+PRESENT-but-malformed opaque `captureContext` even when its panel/run/slot identity was recognizable, so a
+discovery slot read a false `neverObserved` and a brand attempt the authoritative SQL `runConsumed` already
+counted was hidden. The malformed row is now surfaced as an explicit invalid `ResolvedCapture` carrying only
+recognizable scoped identity (`contextMalformed`, recognized `slot`/`brandRunId` or null, `captureContext:
+null`): a KNOWN slot reads observed-invalid (occupies the slot, never `complete`, brand `observed` coheres
+with `consumed`), an UNKNOWN slot is excluded and makes the version's coverage unknown (`neverObserved`
+null — no invented absence), and an unknown PANEL is an orphan in no report. A follow-up review added two
+determinism fixes: a valid original and an INDEPENDENT malformed original at the same planned slot now
+collapse to ONE `protocol_deviant`/`duplicate_slot` entry in either input order (the malformed row joins the
+slot-duplicate collapse instead of skipping it and being resolved order-dependently by the report's first-wins
+dedup), and a context-less/malformed successor of a still-surviving capture is FOLDED as a failed correction
+(it re-describes the survivor, never supersedes or demotes it) — which also reconciles the round-3 `["cap"]`
+regression without dropping genuinely independent malformed rows. Legacy context-less rows are still skipped
+and the raw document/hash is never rewritten. Only `citation-protocol.ts` and the two P2 test files changed —
+`citation-panel.ts` and the candidate SQL are untouched (the read keeps captureContext opaque, so no SQL
+change is needed); no applied migration, no P3, no provider, no commit/deploy.
 **HONEST RUN STATUS.** The prior worktree process for round 24 terminated on a plan/credit limit, not
 success; its partial Codex verification was `tsc` PASS but **150 tests PASS / 38 FAIL** in
 `citation-protocol-migration.test.ts` — a **FAILED prior attempt of this work, not a passing baseline**. Two
@@ -1138,12 +1209,17 @@ recent-PAST approval + schedule so on-schedule captures land at now-past slots t
 exercised — resolved by real Date arithmetic in the slot helper. **No production future-date or
 prospective-approval guard was weakened, no storage assertion was replaced with a mock, and no public
 admission was bypassed to make tests pass.** All earlier PASS counts — including the latest verified Codex
-baseline on `f555e00` (193 focused / 6357 full PASS, the round-24 weekly-schedule stage) — are a prior stage
-and **do not carry over**; every check below — including the round-16…23 suites, the round-24
-weekly-schedule tests, and the new round-25 precision tests (fractional-second cadence, sub-millisecond
-refusal at lock/capture, the DST last-round window with a fraction, and lockedPanelSchema/SQL agreement) —
-is UNRUN in this worktree and must be re-executed by Codex; this assistant did not run tests and claims no
-PASS. The
+baseline on `033e94e6` (199 focused / 6363 full PASS, the round-25 precision stage) — are a prior stage
+and **do not carry over**; the follow-up Codex run of the first round-26 pass was **207 focused PASS / 1
+FAIL** (the round-3 `["cap"]` regression, reconciled this turn by folding a malformed correction of a
+surviving capture) with `tsc` NOT run (chained after the failure). Every check below — including the
+round-16…24 suites, the round-25 precision tests, and the round-26 malformed-captureContext tests
+(recognized-slot observed-invalid vs unknown-slot excluded/neverObserved-null vs orphan panel; legacy-vs-
+malformed distinction; brand consumed/observed coherence; the malformed-correction FOLD; the valid+
+INDEPENDENT-malformed same-slot collapse tested in BOTH input orders; a malformed independent original at a
+KNOWN erased slot; and the real-storage `jsonb_set`→`readResolvedCaptures`→`citationReport` roundtrip for
+discovery AND brand) — is UNRUN in this worktree and must be re-executed by Codex; this assistant did not run
+tests and claims no PASS. The
 repository-wide lint is separately RED (~3790 errors / 14 warnings, pre-existing across the repo); this
 packet does NOT mass-format or claim a global-lint pass — only the SCOPED lint on the touched files applies.
 The released P1 SQL migrations, global migration inventory, and P3/R09 files were not touched; the released

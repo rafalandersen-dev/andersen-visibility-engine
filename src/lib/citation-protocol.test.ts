@@ -11,6 +11,7 @@ import {
   resolveErasedSlots,
   resolveStoredCaptures,
   type BrandRunApproval,
+  type CitationErasure,
   type ErasedSlot,
   type ErasedSlotFact,
 } from "./citation-protocol";
@@ -474,14 +475,14 @@ describe("citation protocol pure contract", () => {
     const counts = panelCounts(
       discoveryPanel(),
       resolved.map((r) => ({
-        questionId: r.captureContext.slot.questionId,
-        round: r.captureContext.slot.round,
+        questionId: r.slot!.questionId,
+        round: r.slot!.round,
         outcome: r.outcome,
         citationsComplete: true,
         ownCitation: null,
         mention: null,
         recommended: null,
-        brandRunId: r.captureContext.brandRunId,
+        brandRunId: r.brandRunId,
       })),
     );
     // Two distinct slots, no duplicate-slot throw (pre-fix, a/b/c would all resolve to round 1).
@@ -540,14 +541,14 @@ describe("citation protocol pure contract", () => {
     const counts = panelCounts(
       discoveryPanel(),
       resolved.map((r) => ({
-        questionId: r.captureContext.slot.questionId,
-        round: r.captureContext.slot.round,
+        questionId: r.slot!.questionId,
+        round: r.slot!.round,
         outcome: r.outcome,
         citationsComplete: true,
         ownCitation: null,
         mention: null,
         recommended: null,
-        brandRunId: r.captureContext.brandRunId,
+        brandRunId: r.brandRunId,
       })),
     );
     expect(counts).toMatchObject({ recorded: 1, outcomes: { complete: 0, protocol_deviant: 1 } });
@@ -1123,6 +1124,296 @@ describe("citation canonical report folds live + trusted erasure facts (final co
       observed: 1,
       erased: 1,
     });
+  });
+});
+
+describe("resolveStoredCaptures surfaces a malformed-present captureContext as explicit invalid evidence", () => {
+  // A PRESENT-but-malformed captureContext passes the OPAQUE bounded-JSON state read (answerEvidenceSchema
+  // stores captureContext as an opaque object) and reaches the resolver, where the STRICT parse fails.
+  // Silently dropping it (the pre-fix `continue`) makes a discovery slot read a false `neverObserved` and
+  // hides a brand attempt the SQL consumed aggregate already counted. It must surface as explicit invalid
+  // evidence carrying ONLY recognizable scoped identity — nothing invented to fit the schema.
+  const emptyErasure = (): CitationErasure => ({
+    slots: [],
+    consumedByRun: {},
+    excludedByVersion: {},
+    coverageCompleteByVersion: {},
+    extraAttemptsByVersion: {},
+  });
+  // A malformed context: recognizable panelId/version/slot/run identity but missing the strict body
+  // (session/location/language/surface/time/instructions/capture), so captureContextSchema rejects it.
+  const malformed = (over: Record<string, unknown> = {}) => ({
+    id: "m1",
+    status: "complete" as const,
+    promptId: uuid(101),
+    promptRevision: 1,
+    supersedesId: null,
+    captureContext: {
+      panelId: uuid(1),
+      panelVersion: 1,
+      brandRunId: null,
+      slot: { round: 2, questionId: "SY-D02" },
+      ...over,
+    },
+  });
+  it("resolves a malformed capture with a recognized slot as observed-invalid at that KNOWN slot", () => {
+    const [r] = resolveStoredCaptures([malformed()], [discoveryPanel()], []);
+    expect(r).toMatchObject({
+      outcome: "protocol_deviant",
+      panelResolved: true,
+      contextMalformed: true,
+      slot: { questionId: "SY-D02", round: 2 },
+      brandRunId: null,
+      captureContext: null, // the raw answer stays inspectable via readAnswerEvidence; nothing invented here
+    });
+    expect(r.deviations).toContain("malformed_capture_context");
+    expect(r.deviations).not.toContain("unknown_slot"); // the slot IS recognized
+    expect(r.deviations).not.toContain("panel_unresolved");
+    // The known slot is OBSERVED (invalid), so it is not a false `neverObserved` absence.
+    const report = citationReport(discoveryPanel(), [r], emptyErasure());
+    expect(report).toMatchObject({
+      observed: 1,
+      excluded: 0,
+      coverageComplete: true,
+      neverObserved: 39, // 40 planned − 1 observed − 0 erased
+    });
+    expect(report.outcomes.protocol_deviant).toBe(1);
+    expect(report.outcomes.complete).toBe(0); // never promoted to a clean measurement
+  });
+  it("keeps a malformed capture with an unrecognizable slot as an excluded attempt and marks coverage unknown", () => {
+    const [r] = resolveStoredCaptures(
+      [malformed({ slot: { round: 99, questionId: "SY-DZZ" } })],
+      [discoveryPanel()],
+      [],
+    );
+    expect(r).toMatchObject({ panelResolved: true, contextMalformed: true, slot: null });
+    expect(r.deviations).toEqual(
+      expect.arrayContaining(["malformed_capture_context", "unknown_slot"]),
+    );
+    const report = citationReport(discoveryPanel(), [r], emptyErasure());
+    // Absence is UNKNOWN, never a false definitive neverObserved: the attempt could have been any slot.
+    expect(report).toMatchObject({
+      observed: 0,
+      excluded: 1,
+      coverageComplete: false,
+      neverObserved: null,
+    });
+    expect(report.outcomes.protocol_deviant).toBe(1);
+  });
+  it("treats a malformed capture whose panel is unrecognizable as an orphan not attributed to any panel", () => {
+    const [r] = resolveStoredCaptures([malformed({ panelId: uuid(777) })], [discoveryPanel()], []);
+    expect(r).toMatchObject({ panelResolved: false, contextMalformed: true, slot: null });
+    expect(r.deviations).toEqual(
+      expect.arrayContaining(["malformed_capture_context", "panel_unresolved"]),
+    );
+    // The orphan touches no real panel: neither observed nor excluded there, and that version's
+    // neverObserved stays a definitive count (an unrelated malformed row cannot make coverage unknown).
+    const report = citationReport(discoveryPanel(), [r], emptyErasure());
+    expect(report).toMatchObject({
+      observed: 0,
+      excluded: 0,
+      coverageComplete: true,
+      neverObserved: 40,
+    });
+  });
+  it("distinguishes a legacy context-less row (skipped) from a malformed-present-context row (surfaced)", () => {
+    const resolved = resolveStoredCaptures(
+      [
+        {
+          id: "legacy",
+          status: "complete",
+          promptId: uuid(101),
+          promptRevision: 1,
+          captureContext: undefined, // legacy Answer-panel row: ordinary evidence, never a capture
+          supersedesId: null,
+        },
+        malformed(),
+      ],
+      [discoveryPanel()],
+      [],
+    );
+    // Only the malformed-present row is a would-be capture; the context-less legacy row never appears.
+    expect(resolved).toHaveLength(1);
+    expect(resolved[0]).toMatchObject({ answerId: "m1", contextMalformed: true });
+  });
+  it("counts a malformed brand capture at a recognized run/slot as observed, matching the SQL-consumed budget", () => {
+    const cap = {
+      id: "mb1",
+      status: "complete" as const,
+      promptId: uuid(201),
+      promptRevision: 1,
+      supersedesId: null,
+      captureContext: {
+        panelId: uuid(2),
+        panelVersion: 1,
+        brandRunId: uuid(50),
+        slot: { round: 1, questionId: "SY-B01" },
+      },
+    };
+    const [r] = resolveStoredCaptures(
+      [cap],
+      [brandPanel()],
+      [brandRun({ observationBudget: 5, rounds: 1 })],
+    );
+    expect(r).toMatchObject({
+      panelResolved: true,
+      brandRunResolved: true,
+      contextMalformed: true,
+      slot: { questionId: "SY-B01", round: 1 },
+      brandRunId: uuid(50),
+    });
+    const report = citationReport(
+      brandPanel(),
+      [r],
+      { ...emptyErasure(), consumedByRun: { [uuid(50)]: 1 } }, // SQL counted the valid run id
+      [brandRun({ observationBudget: 5, rounds: 1 })],
+    );
+    // Pre-fix the row was dropped → observed 0 while consumed 1 (the attempt hidden). Now they cohere.
+    expect(report.brandRuns).toEqual([
+      { runId: uuid(50), approvedBudget: 5, consumed: 1, observed: 1, erased: 0 },
+    ]);
+  });
+  it("surfaces a malformed brand capture at an UNKNOWN slot as excluded while consumed stays authoritative", () => {
+    const cap = {
+      id: "mb2",
+      status: "complete" as const,
+      promptId: uuid(201),
+      promptRevision: 1,
+      supersedesId: null,
+      captureContext: {
+        panelId: uuid(2),
+        panelVersion: 1,
+        brandRunId: uuid(50),
+        slot: { round: 9, questionId: "SY-BZZ" }, // no such run round / grid question
+      },
+    };
+    const [r] = resolveStoredCaptures(
+      [cap],
+      [brandPanel()],
+      [brandRun({ observationBudget: 5, rounds: 1 })],
+    );
+    expect(r).toMatchObject({ panelResolved: true, contextMalformed: true, slot: null });
+    expect(r.deviations).toContain("unknown_slot");
+    const report = citationReport(
+      brandPanel(),
+      [r],
+      { ...emptyErasure(), consumedByRun: { [uuid(50)]: 1 } },
+      [brandRun({ observationBudget: 5, rounds: 1 })],
+    );
+    // The attempt is not attributed to a slot (observed 0) but it is NOT hidden: excluded surfaces it and
+    // the SQL-consumed budget stays authoritative — the consumed>observed gap IS the excluded attempt.
+    expect(report.excluded).toBe(1);
+    expect(report.brandRuns).toEqual([
+      { runId: uuid(50), approvedBudget: 5, consumed: 1, observed: 0, erased: 0 },
+    ]);
+  });
+  it("folds a malformed correction of a surviving capture (original stays complete, never demoted)", () => {
+    const original = {
+      id: uuid(600),
+      status: "complete" as const,
+      promptId: uuid(101),
+      promptRevision: 1,
+      supersedesId: null,
+      captureContext: context(),
+    };
+    const badCorrection = {
+      id: "m-corr",
+      status: "complete" as const,
+      promptId: uuid(101),
+      promptRevision: 1,
+      supersedesId: uuid(600), // claims to correct the original, but its context is malformed
+      captureContext: {
+        panelId: uuid(1),
+        panelVersion: 1,
+        brandRunId: null,
+        slot: { round: 1, questionId: "SY-D01" },
+      },
+    };
+    const resolved = resolveStoredCaptures([original, badCorrection], [discoveryPanel()], []);
+    // A malformed successor is not a resolvable capture, so it never marks the valid predecessor superseded
+    // (a valid observation must never vanish behind a malformed row). It merely re-describes the SAME
+    // observation, so it is FOLDED, not surfaced as an independent attempt: the original alone resolves as
+    // the complete slot, never demoted to a false `duplicate_slot` by a re-description of itself.
+    expect(resolved.map((r) => r.answerId)).toEqual([uuid(600)]);
+    expect(resolved[0]).toMatchObject({ outcome: "complete", contextMalformed: false });
+    expect(resolved[0].deviations).not.toContain("duplicate_slot");
+  });
+  it("collapses a valid original and an INDEPENDENT malformed original at one slot deterministically (both input orders)", () => {
+    // Two INDEPENDENT originals (neither supersedes the other) at the same planned slot — one valid, one
+    // malformed — are ambiguous duplicate history: the slot can never read as a clean `complete`. The
+    // outcome must be deterministic regardless of which row the resolver sees first (pre-fix the malformed
+    // row skipped the collapse and the report's first-wins slot dedup made the slot read complete-or-invalid
+    // by order).
+    const valid = {
+      id: "valid",
+      status: "complete" as const,
+      promptId: uuid(101),
+      promptRevision: 1,
+      supersedesId: null,
+      captureContext: context(),
+    };
+    const malformed = {
+      id: "bad",
+      status: "complete" as const,
+      promptId: uuid(101),
+      promptRevision: 1,
+      supersedesId: null, // INDEPENDENT — not a correction of `valid`
+      captureContext: {
+        panelId: uuid(1),
+        panelVersion: 1,
+        brandRunId: null,
+        slot: { round: 1, questionId: "SY-D01" },
+      },
+    };
+    for (const order of [
+      [valid, malformed],
+      [malformed, valid],
+    ]) {
+      const resolved = resolveStoredCaptures(order, [discoveryPanel()], []);
+      expect(resolved).toHaveLength(1); // collapsed to ONE invalid entry, never both, never a silent pick
+      expect(resolved[0]).toMatchObject({ outcome: "protocol_deviant" });
+      expect(resolved[0].deviations).toContain("duplicate_slot");
+      // The report is deterministic in BOTH orders: the shared slot is observed-invalid, never `complete`.
+      const report = citationReport(discoveryPanel(), resolved, emptyErasure());
+      expect(report).toMatchObject({ observed: 1, neverObserved: 39, coverageComplete: true });
+      expect(report.outcomes.protocol_deviant).toBe(1);
+      expect(report.outcomes.complete).toBe(0);
+    }
+  });
+  it("flags a malformed independent original sharing a KNOWN erased slot as ambiguous erased-duplicate history", () => {
+    // A malformed recognized-slot original at a slot a KNOWN erased original also occupied is ambiguous
+    // duplicate history (a live invalid attempt at an already-erased slot): it is flagged and stays
+    // observed at that slot (holding it), so the erased tombstone folds into consumed rather than
+    // double-counting coverage — the malformed row's slot accounting matches a valid row's.
+    const erasedKey = JSON.stringify([uuid(1), 1, null, "SY-D01", 1]); // same shape as the internal slot key
+    const [r] = resolveStoredCaptures(
+      [
+        {
+          id: "bad",
+          status: "complete",
+          promptId: uuid(101),
+          promptRevision: 1,
+          supersedesId: null,
+          captureContext: {
+            panelId: uuid(1),
+            panelVersion: 1,
+            brandRunId: null,
+            slot: { round: 1, questionId: "SY-D01" },
+          },
+        },
+      ],
+      [discoveryPanel()],
+      [],
+      new Set([erasedKey]),
+    );
+    expect(r).toMatchObject({
+      outcome: "protocol_deviant",
+      contextMalformed: true,
+      slot: { questionId: "SY-D01", round: 1 },
+    });
+    expect(r.deviations).toEqual(
+      expect.arrayContaining(["malformed_capture_context", "erased_duplicate_slot"]),
+    );
   });
 });
 

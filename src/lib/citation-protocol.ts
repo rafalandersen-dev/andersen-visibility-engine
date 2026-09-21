@@ -343,7 +343,21 @@ export interface ResolvedCapture {
   panelResolved: boolean;
   /** For a brand capture, whether its brand run resolves; null for discovery or an unresolved panel. */
   brandRunResolved: boolean | null;
-  captureContext: CaptureContext;
+  /** True when the answer carried a PRESENT captureContext that FAILED the strict parse. Such a row is a
+   * would-be capture surfaced as explicit invalid evidence (never silently dropped, else its slot would
+   * read neverObserved while the SQL consumed aggregate counts it). Legacy context-less rows are ordinary
+   * answer evidence, not captures, and never appear here at all. */
+  contextMalformed: boolean;
+  /** The recognized slot used for report accounting: a valid capture's own slot, or — for a malformed
+   * capture — the RECOGNIZED planned slot, or `null` when the slot is unrecognizable (the version's
+   * coverage/neverObserved is then unknown, never a false definitive absence). Only genuinely recognized
+   * identity is carried; nothing is invented to fit the schema. */
+  slot: { questionId: string; round: number } | null;
+  /** The recognized canonical brand run id for accounting (null for discovery or an unrecognizable run). */
+  brandRunId: string | null;
+  /** The parsed capture context for a VALID row; `null` for a malformed row (its raw answer stays fully
+   * inspectable via `readAnswerEvidence`; the document/hash is never rewritten). */
+  captureContext: CaptureContext | null;
 }
 
 /**
@@ -389,6 +403,24 @@ export function resolveStoredCaptures(
   for (const a of answers)
     if (a.supersedesId && captureContextSchema.safeParse(a.captureContext).success)
       superseded.add(canonicalUuid(a.supersedesId));
+  // A PRESENT-context answer that no VALID successor supersedes is a surviving resolved record (valid or
+  // malformed). A context-less/malformed successor whose `supersedesId` points at such a survivor is a
+  // FAILED CORRECTION that merely re-describes that already-resolved observation: it never supersedes the
+  // survivor (only a valid successor does — see `superseded`), and it must not be re-surfaced as an
+  // independent attempt (which would double-count/demote the survivor's slot in an order-dependent way).
+  // Such a successor is folded below (context-less at the null guard; malformed at the parse-fail branch).
+  // A malformed row whose predecessor does NOT survive (independent original, or correction of a deleted/
+  // context-less/superseded row) is NOT folded — it is surfaced as explicit invalid evidence.
+  const survivingCaptureIds = new Set<string>();
+  for (const a of answers)
+    if (
+      a.captureContext !== undefined &&
+      a.captureContext !== null &&
+      !superseded.has(canonicalUuid(a.id))
+    )
+      survivingCaptureIds.add(canonicalUuid(a.id));
+  const foldsIntoSurvivor = (a: StoredCaptureAnswer) =>
+    a.supersedesId != null && survivingCaptureIds.has(canonicalUuid(a.supersedesId));
   // The released PR137 helpers (protocolDeviations/slotOutcome) compare `answer.promptId` to the panel
   // question's `promptId`, and run/panel ids, by RAW string. A panel document can carry an UPPERCASE
   // question promptId (the lock validates it by casting to uuid, then persists it verbatim), so a capture
@@ -427,7 +459,99 @@ export function resolveStoredCaptures(
     // Skip superseded captures: resolve only the active leaf of each capture correction chain.
     if (superseded.has(canonicalUuid(answer.id))) continue;
     const parsed = captureContextSchema.safeParse(answer.captureContext);
-    if (!parsed.success) continue;
+    if (!parsed.success) {
+      // A malformed CORRECTION of a still-surviving capture is folded (it re-describes that survivor's
+      // already-resolved observation; it never supersedes it and must not be re-surfaced as an independent
+      // attempt). An independent malformed original — or a correction of a non-surviving predecessor — is
+      // surfaced below as explicit invalid evidence.
+      if (foldsIntoSurvivor(answer)) continue;
+      // A PRESENT-but-malformed captureContext is a would-be capture that must NOT be silently dropped:
+      // dropping it makes a discovery slot read `neverObserved` and hides a brand attempt the SQL consumed
+      // aggregate already counted. Surface it as explicit INVALID evidence carrying ONLY the recognizable
+      // scoped identity — no field is invented to fit the schema. When the slot maps to a real planned
+      // slot of a recognized panel/run it is an observed-invalid attempt at that KNOWN slot; when the slot
+      // is unrecognizable (but the panel is), the version's coverage is UNKNOWN (never a false definitive
+      // neverObserved); when even the panel is unrecognizable it is an orphan deviation. Legacy
+      // context-less rows are handled by the null check above and are never captures.
+      const rawCtx =
+        answer.captureContext && typeof answer.captureContext === "object"
+          ? (answer.captureContext as Record<string, unknown>)
+          : {};
+      const rawPanelId = typeof rawCtx.panelId === "string" ? rawCtx.panelId : null;
+      const rawVersion = rawCtx.panelVersion;
+      const version =
+        typeof rawVersion === "number" && Number.isInteger(rawVersion) ? rawVersion : null;
+      const rawRun = typeof rawCtx.brandRunId === "string" ? rawCtx.brandRunId : null;
+      const mBrandRunId = rawRun && PG_UUID_RE.test(rawRun) ? canonicalUuid(rawRun) : null;
+      const mPanel =
+        rawPanelId && version !== null && PG_UUID_RE.test(rawPanelId)
+          ? normPanels.find(
+              (p) =>
+                p.panelId === canonicalUuid(rawPanelId) &&
+                p.version === version &&
+                p.status === "locked" &&
+                !!p.approval,
+            )
+          : undefined;
+      // Recognize the slot ONLY when it maps to a real planned slot of the recognized panel/run.
+      let mSlot: { questionId: string; round: number } | null = null;
+      if (mPanel) {
+        const slotObj =
+          rawCtx.slot && typeof rawCtx.slot === "object"
+            ? (rawCtx.slot as Record<string, unknown>)
+            : {};
+        const qid = typeof slotObj.questionId === "string" ? slotObj.questionId : null;
+        const round =
+          typeof slotObj.round === "number" && Number.isInteger(slotObj.round)
+            ? slotObj.round
+            : null;
+        const run =
+          mBrandRunId === null
+            ? undefined
+            : normRuns.find(
+                (r) =>
+                  r.id === mBrandRunId &&
+                  r.panelId === mPanel.panelId &&
+                  r.panelVersion === mPanel.version,
+              );
+        const roundOk =
+          round !== null &&
+          round >= 1 &&
+          (mPanel.kind === "discovery"
+            ? mBrandRunId === null && round <= mPanel.rounds
+            : !!run && round <= run.rounds);
+        if (qid !== null && mPanel.questions.some((q) => q.id === qid) && roundOk)
+          mSlot = { questionId: qid, round: round as number };
+      }
+      out.push({
+        answerId: answer.id,
+        panelId: mPanel ? mPanel.panelId : rawPanelId ? canonicalUuid(rawPanelId) : "malformed",
+        panelVersion: version ?? 0,
+        kind: mPanel ? mPanel.kind : null,
+        outcome: "protocol_deviant",
+        deviations: [
+          "malformed_capture_context",
+          ...(mPanel ? [] : ["panel_unresolved"]),
+          ...(mPanel && !mSlot ? ["unknown_slot"] : []),
+        ],
+        panelResolved: !!mPanel,
+        brandRunResolved:
+          mPanel && mPanel.kind === "brand"
+            ? mBrandRunId !== null &&
+              normRuns.some(
+                (r) =>
+                  r.id === mBrandRunId &&
+                  r.panelId === mPanel.panelId &&
+                  r.panelVersion === mPanel.version,
+              )
+            : null,
+        contextMalformed: true,
+        slot: mSlot,
+        brandRunId: mBrandRunId,
+        captureContext: null,
+      });
+      continue;
+    }
     // Normalize the DERIVED context's uuid identities to canonical (lowercase) ONCE, at this boundary,
     // before any comparison — including the released PR137 helpers (protocolDeviations/slotOutcome), which
     // compare `context.panelId`/`brandRunId` to the panel/run by raw string. The panel document id and the
@@ -463,6 +587,9 @@ export function resolveStoredCaptures(
         deviations: ["panel_unresolved"],
         panelResolved: false,
         brandRunResolved: null,
+        contextMalformed: false,
+        slot: { questionId: context.slot.questionId, round: context.slot.round },
+        brandRunId: canonicalRun(context.brandRunId),
         captureContext: context,
       });
       continue;
@@ -547,6 +674,9 @@ export function resolveStoredCaptures(
                 r.panelVersion === panel.version,
             )
           : null,
+      contextMalformed: false,
+      slot: { questionId: context.slot.questionId, round: context.slot.round },
+      brandRunId: canonicalRun(context.brandRunId),
       captureContext: context,
     });
   }
@@ -565,17 +695,25 @@ export function resolveStoredCaptures(
     JSON.stringify([
       canonicalUuid(c.panelId),
       c.panelVersion,
-      canonicalRun(c.captureContext.brandRunId),
-      c.captureContext.slot.questionId,
-      c.captureContext.slot.round,
+      c.brandRunId,
+      c.slot?.questionId ?? null,
+      c.slot?.round ?? null,
     ]);
+  // A slot occupant is any panel-resolved capture with a RECOGNIZED slot — valid OR malformed. Both count
+  // toward the duplicate collapse so a valid original and an INDEPENDENT malformed original at the same
+  // planned slot are DETERMINISTICALLY one `protocol_deviant`/`duplicate_slot` entry regardless of input
+  // order (before this, the malformed row skipped the collapse and `citationReport`'s first-wins slot
+  // dedup made the slot read `complete` or invalid depending on order). An orphan (no resolvable panel)
+  // and a malformed capture with an UNRECOGNIZED slot carry no comparable planned slot: they pass through
+  // unchanged as their own explicit invalid evidence and never collapse anything. (Malformed corrections
+  // of a survivor were already folded above, so a survivor is never demoted by a re-description of itself.)
   const slotCount = new Map<string, number>();
   for (const c of out)
-    if (c.panelResolved) slotCount.set(slotKey(c), (slotCount.get(slotKey(c)) ?? 0) + 1);
+    if (c.panelResolved && c.slot) slotCount.set(slotKey(c), (slotCount.get(slotKey(c)) ?? 0) + 1);
   const seen = new Set<string>();
   const deduped: ResolvedCapture[] = [];
   for (const c of out) {
-    if (!c.panelResolved) {
+    if (!c.panelResolved || !c.slot) {
       deduped.push(c);
       continue;
     }
@@ -653,16 +791,19 @@ export function resolveErasedSlots(
   brandRuns: BrandRun[],
   resolvedCaptures: ResolvedCapture[],
 ): ErasedSlot[] {
+  // A capture holds its slot for erasure de-duplication only when that slot is recognized — a valid
+  // capture, or a malformed one whose slot maps to a real planned slot. A malformed unknown-slot capture
+  // (slot null) has no comparable slot to hold, so an erased tombstone is never wrongly suppressed by it.
   const liveSlots = new Set(
     resolvedCaptures
-      .filter((c) => c.panelResolved)
+      .filter((c) => c.panelResolved && c.slot)
       .map((c) =>
         erasedSlotKey({
           panelId: c.panelId,
           panelVersion: c.panelVersion,
-          brandRunId: c.captureContext.brandRunId,
-          questionId: c.captureContext.slot.questionId,
-          round: c.captureContext.slot.round,
+          brandRunId: c.brandRunId,
+          questionId: c.slot!.questionId,
+          round: c.slot!.round,
         }),
       ),
   );
@@ -818,10 +959,23 @@ export function citationReport(
   const liveSlotKeys = new Set<string>();
   let observed = 0;
   let excluded = 0;
+  // A malformed live capture on THIS version whose slot is unrecognizable: we cannot attribute it to a
+  // planned slot, but its answer row exists (and the SQL consumed aggregate counts it), so the specific
+  // planned slots' coverage is UNKNOWN — `neverObserved` must not read as a false definitive absence.
+  let unknownAttempt = false;
   for (const c of resolvedCaptures) {
     if (!c.panelResolved || !forVersion(c.panelId, c.panelVersion)) continue;
-    const brandRunId = canonicalRun(c.captureContext.brandRunId);
-    const { questionId, round } = c.captureContext.slot;
+    if (c.contextMalformed && !c.slot) {
+      excluded += 1;
+      outcomes[c.outcome] += 1;
+      unknownAttempt = true;
+      continue;
+    }
+    // A valid capture always has a slot; a malformed one reaching here has a RECOGNIZED planned slot, so
+    // it is counted as an observed-but-invalid attempt at that KNOWN slot (never a clean measurement).
+    if (!c.slot) continue;
+    const brandRunId = c.brandRunId;
+    const { questionId, round } = c.slot;
     const key = JSON.stringify([brandRunId, questionId, round]);
     if (!validSlot(questionId, round, brandRunId) || liveSlotKeys.has(key)) {
       excluded += 1;
@@ -860,8 +1014,11 @@ export function citationReport(
   // from the EXACT SQL aggregate, so a truncated tombstone transmit never hides one; `erased` stays
   // one-per-slot so planned coverage is not double-counted, and this is surfaced separately, not dropped.
   const erasedExtra = erasure.extraAttemptsByVersion[versionKey] ?? 0;
-  // Coverage completeness: a missing key means no erased rows for this version (trivially complete).
-  const coverageComplete = erasure.coverageCompleteByVersion[versionKey] ?? true;
+  // Coverage completeness: a missing key means no erased rows for this version (trivially complete). It is
+  // ALSO unknown when a malformed live capture on this version had an unrecognizable slot — that attempt
+  // could have been any planned slot, so a definitive `neverObserved` cannot be derived (absence unknown).
+  const coverageComplete =
+    (erasure.coverageCompleteByVersion[versionKey] ?? true) && !unknownAttempt;
   const planned = panel.kind === "discovery" ? panel.questions.length * panel.rounds : 0;
   // neverObserved is a definitive count only when coverage is complete; otherwise it is unknown (null)
   // — never derived from partial (truncated) tombstones.

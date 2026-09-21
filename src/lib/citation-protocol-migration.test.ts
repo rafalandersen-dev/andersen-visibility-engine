@@ -736,14 +736,14 @@ describe("CI-2 manual capture resolution and binding", () => {
     const counts = panelCounts(
       locked,
       captures.map((c) => ({
-        questionId: c.captureContext.slot.questionId,
-        round: c.captureContext.slot.round,
+        questionId: c.slot!.questionId,
+        round: c.slot!.round,
         outcome: c.outcome,
         citationsComplete: true,
         ownCitation: null,
         mention: null,
         recommended: null,
-        brandRunId: c.captureContext.brandRunId,
+        brandRunId: c.brandRunId,
       })),
     );
     expect(counts).toMatchObject({ recorded: 1, outcomes: { complete: 1 } });
@@ -809,14 +809,14 @@ describe("CI-2 manual capture resolution and binding", () => {
     const counts = panelCounts(
       locked,
       captures.map((c) => ({
-        questionId: c.captureContext.slot.questionId,
-        round: c.captureContext.slot.round,
+        questionId: c.slot!.questionId,
+        round: c.slot!.round,
         outcome: c.outcome,
         citationsComplete: true,
         ownCitation: null,
         mention: null,
         recommended: null,
-        brandRunId: c.captureContext.brandRunId,
+        brandRunId: c.brandRunId,
       })),
     );
     expect(counts).toMatchObject({ recorded: 1, outcomes: { complete: 0, protocol_deviant: 1 } });
@@ -1637,9 +1637,147 @@ describe("CI-2 erasure preserves the slot/budget fact (content-free tombstone)",
     );
     await removeAnswerEvidence(scope, "answer", r1, rpc); // erase round 1 only
     const { captures, erasedSlots } = await readResolvedCaptures(scope, rpc);
-    expect(captures.map((c) => c.captureContext.slot.round)).toEqual([2]); // live round-2 capture
+    expect(captures.map((c) => c.slot!.round)).toEqual([2]); // live round-2 capture
     expect(erasedSlots).toHaveLength(1);
     expect(erasedSlots[0]).toMatchObject({ round: 1 });
+  });
+  it("surfaces a stored malformed captureContext at a recognized slot through the read as observed-invalid (not neverObserved)", async () => {
+    // A REAL stored answer-evidence row whose auxiliary captureContext fails the strict parse but keeps a
+    // recognizable panel/slot identity (a legacy or pre-strict write; the state read stores captureContext
+    // OPAQUELY, so it survives the SQL/server schema and reaches the resolver). It must arrive at the report
+    // as an observed-INVALID attempt at that KNOWN slot — never silently dropped into a false neverObserved.
+    const id = await importManualCapture(scope, discoveryCapture(), rpc); // valid round-1 SY-D01 capture
+    await db.query(
+      "UPDATE public.ai_answer_evidence SET document=jsonb_set(document,'{input,captureContext}',$3::jsonb) WHERE user_id=$1 AND id=$2",
+      [
+        user,
+        id,
+        JSON.stringify({
+          panelId: discoveryPanelId,
+          panelVersion: 2,
+          brandRunId: null,
+          slot: { round: 1, questionId: "SY-D01" }, // recognizable, but the strict body is gone
+        }),
+      ],
+    );
+    const { captures, reports } = await readResolvedCaptures(scope, rpc);
+    expect(captures).toHaveLength(1);
+    expect(captures[0]).toMatchObject({
+      answerId: id,
+      outcome: "protocol_deviant",
+      panelResolved: true,
+      contextMalformed: true,
+      slot: { questionId: "SY-D01", round: 1 },
+      captureContext: null,
+    });
+    expect(captures[0].deviations).toContain("malformed_capture_context");
+    const discovery = reports.find((x) => x.panelId === discoveryPanelId)!;
+    expect(discovery).toMatchObject({
+      observed: 1, // the KNOWN slot is observed (invalid) → not a false neverObserved absence
+      coverageComplete: true,
+      neverObserved: 39, // 40 planned − 1 observed − 0 erased
+    });
+    expect(discovery.outcomes.protocol_deviant).toBe(1);
+    expect(discovery.outcomes.complete).toBe(0); // never promoted to a clean measurement
+    // The raw answer document stays fully inspectable — the resolver never rewrites stored evidence.
+    expect((await readAnswerEvidence(scope, rpc)).answers).toHaveLength(1);
+  });
+  it("surfaces a stored malformed captureContext at an UNKNOWN slot through the read as an excluded attempt (coverage unknown)", async () => {
+    const id = await importManualCapture(scope, discoveryCapture(), rpc);
+    await db.query(
+      "UPDATE public.ai_answer_evidence SET document=jsonb_set(document,'{input,captureContext}',$3::jsonb) WHERE user_id=$1 AND id=$2",
+      [
+        user,
+        id,
+        JSON.stringify({
+          panelId: discoveryPanelId,
+          panelVersion: 2,
+          brandRunId: null,
+          slot: { round: 99, questionId: "SY-DZZ" }, // no such planned slot of this panel
+        }),
+      ],
+    );
+    const { captures, reports } = await readResolvedCaptures(scope, rpc);
+    expect(captures[0]).toMatchObject({ contextMalformed: true, slot: null, panelResolved: true });
+    expect(captures[0].deviations).toEqual(
+      expect.arrayContaining(["malformed_capture_context", "unknown_slot"]),
+    );
+    const discovery = reports.find((x) => x.panelId === discoveryPanelId)!;
+    // No invented absence: an unattributable live attempt makes the version's neverObserved UNKNOWN (null)
+    // while the attempt itself is surfaced as excluded (never a false definitive known-neverObserved).
+    expect(discovery).toMatchObject({
+      observed: 0,
+      excluded: 1,
+      coverageComplete: false,
+      neverObserved: null,
+    });
+    expect(discovery.outcomes.protocol_deviant).toBe(1);
+  });
+  it("surfaces a stored malformed brand capture at a recognized run/slot through the read as observed, matching the SQL-consumed budget", async () => {
+    await saveCitationPanelDraft(scope, brandPanelId, 0, draftBrand(), rpc);
+    await lockCitationPanel(scope, brandPanelId, 1, rpc);
+    await backdatePanelApproval(brandPanelId);
+    await insertBrandRun(uuid(50), { observationBudget: 3, rounds: 1 });
+    const id = await importManualCapture(scope, brandCapture(), rpc); // SY-B01 r1, run uuid(50)
+    await db.query(
+      "UPDATE public.ai_answer_evidence SET document=jsonb_set(document,'{input,captureContext}',$3::jsonb) WHERE user_id=$1 AND id=$2",
+      [
+        user,
+        id,
+        JSON.stringify({
+          panelId: brandPanelId,
+          panelVersion: 2,
+          brandRunId: uuid(50),
+          slot: { round: 1, questionId: "SY-B01" },
+        }),
+      ],
+    );
+    const { captures, reports } = await readResolvedCaptures(scope, rpc);
+    expect(captures[0]).toMatchObject({
+      answerId: id,
+      outcome: "protocol_deviant",
+      panelResolved: true,
+      contextMalformed: true,
+      slot: { questionId: "SY-B01", round: 1 },
+      brandRunId: uuid(50),
+    });
+    const brand = reports.find((x) => x.panelId === brandPanelId)!;
+    // The SQL write gate (`runConsumed`, via `captureContext->>'brandRunId'`) counts the valid run id; the
+    // malformed row is now observed at its recognized slot, so observed coheres with consumed (pre-fix it
+    // was dropped → consumed 1 / observed 0, the attempt hidden).
+    expect(brand.brandRuns).toEqual([
+      { runId: uuid(50), approvedBudget: 3, consumed: 1, observed: 1, erased: 0 },
+    ]);
+  });
+  it("surfaces a stored malformed brand capture at an UNKNOWN slot as excluded while consumed stays authoritative", async () => {
+    await saveCitationPanelDraft(scope, brandPanelId, 0, draftBrand(), rpc);
+    await lockCitationPanel(scope, brandPanelId, 1, rpc);
+    await backdatePanelApproval(brandPanelId);
+    await insertBrandRun(uuid(50), { observationBudget: 3, rounds: 1 });
+    const id = await importManualCapture(scope, brandCapture(), rpc);
+    await db.query(
+      "UPDATE public.ai_answer_evidence SET document=jsonb_set(document,'{input,captureContext}',$3::jsonb) WHERE user_id=$1 AND id=$2",
+      [
+        user,
+        id,
+        JSON.stringify({
+          panelId: brandPanelId,
+          panelVersion: 2,
+          brandRunId: uuid(50),
+          slot: { round: 9, questionId: "SY-BZZ" }, // no such run round / grid question
+        }),
+      ],
+    );
+    const { captures, reports } = await readResolvedCaptures(scope, rpc);
+    expect(captures[0]).toMatchObject({ contextMalformed: true, slot: null, panelResolved: true });
+    expect(captures[0].deviations).toContain("unknown_slot");
+    const brand = reports.find((x) => x.panelId === brandPanelId)!;
+    // Not attributed to a slot (observed 0) but not hidden: excluded surfaces it and the SQL-consumed
+    // budget stays authoritative — the consumed>observed gap IS the excluded attempt.
+    expect(brand.excluded).toBe(1);
+    expect(brand.brandRuns).toEqual([
+      { runId: uuid(50), approvedBudget: 3, consumed: 1, observed: 0, erased: 0 },
+    ]);
   });
   it("keeps a brand run's erased observations as erased slots after every capture is deleted", async () => {
     await saveCitationPanelDraft(scope, brandPanelId, 0, draftBrand(), rpc);
@@ -1694,10 +1832,10 @@ describe("CI-2 erasure preserves the slot/budget fact (content-free tombstone)",
     await removeAnswerEvidence(scope, "answer", bErased, rpc);
     const { captures, erasedSlots, reports } = await readResolvedCaptures(scope, rpc);
     // Capture + correction: the discovery slot resolves to the active LEAF, never the superseded original.
-    const discovery = captures.filter((c) => c.captureContext.slot.questionId === "SY-D01");
+    const discovery = captures.filter((c) => c.slot?.questionId === "SY-D01");
     expect(discovery.map((c) => c.answerId)).toEqual([dLeaf]);
     // The live brand observation survives; the erased one is not returned as a live capture.
-    expect(captures.some((c) => c.captureContext.slot.questionId === "SY-B01")).toBe(true);
+    expect(captures.some((c) => c.slot?.questionId === "SY-B01")).toBe(true);
     expect(captures.map((c) => c.answerId)).not.toContain(bErased);
     // Deletion: the erased brand slot is reported as erased, not absent.
     expect(erasedSlots.map((s) => s.questionId)).toEqual(["SY-B01"]);
