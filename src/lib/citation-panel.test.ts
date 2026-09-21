@@ -1139,6 +1139,89 @@ describe("descriptive counts and comparable pairs (CI11-T19, T20, T21, T38)", ()
     const kept = comparablePairs(p, evidence(captureUuid("SY-D01", 1)), rounds);
     expect(kept.comparable).toBe(true);
   });
+  it("resolves UPPERCASE finding/baseline UUID refs against canonical lowercase records, rejects a mixed-case duplicate, and leaves the immutable input unchanged (finding 4064342170)", () => {
+    const p = panel();
+    const rounds = { baseline: 1, followUp: 4 };
+    // Lettered UUIDs so case is meaningful: the SCOPED records carry canonical LOWERCASE (DB-like) ids...
+    const fLower = "aaaaaaaa-1111-4aaa-8aaa-aaaaaaaaaaaa";
+    const bLower = "bbbbbbbb-2222-4bbb-8bbb-bbbbbbbbbbbb";
+    const fUpper = fLower.toUpperCase();
+    const bUpper = bLower.toUpperCase();
+    const caps = [
+      captured("SY-D01", 1, { captureId: bLower }),
+      captured("SY-D01", 4, { ownCitation: true }),
+    ];
+    const findings = [scopedFinding(60, { findingId: fLower }), scopedFinding(61)];
+    // ...while the IMMUTABLE improvement record references the SAME ids in UPPERCASE (schema-preserved casing).
+    const improvements = [
+      verifiedImprovement(90, "2026-09-28T10:00:00Z", {
+        findingIds: [fUpper],
+        baselineCaptureIds: [bUpper],
+      }),
+      secondChange(91, "2026-10-01T10:00:00Z", { baselineCaptureIds: [bLower] }),
+    ];
+    // The uppercase refs resolve against the lowercase records — no spurious "not recorded" throw — so the
+    // two distinct changes bind and the pair is comparable.
+    const result = comparablePairs(p, { captures: caps, findings, improvements }, rounds);
+    expect(result.comparable).toBe(true);
+    // The immutable input is untouched: the record's refs keep their original uppercase casing (never folded).
+    expect(improvements[0].record.findingIds).toEqual([fUpper]);
+    expect(improvements[0].record.baselineCaptureIds).toEqual([bUpper]);
+    // A MIXED-CASE duplicate of the same finding UUID inside one improvement is a duplicate, not two refs.
+    expect(() =>
+      comparablePairs(
+        p,
+        {
+          captures: caps,
+          findings,
+          improvements: [
+            verifiedImprovement(90, "2026-09-28T10:00:00Z", {
+              findingIds: [fUpper, fLower],
+              baselineCaptureIds: [bUpper],
+            }),
+            secondChange(91, "2026-10-01T10:00:00Z", { baselineCaptureIds: [bLower] }),
+          ],
+        },
+        rounds,
+      ),
+    ).toThrow(/duplicates a finding id/);
+    // ...and a mixed-case duplicate baseline capture is likewise rejected.
+    expect(() =>
+      comparablePairs(
+        p,
+        {
+          captures: caps,
+          findings,
+          improvements: [
+            verifiedImprovement(90, "2026-09-28T10:00:00Z", {
+              findingIds: [fUpper],
+              baselineCaptureIds: [bUpper, bLower],
+            }),
+            secondChange(91, "2026-10-01T10:00:00Z", { baselineCaptureIds: [bLower] }),
+          ],
+        },
+        rounds,
+      ),
+    ).toThrow(/duplicates a baseline capture id/);
+    // A genuinely FOREIGN reference (a different UUID, not merely a case variant) is still rejected.
+    expect(() =>
+      comparablePairs(
+        p,
+        {
+          captures: caps,
+          findings,
+          improvements: [
+            verifiedImprovement(90, "2026-09-28T10:00:00Z", {
+              findingIds: ["cccccccc-3333-4ccc-8ccc-cccccccccccc"],
+              baselineCaptureIds: [bUpper],
+            }),
+            secondChange(91, "2026-10-01T10:00:00Z", { baselineCaptureIds: [bLower] }),
+          ],
+        },
+        rounds,
+      ),
+    ).toThrow(/finding .* not recorded/);
+  });
   it("keeps a historical pair stable and needs two distinct changes verified before the follow-up (4053596307)", () => {
     const p = panel();
     const rounds = { baseline: 1, followUp: 4 };

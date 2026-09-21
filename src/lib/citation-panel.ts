@@ -777,7 +777,11 @@ function panelClientKey(scope: {
   client: { name: string; market: string };
 }): string {
   return JSON.stringify([
-    scope.panelId,
+    // The panel id is a validated UUID: compare it by SEMANTIC identity (canonical lowercase) so a scope
+    // asserted with an uppercase UUID still matches the canonical (lowercase) DB row, while the textual client
+    // name/market stay EXACT (never case-folded) so a genuinely different client is still a foreign scope
+    // (finding 4064342170).
+    scope.panelId.toLowerCase(),
     scope.panelVersion,
     scope.client.name,
     scope.client.market,
@@ -814,23 +818,30 @@ export function comparablePairs(
     panelVersion: panel.version,
     client: panel.client,
   });
+  // Validated UUID identities (capture/finding/panel ids and the improvement's finding/baseline refs) are
+  // compared by SEMANTIC identity: the schema/SQL preserve the owner's original (possibly uppercase) UUID
+  // casing on the immutable record, but DB row ids are canonical lowercase, so a live comparison must fold BOTH
+  // sides or a legitimate uppercase reference against a lowercase row wrongly throws (finding 4064342170). A
+  // mixed-case duplicate of the same UUID is therefore still caught, and textual client/market/question ids,
+  // URLs, records and hashes are NEVER case-folded. Error messages keep the raw id for readability.
+  const canon = (id: string) => id.toLowerCase();
   // Index the scoped evidence, rejecting any record that belongs to another panel/client or
   // reuses an identity. These are the only records an improvement may resolve against.
   const captureById = new Map<string, ScopedCapture>();
   for (const c of captures) {
     if (panelClientKey(c) !== panelScope)
       throw new Error(`comparablePairs: capture ${c.captureId} belongs to another panel or client`);
-    if (captureById.has(c.captureId))
+    if (captureById.has(canon(c.captureId)))
       throw new Error(`comparablePairs: duplicate capture id ${c.captureId}`);
-    captureById.set(c.captureId, c);
+    captureById.set(canon(c.captureId), c);
   }
   const findingById = new Map<string, ScopedFinding>();
   for (const f of findings) {
     if (panelClientKey(f) !== panelScope)
       throw new Error(`comparablePairs: finding ${f.findingId} belongs to another panel or client`);
-    if (findingById.has(f.findingId))
+    if (findingById.has(canon(f.findingId)))
       throw new Error(`comparablePairs: duplicate finding id ${f.findingId}`);
-    findingById.set(f.findingId, f);
+    findingById.set(canon(f.findingId), f);
   }
   const refusal = (reason: string) => ({
     pairs: [] as Array<{
@@ -862,19 +873,21 @@ export function comparablePairs(
     // is unchanged (finding 4063851250). Everything below reads the immutable record's structure.
     if (!isVerifiedImprovement(live)) continue;
     const imp = live.record;
-    if (new Set(imp.findingIds).size !== imp.findingIds.length)
+    // Duplicate detection is semantic too: a mixed-case repeat of the same finding/baseline UUID is a
+    // duplicate, not two references.
+    if (new Set(imp.findingIds.map(canon)).size !== imp.findingIds.length)
       throw new Error(`comparablePairs: improvement ${imp.improvementId} duplicates a finding id`);
-    if (new Set(imp.baselineCaptureIds).size !== imp.baselineCaptureIds.length)
+    if (new Set(imp.baselineCaptureIds.map(canon)).size !== imp.baselineCaptureIds.length)
       throw new Error(
         `comparablePairs: improvement ${imp.improvementId} duplicates a baseline capture id`,
       );
     for (const fid of imp.findingIds)
-      if (!findingById.has(fid))
+      if (!findingById.has(canon(fid)))
         throw new Error(
           `comparablePairs: finding ${fid} is not recorded for this panel and client`,
         );
     const baselineAts = imp.baselineCaptureIds.map((cid) => {
-      const capture = captureById.get(cid);
+      const capture = captureById.get(canon(cid));
       if (!capture)
         throw new Error(
           `comparablePairs: baseline capture ${cid} is not recorded for this panel and client`,
