@@ -265,7 +265,9 @@ beforeEach(async () => {
   await saveEvidencePrompt(scope, PROMPT, 0, promptData, rpc);
   ANSWER = await importReal(ACC_CAP, "Acme Massage in Malmö is a good option to book.");
   BASELINE = await importReal("2024-04-01T00:00:00Z", "Acme Massage in Malmö is worth comparing.");
-  await db.exec("DELETE FROM public.project_knowledge_sources");
+  // TRUNCATE (not DELETE) to reset sources between tests: a full-table reset that does not fire the candidate's
+  // AFTER DELETE forget-cascade trigger, so cleanup never leaves a spurious source-erasure marker.
+  await db.exec("TRUNCATE public.project_knowledge_sources CASCADE");
   // A trusted, ACTIVE in-scope source (availability requires status='active', mirroring the inspectable
   // gate; a released-side revoke flips this to 'revoked' while retaining the row — see the revoke regression).
   await db.query(

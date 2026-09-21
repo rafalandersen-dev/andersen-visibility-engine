@@ -46,6 +46,11 @@ CREATE TABLE public.ai_citation_findings (
   actor_id uuid NOT NULL, reviewer_id uuid NOT NULL,
   supersedes_id uuid,
   predecessor_deleted boolean NOT NULL DEFAULT false,
+  -- Explicit content-free erasure state: set when a source/record forget (or a save that cites a forgotten
+  -- source) redacted this row's copied support passages. It makes the retained record_sha256 transparently a
+  -- PRE-erasure digest (not a hash of the current redacted payload), is surfaced by the owner detail and the
+  -- reviewer read, and blocks any NEW review from attesting the finding once its evidence was erased.
+  evidence_erased_at timestamptz,
   created_at timestamptz NOT NULL DEFAULT clock_timestamp(),
   PRIMARY KEY(user_id,project_id,id),
   UNIQUE(user_id,project_id,finding_id,version),
@@ -90,6 +95,110 @@ CREATE TABLE public.ai_citation_improvements (
 ALTER TABLE public.ai_citation_findings ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.ai_citation_improvements ENABLE ROW LEVEL SECURITY;
 REVOKE ALL ON public.ai_citation_findings,public.ai_citation_improvements FROM PUBLIC,anon,authenticated,service_role;
+
+-- CONTENT-FREE source-level erasure provenance (P1 retention). A record forget (forget_project_knowledge
+-- 'record') DELETEs the record but KEEPS its source, and the released record tombstone carries no source
+-- mapping — so a later resave / fresh finding citing the surviving source could otherwise re-store the
+-- forgotten passage. This table records, per (owner, project, source), that copied evidence for that source
+-- was forgotten. It holds ONLY ids + a timestamp (no source text — nothing to leak), so the save guard and
+-- the current-status functions can recognise a source with a forget WITHOUT the deleted record's mapping.
+-- CARDINALITY (accurate): one row per DISTINCT source id EVER forgotten in the project — monotonic, and NOT
+-- bounded by the concurrent live-source cap, because sources can be created/forgotten repeatedly and each
+-- distinct forgotten source id adds a row. This deliberately mirrors the released project_knowledge_tombstones
+-- (also one row per distinct forgotten source/record, with no cap): forget provenance MUST persist to prevent
+-- resurrection, so a bounded cap that evicted markers would either fail the user's erasure or re-open the
+-- resurrection hole. The only lifecycle bound is project deletion: the workspace_entities FK ON DELETE CASCADE
+-- clears every marker for a project when it is deleted (at which point findings/improvements are gone too, so
+-- there is nothing left to resurrect). Never a client surface; touched only by SECURITY DEFINER functions.
+CREATE TABLE public.ai_citation_source_erasures (
+  user_id uuid NOT NULL,
+  project_collection text NOT NULL DEFAULT 'projects' CHECK(project_collection='projects'),
+  project_id text NOT NULL,
+  source_id uuid NOT NULL,
+  erased_at timestamptz NOT NULL DEFAULT clock_timestamp(),
+  PRIMARY KEY(user_id,project_id,source_id),
+  FOREIGN KEY(user_id,project_collection,project_id) REFERENCES public.workspace_entities(user_id,collection,entity_id) ON DELETE CASCADE
+);
+ALTER TABLE public.ai_citation_source_erasures ENABLE ROW LEVEL SECURITY;
+REVOKE ALL ON public.ai_citation_source_erasures FROM PUBLIC,anon,authenticated,service_role;
+
+-- Forget cascade (P1 retention). BOTH forget kinds are ERASURES: forget_project_knowledge('source') DELETEs
+-- the source row (cascading its records/documents) and forget_project_knowledge('record') DELETEs a record and
+-- its history. A dependent citation finding kept its OWN copy of inspected source text in
+-- record.support[].sourcePassage, and the owner detail and for-review reads return record verbatim — so
+-- honoring the forget only in the live source read would still leak the copy. This shared redactor ERASES the
+-- copied passage text (replacing it with a visible marker, never the original) in EVERY version of EVERY
+-- finding of the SAME owner+project that cites the given source, across the whole version chain, and stamps
+-- evidence_erased_at so the erasure is explicit on the reads.
+--   * Source match is by SEMANTIC uuid, not raw text: the evidence id is stored as a case-insensitive uuid
+--     string (input allows uppercase, and sources_available casts it), so we compare lower(e->>'id') — a raw
+--     e->>'id'=OLD.id::text miss would leave an uppercase-source finding un-erased. A non-uuid id (native /
+--     answer evidence) simply never matches, so the cast is never forced on junk.
+--   * A RECORD forget cannot be attributed to a single support passage — support carries NO record-id pin — so
+--     the record trigger conservatively erases every copied passage of findings citing that record's SOURCE
+--     (OLD.source_id). It errs toward erasure rather than leaving possibly-forgotten text, and never touches an
+--     unrelated source or project. Multi-source findings are likewise erased wholesale for the cited source,
+--     because no reliable per-passage attribution exists — we do NOT pretend one.
+--   * SCOPE BOUNDARY (documented, not silently assumed): only the STRUCTURED copied-source field
+--     support[].sourcePassage is auto-erased. observation / hypothesis / support[].reason are free-text
+--     reviewer analysis in the accepted contract, with no structured source-copy semantics; auto-wiping all
+--     reviewer prose on any forget would destroy legitimate independent analysis and cannot be attributed to a
+--     forgotten source. If reviewer prose must also be scrubbed that is a separate deliberate step; this is a
+--     stated retention boundary, not an assumption that prose can never contain pasted source text.
+-- record_sha256 is LEFT UNCHANGED (a one-way digest reveals nothing); with evidence_erased_at surfaced it is
+-- transparently a PRE-erasure digest, the content-free receipts keep their exact reviewed-content anchor for
+-- audit (never rewritten), and an identical re-save maps by that digest back to the redacted row. A REVOCATION
+-- (row kept, status flipped) is NOT a delete, fires no trigger, and downgrades CURRENT validity via
+-- sources_available / citation_finding_inspectable instead. Trigger-only; granted to no role.
+CREATE FUNCTION public.citation_forget_redact_source(p_user uuid,p_project text,p_source uuid) RETURNS void
+LANGUAGE plpgsql SECURITY DEFINER SET search_path='' AS $$
+BEGIN
+  -- Whole-project (or account) removal deletes the workspace_entities project row FIRST, then the released
+  -- purge_deleted_project_knowledge AFTER DELETE trigger deletes its sources/records — firing this trigger with
+  -- the parent project already gone. Skip entirely in that case: the findings/improvements/erasure rows are
+  -- being cascade-deleted anyway (nothing to redact), and inserting provenance would orphan the workspace_entities
+  -- FK (SQLSTATE 23503) and fail the user's delete. A source/record forget while the project SURVIVES still runs
+  -- (the project row exists), so erasure + no-resurrection are preserved. Account deletion is the same path:
+  -- workspace_entities cascades from auth.users before the source rows are purged, so the project is already gone.
+  IF NOT EXISTS(SELECT 1 FROM public.workspace_entities
+       WHERE user_id=p_user AND collection='projects' AND entity_id=p_project) THEN
+    RETURN;
+  END IF;
+  -- Record the content-free source-level erasure FIRST (even if no current finding cites the source yet), so a
+  -- later resave or fresh finding citing this source is caught by the save guard — the deleted record tombstone
+  -- has no source mapping, this does.
+  INSERT INTO public.ai_citation_source_erasures(user_id,project_id,source_id)
+    VALUES(p_user,p_project,p_source) ON CONFLICT(user_id,project_id,source_id) DO NOTHING;
+  UPDATE public.ai_citation_findings f
+    SET record = jsonb_set(f.record,'{support}',(
+      SELECT coalesce(jsonb_agg(
+        CASE WHEN s->>'sourcePassage' IS NOT NULL
+          THEN jsonb_set(s,'{sourcePassage}',to_jsonb('[redacted: source forgotten]'::text))
+          ELSE s END ORDER BY ord),'[]'::jsonb)
+      FROM jsonb_array_elements(f.record->'support') WITH ORDINALITY AS a(s,ord))),
+      evidence_erased_at = coalesce(f.evidence_erased_at, clock_timestamp())
+    WHERE f.user_id=p_user AND f.project_id=p_project
+      AND jsonb_typeof(f.record->'support')='array'
+      AND EXISTS(SELECT 1 FROM jsonb_array_elements(
+            CASE WHEN jsonb_typeof(f.record->'evidence')='array' THEN f.record->'evidence' ELSE '[]'::jsonb END) e
+          WHERE e->>'kind'='source' AND lower(e->>'id')=p_source::text)
+      AND EXISTS(SELECT 1 FROM jsonb_array_elements(f.record->'support') s WHERE s->>'sourcePassage' IS NOT NULL);
+END; $$;
+REVOKE ALL ON FUNCTION public.citation_forget_redact_source(uuid,text,uuid) FROM PUBLIC,anon,authenticated,service_role;
+CREATE FUNCTION public.citation_forget_source_passages() RETURNS trigger
+LANGUAGE plpgsql SECURITY DEFINER SET search_path='' AS $$
+BEGIN PERFORM public.citation_forget_redact_source(OLD.user_id,OLD.project_id,OLD.id); RETURN OLD; END; $$;
+REVOKE ALL ON FUNCTION public.citation_forget_source_passages() FROM PUBLIC,anon,authenticated,service_role;
+CREATE FUNCTION public.citation_forget_record_passages() RETURNS trigger
+LANGUAGE plpgsql SECURITY DEFINER SET search_path='' AS $$
+BEGIN PERFORM public.citation_forget_redact_source(OLD.user_id,OLD.project_id,OLD.source_id); RETURN OLD; END; $$;
+REVOKE ALL ON FUNCTION public.citation_forget_record_passages() FROM PUBLIC,anon,authenticated,service_role;
+CREATE TRIGGER citation_forget_source_passages_trg
+  AFTER DELETE ON public.project_knowledge_sources
+  FOR EACH ROW EXECUTE FUNCTION public.citation_forget_source_passages();
+CREATE TRIGGER citation_forget_record_passages_trg
+  AFTER DELETE ON public.project_knowledge_records
+  FOR EACH ROW EXECUTE FUNCTION public.citation_forget_record_passages();
 
 -- INDEPENDENT (two-person) review receipts (spec §4.5: "a second studio reviewer checks ambiguous or
 -- high-impact claims"). This is a SEPARATE, additive table — NOT a finding-record field — because the
@@ -256,16 +365,22 @@ REVOKE ALL ON FUNCTION public.citation_finding_inspectable(uuid,text,jsonb) FROM
 -- OTHER than the owner count (defence in depth; the save already forbids the owner). Internal-only.
 CREATE FUNCTION public.citation_finding_review_status(p_user uuid,p_project text,p_row uuid)
 RETURNS text LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path='' AS $$
-DECLARE dec text; approved_complete integer; approved_opinion integer; dissent integer;
+DECLARE dec text; erased timestamptz; approved_complete integer; approved_opinion integer; dissent integer;
 BEGIN
-  SELECT decision INTO dec FROM public.ai_citation_findings WHERE user_id=p_user AND project_id=p_project AND id=p_row;
+  SELECT decision,evidence_erased_at INTO dec,erased FROM public.ai_citation_findings WHERE user_id=p_user AND project_id=p_project AND id=p_row;
   IF dec IS NULL THEN RETURN 'owner_only'; END IF;
   SELECT count(*) FILTER (WHERE decision='approved' AND inspection_complete),
          count(*) FILTER (WHERE decision='approved' AND NOT inspection_complete),
          count(*) FILTER (WHERE decision IN ('rejected','needs_changes'))
     INTO approved_complete,approved_opinion,dissent FROM public.ai_citation_finding_reviews
     WHERE user_id=p_user AND project_id=p_project AND finding_row_id=p_row AND reviewer_id<>p_user AND NOT withdrawn;
+  -- A dissent is NEVER silently sanitised — it stays surfaced even after erasure. But once the finding's
+  -- evidence has been FORGOTTEN (evidence_erased_at set), the historical approvals no longer attest the
+  -- current (redacted) payload: they stay in the receipts list as historic, and the current status collapses
+  -- to owner_only rather than pretending an independent_reviewed/opinion of erased content. No new receipt can
+  -- lift it (save_ai_citation_finding_review refuses an erased finding), so there is no silent resurrection.
   IF dissent>0 THEN RETURN 'independent_dissent'; END IF;
+  IF erased IS NOT NULL THEN RETURN 'owner_only'; END IF;
   IF approved_complete>0 THEN RETURN 'independent_reviewed'; END IF;
   IF dec='needs_second_review' THEN RETURN 'second_review_pending'; END IF;
   IF approved_opinion>0 THEN RETURN 'independent_opinion'; END IF;
@@ -378,17 +493,19 @@ REVOKE ALL ON FUNCTION public.citation_improvement_evidence(uuid,text,jsonb) FRO
 --                       destination actually shows the approved content.
 --   'owner_attested'    plus a STRUCTURED owner inspection of that exact liveUrl reading
 --                       shows_approved_content at a finite, on/after-(publication AND current approval),
---                       non-future time (5-minute clock-skew policy), AND a still-resolving scoped baseline
---                       (evidenceStatus='baseline_recorded'). An authenticated OWNER before/after
---                       attestation, still NOT a system/independent verification.
+--                       non-future time (5-minute clock-skew policy), a still-resolving scoped baseline
+--                       (evidenceStatus='baseline_recorded'), AND every bound finding still CURRENTLY
+--                       inspectable (its cited evidence readable NOW — see the loop). An authenticated OWNER
+--                       before/after attestation, still NOT a system/independent verification.
 -- Deleting the publication, the approval (asset/version change or withdrawal), the asset, a pinned finding
--- or a baseline — or a re-approval that post-dates the inspection — collapses this back down; a stored
--- binding never keeps a stale current status.
+-- or a baseline — a re-approval that post-dates the inspection — or FORGETTING a bound finding's records /
+-- advancing its source revision so no current material matches — collapses this back down; a stored binding
+-- never keeps a stale current status, and an old inspection_complete receipt never revives it.
 CREATE FUNCTION public.citation_improvement_status(p_user uuid,p_project text,p_record jsonb,p_bound uuid[],p_binding jsonb)
 RETURNS text LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path='' AS $$
 DECLARE frec jsonb; i integer; pub public.publication_evidence%ROWTYPE;
   b_asset text; b_vhash text; live_url text; insp jsonb; status text; appr_at timestamptz; obs timestamptz;
-  acc_unresolved boolean := false; review_incomplete boolean := false;
+  acc_unresolved boolean := false; review_incomplete boolean := false; material_uninspectable boolean := false; f_erased timestamptz;
 BEGIN
   IF p_binding IS NULL OR jsonb_typeof(p_binding)<>'object' THEN RETURN 'unverified'; END IF;
   -- Every PINNED finding version row must still exist with resolvable in-scope sources. A bound finding
@@ -396,11 +513,16 @@ BEGIN
   -- keeps the finding available but forfeits the owner_attested before/after claim below.
   IF coalesce(array_length(p_bound,1),0)=0 THEN RETURN 'unverified'; END IF;
   FOR i IN 1..array_length(p_bound,1) LOOP
-    SELECT record INTO frec FROM public.ai_citation_findings
+    SELECT record,evidence_erased_at INTO frec,f_erased FROM public.ai_citation_findings
       WHERE user_id=p_user AND project_id=p_project AND id=p_bound[i];
     IF frec IS NULL OR NOT public.citation_finding_sources_available(p_user,p_project,frec) THEN
       RETURN 'unverified';
     END IF;
+    -- A bound finding whose cited evidence was FORGOTTEN (evidence_erased_at set) forfeits the owner_attested
+    -- before/after claim even if another record of the source still makes it inspectable NOW: the SPECIFIC
+    -- reviewed content was erased, so a stale receipt must not be treated as current attestation. The finding
+    -- stays available (connector_receipt delivery is unaffected); the historical receipt stays historic.
+    IF f_erased IS NOT NULL THEN material_uninspectable := true; END IF;
     IF public.citation_finding_accuracy_status(p_user,p_project,frec)='unresolved' THEN
       acc_unresolved := true;
     END IF;
@@ -409,6 +531,16 @@ BEGIN
     -- never fabricated into a fully-attested improvement). It still keeps the finding available.
     IF public.citation_finding_review_status(p_user,p_project,p_bound[i]) IN ('second_review_pending','independent_dissent') THEN
       review_incomplete := true;
+    END IF;
+    -- CURRENT substantive-material dependency (fix): sources_available above only proves the source ROW still
+    -- exists and is active — NOT that the finding's cited evidence is still readable NOW. Reuse the canonical
+    -- citation_finding_inspectable, which requires each cited answer within its cap and each cited source
+    -- active WITH substantive material at the CURRENT revision (and never treats an opaque native artifact as
+    -- parsed proof). So a record-only forget, or a source-revision advance that leaves no matching material —
+    -- even though the active source row survives — forfeits the owner_attested before/after claim below rather
+    -- than letting an old inspection_complete receipt prop it up. The finding still stays available.
+    IF NOT public.citation_finding_inspectable(p_user,p_project,frec) THEN
+      material_uninspectable := true;
     END IF;
   END LOOP;
   b_asset := p_binding->>'assetId'; b_vhash := p_binding->>'versionHash';
@@ -441,6 +573,7 @@ BEGIN
        AND pub.finished_at IS NOT NULL
        AND NOT acc_unresolved
        AND NOT review_incomplete
+       AND NOT material_uninspectable
        AND public.citation_improvement_evidence(p_user,p_project,p_record)='baseline_recorded' THEN
       BEGIN obs := (insp->>'observedAt')::timestamptz; EXCEPTION WHEN others THEN obs := NULL; END;
       IF obs IS NOT NULL AND isfinite(obs)
@@ -457,7 +590,7 @@ REVOKE ALL ON FUNCTION public.citation_improvement_status(uuid,text,jsonb,uuid[]
 CREATE FUNCTION public.save_ai_citation_finding(p_user uuid,p_project text,p_record jsonb,p_scope jsonb)
 RETURNS jsonb LANGUAGE plpgsql SECURITY DEFINER SET search_path='' AS $$
 DECLARE digest text; existing uuid; head uuid; new_id uuid; next_version integer;
-  fid uuid; fam text; dec text; reviewer uuid;
+  fid uuid; fam text; dec text; reviewer uuid; erased boolean := false;
   panel uuid; pver integer; cname text; cmarket text;
 BEGIN
   PERFORM public.assert_knowledge_project(p_user,p_project,true);
@@ -529,11 +662,34 @@ BEGIN
     ORDER BY a.version DESC,a.created_at DESC,a.id DESC LIMIT 1;
   SELECT coalesce(max(version),0)+1 INTO next_version FROM public.ai_citation_findings
     WHERE user_id=p_user AND project_id=p_project AND finding_id=fid;
+  -- Anti-resurrection (P1 retention): a NEW version — identical OR altered — that still cites a source whose
+  -- copied evidence was FORGOTTEN must never re-store the passage. The digest above is over the SUBMITTED
+  -- record, so an identical re-save already mapped back to the (redacted) existing row; an ALTERED re-save (or a
+  -- fresh finding) reaches here, so if any cited source carries a source-level erasure marker redact the
+  -- support passages before the INSERT and mark the row evidence-erased. The marker (not a source tombstone) is
+  -- used because a RECORD forget keeps the source alive and leaves no source-mapped tombstone; the marker
+  -- covers both forget kinds by semantic uuid. record_sha256 stays the submitted-content digest (the pre-erasure
+  -- anchor). This redacts the copied passage but does NOT block the finding — unrelated input is unaffected.
+  IF EXISTS(SELECT 1 FROM jsonb_array_elements(
+        CASE WHEN jsonb_typeof(p_record->'evidence')='array' THEN p_record->'evidence' ELSE '[]'::jsonb END) e
+      JOIN public.ai_citation_source_erasures x
+        ON x.user_id=p_user AND x.project_id=p_project AND x.source_id::text=lower(e->>'id')
+      WHERE e->>'kind'='source') THEN
+    IF jsonb_typeof(p_record->'support')='array' THEN
+      p_record := jsonb_set(p_record,'{support}',(
+        SELECT coalesce(jsonb_agg(
+          CASE WHEN s->>'sourcePassage' IS NOT NULL
+            THEN jsonb_set(s,'{sourcePassage}',to_jsonb('[redacted: source forgotten]'::text))
+            ELSE s END ORDER BY ord),'[]'::jsonb)
+        FROM jsonb_array_elements(p_record->'support') WITH ORDINALITY AS a(s,ord)));
+    END IF;
+    erased := true;
+  END IF;
   INSERT INTO public.ai_citation_findings
     (user_id,project_id,finding_id,version,family,decision,record,record_sha256,
-     panel_id,panel_version,client_name,client_market,actor_id,reviewer_id,supersedes_id)
+     panel_id,panel_version,client_name,client_market,actor_id,reviewer_id,supersedes_id,evidence_erased_at)
     VALUES(p_user,p_project,fid,next_version,fam,dec,p_record,digest,
-     panel,pver,cname,cmarket,p_user,p_user,head)
+     panel,pver,cname,cmarket,p_user,p_user,head,CASE WHEN erased THEN clock_timestamp() ELSE NULL END)
     RETURNING id INTO new_id;
   RETURN (SELECT jsonb_build_object('id',id,'findingId',finding_id,'version',version,'family',family,
     'decision',decision,'panelId',panel_id,'panelVersion',panel_version,
@@ -570,6 +726,7 @@ BEGIN
     'client',jsonb_build_object('name',client_name,'market',client_market),
     'actorId',actor_id,'reviewerId',reviewer_id,'supersedesId',supersedes_id,
     'predecessorDeleted',predecessor_deleted,'createdAt',created_at,'record',record,
+    'evidenceErased',(evidence_erased_at IS NOT NULL),
     'sourceAvailable',public.citation_finding_sources_available(p_user,p_project,record),
     'accuracyStatus',public.citation_finding_accuracy_status(p_user,p_project,record),
     'reviewStatus',public.citation_finding_review_status(p_user,p_project,id),
@@ -1188,7 +1345,7 @@ GRANT EXECUTE ON FUNCTION
 -- independent reviewer). Publication/spend permissions are entirely separate and untouched.
 CREATE FUNCTION public.save_ai_citation_finding_review(p_actor uuid,p_owner uuid,p_project text,p_finding uuid,p_expected_sha text,p_decision text,p_note text)
 RETURNS jsonb LANGUAGE plpgsql SECURITY DEFINER SET search_path='' AS $$
-DECLARE auth record; f_sha text; f_id uuid; f_ver integer; f_reviewer uuid; frec jsonb; insp boolean; new_id uuid;
+DECLARE auth record; f_sha text; f_id uuid; f_ver integer; f_reviewer uuid; frec jsonb; insp boolean; new_id uuid; f_erased timestamptz;
   existing public.ai_citation_finding_reviews%ROWTYPE;
 BEGIN
   IF p_actor IS NULL OR p_owner IS NULL OR p_actor=p_owner OR p_finding IS NULL
@@ -1214,9 +1371,13 @@ BEGIN
   PERFORM public.assert_project_team_account(p_actor);
   SELECT * INTO auth FROM public.citation_review_authorized(p_actor,p_owner,p_project);
   IF NOT auth.allowed THEN RAISE EXCEPTION 'citation_review_forbidden' USING ERRCODE='22023'; END IF;
-  SELECT record_sha256,finding_id,version,reviewer_id,record INTO f_sha,f_id,f_ver,f_reviewer,frec
+  SELECT record_sha256,finding_id,version,reviewer_id,record,evidence_erased_at INTO f_sha,f_id,f_ver,f_reviewer,frec,f_erased
     FROM public.ai_citation_findings WHERE user_id=p_owner AND project_id=p_project AND id=p_finding;
   IF f_sha IS NULL THEN RAISE EXCEPTION 'citation_finding_unavailable' USING ERRCODE='22023'; END IF;
+  -- A finding whose cited evidence has been FORGOTTEN (its copied passages erased) can no longer be
+  -- independently attested: a new receipt would otherwise pin the retained PRE-erasure record_sha256 to a
+  -- redacted payload. Refuse — the finding's evidence is unavailable. Existing historical receipts are kept.
+  IF f_erased IS NOT NULL THEN RAISE EXCEPTION 'citation_finding_unavailable' USING ERRCODE='22023'; END IF;
   -- No self second-review: the finding's primary reviewer (the owner) cannot also be the independent one.
   IF f_reviewer = p_actor THEN RAISE EXCEPTION 'citation_review_forbidden' USING ERRCODE='22023'; END IF;
   -- Bind to the EXACT reviewed content: attesting to content that is no longer this row (e.g. a version
@@ -1364,6 +1525,7 @@ DECLARE auth record; frow public.ai_citation_findings%ROWTYPE; frec jsonb; e jso
   ev_json jsonb := '[]'::jsonb; facts_json jsonb := '[]'::jsonb; reviews jsonb; total integer;
   ans jsonb; src jsonb; srev integer; mat jsonb; mcount integer; nat boolean;
   fk text; fv text; ffrom timestamptz; funtil timestamptz; ffound boolean;
+  frec_response jsonb; passages_withheld boolean := false;
 BEGIN
   IF p_actor IS NULL OR p_owner IS NULL OR p_id IS NULL THEN RAISE EXCEPTION 'citation_review_invalid' USING ERRCODE='22023'; END IF;
   PERFORM public.assert_knowledge_project(p_owner,p_project);
@@ -1396,23 +1558,34 @@ BEGIN
           'contentTruncated',coalesce(char_length(ans->'input'->>'rawAnswer'),0)>50000);
       ELSIF e->>'kind'='source' THEN
         SELECT payload,revision INTO src,srev FROM public.project_knowledge_sources WHERE user_id=p_owner AND project_id=p_project AND id=ref;
-        -- Substantive source MATERIAL: the released knowledge records bound to THIS source at its CURRENT
-        -- revision (their `value`/`excerpt`/`locator`), scoped to the cited source only — never the whole
-        -- knowledge corpus and never the raw document bytes (service-only). Plus the source identity/
-        -- provenance (label, url, fingerprint, capture time). Inspectable requires ACTIVE + real material,
-        -- since label/url/fingerprint are attribution, not support (§4.2).
-        SELECT count(*) INTO mcount FROM public.project_knowledge_records r
-          WHERE r.user_id=p_owner AND r.project_id=p_project AND r.source_id=ref
-            AND (r.payload->>'sourceRevision')=srev::text AND coalesce(r.payload->>'value','')<>'';
-        -- Return the material IN FULL up to 300 (the project record cap, so an ordinary source is entirely
-        -- inspectable), deterministically ordered by record id, with each record's identity/revision for
-        -- provenance. The inner subquery MUST expose `id` for the ORDER BY. This 300 matches the gate cap.
-        SELECT coalesce(jsonb_agg(jsonb_build_object('recordId',id,'value',payload->>'value','excerpt',payload->>'excerpt',
-          'locator',payload->>'locator','category',payload->>'category','status',payload->>'status',
-          'recordRevision',revision) ORDER BY id),'[]'::jsonb) INTO mat
-          FROM (SELECT id,payload,revision FROM public.project_knowledge_records
-            WHERE user_id=p_owner AND project_id=p_project AND source_id=ref
-              AND (payload->>'sourceRevision')=srev::text AND coalesce(payload->>'value','')<>'' ORDER BY id LIMIT 300) m;
+        -- Any cited source that is revoked or missing taints the reviewer's copied-passage view (see below):
+        -- support[] carries no per-passage source pin, so once one cited source is deactivated we cannot prove
+        -- which owner-copied passage came from a still-live source, and conservatively withhold ALL of them.
+        IF src IS NULL OR (src->>'status')<>'active' THEN passages_withheld := true; END IF;
+        -- Substantive source MATERIAL, GATED on the source being ACTIVE. A REVOKED source (or a missing one)
+        -- is deactivated, so its live records are WITHHELD from the reviewer here — inspectable was already
+        -- false for it, and now materialCount/material do not serialize the deactivated source's record
+        -- value/excerpt/locator either (previously they were queried and returned regardless of status). This
+        -- is ACCESS-TIME withholding of LIVE source material, distinct from ERASURE: the owner's OWN copied
+        -- support[].sourcePassage in the finding record is NOT touched by revocation (revocation is not a
+        -- forget; only a forget erases the stored copy). Scoped to the cited source at its CURRENT revision;
+        -- never the whole corpus, never the raw document bytes (service-only). label/url/fingerprint stay as
+        -- attribution (not support, §4.2) so the reviewer still sees WHY it is non-inspectable ('revoked').
+        IF src IS NOT NULL AND (src->>'status')='active' THEN
+          SELECT count(*) INTO mcount FROM public.project_knowledge_records r
+            WHERE r.user_id=p_owner AND r.project_id=p_project AND r.source_id=ref
+              AND (r.payload->>'sourceRevision')=srev::text AND coalesce(r.payload->>'value','')<>'';
+          -- Material IN FULL up to 300 (the project record cap), deterministically ordered by record id, with
+          -- each record's identity/revision for provenance. The inner subquery MUST expose `id` for ORDER BY.
+          SELECT coalesce(jsonb_agg(jsonb_build_object('recordId',id,'value',payload->>'value','excerpt',payload->>'excerpt',
+            'locator',payload->>'locator','category',payload->>'category','status',payload->>'status',
+            'recordRevision',revision) ORDER BY id),'[]'::jsonb) INTO mat
+            FROM (SELECT id,payload,revision FROM public.project_knowledge_records
+              WHERE user_id=p_owner AND project_id=p_project AND source_id=ref
+                AND (payload->>'sourceRevision')=srev::text AND coalesce(payload->>'value','')<>'' ORDER BY id LIMIT 300) m;
+        ELSE
+          mcount := 0; mat := '[]'::jsonb;
+        END IF;
         ev_json := ev_json || jsonb_build_object('kind','source','id',e->>'id','available',src IS NOT NULL,
           'inspectable',src IS NOT NULL AND (src->>'status')='active' AND coalesce(mcount,0) BETWEEN 1 AND 300,
           'sourceKind',src->>'kind','status',src->>'status','label',src->>'label',
@@ -1424,6 +1597,25 @@ BEGIN
         ev_json := ev_json || jsonb_build_object('kind','native','id',e->>'id','available',nat,'inspectable',false);
       END IF;
     END LOOP;
+  END IF;
+  -- RESPONSE-ONLY withholding of the owner's COPIED support passages when a cited source is revoked/missing.
+  -- The reviewer response previously returned frec verbatim, including support[].sourcePassage — the owner's
+  -- copy of a now-revoked source's text, delivered to the reviewer even though that source's LIVE material is
+  -- withheld above. Here we build a redacted RESPONSE COPY (never the stored row) that blanks every non-null
+  -- support passage to a marker. This is distinct from ERASURE: the owner's stored ai_citation_findings.record
+  -- is untouched (revocation is not a forget), so the owner's own detail read still returns the real passage;
+  -- only THIS reviewer response withholds it, and `sourcePassagesWithheld` surfaces that so the returned record
+  -- is never mistaken for the recordSha256 preimage (that digest still pins the UNREDACTED stored record — a
+  -- reviewer cannot attest bytes they were not shown as fully inspected, and a revoked source already forces
+  -- inspectionComplete=false). An already-erased finding keeps its stored '[redacted: source forgotten]' copy
+  -- verbatim (no live passage to leak); response-only withholding applies only while NOT erased.
+  IF frow.evidence_erased_at IS NULL AND passages_withheld AND jsonb_typeof(frec->'support')='array' THEN
+    frec_response := jsonb_set(frec,'{support}',(
+      SELECT coalesce(jsonb_agg(CASE WHEN s->>'sourcePassage' IS NOT NULL
+          THEN jsonb_set(s,'{sourcePassage}',to_jsonb('[withheld: source revoked]'::text)) ELSE s END ORDER BY ord),'[]'::jsonb)
+      FROM jsonb_array_elements(frec->'support') WITH ORDINALITY AS a(s,ord)));
+  ELSE
+    frec_response := frec;
   END IF;
   -- The dated fact behind each assessed-accuracy claim (only entries that pin a fact row).
   IF jsonb_typeof(frec->'accuracy')='array' THEN
@@ -1450,7 +1642,9 @@ BEGIN
   RETURN jsonb_build_object('id',frow.id,'findingId',frow.finding_id,'version',frow.version,'family',frow.family,
     'decision',frow.decision,'panelId',frow.panel_id,'panelVersion',frow.panel_version,
     'client',jsonb_build_object('name',frow.client_name,'market',frow.client_market),
-    'recordSha256',frow.record_sha256,'record',frec,'createdAt',frow.created_at,
+    'recordSha256',frow.record_sha256,'record',frec_response,'createdAt',frow.created_at,
+    'evidenceErased',(frow.evidence_erased_at IS NOT NULL),
+    'sourcePassagesWithheld',(frow.evidence_erased_at IS NULL AND passages_withheld),
     'sourceAvailable',public.citation_finding_sources_available(p_owner,p_project,frec),
     'accuracyStatus',public.citation_finding_accuracy_status(p_owner,p_project,frec),
     'reviewStatus',public.citation_finding_review_status(p_owner,p_project,frow.id),

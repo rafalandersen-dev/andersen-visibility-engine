@@ -199,6 +199,12 @@ describe("candidate migration chain", () => {
     "citation_improvement_status(uuid,text,jsonb,uuid[],jsonb)",
     "citation_review_authorized(uuid,uuid,text)",
     "citation_finding_review_status(uuid,text,uuid)",
+    // Forget-cascade objects added by this candidate: the shared passage redactor plus the two trigger
+    // functions fired by AFTER DELETE on the released project_knowledge_sources / project_knowledge_records.
+    // All REVOKEd from every role — reached only from their triggers.
+    "citation_forget_redact_source(uuid,text,uuid)",
+    "citation_forget_source_passages()",
+    "citation_forget_record_passages()",
   ])("%s is reachable only from definer functions", async (fn) => {
     for (const role of ["anon", "authenticated", "service_role", "public"])
       expect(await allowed(role, fn)).toBe(false);
@@ -247,6 +253,8 @@ describe("candidate migration chain", () => {
       "ai_citation_improvements",
       "ai_citation_finding_reviews",
       "ai_citation_business_facts",
+      // Content-free source-level erasure provenance for the forget cascade (ids + timestamp only).
+      "ai_citation_source_erasures",
     ]) {
       const { rows } = await db.query<{ rls: boolean; policies: string }>(
         "SELECT c.relrowsecurity rls,(SELECT count(*)::text FROM pg_policy WHERE polrelid=c.oid) policies FROM pg_class c JOIN pg_namespace s ON s.oid=c.relnamespace WHERE s.nspname='public' AND c.relname=$1",

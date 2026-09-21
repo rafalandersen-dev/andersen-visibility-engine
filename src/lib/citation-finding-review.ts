@@ -192,6 +192,15 @@ export const citationFindingForReviewSchema = z
     recordSha256: sha256,
     record: findingSchema,
     createdAt: z.string(),
+    // True once a source/record forget erased this finding's copied passages: the recordSha256 above (and any
+    // receipt referencing it) is a PRE-erasure digest, historic — never an attestation of the current payload.
+    evidenceErased: z.boolean(),
+    // True when a cited source is revoked/missing (but NOT erased): the `record.support[].sourcePassage` copies
+    // above are BLANKED to a marker in THIS reviewer response only. The owner's stored record still holds the
+    // real text, and `recordSha256` still pins that UNREDACTED stored record — so a reviewer cannot attest the
+    // withheld bytes as fully inspected (a revoked source already forces `inspectionComplete=false`). Distinct
+    // from `evidenceErased` (a permanent stored erasure). Access-time withholding, not destruction of owner data.
+    sourcePassagesWithheld: z.boolean(),
     sourceAvailable: z.boolean(),
     accuracyStatus: z.enum(CITATION_FINDING_ACCURACY_STATUSES),
     reviewStatus: z.enum(CITATION_FINDING_REVIEW_STATUSES),

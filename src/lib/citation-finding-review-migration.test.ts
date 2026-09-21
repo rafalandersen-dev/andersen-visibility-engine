@@ -3,6 +3,7 @@ import { readFileSync } from "node:fs";
 import { beforeAll, beforeEach, afterAll, describe, it, expect } from "vitest";
 import {
   getCitationFinding,
+  getCitationImprovement,
   readCitationFindings,
   saveCitationFinding,
   saveCitationImprovement,
@@ -1141,5 +1142,554 @@ describe("improvement eligibility: a required-but-missing second review caps own
     await submit(reviewer, f.id, await shaFor(f.id), "needs_changes", "Needs another look.");
     const dropped = await attestedImprovement(fid, "70000000-0000-4000-8000-000000000021");
     expect(dropped.verificationStatus).toBe("connector_receipt");
+  });
+});
+// Two linked evidence-lifecycle fixes, exercised through the ACTUAL released forget_project_knowledge RPC:
+//  (1) forgetting a SOURCE erases the copied support[].sourcePassage a finding kept in its own record (across
+//      every version), on storage and both read surfaces, without touching unrelated sources or resurrecting
+//      the passage on a re-save; and (2) a record-only forget or a source-revision advance (active source
+//      kept, sources_available still true) makes the bound finding non-inspectable NOW, so a previously
+//      owner_attested improvement honestly downgrades — the historical receipt staying auditable.
+describe("evidence lifecycle: forgetting a source erases copied material and downgrades stale attestations", () => {
+  const PASSAGE = "SECRET COPIED PASSAGE: Massage from 500 SEK, open Mon-Sat.";
+  const REDACTED = "[redacted: source forgotten]";
+  const RECORD2 = "b1000000-0000-4000-8000-000000000002"; // a SECOND record of SOURCE, so forgetting one keeps the source alive
+  const sourceFinding = (
+    findingId: string,
+    opts: {
+      source?: string;
+      sourceRef?: string;
+      observation?: string;
+      passage?: string;
+      evidence?: Array<{ kind: "answer" | "native" | "source"; id: string }>;
+    } = {},
+  ) => ({
+    findingId,
+    family: "citation_source" as const,
+    // `sourceRef` lets a test cite the source id in a different CASE than the stored (canonical-lowercase)
+    // source row, to prove the forget cascade matches by semantic uuid rather than raw text; `evidence` lets a
+    // test cite several sources (e.g. a revoked + an active one) in the same finding.
+    evidence: opts.evidence ?? [
+      { kind: "source" as const, id: opts.sourceRef ?? opts.source ?? SOURCE },
+    ],
+    entityMatch: "confirmed" as const,
+    capture: { answerComplete: true, citationsComplete: true },
+    observation: opts.observation ?? "The answer cites a competitor but not this business.",
+    hypothesis: null,
+    competitorCited: true,
+    ownCited: false,
+    recommendation: null,
+    support: [
+      {
+        claimSpan: "It says massage from 500 SEK.",
+        citedUrl: "https://acme.example/services",
+        answerCapturedAt: ACC_CAP,
+        status: "supports",
+        sourcePassage: opts.passage ?? PASSAGE,
+        sourceCapturedAt: ACC_CAP,
+        reason: "The page confirms the price.",
+        review: { reviewer: user, reviewedAt: now },
+      },
+    ],
+    accuracy: [],
+    priority: {
+      harm: "medium" as const,
+      relevance: "medium" as const,
+      fixability: "medium" as const,
+    },
+    decision: "accepted" as const,
+    review: { reviewer: user, reviewedAt: now },
+    secondReview: null,
+    linkedTaskId: null,
+  });
+  const saveRaw = async (record: unknown) => {
+    const r = await rpc("save_ai_citation_finding", {
+      p_user: user,
+      p_project: "p",
+      p_record: record,
+      p_scope: panelScope,
+    });
+    if (r.error) throw r.error;
+    return (r.data as { id: string }).id;
+  };
+  const storedPassage = async (rowId: string) =>
+    (
+      await db.query<{ p: string | null }>(
+        "SELECT (record->'support'->0->>'sourcePassage') p FROM ai_citation_findings WHERE id=$1",
+        [rowId],
+      )
+    ).rows[0].p;
+  const forget = (kind: string, id: string, expected = 1) =>
+    rpc("forget_project_knowledge", {
+      p_user: user,
+      p_project: "p",
+      p_kind: kind,
+      p_id: id,
+      p_expected: expected,
+    });
+  beforeEach(async () => {
+    // The global beforeEach truncates sources (cascading records) but NOT the durable tombstones; clear both
+    // so a forget in one test cannot mark a later test's freshly-seeded source as already-forgotten.
+    await db.exec(
+      "TRUNCATE public.project_knowledge_sources CASCADE; TRUNCATE public.project_knowledge_tombstones;",
+    );
+  });
+  it("forgetting a source erases copied support passages from storage and both read surfaces across all versions, leaving an unrelated source intact", async () => {
+    await seedSource("active", SOURCE);
+    await seedSource("active", SOURCE2);
+    const v1 = await saveRaw(sourceFinding("60000000-0000-4000-8000-0000000000d1"));
+    const v2 = await saveRaw(
+      sourceFinding("60000000-0000-4000-8000-0000000000d1", {
+        observation: "Revised observation of the same finding.",
+      }),
+    );
+    const unrelated = await saveRaw(
+      sourceFinding("60000000-0000-4000-8000-0000000000d2", { source: SOURCE2 }),
+    );
+    expect(await storedPassage(v1)).toBe(PASSAGE);
+    expect((await forget("source", SOURCE)).error).toBeNull();
+    // Every version of the dependent finding is redacted in storage...
+    expect(await storedPassage(v1)).toBe(REDACTED);
+    expect(await storedPassage(v2)).toBe(REDACTED);
+    // ...and on the reviewer and owner read surfaces, with the original text gone from both.
+    const view = await getCitationFindingForReview(
+      reviewer,
+      { ownerId: user, projectId: "p", findingRowId: v2 },
+      rpc,
+    );
+    const sup = view.record.support[0] as { sourcePassage: string | null };
+    expect(sup.sourcePassage).toBe(REDACTED);
+    // The erasure is surfaced explicitly on the reviewer response, so the retained recordSha256 (and any
+    // receipt referencing it) reads as a pre-erasure digest, not an attestation of the current payload.
+    expect(view.evidenceErased).toBe(true);
+    const detail = await getCitationFinding(scope, v2, rpc);
+    expect(JSON.stringify(detail)).not.toContain("SECRET COPIED PASSAGE");
+    expect(detail.evidenceErased).toBe(true);
+    // The unrelated source's finding keeps its passage AND is NOT marked erased — no blanket deletion.
+    expect(await storedPassage(unrelated)).toBe(PASSAGE);
+    const unrelatedDetail = await getCitationFinding(scope, unrelated, rpc);
+    expect(unrelatedDetail.evidenceErased).toBe(false);
+  });
+  it("does not resurrect a forgotten passage when the original finding is re-saved (idempotent to the redacted row)", async () => {
+    await seedSource("active", SOURCE);
+    const rec = sourceFinding("60000000-0000-4000-8000-0000000000d3");
+    const id1 = await saveRaw(rec);
+    expect((await forget("source", SOURCE)).error).toBeNull();
+    expect(await storedPassage(id1)).toBe(REDACTED);
+    // Re-submitting the EXACT original finding maps by its retained content digest back to the redacted row;
+    // the forgotten passage is never re-stored.
+    const id2 = await saveRaw(rec);
+    expect(id2).toBe(id1);
+    expect(await storedPassage(id1)).toBe(REDACTED);
+  });
+  it("downgrades a previously owner_attested improvement to connector_receipt after a record-only forget, leaving the historical receipt auditable", async () => {
+    await seedApproval();
+    await seedPublication();
+    await seedSource("active", SOURCE);
+    await seedRecord(RECORD, SOURCE, 1, "Massage from 500 SEK; open Mon-Sat.");
+    const fid = "60000000-0000-4000-8000-0000000000e1";
+    const row = await saveRaw(sourceFinding(fid));
+    await submit(reviewer, row, await shaFor(row), "approved");
+    const imp = await attestedImprovement(fid, "70000000-0000-4000-8000-0000000000e1");
+    expect(imp.verificationStatus).toBe("owner_attested");
+    // A record-only forget is ALSO an erasure: the active source row stays (sources_available true) but the
+    // forgotten record's material is gone. So (a) the copied passage is redacted and the finding marked
+    // erased, and (b) the finding is no longer inspectable NOW, so the stale inspection can no longer support
+    // owner_attested — the improvement downgrades to connector_receipt.
+    expect((await forget("record", RECORD)).error).toBeNull();
+    expect(await storedPassage(row)).toBe(REDACTED);
+    const erasedView = await getCitationFindingForReview(
+      reviewer,
+      { ownerId: user, projectId: "p", findingRowId: row },
+      rpc,
+    );
+    expect(erasedView.evidenceErased).toBe(true);
+    const reread = await getCitationImprovement(scope, imp.id, rpc);
+    expect(reread.verificationStatus).toBe("connector_receipt");
+    // The independent receipt is untouched and still auditable — historical validity is distinct from current.
+    const list = await readCitationFindingReviews(
+      reviewer,
+      { ownerId: user, projectId: "p", findingRowId: row },
+      rpc,
+    );
+    expect(list.reviews[0]).toMatchObject({ decision: "approved", withdrawn: false });
+  });
+  it("downgrades owner_attested to connector_receipt when the bound source's revision advances past its material", async () => {
+    await seedApproval();
+    await seedPublication();
+    await seedSource("active", SOURCE);
+    await seedRecord(RECORD, SOURCE, 1, "Massage from 500 SEK.");
+    const fid = "60000000-0000-4000-8000-0000000000e2";
+    await saveRaw(sourceFinding(fid));
+    const imp = await attestedImprovement(fid, "70000000-0000-4000-8000-0000000000e2");
+    expect(imp.verificationStatus).toBe("owner_attested");
+    // Source stays active but advances to revision 2; the material is still bound to revision 1, so no
+    // current-revision material matches → not inspectable → owner_attested forfeited.
+    await db.query(
+      "UPDATE project_knowledge_sources SET revision=2 WHERE user_id=$1 AND project_id='p' AND id=$2",
+      [user, SOURCE],
+    );
+    const reread = await getCitationImprovement(scope, imp.id, rpc);
+    expect(reread.verificationStatus).toBe("connector_receipt");
+  });
+  it("fails closed: a bound source with no current material never reaches owner_attested, and a mismatched forget expectation erases nothing", async () => {
+    await seedApproval();
+    await seedPublication();
+    await seedSource("active", SOURCE); // active source, but NO material records
+    const fid = "60000000-0000-4000-8000-0000000000e3";
+    const row = await saveRaw(sourceFinding(fid));
+    const imp = await attestedImprovement(fid, "70000000-0000-4000-8000-0000000000e3");
+    // No current material → the finding is not inspectable → the top attested tier is withheld.
+    expect(imp.verificationStatus).toBe("connector_receipt");
+    // A forget with a mismatched expected revision is rejected and redacts nothing.
+    expect((await forget("source", SOURCE, 999)).error).not.toBeNull();
+    expect(await storedPassage(row)).toBe(PASSAGE);
+  });
+  it("matches a source cited in a DIFFERENT case (semantic uuid, not raw text) and erases across versions", async () => {
+    const UP = "8000000a-000b-4000-8000-00000000000c"; // has hex letters, so upper/lower differ
+    await seedSource("active", UP);
+    const v1 = await saveRaw(
+      sourceFinding("60000000-0000-4000-8000-0000000000d4", { sourceRef: UP.toUpperCase() }),
+    );
+    const v2 = await saveRaw(
+      sourceFinding("60000000-0000-4000-8000-0000000000d4", {
+        sourceRef: UP.toUpperCase(),
+        observation: "Revised observation of the same finding.",
+      }),
+    );
+    expect(await storedPassage(v1)).toBe(PASSAGE);
+    expect((await forget("source", UP)).error).toBeNull();
+    // The uppercase-cited source is still recognised as the forgotten source (a raw text compare would miss).
+    expect(await storedPassage(v1)).toBe(REDACTED);
+    expect(await storedPassage(v2)).toBe(REDACTED);
+  });
+  it("blocks a NEW review on a finding whose evidence was forgotten, while the pre-existing receipt stays auditable", async () => {
+    await seedSource("active", SOURCE);
+    const fid = "60000000-0000-4000-8000-0000000000d5";
+    const row = await saveRaw(sourceFinding(fid));
+    await submit(reviewer, row, await shaFor(row), "approved", "Looks right.");
+    expect((await forget("source", SOURCE)).error).toBeNull();
+    // A fresh review can no longer attest the finding: its retained (pre-erasure) sha must not be re-approved
+    // onto the redacted payload. The evidence is unavailable, so the submit is refused.
+    await setMember(reviewer2, "reviewer");
+    await expect(submit(reviewer2, row, "a".repeat(64), "approved")).rejects.toThrow();
+    // The historical receipt is retained and auditable (its original hash stays as the audit anchor; the
+    // finding's evidenceErased state marks it historic, not an attestation of the current payload).
+    const list = await readCitationFindingReviews(
+      reviewer,
+      { ownerId: user, projectId: "p", findingRowId: row },
+      rpc,
+    );
+    expect(list.reviews[0]).toMatchObject({ decision: "approved", withdrawn: false });
+  });
+  it("does not resurrect the passage on an ALTERED re-save after the source is forgotten (save-time guard)", async () => {
+    await seedSource("active", SOURCE);
+    const fid = "60000000-0000-4000-8000-0000000000d6";
+    await saveRaw(sourceFinding(fid));
+    expect((await forget("source", SOURCE)).error).toBeNull();
+    // An ALTERED re-save (new content → a different digest that would otherwise INSERT a fresh row with the
+    // passage) still cites the tombstoned source, so the save-time guard strips the passage and marks the new
+    // version erased — identical-hash idempotency alone would not have caught this.
+    const altered = await saveRaw(
+      sourceFinding(fid, {
+        observation: "A materially altered observation to force a new version.",
+      }),
+    );
+    expect(await storedPassage(altered)).toBe(REDACTED);
+    const view = await getCitationFindingForReview(
+      reviewer,
+      { ownerId: user, projectId: "p", findingRowId: altered },
+      rpc,
+    );
+    expect(view.evidenceErased).toBe(true);
+  });
+  it("treats a source REVOCATION (row kept) as NOT an erasure: the copied passage is retained", async () => {
+    await seedSource("active", SOURCE);
+    const row = await saveRaw(sourceFinding("60000000-0000-4000-8000-0000000000d7"));
+    // Revoke (deactivate) the source WITHOUT deleting the row — no forget, no delete trigger, no erasure.
+    await db.query(
+      "UPDATE project_knowledge_sources SET payload=jsonb_set(payload,'{status}','\"revoked\"') WHERE user_id=$1 AND project_id='p' AND id=$2",
+      [user, SOURCE],
+    );
+    expect(await storedPassage(row)).toBe(PASSAGE);
+    const detail = await getCitationFinding(scope, row, rpc);
+    expect(detail.evidenceErased).toBe(false);
+  });
+  it("is tenant-scoped: forgetting one owner's source never touches another owner's finding citing the same source id", async () => {
+    await seedSource("active", SOURCE);
+    const mine = await saveRaw(sourceFinding("60000000-0000-4000-8000-0000000000d8"));
+    // A DIFFERENT owner has their own project and a finding citing the SAME source id (a distinct row keyed by
+    // its own user_id). Insert it directly — the other owner has no citation RPC access in this fixture.
+    await db.query(
+      "INSERT INTO workspace_entities(user_id,collection,entity_id) VALUES($1,'projects','p') ON CONFLICT DO NOTHING",
+      [stranger],
+    );
+    const theirRow = "60000000-0000-4000-8000-0000000000d9";
+    await db.query(
+      "INSERT INTO ai_citation_findings(user_id,project_id,id,finding_id,version,family,decision,record,record_sha256,panel_id,panel_version,client_name,client_market,actor_id,reviewer_id) VALUES($1,'p',$2,$2,1,'citation_source','accepted',$3::jsonb,$4,$5,1,'Acme','US',$1,$1)",
+      [
+        stranger,
+        theirRow,
+        JSON.stringify(sourceFinding(theirRow)),
+        "c".repeat(64),
+        panelScope.panelId,
+      ],
+    );
+    expect((await forget("source", SOURCE)).error).toBeNull();
+    // My finding is erased; the other owner's finding (same source id, different user_id) is untouched.
+    expect(await storedPassage(mine)).toBe(REDACTED);
+    expect(await storedPassage(theirRow)).toBe(PASSAGE);
+  });
+  it("a RECORD forget blocks passage resurrection on an altered re-save AND a fresh finding, while the surviving source stays usable", async () => {
+    await seedSource("active", SOURCE);
+    await seedRecord(RECORD, SOURCE, 1, "Massage from 500 SEK.");
+    await seedRecord(RECORD2, SOURCE, 1, "Open Mon-Sat.");
+    const fid = "60000000-0000-4000-8000-0000000000da";
+    await saveRaw(sourceFinding(fid));
+    // Forget ONE record — the source and the OTHER record survive (an ordinary record update never DELETEs, so
+    // a record delete is always a forget). The lost record tombstone has no source mapping; the source-level
+    // erasure marker supplies it.
+    expect((await forget("record", RECORD)).error).toBeNull();
+    const src = await db.query(
+      "SELECT 1 FROM project_knowledge_sources WHERE user_id=$1 AND project_id='p' AND id=$2",
+      [user, SOURCE],
+    );
+    expect(src.rows.length).toBe(1); // source still usable
+    // An ALTERED re-save (new digest) no longer re-stores the passage...
+    const altered = await saveRaw(
+      sourceFinding(fid, {
+        observation: "A materially altered observation to force a new version.",
+      }),
+    );
+    expect(await storedPassage(altered)).toBe(REDACTED);
+    // ...and a FRESH finding (new logical id) citing the same surviving source is redacted at save too.
+    const fresh = await saveRaw(sourceFinding("60000000-0000-4000-8000-0000000000db"));
+    expect(await storedPassage(fresh)).toBe(REDACTED);
+  });
+  it("honors erasure across review AND improvement status when one of two source records is forgotten (the other stays readable)", async () => {
+    await seedApproval();
+    await seedPublication();
+    await seedSource("active", SOURCE);
+    await seedRecord(RECORD, SOURCE, 1, "Massage from 500 SEK.");
+    await seedRecord(RECORD2, SOURCE, 1, "Open Mon-Sat.");
+    const fid = "60000000-0000-4000-8000-0000000000dc";
+    const row = await saveRaw(sourceFinding(fid));
+    await submit(reviewer, row, await shaFor(row), "approved");
+    expect(await reviewStatusOf(row)).toBe("independent_reviewed");
+    const imp = await attestedImprovement(fid, "70000000-0000-4000-8000-0000000000dc");
+    expect(imp.verificationStatus).toBe("owner_attested");
+    // Forget ONE record; the OTHER survives, so citation_finding_inspectable is still structurally satisfiable
+    // — but the finding's evidence is erased, so every CURRENT status path honors that.
+    expect((await forget("record", RECORD)).error).toBeNull();
+    const rec2 = await db.query(
+      "SELECT 1 FROM project_knowledge_records WHERE user_id=$1 AND project_id='p' AND id=$2",
+      [user, RECORD2],
+    );
+    expect(rec2.rows.length).toBe(1); // the other record is still readable
+    // review status collapses (no pretend independent_reviewed of the erased payload)...
+    expect(await reviewStatusOf(row)).toBe("owner_only");
+    // ...the improvement downgrades owner_attested -> connector_receipt...
+    const reread = await getCitationImprovement(scope, imp.id, rpc);
+    expect(reread.verificationStatus).toBe("connector_receipt");
+    // ...owner detail and reviewer read agree (evidenceErased + reviewStatus), and the receipt is RETAINED.
+    const detail = await getCitationFinding(scope, row, rpc);
+    expect(detail.evidenceErased).toBe(true);
+    expect(detail.reviewStatus).toBe("owner_only");
+    const forReview = await getCitationFindingForReview(
+      reviewer,
+      { ownerId: user, projectId: "p", findingRowId: row },
+      rpc,
+    );
+    expect(forReview.evidenceErased).toBe(true);
+    expect(forReview.reviewStatus).toBe("owner_only");
+    expect(forReview.reviews[0]).toMatchObject({ decision: "approved", withdrawn: false });
+  });
+  it("does not silently resurrect the review or attestation when new material appears after erasure", async () => {
+    await seedApproval();
+    await seedPublication();
+    await seedSource("active", SOURCE);
+    await seedRecord(RECORD, SOURCE, 1, "Massage from 500 SEK.");
+    const fid = "60000000-0000-4000-8000-0000000000dd";
+    const row = await saveRaw(sourceFinding(fid));
+    await submit(reviewer, row, await shaFor(row), "approved");
+    const imp = await attestedImprovement(fid, "70000000-0000-4000-8000-0000000000dd");
+    expect(imp.verificationStatus).toBe("owner_attested");
+    expect((await forget("record", RECORD)).error).toBeNull();
+    expect(await reviewStatusOf(row)).toBe("owner_only");
+    // New material appears LATER on the surviving source (inspectable becomes satisfiable again) — but the
+    // finding stays erased: NO auto-promotion of the old review/attestation, and NO new review is admitted.
+    await seedRecord(RECORD2, SOURCE, 1, "Open Mon-Sat (added later).");
+    expect(await reviewStatusOf(row)).toBe("owner_only");
+    expect((await getCitationImprovement(scope, imp.id, rpc)).verificationStatus).toBe(
+      "connector_receipt",
+    );
+    await expect(submit(reviewer, row, "a".repeat(64), "approved")).rejects.toThrow();
+  });
+  it("deletes a whole project (sources, records, findings, a preexisting erasure marker) atomically without orphaning provenance, leaving another project intact", async () => {
+    await seedSource("active", SOURCE);
+    await seedRecord(RECORD, SOURCE, 1, "Massage from 500 SEK.");
+    await seedRecord(RECORD2, SOURCE, 1, "Open Mon-Sat.");
+    await saveRaw(sourceFinding("60000000-0000-4000-8000-0000000000de"));
+    // Preexisting erasure marker: forget one record (source survives) → marker + finding erased.
+    expect((await forget("record", RECORD)).error).toBeNull();
+    expect(
+      (
+        await db.query(
+          "SELECT 1 FROM ai_citation_source_erasures WHERE user_id=$1 AND project_id='p'",
+          [user],
+        )
+      ).rows.length,
+    ).toBe(1);
+    // Another project of the SAME owner, with its own source + finding, must survive the delete.
+    await db.query(
+      "INSERT INTO project_knowledge_sources(user_id,project_id,id,revision,payload) VALUES($1,'q',$2,1,'{\"status\":\"active\"}'::jsonb)",
+      [user, SOURCE],
+    );
+    const qRow = "60000000-0000-4000-8000-0000000000df";
+    await db.query(
+      "INSERT INTO ai_citation_findings(user_id,project_id,id,finding_id,version,family,decision,record,record_sha256,panel_id,panel_version,client_name,client_market,actor_id,reviewer_id) VALUES($1,'q',$2,$2,1,'citation_source','accepted',$3::jsonb,$4,$5,1,'Acme','US',$1,$1)",
+      [user, qRow, JSON.stringify(sourceFinding(qRow)), "e".repeat(64), panelScope.panelId],
+    );
+    // Delete the WHOLE project 'p' via a real DELETE (driving the released purge trigger + FK cascades). This
+    // used to fail 23503 because the forget trigger re-inserted provenance after the project row was gone.
+    await db.query(
+      "DELETE FROM workspace_entities WHERE user_id=$1 AND collection='projects' AND entity_id='p'",
+      [user],
+    );
+    for (const t of [
+      "project_knowledge_sources",
+      "project_knowledge_records",
+      "ai_citation_findings",
+      "ai_citation_source_erasures",
+    ]) {
+      const r = await db.query(`SELECT 1 FROM ${t} WHERE user_id=$1 AND project_id='p'`, [user]);
+      expect(r.rows.length, t).toBe(0);
+    }
+    // The other project is untouched (isolation).
+    expect(
+      (
+        await db.query(
+          "SELECT 1 FROM ai_citation_findings WHERE user_id=$1 AND project_id='q' AND id=$2",
+          [user, qRow],
+        )
+      ).rows.length,
+    ).toBe(1);
+    expect(
+      (
+        await db.query(
+          "SELECT 1 FROM project_knowledge_sources WHERE user_id=$1 AND project_id='q'",
+          [user],
+        )
+      ).rows.length,
+    ).toBe(1);
+  });
+  it("withholds a REVOKED source's live material from the reviewer response while a co-cited active source stays inspectable", async () => {
+    const REVSRC = "8000000a-000b-4000-8000-00000000000e";
+    await seedSource("active", SOURCE);
+    await seedRecord(RECORD, SOURCE, 1, "Active-source material.");
+    await seedSource("active", REVSRC);
+    // The revoked source's record carries a distinctive live value + excerpt (records survive revocation).
+    await db.query(
+      "INSERT INTO project_knowledge_records(user_id,project_id,id,source_id,revision,payload) VALUES($1::uuid,'p',$2::uuid,$3::uuid,1,jsonb_build_object('sourceId',$3::text,'sourceRevision',1,'value',$4::text,'excerpt',$5::text,'status','accepted'))",
+      [user, RECORD2, REVSRC, "DISTINCTIVE-REVOKED-VALUE", "DISTINCTIVE-REVOKED-EXCERPT"],
+    );
+    await db.query(
+      "UPDATE project_knowledge_sources SET payload=jsonb_set(payload,'{status}','\"revoked\"') WHERE user_id=$1 AND project_id='p' AND id=$2",
+      [user, REVSRC],
+    );
+    const row = await saveRaw(
+      sourceFinding("60000000-0000-4000-8000-0000000000e4", {
+        evidence: [
+          { kind: "source", id: SOURCE },
+          { kind: "source", id: REVSRC },
+        ],
+      }),
+    );
+    const view = await getCitationFindingForReview(
+      reviewer,
+      { ownerId: user, projectId: "p", findingRowId: row },
+      rpc,
+    );
+    const rev = view.evidence.find((e) => e.kind === "source" && e.id === REVSRC)!;
+    expect(rev.kind === "source" && rev.status).toBe("revoked");
+    expect(rev.kind === "source" && rev.inspectable).toBe(false);
+    expect(rev.kind === "source" && rev.materialCount).toBe(0);
+    expect(rev.kind === "source" && rev.material).toEqual([]);
+    // The co-cited ACTIVE source stays inspectable with its material served.
+    const act = view.evidence.find((e) => e.kind === "source" && e.id === SOURCE)!;
+    expect(act.kind === "source" && act.inspectable).toBe(true);
+    expect(act.kind === "source" && act.materialCount).toBe(1);
+    // The revoked source's distinctive LIVE value/excerpt never appear ANYWHERE in the reviewer response — the
+    // material gate is not cosmetic, and the copied-field path (support[].sourcePassage) carries only the
+    // owner-authored passage, not the live records.
+    const whole = JSON.stringify(view);
+    expect(whole).not.toContain("DISTINCTIVE-REVOKED-VALUE");
+    expect(whole).not.toContain("DISTINCTIVE-REVOKED-EXCERPT");
+    // Revocation is NOT erasure — but because a cited source is revoked, this reviewer response conservatively
+    // WITHHOLDS the owner's copied support passage too (the copied-field boundary; asserted in full by the next
+    // test). The finding is not evidence-erased, the withholding is flagged, and the owner's stored copy stays.
+    const sup = view.record.support[0] as { sourcePassage: string | null };
+    expect(sup.sourcePassage).not.toBe(PASSAGE);
+    expect(view.sourcePassagesWithheld).toBe(true);
+    expect(view.evidenceErased).toBe(false);
+    expect(await storedPassage(row)).toBe(PASSAGE);
+  });
+  // The copied-field boundary: support[].sourcePassage is the OWNER's copy of source text, embedded in the
+  // finding record. When a cited source is revoked, the reviewer's live-material gate above is not enough — the
+  // reviewer response still returned that copied passage verbatim. This asserts the RESPONSE now withholds it
+  // (there is no per-passage source pin, so withholding is conservative over ALL support passages once any cited
+  // source is revoked), while the owner's stored record AND the owner's own detail read are untouched (revocation
+  // is not a forget), and a co-cited active source's live material is still served. An all-active finding is
+  // never withheld (the pre-revoke read below proves that).
+  it("withholds the owner's COPIED support passage from the reviewer response when a cited source is revoked, but the owner DB/read retain it", async () => {
+    const SECRET = "COPIED-SUPPORT-SECRET: revoke-me-but-owner-keeps-me";
+    const ACTSRC = "8000000a-000b-4000-8000-00000000000f";
+    await seedSource("active", SOURCE);
+    await seedSource("active", ACTSRC);
+    await seedRecord(RECORD, ACTSRC, 1, "Co-cited active material.");
+    const row = await saveRaw(
+      sourceFinding("60000000-0000-4000-8000-0000000000e5", {
+        passage: SECRET,
+        evidence: [
+          { kind: "source", id: SOURCE },
+          { kind: "source", id: ACTSRC },
+        ],
+      }),
+    );
+    // While all cited sources are ACTIVE the reviewer sees the copied passage and nothing is withheld.
+    const before = await getCitationFindingForReview(
+      reviewer,
+      { ownerId: user, projectId: "p", findingRowId: row },
+      rpc,
+    );
+    expect((before.record.support[0] as { sourcePassage: string | null }).sourcePassage).toBe(
+      SECRET,
+    );
+    expect(before.sourcePassagesWithheld).toBe(false);
+    // Revoke ONE cited source (a status flip, NOT a forget).
+    await db.query(
+      "UPDATE project_knowledge_sources SET payload=jsonb_set(payload,'{status}','\"revoked\"') WHERE user_id=$1 AND project_id='p' AND id=$2",
+      [user, SOURCE],
+    );
+    const view = await getCitationFindingForReview(
+      reviewer,
+      { ownerId: user, projectId: "p", findingRowId: row },
+      rpc,
+    );
+    // The reviewer response withholds the copied passage + flags it; the secret appears NOWHERE in the response.
+    expect((view.record.support[0] as { sourcePassage: string | null }).sourcePassage).not.toBe(
+      SECRET,
+    );
+    expect(view.sourcePassagesWithheld).toBe(true);
+    expect(JSON.stringify(view)).not.toContain(SECRET);
+    // It is NOT erasure, and the co-cited ACTIVE source's live material is still served (the gate is per-source).
+    expect(view.evidenceErased).toBe(false);
+    const act = view.evidence.find((e) => e.kind === "source" && e.id === ACTSRC)!;
+    expect(act.kind === "source" && act.inspectable).toBe(true);
+    expect(act.kind === "source" && act.materialCount).toBe(1);
+    // The owner's stored record AND the owner's own detail read still hold the real copied passage.
+    expect(await storedPassage(row)).toBe(SECRET);
+    const detail = await getCitationFinding(scope, row, rpc);
+    expect(JSON.stringify(detail)).toContain(SECRET);
   });
 });

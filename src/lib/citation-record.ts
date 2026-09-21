@@ -164,6 +164,9 @@ const citationRawRecordSchema = z
  * pathologically deep/oversized record is refused (see `citationRawRecordSchema`). */
 const citationFindingDetailBaseSchema = citationFindingSummarySchema.extend({
   accuracy: z.array(citationAccuracyResolutionSchema).max(20),
+  // Content-free erasure state: true once a source/record forget redacted this finding's copied support
+  // passages. The retained record_sha256 is then a PRE-erasure digest, not a hash of the current payload.
+  evidenceErased: z.boolean(),
 });
 export const citationFindingDetailSchema = z.discriminatedUnion("recordValid", [
   citationFindingDetailBaseSchema
