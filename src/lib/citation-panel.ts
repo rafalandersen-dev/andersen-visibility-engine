@@ -18,6 +18,19 @@ export const MAX_PANEL_QUESTIONS = 10;
 export const DISCOVERY_ROUNDS = 4;
 const text = (max: number) => z.string().trim().min(1).max(max);
 const instant = z.string().datetime({ offset: true });
+/** A consumer account tier LABEL when known (spec §5.2): the ACTUAL tier (e.g. "Free", "Plus", "Pro"), a
+ * bounded, provider-agnostic string — trimmed, non-blank, no control characters, ≤40 chars — so it keeps
+ * the exact tier for comparability (Plus ≠ Pro even though both are paid). The bound constrains SYNTAX
+ * only; it does NOT detect secrets. By intended use, record only the tier here — not passwords, account
+ * ids, emails or session tokens (spec §5.2); no secret-detection mechanism is added. The literal "unknown"
+ * and an ABSENT field both mean not-known; no tier is invented for history. No fixed provider list is
+ * assumed. */
+const accountTierLabel = z
+  .string()
+  .trim()
+  .min(1)
+  .max(40)
+  .regex(/^\P{Cc}+$/u, "control characters are not allowed");
 const questionId = z.string().regex(/^[A-Z]{2}-[DB]\d{2}$/);
 export const panelQuestionSchema = z
   .object({
@@ -38,6 +51,10 @@ export const sessionProtocolSchema = z
     memory: z.enum(["off", "on", "unknown"]),
     customInstructions: z.enum(["none", "present", "unknown"]),
     connectedTools: z.enum(["none", "present", "unknown"]),
+    /** Consumer account tier when known (spec §5.2): the ACTUAL intended tier label (see accountTierLabel).
+     * OPTIONAL for backward compatibility: a historical panel with no tier field still parses (treated as
+     * not-known); a new panel may record the intended tier label or the literal "unknown". */
+    accountTier: accountTierLabel.optional(),
     /** No extra "cite sources" or client-seeding instruction is allowed in the protocol. */
     extraInstruction: z.null(),
     priorMessages: z.literal(0),
@@ -196,6 +213,17 @@ const stockholmFmt = new Intl.DateTimeFormat("en-CA", {
 function isMillisecondPrecise(iso: string): boolean {
   const m = /T\d{2}:\d{2}:\d{2}\.(\d+)/.exec(iso);
   return !m || m[1].length <= 3 || /^0*$/.test(m[1].slice(3));
+}
+/** The millisecond epoch of an ISO instant IFF it is finite AND at the supported (millisecond) precision;
+ * otherwise null. The TS twin of the SQL `citation_ts_ms(text)` helper: an equivalent offset spelling of
+ * one instant yields the same epoch (so `+02:00` and its `Z` equivalent compare equal), while a
+ * sub-millisecond, non-finite, or malformed value yields null (fail closed) rather than being truncated.
+ * Used to compare two capture instants by VALUE at the supported precision at intake, so TS admission and
+ * the SQL guard agree; the raw stored string is never rewritten. */
+export function supportedInstantMs(iso: string): number | null {
+  const ms = Date.parse(iso);
+  if (!Number.isFinite(ms) || !isMillisecondPrecise(iso)) return null;
+  return ms;
 }
 /** The Stockholm wall-clock day-number (days since the epoch for the local Y-M-D) and MILLISECOND-of-day
  * for an instant, or null if unparseable. The weekly cadence is checked on these LOCAL parts to the
@@ -360,6 +388,10 @@ export const captureContextSchema = z
         customInstructions: z.enum(["none", "present", "unknown"]),
         connectedTools: z.enum(["none", "present", "unknown"]),
         temporaryChat: z.enum(["yes", "no", "unknown"]),
+        /** Consumer account tier when known (spec §5.2): the ACTUAL tier label (see accountTierLabel).
+         * OPTIONAL so a historical capture with no tier still parses (not-known) and no prior tier is ever
+         * invented; the literal "unknown" is the explicit not-known value. */
+        accountTier: accountTierLabel.optional(),
       })
       .strict(),
     location: z
@@ -445,6 +477,21 @@ export function protocolDeviations(
     out.push("custom_instructions_differ");
   if (context.session.connectedTools !== panel.session.connectedTools)
     out.push("connected_tools_differ");
+  // Account tier (spec §5.2, "account tier if known") is compared ONLY when BOTH the panel's intended tier
+  // and the capture's tier are KNOWN (recorded and not "unknown"). An absent/unknown tier on either side is
+  // NOT a mismatch, so a historical capture (no tier field) or a genuinely not-known tier never fabricates
+  // a deviation or an invented prior tier. When both are known and differ, the capture ran on a different
+  // account tier and is not a comparable measurement.
+  const panelTier = panel.session.accountTier;
+  const captureTier = context.session.accountTier;
+  if (
+    panelTier !== undefined &&
+    panelTier !== "unknown" &&
+    captureTier !== undefined &&
+    captureTier !== "unknown" &&
+    panelTier !== captureTier
+  )
+    out.push("account_tier_differs");
   if (context.instructions.extraInstruction !== null) out.push("extra_instruction");
   if (context.instructions.priorMessages > 0) out.push("prior_messages");
   if (

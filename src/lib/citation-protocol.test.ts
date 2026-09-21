@@ -214,6 +214,37 @@ describe("citation protocol pure contract", () => {
       "citation_capture_time_mismatch",
     );
   });
+  it("compares the record's two capturedAt fields by VALUE at millisecond precision (equivalent offsets ok, changed/finer refused)", () => {
+    // A capture asserts ONE instant about itself; the top-level and context capturedAt must be the SAME
+    // instant at the supported (millisecond) precision. An equivalent-offset re-spelling of one instant is
+    // consistent and accepted; the raw stored strings are preserved verbatim.
+    const equiv = (top: string, ctx: string) =>
+      answer({
+        capturedAt: top,
+        captureContext: context({
+          time: { capturedAt: ctx, intendedSlotAt: "2026-09-07T07:00:00.000Z", delayMinutes: 0 },
+        }),
+      });
+    // 09:00+02:00 == 07:00Z (same instant, different spelling) — accepted, and the bytes are unchanged.
+    const offset = equiv("2026-09-07T09:00:00.000+02:00", "2026-09-07T07:00:00.000Z");
+    expect(parseManualCaptureInput(offset).input.capturedAt).toBe("2026-09-07T09:00:00.000+02:00");
+    expect(parseManualCaptureInput(offset).captureContext.time.capturedAt).toBe(
+      "2026-09-07T07:00:00.000Z",
+    );
+    // A fractional second (.500) at the same instant with an equivalent offset is likewise accepted.
+    expect(() =>
+      parseManualCaptureInput(equiv("2026-09-07T09:00:00.500+02:00", "2026-09-07T07:00:00.500Z")),
+    ).not.toThrow();
+    // A genuinely different instant is refused.
+    expect(() =>
+      parseManualCaptureInput(equiv("2026-09-07T07:00:00.000Z", "2026-09-07T07:05:00.000Z")),
+    ).toThrow("citation_capture_time_mismatch");
+    // Unsupported sub-millisecond precision fails CLOSED even when the two fields are byte-identical (the
+    // pre-fix raw-string compare passed them; the value compare refuses the unsupported precision).
+    expect(() =>
+      parseManualCaptureInput(equiv("2026-09-07T07:00:00.000500Z", "2026-09-07T07:00:00.000500Z")),
+    ).toThrow("citation_capture_time_mismatch");
+  });
   it("refuses a capture whose own mode or model contradicts its capture context", () => {
     // A deviation from the panel stays storable evidence; a record contradicting ITSELF does not.
     // Here the context surface is consumer/search but the answer claims an API delivery mode, or a

@@ -9,6 +9,7 @@ import {
   panelProtocolSchema,
   protocolDeviations,
   slotOutcome,
+  supportedInstantMs,
   SLOT_OUTCOMES,
   type BrandRun,
   type CaptureContext,
@@ -299,7 +300,14 @@ export function parseManualCaptureInput(value: unknown): {
   const input = answerEvidenceSchema.parse(value);
   if (input.captureContext === undefined) throw new Error("citation_capture_context_missing");
   const captureContext = captureContextSchema.parse(input.captureContext);
-  if (captureContext.time.capturedAt !== input.capturedAt)
+  // The record must assert ONE capture instant about itself: the top-level `input.capturedAt` and the
+  // `captureContext.time.capturedAt` must denote the SAME instant at the supported (millisecond) precision.
+  // An equivalent-offset spelling of one instant ('+02:00' vs 'Z') is accepted (compared by VALUE, not raw
+  // text); a genuinely different instant, or an unsupported (sub-millisecond)/non-finite/malformed value on
+  // either field, fails closed (`supportedInstantMs` returns null). The raw stored strings are never
+  // rewritten — only the comparison is by value; this mirrors the SQL `citation_ts_ms` intake guard.
+  const topMs = supportedInstantMs(input.capturedAt);
+  if (topMs === null || topMs !== supportedInstantMs(captureContext.time.capturedAt))
     throw new Error("citation_capture_time_mismatch");
   // One record must not assert two contradictory surfaces about itself. The answer's own delivery
   // mode and model version are the same critical identity the captureContext.surface records, and

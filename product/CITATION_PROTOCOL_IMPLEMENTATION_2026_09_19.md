@@ -1021,19 +1021,65 @@ Two confirmed findings on `9484265f`, one packet.
   extras at another (SY-D01 r1 vs r2) → `liveExtra` 1 + `erasedExtra` 1, `recorded` 2, `neverObserved` 38,
   no double-count.
 
+### Review round 28 — intake capture-instant by value + bounded account-tier metadata (P2 4058994517 + spec §5.2)
+
+- **Intake capture-instant compared by VALUE (4058994517).** The initial-intake self-consistency check —
+  that a record's top-level `input.capturedAt` equals its `captureContext.time.capturedAt` — compared RAW
+  STRINGS in BOTH the TS `parseManualCaptureInput` and the SQL `save_citation_capture` guard, so an
+  equivalent-offset re-spelling of one instant (`+02:00` vs `Z`) was wrongly rejected and an unsupported
+  sub-millisecond value that happened to match byte-for-byte was wrongly admitted. Both now compare by value
+  at the supported (millisecond) precision: TS uses a new exported `supportedInstantMs(iso)` (the twin of
+  the SQL `citation_ts_ms`, returning the ms epoch iff finite and millisecond-precise, else null); SQL uses
+  `citation_ts_ms(...)` with an explicit `IS NULL` check so two equally-unsupported strings also fail closed.
+  Equivalent offsets (incl. a `.500` fraction) are accepted; a genuinely different instant, or an
+  unsupported/non-finite/malformed value on either field, fails closed. The raw stored strings are never
+  rewritten — only the comparison is by value. The already-fixed correction guard uses the same helper.
+- **Bounded actual account-tier label (spec §5.2 gap, from review 5262345901).** §5.2 requires recording the
+  consumer "account tier if known", but the strict session schema had no field. A coarse `free/paid` enum
+  would lose the ACTUAL tier (Plus vs Pro are both paid) and mis-report comparability, so the property
+  `accountTier` is a single OPTIONAL bounded LABEL (typed by the `accountTierLabel` schema: trimmed,
+  non-blank, ≤40 chars, no control characters, no fixed provider list) on BOTH the panel-intended
+  `sessionProtocolSchema` and the capture-context session. The bound constrains SYNTAX only and rejects
+  blank/oversized/control values; it does NOT detect secrets — by intended-use instruction (spec §5.2)
+  record only the tier here, not passwords/account ids/emails/session tokens, and no secret-detection
+  mechanism is added. Optional = backward-compatible: a historical panel/capture with no field still parses
+  (treated as not-known) and no prior tier is invented; the literal `"unknown"` is the explicit not-known
+  value. `protocolDeviations`
+  flags `account_tier_differs` ONLY when BOTH the panel's intended tier and the capture's tier are known
+  (present and not `"unknown"`) and the exact labels differ (so Plus vs Pro IS a deviation); an
+  absent/`"unknown"` tier on either side is never a mismatch, so historical/not-known captures stay
+  comparable. Stored opaquely by SQL (no SQL change); the exact label is retained verbatim on an admitted
+  capture. One field is adequate — no redundant coarse-class field is added.
+- Scope: `src/lib/citation-panel.ts` (`supportedInstantMs`, `accountTierLabel` + `accountTier` on both
+  sessions, the tier comparison), `src/lib/citation-protocol.ts` (intake value compare), the candidate SQL
+  (intake guard reuses `citation_ts_ms` — no new object; rollback inventory unchanged), the three P2 test
+  files and docs. No applied SQL, no P3, no provider, no commit/deploy; product not expanded, no guard
+  weakened.
+- Tests: TS admission (`parseManualCaptureInput`) — equivalent offset `.000`/`.500` accepted (bytes
+  preserved), changed instant refused, sub-millisecond refused even when byte-identical. SQL admission —
+  equivalent-offset capture admitted through both layers (bytes preserved); a different instant and a
+  sub-millisecond value each refused with `citation_capture_time_mismatch` on the RAW RPC (the round-25
+  sub-millisecond capture test that previously expected `citation_delay_untruthful` now truthfully expects
+  the earlier intake `citation_capture_time_mismatch`, keeping its no-write assertion). Tier — the bounded
+  label accepts actual tiers (Free/Plus/Pro/Enterprise) + the `"unknown"` sentinel + an absent field, and
+  refuses blank/whitespace-only, control-character and oversized (>40) values; `protocolDeviations` flags a
+  difference only when both are known (Plus vs Pro deviates; same label does not), never on absent/unknown;
+  a real-storage capture retains `accountTier: "Plus"` verbatim and stays `complete` (no
+  `account_tier_differs`) against a panel that declares no intended tier.
+
 ## Files
 
 | File | Change |
 | --- | --- |
 | `src/lib/pg-uuid.ts` | New (leaf, no imports). Shared semantic-UUID identity: `PG_UUID_RE`, `canonicalUuid`, `canonicalRun`. Imported by the citation-protocol layer and the legacy answer-evidence intake without a circular import. |
-| `src/lib/citation-panel.ts` | Released PR137 contract, extended COMPATIBLY (round 24): an optional immutable `schedule` on `panelProtocolSchema` (`scheduleSlotSchema`/`discoveryScheduleSchema`) plus pure helpers `discoveryScheduleValid` and `discoveryScheduleDeviations` (Europe/Stockholm weekly cadence, DST-correct via `stockholmWeekLater`). Round 25: the Stockholm wall clock compares to the MILLISECOND (`fractionalSecondDigits: 3`, `stockholmWeekLater` carries the fraction) and sub-millisecond precision is refused at admission / fails closed on read (`isMillisecondPrecise`), matching the SQL lock. Additive only — the field is optional (historical panels parse unchanged) and `protocolDeviations`/`slotOutcome`/`panelCounts`/`comparablePairs` signatures/behaviour are untouched. |
-| `src/lib/citation-protocol.ts` | New. Pure storage contract: `panelDraftSchema`, `lockedPanelSchema` (now also requires a valid prospective weekly schedule for a discovery lock / no schedule for brand), `citationProtocolStateSchema`, `brandRunApprovalSchema`, `parseManualCaptureInput`, `resolveStoredCaptures` (semantic-uuid identity; discovery-baseline-ambiguity flag; per-capture weekly-schedule gate), `citationReport`/`citationReports`, caps. Exports the shared `panelVersionKey(panelId, version)`. Re-exports `canonicalUuid`/`canonicalRun` from `./pg-uuid`. Reuses PR137 schemas; never redefines them. Round 26: a PRESENT-but-malformed opaque `captureContext` is surfaced as an explicit invalid `ResolvedCapture` (`contextMalformed`, recognized `slot`/`brandRunId` or null, `captureContext: null`) instead of being silently dropped — a known slot reads observed-invalid, an unknown slot makes the version's coverage unknown (`neverObserved` null), an unknown panel is an orphan; legacy context-less rows are still skipped and the raw document is never rewritten. Round 27: the duplicate-slot collapse survivor carries `liveDuplicateExtras` (occupants − 1) and `citationReport` sums it into a new `liveExtra` field (the exact live analogue of `erasedExtra`), so N historical live originals at one slot report observed 1 + liveExtra N−1 without double-counting or a silent drop. |
+| `src/lib/citation-panel.ts` | Released PR137 contract, extended COMPATIBLY (round 24): an optional immutable `schedule` on `panelProtocolSchema` (`scheduleSlotSchema`/`discoveryScheduleSchema`) plus pure helpers `discoveryScheduleValid` and `discoveryScheduleDeviations` (Europe/Stockholm weekly cadence, DST-correct via `stockholmWeekLater`). Round 25: the Stockholm wall clock compares to the MILLISECOND (`fractionalSecondDigits: 3`, `stockholmWeekLater` carries the fraction) and sub-millisecond precision is refused at admission / fails closed on read (`isMillisecondPrecise`), matching the SQL lock. Additive only — the field is optional (historical panels parse unchanged) and `protocolDeviations`/`slotOutcome`/`panelCounts`/`comparablePairs` signatures/behaviour are untouched. Round 28: exports `supportedInstantMs(iso)` (the TS twin of SQL `citation_ts_ms` — ms epoch iff finite and millisecond-precise, else null) for by-value capture-instant intake; adds an OPTIONAL bounded ACTUAL-tier property `accountTier` (typed by the `accountTierLabel` schema: trimmed, non-blank, ≤40, no control chars, no fixed provider list; the literal "unknown"/absent mean not-known) to both the panel-intended `sessionProtocolSchema` and the capture-context session (spec §5.2 — keeps Plus vs Pro distinct; the bound is syntax-only and records only the tier by intended use, not secrets/account ids, with no secret-detection added); `protocolDeviations` flags `account_tier_differs` only when both tiers are known and the exact labels differ. |
+| `src/lib/citation-protocol.ts` | New. Pure storage contract: `panelDraftSchema`, `lockedPanelSchema` (now also requires a valid prospective weekly schedule for a discovery lock / no schedule for brand), `citationProtocolStateSchema`, `brandRunApprovalSchema`, `parseManualCaptureInput`, `resolveStoredCaptures` (semantic-uuid identity; discovery-baseline-ambiguity flag; per-capture weekly-schedule gate), `citationReport`/`citationReports`, caps. Exports the shared `panelVersionKey(panelId, version)`. Re-exports `canonicalUuid`/`canonicalRun` from `./pg-uuid`. Reuses PR137 schemas; never redefines them. Round 26: a PRESENT-but-malformed opaque `captureContext` is surfaced as an explicit invalid `ResolvedCapture` (`contextMalformed`, recognized `slot`/`brandRunId` or null, `captureContext: null`) instead of being silently dropped — a known slot reads observed-invalid, an unknown slot makes the version's coverage unknown (`neverObserved` null), an unknown panel is an orphan; legacy context-less rows are still skipped and the raw document is never rewritten. Round 27: the duplicate-slot collapse survivor carries `liveDuplicateExtras` (occupants − 1) and `citationReport` sums it into a new `liveExtra` field (the exact live analogue of `erasedExtra`), so N historical live originals at one slot report observed 1 + liveExtra N−1 without double-counting or a silent drop. Round 28: `parseManualCaptureInput` compares the record's two `capturedAt` fields by VALUE at millisecond precision via `supportedInstantMs` (equivalent offsets accepted, changed/sub-millisecond/malformed refused, raw bytes preserved), mirroring the SQL intake guard. |
 | `src/lib/citation-protocol.server.ts` | New. Service RPC helpers: read, save draft, lock, approve brand run, import capture, read+resolve. Owner/time/approval derived server-side; network-free. Draft panelId, prompt binding and the lock/brand owner-receipt checks compare by SEMANTIC uuid value (`canonicalUuid`); the per-version erasure-metadata maps are keyed via the shared `panelVersionKey`. |
 | `src/lib/citation-protocol.functions.ts` | New. Six `requireSupabaseAuth` endpoints, each refusing an owner mismatch and never accepting a client approval/reviewer/timestamp. |
 | `src/lib/citation-protocol.test.ts` | New. Pure-contract + mocked-server unit tests. |
 | `src/lib/citation-protocol.functions.test.ts` | New. Endpoint authentication/validation tests. |
 | `src/lib/citation-protocol-migration.test.ts` | New. Real PGlite SQL round trips (isolation, auth, missing project, reference forgery, approval version, protocol binding, capacity, deletion, idempotency). |
-| `supabase/migrations/20260920190000_citation_protocol.sql` | New (one migration). Three tables (panels, brand runs, content-free capture tombstones) + five service-only SECURITY DEFINER RPCs + one internal `IMMUTABLE` helper (`citation_ctx_run`, semantic brandRunId identity, granted to no role) + an `AFTER DELETE` tombstone trigger on `ai_answer_evidence`; RLS on, project-scoped FKs, project-deletion cascade. Round 24: `lock_citation_panel` requires a discovery lock to carry a NULL-safe, prospective Europe/Stockholm weekly schedule (one slot per round, exact wall-clock cadence) and forbids a brand schedule; `save_citation_capture` binds a discovery capture's `intendedSlotAt` to its round's approved slot and a truthful delay. Round 25: both refuse sub-millisecond precision (`date_trunc('milliseconds', ...)`), the supported precision that matches the TS validator. Round 27: a second internal helper `citation_ts_ms(text)` (granted to no role, guarded parse → millisecond-truncated timestamptz or NULL) lets the correction-identity guard compare `capturedAt` by VALUE at millisecond precision, so an equivalent-offset re-spelling of the same instant is accepted, a different instant refused, and a malformed historical predecessor date fails closed without a cast crash. |
+| `supabase/migrations/20260920190000_citation_protocol.sql` | New (one migration). Three tables (panels, brand runs, content-free capture tombstones) + five service-only SECURITY DEFINER RPCs + one internal `IMMUTABLE` helper (`citation_ctx_run`, semantic brandRunId identity, granted to no role) + an `AFTER DELETE` tombstone trigger on `ai_answer_evidence`; RLS on, project-scoped FKs, project-deletion cascade. Round 24: `lock_citation_panel` requires a discovery lock to carry a NULL-safe, prospective Europe/Stockholm weekly schedule (one slot per round, exact wall-clock cadence) and forbids a brand schedule; `save_citation_capture` binds a discovery capture's `intendedSlotAt` to its round's approved slot and a truthful delay. Round 25: both refuse sub-millisecond precision (`date_trunc('milliseconds', ...)`), the supported precision that matches the TS validator. Round 27: a second internal helper `citation_ts_ms(text)` (granted to no role, guarded parse → millisecond-precise timestamptz or NULL, failing closed on sub-millisecond/non-finite/malformed) lets the correction-identity guard compare `capturedAt` by VALUE at millisecond precision, so an equivalent-offset re-spelling of the same instant is accepted, a different instant refused, and a malformed/sub-millisecond historical predecessor date fails closed without a cast crash. Round 28: the intake self-consistency guard (input.capturedAt vs captureContext.time.capturedAt) reuses `citation_ts_ms` with an `IS NULL` check (no new object), so an equivalent offset is accepted and a different/unsupported instant fails closed in the SQL layer too. |
 | `src/lib/answer-evidence.ts` | Additive only: optional opaque `captureContext` on `answerEvidenceSchema` so reads tolerate capture-bound records. Legacy documents are byte-identical (field absent). |
 | `src/lib/answer-evidence.server.ts` | Additive only: `importAnswerEvidence` refuses a capture context (legacy path stays capture-blind; captures must use the panel-aware path), and now compares the predecessor and prompt by SEMANTIC uuid value (`canonicalUuid` from `./pg-uuid`) so an UPPERCASE `supersedesId` cannot bypass `evidence_capture_correction_requires_context`. |
 | `product/CITATION_PROTOCOL_IMPLEMENTATION_2026_09_19.md`, `evidence/citation-protocol-storage-2026-09-19.md` | New. This doc and the evidence record. |
@@ -1259,6 +1305,21 @@ live analogue of `erasedExtra`): three originals at one slot report observed 1 +
 drop, never double-counting the one occupant, with the failed-correction fold and valid/malformed determinism
 preserved. Only the candidate SQL and `citation-protocol.ts` (plus the two P2 test files and docs) changed —
 no applied migration, no P3, no provider, no commit/deploy.
+Round 28 (this turn, on `14672bdb`) fixes P2 4058994517 and closes an accepted spec gap from review
+5262345901: (a) the INITIAL-intake self-consistency check (top-level `input.capturedAt` vs
+`captureContext.time.capturedAt`) compared raw strings in BOTH `parseManualCaptureInput` and the SQL guard —
+now both compare by VALUE at millisecond precision (TS via a new exported `supportedInstantMs`, SQL via
+`citation_ts_ms` with an `IS NULL` fail-closed check), so an equivalent offset is accepted and a
+different/unsupported instant is refused, raw bytes preserved; (b) spec §5.2 requires recording the consumer
+"account tier if known", which the strict session schema lacked — added an OPTIONAL, bounded,
+provider-agnostic ACTUAL-tier LABEL property `accountTier` (typed by the `accountTierLabel` schema: trimmed,
+non-blank, ≤40, no control chars — a coarse free/paid enum would lose Plus vs Pro) to the panel-intended and
+capture-context sessions. The bound is SYNTAX-only and does not detect secrets — by intended-use instruction
+it records only the tier, not passwords/account ids/emails/session tokens (no secret-detection added).
+Backward-compatible (historical documents parse; the literal "unknown"/absent mean not-known; no prior tier
+invented), with a comparability deviation flagged only when both exact labels are known and differ. Only `citation-panel.ts` + `citation-protocol.ts` + the candidate SQL (intake guard
+reuses `citation_ts_ms`, no new object) + the three P2 test files + docs changed — no applied migration, no
+P3, no provider, no commit/deploy; product not expanded, no guard weakened.
 **HONEST RUN STATUS.** The prior worktree process for round 24 terminated on a plan/credit limit, not
 success; its partial Codex verification was `tsc` PASS but **150 tests PASS / 38 FAIL** in
 `citation-protocol-migration.test.ts` — a **FAILED prior attempt of this work, not a passing baseline**. Two
@@ -1270,19 +1331,22 @@ recent-PAST approval + schedule so on-schedule captures land at now-past slots t
 exercised — resolved by real Date arithmetic in the slot helper. **No production future-date or
 prospective-approval guard was weakened, no storage assertion was replaced with a mock, and no public
 admission was bypassed to make tests pass.** All earlier PASS counts — including the latest verified Codex
-baseline on `9484265f` (212 focused / 6376 full PASS, the round-26 malformed-captureContext stage) — are a
-prior stage and **do not carry over**; the follow-up Codex run of the first round-27 pass was **217 focused
-PASS / 4 FAIL** (three tests asserted the internal `citation_correction_identity_mismatch` against the
-generic-mapping wrapper, and the empty-report `toEqual` predated `liveExtra`) with `tsc` NOT run (chained
-after the failure), and an independent delta noted `citation_ts_ms` truncated sub-millisecond history — all
-reconciled this turn (raw-RPC vs public-contract assertions split, `liveExtra: 0` added, and the helper now
-fails closed on sub-millisecond/non-finite instead of truncating). Every check below — including the
-round-16…26 suites and the round-27 tests (real-SQL: `.000`/`.500` equivalent-offset correction accepted;
-different-instant, corrupted-predecessor, and sub-millisecond-predecessor each refused with the SPECIFIC
-error on the RAW RPC while the wrapper maps to the generic error; predecessor document never rewritten; pure
-and real-storage `liveExtra`: N originals → observed 1 + liveExtra N−1, correction chain → 0, valid+malformed
-collision → 1, live + erased extras counted independently) — is UNRUN in this worktree and must be
-re-executed by Codex; this assistant did not run tests and claims no PASS. The
+baseline on `14672bdb` (223 focused / 6387 full PASS, the round-27 correction-instant + live-extra stage) —
+are a prior stage and **do not carry over**; the follow-up Codex run of the first round-28 pass was **229
+focused / 228 PASS / 1 FAIL** with `tsc` NOT run — the round-25 sub-millisecond CAPTURE test still expected
+`citation_delay_untruthful`, but the round-28 intake guard now raises the earlier
+`citation_capture_time_mismatch` (that test's expectation is updated to the truthful guard, no-write
+assertion kept); and an independent product note (free/paid loses Plus vs Pro) prompted upgrading the tier
+to a bounded actual LABEL — both reconciled this turn. Every check below — including the round-16…27 suites
+and the round-28 tests (TS admission: equivalent offset `.000`/`.500` accepted with bytes preserved, changed
+instant refused, sub-millisecond refused even byte-identical; SQL admission: equivalent-offset capture
+admitted through both layers, and a different/sub-millisecond instant each refused with
+`citation_capture_time_mismatch` on the RAW RPC; tier: the bounded LABEL accepts actual tiers
+(Free/Plus/Pro/Enterprise) + `"unknown"` + an absent field, refuses blank/whitespace/control/oversized,
+`account_tier_differs` flagged only when both exact labels are known and differ (Plus vs Pro deviates), and
+a real-storage capture retains `accountTier: "Plus"` and stays `complete` against a no-tier panel) — is
+UNRUN in this worktree and must be re-executed by Codex; this assistant did not run tests and claims no
+PASS. The
 repository-wide lint is separately RED (~3790 errors / 14 warnings, pre-existing across the repo); this
 packet does NOT mass-format or claim a global-lint pass — only the SCOPED lint on the touched files applies.
 The released P1 SQL migrations, global migration inventory, and P3/R09 files were not touched; the released

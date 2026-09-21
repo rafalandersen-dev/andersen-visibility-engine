@@ -595,6 +595,88 @@ describe("session protocol deviations and slot outcomes (CI11-T15, T16, T31)", (
     // The clean fixture still deviates in none of these ways.
     expect(protocolDeviations(p, context(1, 1))).toEqual([]);
   });
+  it("records a bounded, optional ACTUAL account tier label on the panel and capture sessions (spec §5.2), backward compatible", () => {
+    // Historical documents WITHOUT the field still parse (treated as not-known); no prior tier is invented.
+    expect(panelProtocolSchema.safeParse(panel()).success).toBe(true);
+    expect(captureContextSchema.safeParse(context(1, 1)).success).toBe(true);
+    // The ACTUAL tier label is kept (no fixed provider list): Free/Plus/Pro and the "unknown" sentinel are
+    // all accepted on both sessions — so Plus and Pro are distinguishable, not collapsed to "paid".
+    for (const tier of ["Free", "Plus", "Pro", "Enterprise", "unknown"] as const) {
+      expect(
+        panelProtocolSchema.safeParse({
+          ...panel(),
+          session: { ...panel().session, accountTier: tier },
+        }).success,
+      ).toBe(true);
+      expect(
+        captureContextSchema.safeParse(
+          context(1, 1, { session: { ...context(1, 1).session, accountTier: tier } }),
+        ).success,
+      ).toBe(true);
+    }
+    // Invalid bounds are refused on both sessions: blank/whitespace-only and oversized (>40) labels. The
+    // bounded label constrains SYNTAX only (short, non-blank, control-free) and, by intended-use
+    // instruction, records only the tier — not secrets, account ids or emails; no secret detection is
+    // implied. (A valid label is exercised by the acceptance loop above; a control character is refused by
+    // the explicit case below.)
+    for (const bad of ["", " ".repeat(3), "x".repeat(41), "y".repeat(50)]) {
+      expect(
+        panelProtocolSchema.safeParse({
+          ...panel(),
+          session: { ...panel().session, accountTier: bad },
+        }).success,
+      ).toBe(false);
+      expect(
+        captureContextSchema.safeParse(
+          context(1, 1, { session: { ...context(1, 1).session, accountTier: bad } }),
+        ).success,
+      ).toBe(false);
+    }
+    // A control character is explicitly refused on both sessions (invalid bounds). The bounded label
+    // enforces syntax only; it does not detect or prevent secrets/account ids — that is an intended-use
+    // rule, not a mechanism.
+    const ctl = `Pro${String.fromCharCode(7)}`;
+    expect(
+      panelProtocolSchema.safeParse({
+        ...panel(),
+        session: { ...panel().session, accountTier: ctl },
+      }).success,
+    ).toBe(false);
+    expect(
+      captureContextSchema.safeParse(
+        context(1, 1, { session: { ...context(1, 1).session, accountTier: ctl } }),
+      ).success,
+    ).toBe(false);
+  });
+  it("compares the ACTUAL account tier only when BOTH sides record a KNOWN tier (spec §5.2)", () => {
+    const p = panel();
+    const withTier = (panelTier?: string, captureTier?: string) =>
+      protocolDeviations(
+        {
+          ...p,
+          session: { ...p.session, ...(panelTier !== undefined ? { accountTier: panelTier } : {}) },
+        },
+        context(1, 1, {
+          session: {
+            ...context(1, 1).session,
+            ...(captureTier !== undefined ? { accountTier: captureTier } : {}),
+          },
+        }),
+      );
+    // Two DIFFERENT known tiers that are both "paid" (Plus vs Pro) are NOT comparable — the coarse
+    // free/paid class would have missed this; the exact label catches it.
+    expect(withTier("Plus", "Pro")).toContain("account_tier_differs");
+    expect(withTier("Free", "Plus")).toContain("account_tier_differs");
+    // The SAME known label is comparable → no deviation.
+    expect(withTier("Plus", "Plus")).not.toContain("account_tier_differs");
+    // Not-known on EITHER side — historical (absent) or the explicit "unknown" — never fabricates a
+    // deviation or invents account metadata.
+    expect(withTier(undefined, undefined)).not.toContain("account_tier_differs");
+    expect(withTier("Pro", undefined)).not.toContain("account_tier_differs");
+    expect(withTier(undefined, "Pro")).not.toContain("account_tier_differs");
+    expect(withTier("Pro", "unknown")).not.toContain("account_tier_differs");
+    expect(withTier("unknown", "Pro")).not.toContain("account_tier_differs");
+  });
   it("binds the collection location to the approved methodology and breaks on a known change (4053596302)", () => {
     const p = panel();
     const locOf = (over: Partial<CaptureContext["location"]>) =>

@@ -460,7 +460,17 @@ BEGIN
   END IF;
   ctx := p_document->'input'->'captureContext';
   IF ctx IS NULL OR jsonb_typeof(ctx)<>'object' THEN RAISE EXCEPTION 'citation_capture_context_missing'; END IF;
-  IF p_document->'input'->>'capturedAt' IS DISTINCT FROM ctx->'time'->>'capturedAt' THEN RAISE EXCEPTION 'citation_capture_time_mismatch'; END IF;
+  -- The record must assert ONE capture instant about itself: input.capturedAt and captureContext.time.
+  -- capturedAt must denote the SAME instant at the supported (millisecond) precision. An equivalent offset
+  -- spelling ('+02:00' vs 'Z') is the same instant and accepted (compared by VALUE via citation_ts_ms, not
+  -- raw text); a genuinely different instant, or an unsupported (sub-millisecond)/non-finite/malformed value
+  -- on either field (citation_ts_ms → NULL), fails closed. The IS NULL check makes two equally-unsupported
+  -- strings fail closed too (NULL IS DISTINCT FROM NULL is false). No stored byte is rewritten.
+  IF public.citation_ts_ms(p_document->'input'->>'capturedAt') IS NULL
+    OR public.citation_ts_ms(p_document->'input'->>'capturedAt')
+       IS DISTINCT FROM public.citation_ts_ms(ctx->'time'->>'capturedAt') THEN
+    RAISE EXCEPTION 'citation_capture_time_mismatch';
+  END IF;
   -- Critical-identity defence: the one record must not assert two contradictory surfaces about
   -- itself. The answer's own delivery mode and model version are the same identity the capture
   -- context surface records (the legacy analysis keys on the former, the citation resolver reads the

@@ -2073,6 +2073,25 @@ describe("CI-2 erasure preserves the slot/budget fact (content-free tombstone)",
       excluded: 0,
     });
   });
+  it("retains the KNOWN actual account tier label on an admitted capture and keeps it comparable when the panel declares no intended tier (spec §5.2)", async () => {
+    const id = await importManualCapture(
+      scope,
+      discoveryCapture({ session: { ...ctxBase.session, accountTier: "Plus" } }),
+      rpc,
+    );
+    // The ACTUAL tier label is retained verbatim in storage (by intended use it holds only the tier, not a
+    // secret/account id) and the raw document is unchanged — "Plus" is preserved, not collapsed to "paid".
+    const stored = (await readAnswerEvidence(scope, rpc)).answers.find((a) => a.id === id)!;
+    expect(
+      (stored.input.captureContext as unknown as { session: { accountTier?: string } }).session
+        .accountTier,
+    ).toBe("Plus");
+    // The locked panel declares NO intended tier (historical/unknown), so tier is not compared and the
+    // on-schedule capture still resolves complete — no invented prior tier, no false deviation.
+    const { captures } = await readResolvedCaptures(scope, rpc);
+    expect(captures[0]).toMatchObject({ outcome: "complete" });
+    expect(captures[0].deviations).not.toContain("account_tier_differs");
+  });
   it("reports a brand run's budget as consumed after every capture is erased (final report counts)", async () => {
     await saveCitationPanelDraft(scope, brandPanelId, 0, draftBrand(), rpc);
     await lockCitationPanel(scope, brandPanelId, 1, rpc);
@@ -3290,6 +3309,76 @@ describe("CI-2 weekly discovery schedule at lock and capture admission (spec §�
     );
     expect(r?.outcomes.complete).toBe(1);
   });
+  it("admits a capture whose top-level and context capturedAt are equivalent-offset spellings of one instant (both layers agree)", async () => {
+    await saveCitationPanelDraft(scope, discoveryPanelId, 0, draftDiscovery(), rpc);
+    await lockCitationPanel(scope, discoveryPanelId, 1, rpc);
+    await backdatePanelApproval(discoveryPanelId);
+    // Context time spelled '+02:00' (10:00+02:00 == 08:00Z), top-level capturedAt spelled 'Z' — the SAME
+    // instant, different spelling. TS admission (parseManualCaptureInput) AND the SQL intake guard both
+    // compare by value at millisecond precision, so the capture is admitted and reads complete.
+    const capture = discoveryCapture(
+      {
+        time: {
+          capturedAt: "2026-07-06T10:00:00.000+02:00",
+          intendedSlotAt: "2026-07-06T07:00:00.000Z",
+          delayMinutes: 60,
+        },
+      },
+      { capturedAt: "2026-07-06T08:00:00.000Z" },
+    );
+    expect(await importManualCapture(scope, capture, rpc)).toBeTypeOf("string");
+    // The raw bytes are preserved verbatim (only the comparison is by value, never a rewrite).
+    const stored = (await readAnswerEvidence(scope, rpc)).answers[0];
+    expect(stored.input.capturedAt).toBe("2026-07-06T08:00:00.000Z");
+    expect(
+      (stored.input.captureContext as unknown as { time: { capturedAt: string } }).time.capturedAt,
+    ).toBe("2026-07-06T10:00:00.000+02:00");
+  });
+  it("refuses a capture whose two capturedAt fields are a different instant, or unsupported sub-millisecond precision, at the SQL intake guard (raw RPC)", async () => {
+    await saveCitationPanelDraft(scope, discoveryPanelId, 0, draftDiscovery(), rpc);
+    await lockCitationPanel(scope, discoveryPanelId, 1, rpc);
+    await backdatePanelApproval(discoveryPanelId);
+    const first = await importManualCapture(scope, discoveryCapture(), rpc);
+    const stored = (await readAnswerEvidence(scope, rpc)).answers.find((a) => a.id === first)!;
+    // A DIFFERENT instant between the two fields is refused (the TS wrapper refuses it first, so the
+    // SPECIFIC guard is asserted against the raw RPC).
+    const changed = discoveryCapture(
+      {
+        time: {
+          capturedAt: "2026-07-06T08:05:00.000Z",
+          intendedSlotAt: "2026-07-06T07:00:00.000Z",
+          delayMinutes: 65,
+        },
+      },
+      { capturedAt: "2026-07-06T08:00:00.000Z", rawAnswer: "different top instant" },
+    );
+    await expect(
+      db.query("SELECT save_citation_capture($1,$2,$3)", [
+        user,
+        "p",
+        { input: changed, prompt: stored.prompt, analysis: stored.analysis },
+      ]),
+    ).rejects.toThrow(/citation_capture_time_mismatch/);
+    // Unsupported SUB-MILLISECOND precision on both fields fails CLOSED at the intake guard (citation_ts_ms
+    // → NULL; the IS NULL check refuses two equally-unsupported strings that a raw-text compare would pass).
+    const subMs = discoveryCapture(
+      {
+        time: {
+          capturedAt: "2026-07-06T08:00:00.000500Z",
+          intendedSlotAt: "2026-07-06T07:00:00.000Z",
+          delayMinutes: 60,
+        },
+      },
+      { capturedAt: "2026-07-06T08:00:00.000500Z", rawAnswer: "sub-millisecond" },
+    );
+    await expect(
+      db.query("SELECT save_citation_capture($1,$2,$3)", [
+        user,
+        "p",
+        { input: subMs, prompt: stored.prompt, analysis: stored.analysis },
+      ]),
+    ).rejects.toThrow(/citation_capture_time_mismatch/);
+  });
   it("accepts a correction whose capturedAt is an equivalent-offset spelling of the predecessor's instant", async () => {
     await saveCitationPanelDraft(scope, discoveryPanelId, 0, draftDiscovery(), rpc);
     await lockCitationPanel(scope, discoveryPanelId, 1, rpc);
@@ -3611,8 +3700,10 @@ describe("CI-2 weekly discovery schedule at lock and capture admission (spec §�
       db.query("SELECT save_citation_capture($1,'p',$2)", [user, doc(subMsIntended)]),
     ).rejects.toThrow(/citation_intended_slot_mismatch/);
     await expect(importManualCapture(scope, subMsIntended, rpc)).rejects.toThrow();
-    // A sub-millisecond capture instant is refused — the recorded delay cannot be a truthful whole minute
-    // at a precision the millisecond floor does not support.
+    // A sub-millisecond capture instant is refused. Round 28 moved the supported-precision check to the
+    // EARLIER intake self-consistency guard (input.capturedAt vs captureContext.time.capturedAt, compared
+    // by value via citation_ts_ms), which fails closed on the unsupported precision — so the truthful guard
+    // is now citation_capture_time_mismatch, raised before the schedule delay check ever runs.
     const subMsCaptured = discoveryCapture(
       {
         slot: { round: 2, questionId: "SY-D01" },
@@ -3628,7 +3719,7 @@ describe("CI-2 weekly discovery schedule at lock and capture admission (spec §�
     );
     await expect(
       db.query("SELECT save_citation_capture($1,'p',$2)", [user, doc(subMsCaptured)]),
-    ).rejects.toThrow(/citation_delay_untruthful/);
+    ).rejects.toThrow(/citation_capture_time_mismatch/);
     // Only the one valid round-1 capture persisted; no sub-millisecond row was stored.
     expect((await readAnswerEvidence(scope, rpc)).answers).toHaveLength(1);
   });
