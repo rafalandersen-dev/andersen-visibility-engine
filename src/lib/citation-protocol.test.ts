@@ -1373,12 +1373,75 @@ describe("resolveStoredCaptures surfaces a malformed-present captureContext as e
       expect(resolved).toHaveLength(1); // collapsed to ONE invalid entry, never both, never a silent pick
       expect(resolved[0]).toMatchObject({ outcome: "protocol_deviant" });
       expect(resolved[0].deviations).toContain("duplicate_slot");
-      // The report is deterministic in BOTH orders: the shared slot is observed-invalid, never `complete`.
+      // The report is deterministic in BOTH orders: the shared slot is observed-invalid, never `complete`,
+      // and the second (extra) attempt is surfaced exactly as liveExtra 1 — never a silent drop.
       const report = citationReport(discoveryPanel(), resolved, emptyErasure());
-      expect(report).toMatchObject({ observed: 1, neverObserved: 39, coverageComplete: true });
+      expect(report).toMatchObject({
+        observed: 1,
+        liveExtra: 1,
+        neverObserved: 39,
+        coverageComplete: true,
+      });
       expect(report.outcomes.protocol_deviant).toBe(1);
       expect(report.outcomes.complete).toBe(0);
     }
+  });
+  it("reports N live originals at one slot as observed 1 plus liveExtra N-1 (no double-count, no silent drop)", () => {
+    // Three INDEPENDENT valid originals at one planned slot must not read as one deviant with NO extra
+    // count. The slot is recorded ONCE (observed 1) and the two additional live attempts are surfaced
+    // exactly as liveExtra 2 — the live analogue of erasedExtra — never a new planned slot, never
+    // double-counting the one occupant scored in observed.
+    const original = (id: string) => ({
+      id,
+      status: "complete" as const,
+      promptId: uuid(101),
+      promptRevision: 1,
+      supersedesId: null,
+      captureContext: context(),
+    });
+    const resolved = resolveStoredCaptures(
+      [original("a"), original("b"), original("c")],
+      [discoveryPanel()],
+      [],
+    );
+    expect(resolved).toHaveLength(1); // collapsed to one report-safe invalid entry (never trips panelCounts)
+    expect(resolved[0].deviations).toContain("duplicate_slot");
+    const report = citationReport(discoveryPanel(), resolved, emptyErasure());
+    expect(report).toMatchObject({
+      observed: 1,
+      liveExtra: 2, // exactly the two additional originals
+      erased: 0,
+      erasedExtra: 0,
+      neverObserved: 39, // 40 − 1 observed − 0 erased; extras are not planned slots
+      excluded: 0, // surfaced as liveExtra, never folded into excluded
+    });
+    expect(report.outcomes.protocol_deviant).toBe(1);
+    expect(report.outcomes.complete).toBe(0);
+  });
+  it("does not count a correction chain (one active leaf) as a live extra", () => {
+    // An original + its valid correction at one slot: only the active leaf resolves (the original is
+    // superseded), so it is ONE observation, not a duplicate — liveExtra 0, and the leaf stays complete.
+    const original = {
+      id: uuid(600),
+      status: "complete" as const,
+      promptId: uuid(101),
+      promptRevision: 1,
+      supersedesId: null,
+      captureContext: context(),
+    };
+    const correction = {
+      id: uuid(601),
+      status: "complete" as const,
+      promptId: uuid(101),
+      promptRevision: 1,
+      supersedesId: uuid(600),
+      captureContext: context(),
+    };
+    const resolved = resolveStoredCaptures([original, correction], [discoveryPanel()], []);
+    expect(resolved.map((r) => r.answerId)).toEqual([uuid(601)]); // only the active leaf
+    const report = citationReport(discoveryPanel(), resolved, emptyErasure());
+    expect(report).toMatchObject({ observed: 1, liveExtra: 0, neverObserved: 39 });
+    expect(report.outcomes.complete).toBe(1);
   });
   it("flags a malformed independent original sharing a KNOWN erased slot as ambiguous erased-duplicate history", () => {
     // A malformed recognized-slot original at a slot a KNOWN erased original also occupied is ambiguous
@@ -1717,6 +1780,7 @@ describe("citation protocol server, no provider or URL calls", () => {
         observed: 0,
         erased: 0,
         erasedExtra: 0,
+        liveExtra: 0,
         recorded: 0,
         neverObserved: 40,
         coverageComplete: true,

@@ -358,6 +358,12 @@ export interface ResolvedCapture {
   /** The parsed capture context for a VALID row; `null` for a malformed row (its raw answer stays fully
    * inspectable via `readAnswerEvidence`; the document/hash is never rewritten). */
   captureContext: CaptureContext | null;
+  /** On a duplicate-slot COLLAPSE survivor, the count of ADDITIONAL live originals that resolved to this
+   * same planned slot (occupants − 1) — the extra live attempts the collapse folds out of the resolved
+   * list so it stays one-per-slot. `citationReport` surfaces the per-version sum as `liveExtra` (the exact
+   * live analogue of `erasedExtra`), so 3 originals at one slot report 2 extras, not a silent drop. Absent
+   * (0) on any non-collapsed capture. Never a new planned slot and never counted as `observed`. */
+  liveDuplicateExtras?: number;
 }
 
 /**
@@ -734,6 +740,11 @@ export function resolveStoredCaptures(
       ...c,
       outcome: "protocol_deviant",
       deviations: c.deviations.includes(deviation) ? c.deviations : [...c.deviations, deviation],
+      // Preserve the EXACT count of extra live originals folded out of this slot (occupants − 1). Live
+      // captures are the whole snapshot (bounded by the 100-answer cap, never LIMIT-truncated like
+      // tombstones), so this count is authoritative; the report surfaces it as `liveExtra`, analogous to
+      // the erased `erasedExtra`, without ever counting an extra as an observed/planned slot.
+      liveDuplicateExtras: liveDuplicate ? (slotCount.get(key) ?? 1) - 1 : 0,
     });
   }
   return deduped;
@@ -894,6 +905,14 @@ export interface CitationReport {
    * attempt. Two erased originals at one slot → `erased` 1 AND `erasedExtra` 1. Restores no content and
    * does not affect planned coverage; a lone erasure or a fully erased correction chain contributes 0. */
   erasedExtra: number;
+  /** EXACT count of ADDITIONAL live originals at already-recorded slots for this version (historical
+   * duplicate practice: more than one independent live original — valid or malformed — resolved to one
+   * planned slot, beyond the single occupant counted in `observed`). The live analogue of `erasedExtra`,
+   * summed from the resolver's collapse survivors; live captures are the whole snapshot (bounded by the
+   * 100-answer cap, never LIMIT-truncated), so this is exact. Three originals at one slot → `observed` 1
+   * AND `liveExtra` 2. Never a new planned slot and never double-counts `observed`; a lone capture or a
+   * correction chain (one active leaf) contributes 0. */
+  liveExtra: number;
   /** observed + erased: distinct slots attempted (live or erased), explicit vs never-observed. */
   recorded: number;
   /** Discovery only: planned − observed − erased. `null` when the erased-slot coverage for this version
@@ -959,12 +978,18 @@ export function citationReport(
   const liveSlotKeys = new Set<string>();
   let observed = 0;
   let excluded = 0;
+  // Additional live originals folded out of a duplicate slot by the resolver's collapse (occupants − 1 per
+  // conflicted slot). Surfaced as the exact `liveExtra`, the live analogue of `erasedExtra`, so a slot with
+  // 3 historical originals reports observed 1 AND liveExtra 2 — never a silent drop, never a new planned
+  // slot, never double-counting the one occupant scored in `observed`.
+  let liveExtra = 0;
   // A malformed live capture on THIS version whose slot is unrecognizable: we cannot attribute it to a
   // planned slot, but its answer row exists (and the SQL consumed aggregate counts it), so the specific
   // planned slots' coverage is UNKNOWN — `neverObserved` must not read as a false definitive absence.
   let unknownAttempt = false;
   for (const c of resolvedCaptures) {
     if (!c.panelResolved || !forVersion(c.panelId, c.panelVersion)) continue;
+    liveExtra += c.liveDuplicateExtras ?? 0;
     if (c.contextMalformed && !c.slot) {
       excluded += 1;
       outcomes[c.outcome] += 1;
@@ -1036,6 +1061,7 @@ export function citationReport(
     observed,
     erased,
     erasedExtra,
+    liveExtra,
     recorded: observed + erased,
     neverObserved,
     coverageComplete,

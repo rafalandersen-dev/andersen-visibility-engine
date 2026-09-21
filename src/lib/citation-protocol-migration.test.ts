@@ -1968,6 +1968,111 @@ describe("CI-2 erasure preserves the slot/budget fact (content-free tombstone)",
     expect(r).toMatchObject({ observed: 1, erased: 0, erasedExtra: 0 });
     expect(r?.outcomes.protocol_deviant).toBe(1); // the erased sibling is surfaced via the deviant outcome
   });
+  it("reports three historical live originals at one discovery slot as observed 1 PLUS liveExtra 2 (raw history kept)", async () => {
+    // The mirror of the erased case: three independent LIVE originals at ONE grid slot must not read as one
+    // deviant with NO extra count. The slot is recorded ONCE (observed 1) and the two additional live
+    // attempts are surfaced exactly as liveExtra 2 (the live analogue of erasedExtra) — never a silent
+    // drop, never a new planned slot, and all three raw rows remain inspectable.
+    await importManualCapture(scope, discoveryCapture(), rpc); // SY-D01 r1 (RPC original)
+    const doc = (await readAnswerEvidence(scope, rpc)).answers[0];
+    await insertHistoricalDuplicate(uuid(792), doc);
+    await insertHistoricalDuplicate(uuid(793), doc);
+    const { captures, reports } = await readResolvedCaptures(scope, rpc);
+    expect(captures).toHaveLength(1); // report-safe single invalid entry (never trips panelCounts)
+    expect(captures[0].deviations).toContain("duplicate_slot");
+    const r = reports.find((x) => x.panelId === discoveryPanelId && x.panelVersion === 2)!;
+    expect(r).toMatchObject({
+      observed: 1,
+      liveExtra: 2, // exactly the two additional live originals
+      erased: 0,
+      erasedExtra: 0,
+      neverObserved: 39, // 40 − 1 observed − 0 erased; extras are not planned slots
+      excluded: 0, // surfaced as liveExtra, never folded into excluded
+    });
+    expect(r.outcomes.protocol_deviant).toBe(1);
+    expect(r.outcomes.complete).toBe(0);
+    expect((await readAnswerEvidence(scope, rpc)).answers).toHaveLength(3); // raw history unchanged
+  });
+  it("counts a valid original and a malformed INDEPENDENT original at one slot as observed 1 plus liveExtra 1", async () => {
+    await importManualCapture(scope, discoveryCapture(), rpc); // valid SY-D01 r1
+    const doc = (await readAnswerEvidence(scope, rpc)).answers[0];
+    // A second INDEPENDENT original at the same slot whose captureContext is MALFORMED but still recognizes
+    // the slot. It collapses with the valid original into one deviant slot and counts as one live extra,
+    // deterministically regardless of which the resolver sees first — no invented context to fit the schema.
+    await db.query(
+      "INSERT INTO ai_answer_evidence(user_id,project_id,id,prompt_id,prompt_revision,document_hash,document,supersedes_id) VALUES($1,'p',$2,$3,1,$4,$5,NULL)",
+      [
+        user,
+        uuid(795),
+        discoveryPromptId,
+        "hist-795",
+        {
+          input: {
+            ...doc.input,
+            rawAnswer: "malformed independent original",
+            captureContext: {
+              panelId: discoveryPanelId,
+              panelVersion: 2,
+              brandRunId: null,
+              slot: { round: 1, questionId: "SY-D01" },
+            },
+          },
+          prompt: doc.prompt,
+          analysis: doc.analysis,
+        },
+      ],
+    );
+    const { captures, reports } = await readResolvedCaptures(scope, rpc);
+    expect(captures).toHaveLength(1);
+    expect(captures[0].deviations).toContain("duplicate_slot");
+    const r = reports.find((x) => x.panelId === discoveryPanelId && x.panelVersion === 2)!;
+    expect(r).toMatchObject({ observed: 1, liveExtra: 1, neverObserved: 39 });
+    expect(r.outcomes.protocol_deviant).toBe(1);
+    expect(r.outcomes.complete).toBe(0);
+  });
+  it("does not count a live correction chain as a live extra (one active leaf)", async () => {
+    const original = await importManualCapture(scope, discoveryCapture(), rpc); // SY-D01 r1
+    await importManualCapture(
+      scope,
+      discoveryCapture({}, { supersedesId: original, rawAnswer: "corrected same-slot" }),
+      rpc,
+    );
+    const { captures, reports } = await readResolvedCaptures(scope, rpc);
+    expect(captures).toHaveLength(1); // only the active leaf — a correction is the SAME observation
+    const r = reports.find((x) => x.panelId === discoveryPanelId && x.panelVersion === 2)!;
+    expect(r).toMatchObject({ observed: 1, liveExtra: 0, neverObserved: 39 });
+    expect(r.outcomes.complete).toBe(1);
+  });
+  it("counts live extras and erased extras exactly and separately at different slots (no double count)", async () => {
+    // Slot A (SY-D01 r1): two live originals → observed 1 + liveExtra 1. Slot B (SY-D01 r2): two originals,
+    // both erased → erased 1 + erasedExtra 1. A different ROUND of the same question is a distinct slot that
+    // shares SY-D01's prompt/text (so the capture binds), keeping the two extra kinds independent and
+    // planned coverage counted once per slot.
+    await importManualCapture(scope, discoveryCapture(), rpc); // A: SY-D01 r1 (live)
+    const docA = (await readAnswerEvidence(scope, rpc)).answers[0];
+    await insertHistoricalDuplicate(uuid(796), docA); // second live original at A
+    const bId = await importManualCapture(
+      scope,
+      discoveryCapture({ slot: { round: 2, questionId: "SY-D01" } }, { rawAnswer: "B live" }),
+      rpc,
+    ); // B: SY-D01 r2
+    const docB = (await readAnswerEvidence(scope, rpc)).answers.find((a) => a.id === bId)!;
+    await insertHistoricalDuplicate(uuid(797), docB); // second original at B (SY-D01 r2, same prompt)
+    await removeAnswerEvidence(scope, "answer", bId, rpc); // erase both B originals → 2 tombstones, 1 slot
+    await removeAnswerEvidence(scope, "answer", uuid(797), rpc);
+    const r = (await readResolvedCaptures(scope, rpc)).reports.find(
+      (x) => x.panelId === discoveryPanelId && x.panelVersion === 2,
+    )!;
+    expect(r).toMatchObject({
+      observed: 1, // slot A recorded once
+      liveExtra: 1, // one extra live original at A
+      erased: 1, // slot B erased once
+      erasedExtra: 1, // one extra erased original at B
+      recorded: 2, // observed + erased
+      neverObserved: 38, // 40 − 1 observed − 1 erased
+      excluded: 0,
+    });
+  });
   it("reports a brand run's budget as consumed after every capture is erased (final report counts)", async () => {
     await saveCitationPanelDraft(scope, brandPanelId, 0, draftBrand(), rpc);
     await lockCitationPanel(scope, brandPanelId, 1, rpc);
@@ -3184,6 +3289,177 @@ describe("CI-2 weekly discovery schedule at lock and capture admission (spec §�
       (x) => x.panelId === discoveryPanelId && x.panelVersion === 2,
     );
     expect(r?.outcomes.complete).toBe(1);
+  });
+  it("accepts a correction whose capturedAt is an equivalent-offset spelling of the predecessor's instant", async () => {
+    await saveCitationPanelDraft(scope, discoveryPanelId, 0, draftDiscovery(), rpc);
+    await lockCitationPanel(scope, discoveryPanelId, 1, rpc);
+    await backdatePanelApproval(discoveryPanelId);
+    // Predecessor captured at 2026-07-06T08:00Z (round-1 slot 07:00Z + 60m), spelled with a +02:00 offset.
+    const predecessor = await importManualCapture(
+      scope,
+      discoveryCapture({
+        time: {
+          capturedAt: "2026-07-06T10:00:00.000+02:00", // the SAME instant as 08:00:00Z (CEST)
+          intendedSlotAt: "2026-07-06T07:00:00.000Z",
+          delayMinutes: 60,
+        },
+      }),
+      rpc,
+    );
+    // The correction re-describes the SAME observation; its capturedAt denotes the SAME instant spelled as
+    // 'Z'. Pre-fix a RAW-TEXT compare rejected it (different string); the value compare at millisecond
+    // precision accepts it — an equivalent offset is not a changed instant.
+    const corrected = await importManualCapture(
+      scope,
+      discoveryCapture(
+        {
+          time: {
+            capturedAt: "2026-07-06T08:00:00.000Z",
+            intendedSlotAt: "2026-07-06T07:00:00.000Z",
+            delayMinutes: 60,
+          },
+        },
+        { supersedesId: predecessor, rawAnswer: "corrected, same instant, Z spelling" },
+      ),
+      rpc,
+    );
+    expect(corrected).toBeTypeOf("string");
+    // The chain resolves to the active LEAF (one observation at the slot), never a phantom duplicate.
+    const { captures } = await readResolvedCaptures(scope, rpc);
+    expect(captures).toHaveLength(1);
+    expect(captures[0].answerId).toBe(corrected);
+  });
+  it("accepts a correction at the SAME millisecond instant spelled with a fractional second and an equivalent offset", async () => {
+    await saveCitationPanelDraft(scope, discoveryPanelId, 0, draftDiscovery(), rpc);
+    await lockCitationPanel(scope, discoveryPanelId, 1, rpc);
+    await backdatePanelApproval(discoveryPanelId);
+    // Predecessor captured at 2026-07-06T08:00:00.500Z (millisecond-precise), spelled with a +02:00 offset.
+    const predecessor = await importManualCapture(
+      scope,
+      discoveryCapture({
+        time: {
+          capturedAt: "2026-07-06T10:00:00.500+02:00", // == 08:00:00.500Z
+          intendedSlotAt: "2026-07-06T07:00:00.000Z",
+          delayMinutes: 60,
+        },
+      }),
+      rpc,
+    );
+    // The correction denotes the SAME .500 instant spelled as 'Z' → accepted (millisecond offset-equivalence
+    // is preserved; only the fraction beyond the millisecond is unsupported).
+    const corrected = await importManualCapture(
+      scope,
+      discoveryCapture(
+        {
+          time: {
+            capturedAt: "2026-07-06T08:00:00.500Z",
+            intendedSlotAt: "2026-07-06T07:00:00.000Z",
+            delayMinutes: 60,
+          },
+        },
+        { supersedesId: predecessor, rawAnswer: "same .500 instant, Z spelling" },
+      ),
+      rpc,
+    );
+    expect(corrected).toBeTypeOf("string");
+    expect((await readResolvedCaptures(scope, rpc)).captures.map((c) => c.answerId)).toEqual([
+      corrected,
+    ]);
+  });
+  it("refuses a correction whose capturedAt is a genuinely different instant (raw RPC), mapped generically by the wrapper", async () => {
+    await saveCitationPanelDraft(scope, discoveryPanelId, 0, draftDiscovery(), rpc);
+    await lockCitationPanel(scope, discoveryPanelId, 1, rpc);
+    await backdatePanelApproval(discoveryPanelId);
+    const predecessor = await importManualCapture(scope, discoveryCapture(), rpc); // capturedAt 08:00:00Z
+    const stored = (await readAnswerEvidence(scope, rpc)).answers.find(
+      (a) => a.id === predecessor,
+    )!;
+    // A DIFFERENT instant (5 minutes later, truthfully delayed 65m) is a different observation.
+    const correction = discoveryCapture(
+      {
+        time: {
+          capturedAt: "2026-07-06T08:05:00.000Z",
+          intendedSlotAt: "2026-07-06T07:00:00.000Z",
+          delayMinutes: 65,
+        },
+      },
+      { supersedesId: predecessor, rawAnswer: "different instant" },
+    );
+    // Raw RPC: fails closed with the SPECIFIC identity guard (the value compare stays DISTINCT). The wrapper
+    // intentionally maps internal errors to a generic code, so the exact rejection is asserted here.
+    await expect(
+      db.query("SELECT save_citation_capture($1,$2,$3)", [
+        user,
+        "p",
+        { input: correction, prompt: stored.prompt, analysis: stored.analysis },
+      ]),
+    ).rejects.toThrow(/citation_correction_identity_mismatch/);
+    // Public contract: the wrapper refuses too (mapped to the generic citation_protocol_unavailable).
+    await expect(importManualCapture(scope, correction, rpc)).rejects.toThrow(
+      /citation_protocol_unavailable/,
+    );
+  });
+  it("fails closed (no cast crash) when the correction's predecessor has a MALFORMED historical capturedAt", async () => {
+    await saveCitationPanelDraft(scope, discoveryPanelId, 0, draftDiscovery(), rpc);
+    await lockCitationPanel(scope, discoveryPanelId, 1, rpc);
+    await backdatePanelApproval(discoveryPanelId);
+    const predecessor = await importManualCapture(scope, discoveryCapture(), rpc);
+    const stored = (await readAnswerEvidence(scope, rpc)).answers.find(
+      (a) => a.id === predecessor,
+    )!;
+    // Corrupt ONLY the predecessor's captureContext.time.capturedAt to a non-date (a legacy/pre-strict row).
+    await db.query(
+      "UPDATE public.ai_answer_evidence SET document=jsonb_set(document,'{input,captureContext,time,capturedAt}',to_jsonb($3::text)) WHERE user_id=$1 AND id=$2",
+      [user, predecessor, "not-a-real-timestamp"],
+    );
+    const correction = discoveryCapture(
+      {},
+      { supersedesId: predecessor, rawAnswer: "correction of malformed pred" },
+    );
+    // Raw RPC: the malformed predecessor date parses to NULL (guarded) → DISTINCT from the new capture's
+    // real instant → the SPECIFIC identity mismatch, never a database cast error.
+    await expect(
+      db.query("SELECT save_citation_capture($1,$2,$3)", [
+        user,
+        "p",
+        { input: correction, prompt: stored.prompt, analysis: stored.analysis },
+      ]),
+    ).rejects.toThrow(/citation_correction_identity_mismatch/);
+    await expect(importManualCapture(scope, correction, rpc)).rejects.toThrow(
+      /citation_protocol_unavailable/,
+    );
+  });
+  it("refuses a correction when the predecessor's historical capturedAt has unsupported sub-millisecond precision (fail closed, no rewrite)", async () => {
+    await saveCitationPanelDraft(scope, discoveryPanelId, 0, draftDiscovery(), rpc);
+    await lockCitationPanel(scope, discoveryPanelId, 1, rpc);
+    await backdatePanelApproval(discoveryPanelId);
+    const predecessor = await importManualCapture(scope, discoveryCapture(), rpc); // 08:00:00.000Z
+    const stored = (await readAnswerEvidence(scope, rpc)).answers.find(
+      (a) => a.id === predecessor,
+    )!;
+    // Corrupt the predecessor to a SUB-MILLISECOND historical instant (a pre-strict row). round 25 refuses
+    // sub-millisecond at admission; the value compare must FAIL CLOSED rather than truncate .000500 onto
+    // .000 (which would wrongly accept a correction at a different sub-millisecond instant as "the same").
+    await db.query(
+      "UPDATE public.ai_answer_evidence SET document=jsonb_set(document,'{input,captureContext,time,capturedAt}',to_jsonb($3::text)) WHERE user_id=$1 AND id=$2",
+      [user, predecessor, "2026-07-06T08:00:00.000500Z"],
+    );
+    const correction = discoveryCapture(
+      {},
+      { supersedesId: predecessor, rawAnswer: "millisecond-precise correction" },
+    ); // 08:00:00.000Z
+    await expect(
+      db.query("SELECT save_citation_capture($1,$2,$3)", [
+        user,
+        "p",
+        { input: correction, prompt: stored.prompt, analysis: stored.analysis },
+      ]),
+    ).rejects.toThrow(/citation_correction_identity_mismatch/);
+    // The stored predecessor document is NEVER rewritten by the refusal — its finer instant is preserved.
+    const after = (await readAnswerEvidence(scope, rpc)).answers.find((a) => a.id === predecessor)!;
+    expect(
+      (after.input.captureContext as unknown as { time: { capturedAt: string } }).time.capturedAt,
+    ).toBe("2026-07-06T08:00:00.000500Z");
   });
   it("reads a capture against a schedule-stripped (historical) locked panel as never a clean baseline", async () => {
     await saveCitationPanelDraft(scope, discoveryPanelId, 0, draftDiscovery(), rpc);

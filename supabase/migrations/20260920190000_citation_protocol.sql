@@ -103,6 +103,27 @@ BEGIN
 EXCEPTION WHEN invalid_text_representation THEN RETURN NULL;
 END; $$;
 REVOKE ALL ON FUNCTION public.citation_ctx_run(text) FROM PUBLIC,anon,authenticated;
+-- Parse a stored ISO instant to a timestamptz for SAME-INSTANT comparison at the supported (millisecond)
+-- precision (round 25). Two capturedAt spellings that denote the same instant — e.g. a '+02:00' offset and
+-- its 'Z' equivalent — compare equal, so a raw-text compare no longer rejects a legitimate same-observation
+-- correction; an ACTUALLY different instant stays DISTINCT and is refused. It FAILS CLOSED (returns NULL) on
+-- an unsupported (sub-millisecond) precision, a non-finite (±infinity) instant, or a malformed/absent value
+-- — it does NOT truncate a finer instant onto the millisecond (which would silently treat two genuinely
+-- different sub-millisecond instants as equal and admit a correction at a changed instant). A NULL result
+-- IS DISTINCT FROM any real instant, so such a historical value fails the identity check rather than raising
+-- inside the caller (scoped datetime exceptions only, mirroring citation_ctx_run — a genuine fault still
+-- propagates). This matches the round-25 admission guard, which refuses sub-millisecond precision at write,
+-- so historical finer/malformed values read fail-closed and no stored document is ever rewritten.
+-- Content-free: reads and rewrites no row.
+CREATE FUNCTION public.citation_ts_ms(p_text text) RETURNS timestamptz LANGUAGE plpgsql STABLE SET search_path='' AS $$
+DECLARE v timestamptz;
+BEGIN
+  v := p_text::timestamptz;
+  IF v IS NULL OR NOT isfinite(v) OR v IS DISTINCT FROM date_trunc('milliseconds', v) THEN RETURN NULL; END IF;
+  RETURN v;
+EXCEPTION WHEN invalid_datetime_format OR datetime_field_overflow OR invalid_text_representation THEN RETURN NULL;
+END; $$;
+REVOKE ALL ON FUNCTION public.citation_ts_ms(text) FROM PUBLIC,anon,authenticated;
 
 CREATE FUNCTION public.read_citation_protocol(p_user uuid,p_project text)
 RETURNS jsonb LANGUAGE plpgsql SECURITY DEFINER SET search_path='' AS $$
@@ -567,7 +588,12 @@ BEGIN
       OR public.citation_ctx_run(pred_ctx->>'brandRunId') IS DISTINCT FROM v_run
       OR pred_ctx->'slot'->>'questionId' IS DISTINCT FROM ctx->'slot'->>'questionId'
       OR pred_ctx->'slot'->>'round' IS DISTINCT FROM ctx->'slot'->>'round'
-      OR pred_ctx->'time'->>'capturedAt' IS DISTINCT FROM ctx->'time'->>'capturedAt'
+      -- Capture instant by VALUE at supported (millisecond) precision, not raw text: an equivalent-offset
+      -- re-spelling of the SAME instant (e.g. '+02:00' vs 'Z') is one observation and must be accepted; a
+      -- genuinely different instant stays DISTINCT and is refused. A malformed historical predecessor date
+      -- resolves to NULL and is DISTINCT from the new capture's real instant, so it fails closed (no crash).
+      OR public.citation_ts_ms(pred_ctx->'time'->>'capturedAt')
+         IS DISTINCT FROM public.citation_ts_ms(ctx->'time'->>'capturedAt')
       OR pred_ctx->'surface' IS DISTINCT FROM ctx->'surface' THEN
       RAISE EXCEPTION 'citation_correction_identity_mismatch';
     END IF;

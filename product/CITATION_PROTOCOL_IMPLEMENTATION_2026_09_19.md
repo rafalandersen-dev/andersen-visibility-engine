@@ -974,19 +974,66 @@ skipped at the null guard.)
   and brand (brand: consumed 1/observed 1 recognized, consumed 1/observed 0/excluded 1 unknown), raw document
   still inspectable.
 
+### Review round 27 — same-instant correction identity + exact live-extra count (P2 4058831146 / 4058831148)
+
+Two confirmed findings on `9484265f`, one packet.
+
+- **Correction capture-instant by VALUE, not raw text (4058831146).** `save_citation_capture`'s
+  correction-identity guard compared `capturedAt` as RAW STRINGS, so a correction re-spelling the SAME
+  instant with an equivalent offset (e.g. `…+02:00` vs its `…Z` equivalent) was wrongly rejected. A new
+  content-free helper `public.citation_ts_ms(text)` parses a stored ISO instant to a `timestamptz` at the
+  supported (round-25 millisecond) precision, or NULL — it FAILS CLOSED (returns NULL) on an unsupported
+  sub-millisecond precision, a non-finite (±infinity) instant, or a malformed/absent value; it does NOT
+  truncate a finer instant onto the millisecond (which would silently treat two genuinely different
+  sub-millisecond instants as equal), catching only the datetime SQLSTATEs (mirroring `citation_ctx_run`, so
+  a genuine fault still propagates). The guard now compares `citation_ts_ms(pred) IS DISTINCT FROM
+  citation_ts_ms(new)`: an equivalent-offset re-spelling at millisecond precision is accepted, a genuinely
+  different instant is refused, and a malformed/sub-millisecond/non-finite HISTORICAL predecessor value
+  parses to NULL and fails CLOSED (never a cast crash — the pre-fix raw compare never cast, so the value
+  compare's crash risk is contained by the helper). This matches the round-25 admission guard (sub-ms
+  refused at write), so historical finer values read fail-closed. Immutable stored docs/hashes are never
+  rewritten. The TS resolver
+  already binds correction identity by chain id (`supersedesId` + valid parse), never a raw `capturedAt`
+  string, so it already accepts an equivalent-offset correction — SQL-only fix; the layers agree at ms.
+- **Exact live-extra attempt count (4058831148).** The resolver's duplicate-slot collapse dropped every
+  additional live original silently, so three historical originals at one slot read as one deviant with NO
+  extra count — the live analogue of the tombstone `erasedExtra`. The collapse survivor now carries
+  `liveDuplicateExtras` = occupants − 1 (valid OR malformed independents at the recognized slot), and
+  `citationReport` sums it per version into a new `liveExtra`. Live captures are the WHOLE snapshot (100-
+  answer cap, never LIMIT-truncated), so it is exact: three originals → `observed` 1 AND `liveExtra` 2; two
+  → `liveExtra` 1. Never a new planned slot, never double-counts the one occupant in `observed`, never
+  folded into `excluded`; a lone capture or a correction chain (one active leaf) contributes 0. The resolved
+  list still collapses to one entry per slot (`panelCounts` never trips); determinism (valid+malformed
+  collision) and the failed-correction fold are preserved; live and erased extras count independently with
+  no double-count and no false coverage.
+- Scope: only the candidate SQL (`citation_ts_ms` + the value compare) and `citation-protocol.ts`
+  (`ResolvedCapture.liveDuplicateExtras`, `CitationReport.liveExtra`) plus the two P2 test files and docs.
+  No applied SQL, no P3, no provider, no commit/deploy.
+- Tests: real SQL — equivalent-offset correction ACCEPTED (`.000` and `.500` fractional, chain resolves to
+  the leaf); a genuinely different instant, a corrupted-date predecessor, and a SUB-MILLISECOND predecessor
+  are each REFUSED with the SPECIFIC `citation_correction_identity_mismatch` asserted against the RAW RPC
+  (`db.query(SELECT save_citation_capture …)`) while the public wrapper is asserted to map to the generic
+  `citation_protocol_unavailable` (the wrapper is not weakened); the sub-millisecond case also asserts the
+  stored predecessor document is never rewritten. Pure resolver/report — N live originals → observed 1 /
+  `liveExtra` N−1; correction chain → `liveExtra` 0; valid+malformed collision → `liveExtra` 1 both orders.
+  Real canonical read→report — three live originals → observed 1 / `liveExtra` 2 (raw history kept); mixed
+  valid+malformed → `liveExtra` 1; live correction chain → `liveExtra` 0; live extras at one slot AND erased
+  extras at another (SY-D01 r1 vs r2) → `liveExtra` 1 + `erasedExtra` 1, `recorded` 2, `neverObserved` 38,
+  no double-count.
+
 ## Files
 
 | File | Change |
 | --- | --- |
 | `src/lib/pg-uuid.ts` | New (leaf, no imports). Shared semantic-UUID identity: `PG_UUID_RE`, `canonicalUuid`, `canonicalRun`. Imported by the citation-protocol layer and the legacy answer-evidence intake without a circular import. |
 | `src/lib/citation-panel.ts` | Released PR137 contract, extended COMPATIBLY (round 24): an optional immutable `schedule` on `panelProtocolSchema` (`scheduleSlotSchema`/`discoveryScheduleSchema`) plus pure helpers `discoveryScheduleValid` and `discoveryScheduleDeviations` (Europe/Stockholm weekly cadence, DST-correct via `stockholmWeekLater`). Round 25: the Stockholm wall clock compares to the MILLISECOND (`fractionalSecondDigits: 3`, `stockholmWeekLater` carries the fraction) and sub-millisecond precision is refused at admission / fails closed on read (`isMillisecondPrecise`), matching the SQL lock. Additive only — the field is optional (historical panels parse unchanged) and `protocolDeviations`/`slotOutcome`/`panelCounts`/`comparablePairs` signatures/behaviour are untouched. |
-| `src/lib/citation-protocol.ts` | New. Pure storage contract: `panelDraftSchema`, `lockedPanelSchema` (now also requires a valid prospective weekly schedule for a discovery lock / no schedule for brand), `citationProtocolStateSchema`, `brandRunApprovalSchema`, `parseManualCaptureInput`, `resolveStoredCaptures` (semantic-uuid identity; discovery-baseline-ambiguity flag; per-capture weekly-schedule gate), `citationReport`/`citationReports`, caps. Exports the shared `panelVersionKey(panelId, version)`. Re-exports `canonicalUuid`/`canonicalRun` from `./pg-uuid`. Reuses PR137 schemas; never redefines them. Round 26: a PRESENT-but-malformed opaque `captureContext` is surfaced as an explicit invalid `ResolvedCapture` (`contextMalformed`, recognized `slot`/`brandRunId` or null, `captureContext: null`) instead of being silently dropped — a known slot reads observed-invalid, an unknown slot makes the version's coverage unknown (`neverObserved` null), an unknown panel is an orphan; legacy context-less rows are still skipped and the raw document is never rewritten. |
+| `src/lib/citation-protocol.ts` | New. Pure storage contract: `panelDraftSchema`, `lockedPanelSchema` (now also requires a valid prospective weekly schedule for a discovery lock / no schedule for brand), `citationProtocolStateSchema`, `brandRunApprovalSchema`, `parseManualCaptureInput`, `resolveStoredCaptures` (semantic-uuid identity; discovery-baseline-ambiguity flag; per-capture weekly-schedule gate), `citationReport`/`citationReports`, caps. Exports the shared `panelVersionKey(panelId, version)`. Re-exports `canonicalUuid`/`canonicalRun` from `./pg-uuid`. Reuses PR137 schemas; never redefines them. Round 26: a PRESENT-but-malformed opaque `captureContext` is surfaced as an explicit invalid `ResolvedCapture` (`contextMalformed`, recognized `slot`/`brandRunId` or null, `captureContext: null`) instead of being silently dropped — a known slot reads observed-invalid, an unknown slot makes the version's coverage unknown (`neverObserved` null), an unknown panel is an orphan; legacy context-less rows are still skipped and the raw document is never rewritten. Round 27: the duplicate-slot collapse survivor carries `liveDuplicateExtras` (occupants − 1) and `citationReport` sums it into a new `liveExtra` field (the exact live analogue of `erasedExtra`), so N historical live originals at one slot report observed 1 + liveExtra N−1 without double-counting or a silent drop. |
 | `src/lib/citation-protocol.server.ts` | New. Service RPC helpers: read, save draft, lock, approve brand run, import capture, read+resolve. Owner/time/approval derived server-side; network-free. Draft panelId, prompt binding and the lock/brand owner-receipt checks compare by SEMANTIC uuid value (`canonicalUuid`); the per-version erasure-metadata maps are keyed via the shared `panelVersionKey`. |
 | `src/lib/citation-protocol.functions.ts` | New. Six `requireSupabaseAuth` endpoints, each refusing an owner mismatch and never accepting a client approval/reviewer/timestamp. |
 | `src/lib/citation-protocol.test.ts` | New. Pure-contract + mocked-server unit tests. |
 | `src/lib/citation-protocol.functions.test.ts` | New. Endpoint authentication/validation tests. |
 | `src/lib/citation-protocol-migration.test.ts` | New. Real PGlite SQL round trips (isolation, auth, missing project, reference forgery, approval version, protocol binding, capacity, deletion, idempotency). |
-| `supabase/migrations/20260920190000_citation_protocol.sql` | New (one migration). Three tables (panels, brand runs, content-free capture tombstones) + five service-only SECURITY DEFINER RPCs + one internal `IMMUTABLE` helper (`citation_ctx_run`, semantic brandRunId identity, granted to no role) + an `AFTER DELETE` tombstone trigger on `ai_answer_evidence`; RLS on, project-scoped FKs, project-deletion cascade. Round 24: `lock_citation_panel` requires a discovery lock to carry a NULL-safe, prospective Europe/Stockholm weekly schedule (one slot per round, exact wall-clock cadence) and forbids a brand schedule; `save_citation_capture` binds a discovery capture's `intendedSlotAt` to its round's approved slot and a truthful delay. Round 25: both refuse sub-millisecond precision (`date_trunc('milliseconds', ...)`), the supported precision that matches the TS validator. |
+| `supabase/migrations/20260920190000_citation_protocol.sql` | New (one migration). Three tables (panels, brand runs, content-free capture tombstones) + five service-only SECURITY DEFINER RPCs + one internal `IMMUTABLE` helper (`citation_ctx_run`, semantic brandRunId identity, granted to no role) + an `AFTER DELETE` tombstone trigger on `ai_answer_evidence`; RLS on, project-scoped FKs, project-deletion cascade. Round 24: `lock_citation_panel` requires a discovery lock to carry a NULL-safe, prospective Europe/Stockholm weekly schedule (one slot per round, exact wall-clock cadence) and forbids a brand schedule; `save_citation_capture` binds a discovery capture's `intendedSlotAt` to its round's approved slot and a truthful delay. Round 25: both refuse sub-millisecond precision (`date_trunc('milliseconds', ...)`), the supported precision that matches the TS validator. Round 27: a second internal helper `citation_ts_ms(text)` (granted to no role, guarded parse → millisecond-truncated timestamptz or NULL) lets the correction-identity guard compare `capturedAt` by VALUE at millisecond precision, so an equivalent-offset re-spelling of the same instant is accepted, a different instant refused, and a malformed historical predecessor date fails closed without a cast crash. |
 | `src/lib/answer-evidence.ts` | Additive only: optional opaque `captureContext` on `answerEvidenceSchema` so reads tolerate capture-bound records. Legacy documents are byte-identical (field absent). |
 | `src/lib/answer-evidence.server.ts` | Additive only: `importAnswerEvidence` refuses a capture context (legacy path stays capture-blind; captures must use the panel-aware path), and now compares the predecessor and prompt by SEMANTIC uuid value (`canonicalUuid` from `./pg-uuid`) so an UPPERCASE `supersedesId` cannot bypass `evidence_capture_correction_requires_context`. |
 | `product/CITATION_PROTOCOL_IMPLEMENTATION_2026_09_19.md`, `evidence/citation-protocol-storage-2026-09-19.md` | New. This doc and the evidence record. |
@@ -1198,6 +1245,20 @@ regression without dropping genuinely independent malformed rows. Legacy context
 and the raw document/hash is never rewritten. Only `citation-protocol.ts` and the two P2 test files changed —
 `citation-panel.ts` and the candidate SQL are untouched (the read keeps captureContext opaque, so no SQL
 change is needed); no applied migration, no P3, no provider, no commit/deploy.
+Round 27 (this turn, on `9484265f`) fixes two confirmed findings in one packet: (a) P2 4058831146 —
+`save_citation_capture`'s correction-identity guard compared `capturedAt` as raw strings, rejecting an
+equivalent-offset re-spelling of the SAME instant; a new content-free `citation_ts_ms(text)` helper (guarded
+parse → millisecond-precise timestamptz or NULL, failing closed on sub-millisecond/non-finite/malformed
+rather than truncating) makes the guard compare by VALUE, so an equivalent millisecond offset is accepted, a
+genuinely different instant refused, and a malformed OR sub-millisecond historical predecessor value fails
+closed without a cast crash (the TS resolver already binds correction identity by chain id, so it needs no
+change);
+and (b) P2 4058831148 — the resolver's duplicate-slot collapse dropped extra live originals silently, so the
+collapse survivor now carries `liveDuplicateExtras` and `citationReport` exposes a new `liveExtra` (the exact
+live analogue of `erasedExtra`): three originals at one slot report observed 1 + liveExtra 2, never a silent
+drop, never double-counting the one occupant, with the failed-correction fold and valid/malformed determinism
+preserved. Only the candidate SQL and `citation-protocol.ts` (plus the two P2 test files and docs) changed —
+no applied migration, no P3, no provider, no commit/deploy.
 **HONEST RUN STATUS.** The prior worktree process for round 24 terminated on a plan/credit limit, not
 success; its partial Codex verification was `tsc` PASS but **150 tests PASS / 38 FAIL** in
 `citation-protocol-migration.test.ts` — a **FAILED prior attempt of this work, not a passing baseline**. Two
@@ -1209,17 +1270,19 @@ recent-PAST approval + schedule so on-schedule captures land at now-past slots t
 exercised — resolved by real Date arithmetic in the slot helper. **No production future-date or
 prospective-approval guard was weakened, no storage assertion was replaced with a mock, and no public
 admission was bypassed to make tests pass.** All earlier PASS counts — including the latest verified Codex
-baseline on `033e94e6` (199 focused / 6363 full PASS, the round-25 precision stage) — are a prior stage
-and **do not carry over**; the follow-up Codex run of the first round-26 pass was **207 focused PASS / 1
-FAIL** (the round-3 `["cap"]` regression, reconciled this turn by folding a malformed correction of a
-surviving capture) with `tsc` NOT run (chained after the failure). Every check below — including the
-round-16…24 suites, the round-25 precision tests, and the round-26 malformed-captureContext tests
-(recognized-slot observed-invalid vs unknown-slot excluded/neverObserved-null vs orphan panel; legacy-vs-
-malformed distinction; brand consumed/observed coherence; the malformed-correction FOLD; the valid+
-INDEPENDENT-malformed same-slot collapse tested in BOTH input orders; a malformed independent original at a
-KNOWN erased slot; and the real-storage `jsonb_set`→`readResolvedCaptures`→`citationReport` roundtrip for
-discovery AND brand) — is UNRUN in this worktree and must be re-executed by Codex; this assistant did not run
-tests and claims no PASS. The
+baseline on `9484265f` (212 focused / 6376 full PASS, the round-26 malformed-captureContext stage) — are a
+prior stage and **do not carry over**; the follow-up Codex run of the first round-27 pass was **217 focused
+PASS / 4 FAIL** (three tests asserted the internal `citation_correction_identity_mismatch` against the
+generic-mapping wrapper, and the empty-report `toEqual` predated `liveExtra`) with `tsc` NOT run (chained
+after the failure), and an independent delta noted `citation_ts_ms` truncated sub-millisecond history — all
+reconciled this turn (raw-RPC vs public-contract assertions split, `liveExtra: 0` added, and the helper now
+fails closed on sub-millisecond/non-finite instead of truncating). Every check below — including the
+round-16…26 suites and the round-27 tests (real-SQL: `.000`/`.500` equivalent-offset correction accepted;
+different-instant, corrupted-predecessor, and sub-millisecond-predecessor each refused with the SPECIFIC
+error on the RAW RPC while the wrapper maps to the generic error; predecessor document never rewritten; pure
+and real-storage `liveExtra`: N originals → observed 1 + liveExtra N−1, correction chain → 0, valid+malformed
+collision → 1, live + erased extras counted independently) — is UNRUN in this worktree and must be
+re-executed by Codex; this assistant did not run tests and claims no PASS. The
 repository-wide lint is separately RED (~3790 errors / 14 warnings, pre-existing across the repo); this
 packet does NOT mass-format or claim a global-lint pass — only the SCOPED lint on the touched files applies.
 The released P1 SQL migrations, global migration inventory, and P3/R09 files were not touched; the released
@@ -1240,7 +1303,7 @@ so it validates the new SQL against the actual prior schema without applying any
 
 ## Migration / rollback
 
-One new, **unapplied** migration adds three tables, seven functions and one trigger. It depends on existing `assert_knowledge_project`, `ai_visibility_prompts`, `ai_answer_evidence`, `workspace_entities` and the account serialization row. It does not alter or replay released migrations. P1 artifact staging is already released; it is outside this rollback.
+One new, **unapplied** migration adds three tables, eight functions and one trigger. It depends on existing `assert_knowledge_project`, `ai_visibility_prompts`, `ai_answer_evidence`, `workspace_entities` and the account serialization row. It does not alter or replay released migrations. P1 artifact staging is already released; it is outside this rollback.
 
 If rollback becomes necessary, first disable or roll back callers of these P2 RPCs and inspect later dependencies. Preserve any owner-required evidence before considering table removal: dropping these tables destroys panel approvals, run budgets and content-free erasure history. This is a rollback inventory, not an executed or pre-authorized destructive operation.
 
@@ -1248,9 +1311,9 @@ Remove objects in dependency order, using explicit names and signatures, without
 
 1. Drop trigger `tombstone_citation_capture` **ON `public.ai_answer_evidence`**. This detaches the new behavior from the existing answer-evidence table.
 2. Drop the five service RPCs: `public.read_citation_protocol(uuid,text)`, `public.save_citation_panel_draft(uuid,text,uuid,integer,jsonb)`, `public.lock_citation_panel(uuid,text,uuid,integer)`, `public.approve_citation_brand_run(uuid,text,uuid,uuid,integer,integer,integer)`, and `public.save_citation_capture(uuid,text,jsonb)`.
-3. Drop the internal trigger function `public.tombstone_citation_capture()` and the internal helper `public.citation_ctx_run(text)` (a content-free `IMMUTABLE` uuid normalizer the read RPC and `save_citation_capture` call for semantic brandRunId identity; it is granted to no role and referenced only by the P2 functions dropped in step 2, so it is removed after them).
+3. Drop the internal trigger function `public.tombstone_citation_capture()` and the two internal helpers `public.citation_ctx_run(text)` (a content-free `IMMUTABLE` uuid normalizer the read RPC and `save_citation_capture` call for semantic brandRunId identity) and `public.citation_ts_ms(text)` (a content-free `STABLE` millisecond-instant normalizer `save_citation_capture` calls for same-instant correction identity — it parses to a millisecond-precise timestamptz or NULL, failing closed on sub-millisecond/non-finite/malformed values). Both are granted to no role and referenced only by the P2 functions dropped in step 2, so they are removed after them.
 4. Drop `public.citation_brand_runs` before its referenced `public.citation_panels` table, and drop `public.citation_capture_tombstones` as well. These are all three tables created by this candidate.
-5. Verify that all seven functions, all three tables and the trigger are absent, and that the legacy answer/knowledge objects and their existing triggers remain present. Reconcile the migration journal through the established release procedure; never edit an applied migration or silently reapply it.
+5. Verify that all eight functions, all three tables and the trigger are absent, and that the legacy answer/knowledge objects and their existing triggers remain present. Reconcile the migration journal through the established release procedure; never edit an applied migration or silently reapply it.
 
 If later released objects depend on P2, stop the removal and plan their compatible rollback first. Removing P2 does not reverse already stored answer evidence, and loss of erasure history means previous consumed-slot guarantees cannot be assumed after a future reinstall.
 
