@@ -1,0 +1,1099 @@
+import { z } from "zod";
+import { PG_UUID_RE, canonicalUuid, canonicalRun } from "./pg-uuid";
+import { answerEvidenceSchema, evidenceRowSchema, type AnswerEvidence } from "./answer-evidence";
+import {
+  brandRunSchema,
+  captureContextSchema,
+  discoveryScheduleDeviations,
+  discoveryScheduleValid,
+  panelProtocolSchema,
+  protocolDeviations,
+  slotOutcome,
+  supportedInstantMs,
+  SLOT_OUTCOMES,
+  type BrandRun,
+  type CaptureContext,
+  type PanelProtocol,
+  type SlotOutcome,
+} from "./citation-panel";
+
+/**
+ * Citation Intelligence v1, CI-2 storage design (product/CITATION_INTELLIGENCE_SPEC.md §5, §8;
+ * product/CITATION_PROTOCOL_IMPLEMENTATION_2026_09_19.md).
+ *
+ * This module is the pure, network-free contract for immutable panel/protocol storage, separately
+ * approved brand runs, and manual capture context bound to the existing answer record. It reuses
+ * the released PR137 validity helpers (citation-panel.ts) and the existing answer stack
+ * (answer-evidence.ts); it never redefines them and never schedules, collects or classifies.
+ *
+ * Validity is not authority. The panel and brand-run *shapes* below are asserted here, but a
+ * capture is authorized only when the server resolves the referenced panel version and approved
+ * run against actual stored records (see citation-protocol.server.ts and the migration). The
+ * read-time resolver below re-derives a capture's slot outcome against the actual panels/runs so a
+ * later panel/run deletion invalidates the dependent claim without rewriting the raw capture.
+ */
+
+// Caps consistent with the existing answer stack (200 prompt versions, 100 answers per project).
+// A project holds only a few panels (discovery + optional brand); versions accumulate through
+// draft→lock, so the per-project version budget mirrors the 200 prompt-version ceiling, and brand
+// runs (baseline/re-test diagnostics) are bounded well under it.
+export const MAX_PANEL_VERSIONS = 200;
+export const MAX_BRAND_RUNS = 20;
+// A content-free slot/budget tombstone is recorded when a manual capture is erased, so an erased
+// consumed attempt is not silently reborn as an absent/missed slot. This ceiling only bounds the read
+// for finite serialization; it is generous and defensive, not a product limit (the real limits are
+// one-original-per-slot plus the answer/panel/run capacities), so a read never falsely rejects.
+export const MAX_CAPTURE_TOMBSTONES = 10000;
+
+// v1 discovery methodology is a fixed grid: exactly 10 questions × 4 weekly rounds = 40 planned slots
+// (spec §5.3, CI11-T13). The released panelProtocolSchema deliberately allows a broader shape (1..10
+// questions, 0..12 rounds) for general use and for editable drafts; a LOCKED/approved v1 discovery
+// panel must be exactly this grid, so an under- or over-sized pilot can never lock and read as a
+// complete v1 measurement. Brand panels are unscheduled (rounds 0) and are not constrained here.
+export const V1_DISCOVERY_QUESTIONS = 10;
+export const V1_DISCOVERY_ROUNDS = 4;
+
+/** A draft panel is unapproved: status `draft`, no approval receipt. Owner review happens on the
+ * draft; the server, not the client, mints the approval when the draft is locked. */
+// v1 Citation Intelligence measures CONSUMER surfaces only; an API surface is not a consumer
+// substitute (spec §§2, 5.2). A panel (draft or locked) whose one surface is `api` is out of the v1
+// boundary and refused. Consumer web and consumer search surfaces remain in scope. The general
+// answer-evidence stack is unchanged — it still records API answers as ordinary (non-panel) evidence.
+function assertConsumerV1Panel(panel: PanelProtocol, ctx: z.RefinementCtx) {
+  if (panel.surface.mode === "api")
+    ctx.addIssue({
+      code: "custom",
+      path: ["surface", "mode"],
+      message: "v1 citation panels are consumer-only; an API surface is not a consumer substitute",
+    });
+}
+
+// v1 discovery must be ten DISTINCT questions, not ten labels for one question. Each question must
+// bind to a DISTINCT prompt (promptId+revision) AND carry DISTINCT text: ten unique local ids all
+// pointing at one prompt, or ten prompts carrying identical COPIED text, is not a ten-question
+// experiment (spec §5.3). The panel's own binding guard forces text == the bound prompt's text, so a
+// reused prompt also collides on text; both are still checked so the intent holds independently.
+export function v1DiscoveryQuestionsDistinct(panel: PanelProtocol): boolean {
+  const bindings = new Set(panel.questions.map((q) => `${q.promptId}:${q.promptRevision}`));
+  const texts = new Set(panel.questions.map((q) => q.text));
+  return bindings.size === panel.questions.length && texts.size === panel.questions.length;
+}
+
+// A LOCKED v1 discovery panel is the fixed 10×4 grid (spec §5.3, CI11-T13). Enforced only at lock, so
+// an incomplete draft can stay editable but an under- or over-sized discovery panel can never lock.
+// Brand panels are unscheduled and exempt (their scope is a separately approved run).
+function assertV1DiscoveryGrid(panel: PanelProtocol, ctx: z.RefinementCtx) {
+  if (panel.kind !== "discovery") return;
+  if (panel.questions.length !== V1_DISCOVERY_QUESTIONS)
+    ctx.addIssue({
+      code: "custom",
+      path: ["questions"],
+      message: `A locked v1 discovery panel has exactly ${V1_DISCOVERY_QUESTIONS} questions`,
+    });
+  if (panel.rounds !== V1_DISCOVERY_ROUNDS)
+    ctx.addIssue({
+      code: "custom",
+      path: ["rounds"],
+      message: `A locked v1 discovery panel runs exactly ${V1_DISCOVERY_ROUNDS} rounds`,
+    });
+  // Ten DISTINCT questions, not ten labels for one (distinct prompt bindings AND distinct text).
+  if (!v1DiscoveryQuestionsDistinct(panel))
+    ctx.addIssue({
+      code: "custom",
+      path: ["questions"],
+      message: `A locked v1 discovery panel needs ${V1_DISCOVERY_QUESTIONS} distinct questions: each a distinct prompt binding and distinct text`,
+    });
+}
+
+// A locked panel's run schedule (spec §§5.1 Frequency, 5.2 Time, 5.3). A DISCOVERY panel must carry an
+// owner-approved Europe/Stockholm weekly schedule — one intended slot per round, once per week — that is
+// PROSPECTIVE (the owner approves the schedule before running it, so no slot precedes the approval
+// instant; §5.3 "Do not backdate"). Four same-day "rounds" can never form a valid four-week schedule.
+// A BRAND panel is unscheduled and must carry no schedule. Enforced only at lock, so a historical
+// pre-schedule locked panel still reads (the resolver flags it, never a clean baseline) and a draft may
+// still be incomplete; the lock RPC enforces the same at the DB boundary. Never inferred/backfilled.
+function assertLockedRunSchedule(panel: PanelProtocol, ctx: z.RefinementCtx) {
+  if (panel.kind === "brand") {
+    if (panel.schedule != null)
+      ctx.addIssue({
+        code: "custom",
+        path: ["schedule"],
+        message: "Brand panels are unscheduled; a diagnostic run carries no weekly schedule",
+      });
+    return;
+  }
+  if (!discoveryScheduleValid(panel)) {
+    ctx.addIssue({
+      code: "custom",
+      path: ["schedule"],
+      message:
+        "A locked v1 discovery panel needs an owner-approved Europe/Stockholm weekly schedule: one intended slot per round, once per week",
+    });
+    return;
+  }
+  const approvedMs = panel.approval ? Date.parse(panel.approval.approvedAt) : NaN;
+  const earliest = Math.min(...panel.schedule!.slots.map((s) => Date.parse(s.intendedAt)));
+  if (!Number.isFinite(approvedMs) || !Number.isFinite(earliest) || earliest < approvedMs)
+    ctx.addIssue({
+      code: "custom",
+      path: ["schedule"],
+      message:
+        "Every scheduled weekly slot must be at or after the owner approval (prospective; no backdated slot)",
+    });
+}
+
+export const panelDraftSchema = panelProtocolSchema.superRefine((panel, ctx) => {
+  if (panel.status !== "draft")
+    ctx.addIssue({
+      code: "custom",
+      path: ["status"],
+      message: "A saved panel draft is not locked",
+    });
+  if (panel.approval !== null)
+    ctx.addIssue({
+      code: "custom",
+      path: ["approval"],
+      message: "A draft carries no approval; the server mints it at lock",
+    });
+  assertConsumerV1Panel(panel, ctx);
+});
+
+/** A locked panel version: owner-approved, immutable, with a server-minted approval receipt. */
+export const lockedPanelSchema = panelProtocolSchema.superRefine((panel, ctx) => {
+  if (panel.status !== "locked" || !panel.approval)
+    ctx.addIssue({
+      code: "custom",
+      path: ["status"],
+      message: "A locked panel version carries the owner approval receipt",
+    });
+  assertConsumerV1Panel(panel, ctx);
+  assertV1DiscoveryGrid(panel, ctx);
+  assertLockedRunSchedule(panel, ctx);
+});
+
+/** The content-free erased-slot fact for a slot whose observation was deleted (spec §5.2 attempts
+ * semantics + erasure). It carries NO answer content — only which slot was observed. The read RPC only
+ * ever emits a fact whose `questionId` is a real GRID-shaped id (a structured ≤6-char label, not free
+ * text), and drops any tombstone carrying an arbitrary/empty/overlength historical `questionId` to a
+ * content-free excluded COUNT (`erasureByVersion.excludedRows`) — so this schema can require the grid
+ * shape without a malformed historical row ever breaking the read or leaking deleted content. `panelVersion`/
+ * `round` are integers as wide as the trigger allows (0..int4); `answerId` is identity only. */
+/** PostgreSQL's canonical `uuid` textual shape (8-4-4-4-12 hex), which is BROADER than Zod's `.uuid()`
+ * (RFC 4122, which also checks the version/variant nibbles). The deletion trigger validates a capture
+ * context's ids with exactly this hex shape, and the tombstone table's `uuid` columns store any such
+ * value, so a HISTORICAL identity may be Postgres-valid without RFC bits (e.g.
+ * `00000000-0000-0000-0000-000000000001`). The content-free tombstone READ must therefore accept this
+ * shape or one legacy row would fail the whole protocol read. This relaxation is READ-ONLY and identity
+ * only: NEW capture/panel/run authorization and input schemas keep the stricter `.uuid()`, and
+ * identity MATCHING still requires a genuine locked+approved panel / approved run (an id that resolves
+ * to no real entity stays `panelResolved: false` / excluded — the read grants no authority). */
+// Semantic UUID identity lives in a shared leaf module (./pg-uuid) so the legacy answer-evidence intake
+// can reuse the SAME normalizer without a circular import. Re-exported for the P2 server/tests that
+// already import canonicalUuid/canonicalRun from this module.
+export { canonicalUuid, canonicalRun };
+/**
+ * The per-version erasure-metadata key. The SQL producer of that metadata keys by CANONICAL uuid columns
+ * while a panel DOCUMENT keeps the client's original panelId spelling (possibly UPPERCASE), so both the
+ * server (which builds `excludedByVersion`/`coverageCompleteByVersion`/`extraAttemptsByVersion` and the
+ * received-count map) and `citationReport` (which reads them) MUST derive this key identically — via
+ * `canonicalUuid` — or an uppercase panel drops its excluded/extra counts and defaults coverage to a
+ * false-definitive `neverObserved`. One shared helper prevents that divergence.
+ */
+export const panelVersionKey = (panelId: string, version: number): string =>
+  `${canonicalUuid(panelId)}:${version}`;
+const pgUuid = z.string().regex(PG_UUID_RE);
+
+export const erasedSlotFactSchema = z
+  .object({
+    answerId: pgUuid,
+    panelId: pgUuid,
+    panelVersion: z.number().int().min(0).max(2147483647),
+    brandRunId: pgUuid.nullable(),
+    questionId: z.string().regex(/^[A-Z]{2}-[DB]\d{2}$/),
+    round: z.number().int().min(0).max(2147483647),
+  })
+  .strict();
+export type ErasedSlotFact = z.infer<typeof erasedSlotFactSchema>;
+
+/** AUTHORITATIVE per-approved-run consumed budget, computed by the read RPC with the exact write-gate
+ * predicate (live originals bound to the run by `captureContext->>'brandRunId'`, including a malformed
+ * context, PLUS each tombstone row). Never reconstructed from the collapsed/LIMIT-bounded coverage.
+ * `runId` is a DB-derived stored identity (canonical Postgres uuid shape). */
+export const runConsumedSchema = z
+  .object({
+    runId: pgUuid,
+    consumed: z.number().int().min(0).max(2147483647),
+  })
+  .strict();
+export type RunConsumed = z.infer<typeof runConsumedSchema>;
+
+/** Coverage-completeness metadata per ACTUAL stored panel version that has tombstones. `gridRows` is
+ * the TRUE grid-shaped tombstone-row total, so a consumer can tell whether the LIMIT-bounded
+ * `tombstones` are complete for the version (and must NOT derive a definitive `neverObserved` when they
+ * are not); `duplicateRows` is the EXACT count of ADDITIONAL grid erased attempts beyond one per slot
+ * (grid rows − distinct question/round/run slots), computed over the full tombstone set (not the
+ * LIMIT-bounded `tombstones`), so a truncated transmit never hides an extra erased attempt; a lone
+ * erasure and a fully erased correction chain (one tombstone at the ORIGINAL) contribute 0.
+ * `excludedRows` is the content-free malformed (non-grid) row count. `panelId` is a DB-derived stored
+ * identity (canonical Postgres uuid shape). All counts are content-free. */
+export const erasureByVersionSchema = z
+  .object({
+    panelId: pgUuid,
+    panelVersion: z.number().int().min(0).max(2147483647),
+    gridRows: z.number().int().min(0).max(2147483647),
+    duplicateRows: z.number().int().min(0).max(2147483647),
+    excludedRows: z.number().int().min(0).max(2147483647),
+  })
+  .strict();
+export type ErasureByVersion = z.infer<typeof erasureByVersionSchema>;
+
+export const citationProtocolStateSchema = z
+  .object({
+    // The answer-evidence rows, read in the SAME database snapshot as the panels/runs/erasure below, so
+    // the resolved captures and the authoritative consumed budget can never be derived from two
+    // different snapshots (a capture committed between separate reads cannot expose consumed budget
+    // without its evidence). Same shape as read_ai_answer_evidence's answers. REQUIRED (no default): the
+    // observation payload is the numerator the consumed-budget aggregate is checked against, so a payload
+    // that omits `answers` must FAIL the read loudly, never silently parse to an empty evidence set that
+    // would let a nonzero `runConsumed` masquerade as "consumed budget, zero observed". The candidate RPC
+    // always emits it, and the candidate was never deployed, so there is no answers-less shape to keep
+    // compatible; a genuinely empty snapshot still passes as `answers: []`. (Contrast the content-free
+    // erasure aggregates below, which stay optional-with-default: they are not the observation payload.)
+    answers: z.array(evidenceRowSchema).max(100),
+    panels: z.array(panelProtocolSchema).max(MAX_PANEL_VERSIONS),
+    brandRuns: z.array(brandRunSchema).max(MAX_BRAND_RUNS),
+    // Content-free erasure facts. Optional-with-default so a caller/store that predates them still
+    // parses (to empty sets); the RPC always returns them. `tombstones` is LIMIT-bounded coverage; the
+    // aggregates are bounded to actual panels/runs (never unbounded random-id groups); `erasureOverflow`
+    // is a single count of tombstone rows not attributable to any stored panel version.
+    tombstones: z.array(erasedSlotFactSchema).max(MAX_CAPTURE_TOMBSTONES).default([]),
+    runConsumed: z.array(runConsumedSchema).max(MAX_BRAND_RUNS).default([]),
+    erasureByVersion: z.array(erasureByVersionSchema).max(MAX_PANEL_VERSIONS).default([]),
+    erasureOverflow: z.number().int().min(0).max(2147483647).default(0),
+  })
+  .strict();
+export type CitationProtocolState = z.infer<typeof citationProtocolStateSchema>;
+
+/** The inputs an owner-authenticated caller supplies to approve one brand diagnostic run. The
+ * approvedBy/approvedAt receipts are NOT accepted here: the server derives them (§8, "derive owner
+ * identity, permissions and review identities from the authenticated server"). */
+export const brandRunApprovalSchema = z
+  .object({
+    runId: z.string().uuid(),
+    panelId: z.string().uuid(),
+    panelVersion: z.number().int().min(1).max(1000),
+    observationBudget: brandRunSchema.shape.observationBudget,
+    rounds: brandRunSchema.shape.rounds,
+  })
+  .strict();
+export type BrandRunApproval = z.infer<typeof brandRunApprovalSchema>;
+
+/**
+ * Parse a manual capture answer: an existing answer-evidence input whose `captureContext` is
+ * present and valid. The capture instant must equal the context's recorded capture instant; the
+ * panel/slot/brand-run binding is resolved server-side, not trusted from these fields.
+ */
+export function parseManualCaptureInput(value: unknown): {
+  input: AnswerEvidence;
+  captureContext: CaptureContext;
+} {
+  const input = answerEvidenceSchema.parse(value);
+  if (input.captureContext === undefined) throw new Error("citation_capture_context_missing");
+  const captureContext = captureContextSchema.parse(input.captureContext);
+  // The record must assert ONE capture instant about itself: the top-level `input.capturedAt` and the
+  // `captureContext.time.capturedAt` must denote the SAME instant at the supported (millisecond) precision.
+  // An equivalent-offset spelling of one instant ('+02:00' vs 'Z') is accepted (compared by VALUE, not raw
+  // text); a genuinely different instant, or an unsupported (sub-millisecond)/non-finite/malformed value on
+  // either field, fails closed (`supportedInstantMs` returns null). The raw stored strings are never
+  // rewritten — only the comparison is by value; this mirrors the SQL `citation_ts_ms` intake guard.
+  const topMs = supportedInstantMs(input.capturedAt);
+  if (topMs === null || topMs !== supportedInstantMs(captureContext.time.capturedAt))
+    throw new Error("citation_capture_time_mismatch");
+  // One record must not assert two contradictory surfaces about itself. The answer's own delivery
+  // mode and model version are the same critical identity the captureContext.surface records, and
+  // the legacy analysis keys on the former while the citation resolver reads the latter; if they
+  // disagree (an API answer wearing a consumer/search context, or a different model label) the same
+  // record would be classified two ways — a complete slot under a context its own fields deny. This
+  // is internal consistency only: a deviation FROM THE PANEL is untouched (it stays storable and is
+  // flagged by protocolDeviations); only self-contradiction within the one record is refused. The
+  // free-text surface label is not equated to the structured service, which would over-constrain.
+  if (captureContext.surface.mode !== input.mode) throw new Error("citation_capture_mode_conflict");
+  if (captureContext.surface.modelLabel !== input.modelVersion)
+    throw new Error("citation_capture_model_conflict");
+  // v1 is consumer-only (spec §§2, 5.2): an API capture is not a consumer substitute and is refused
+  // at the boundary. Consumer web/search captures pass. (The general answer-evidence path still
+  // accepts API answers as ordinary non-panel evidence.)
+  if (captureContext.surface.mode === "api") throw new Error("citation_non_consumer_surface");
+  return { input, captureContext };
+}
+
+/** The subset of a stored answer record the resolver reads. `captureContext` is opaque as stored
+ * in the answer document; the resolver parses it strictly before use. `supersedesId` is the record
+ * this one corrects (null/absent for an original), used to resolve only active correction-chain
+ * leaves — the raw superseded records stay in storage but are not re-counted. */
+export interface StoredCaptureAnswer {
+  id: string;
+  status: AnswerEvidence["status"];
+  promptId: string;
+  promptRevision: number;
+  captureContext: unknown;
+  supersedesId?: string | null;
+}
+
+export interface ResolvedCapture {
+  answerId: string;
+  panelId: string;
+  panelVersion: number;
+  kind: PanelProtocol["kind"] | null;
+  outcome: SlotOutcome;
+  deviations: string[];
+  /** Whether the referenced locked panel version still resolves against the stored panels. */
+  panelResolved: boolean;
+  /** For a brand capture, whether its brand run resolves; null for discovery or an unresolved panel. */
+  brandRunResolved: boolean | null;
+  /** True when the answer carried a PRESENT captureContext that FAILED the strict parse. Such a row is a
+   * would-be capture surfaced as explicit invalid evidence (never silently dropped, else its slot would
+   * read neverObserved while the SQL consumed aggregate counts it). Legacy context-less rows are ordinary
+   * answer evidence, not captures, and never appear here at all. */
+  contextMalformed: boolean;
+  /** The recognized slot used for report accounting: a valid capture's own slot, or — for a malformed
+   * capture — the RECOGNIZED planned slot, or `null` when the slot is unrecognizable (the version's
+   * coverage/neverObserved is then unknown, never a false definitive absence). Only genuinely recognized
+   * identity is carried; nothing is invented to fit the schema. */
+  slot: { questionId: string; round: number } | null;
+  /** The recognized canonical brand run id for accounting (null for discovery or an unrecognizable run). */
+  brandRunId: string | null;
+  /** The parsed capture context for a VALID row; `null` for a malformed row (its raw answer stays fully
+   * inspectable via `readAnswerEvidence`; the document/hash is never rewritten). */
+  captureContext: CaptureContext | null;
+  /** On a duplicate-slot COLLAPSE survivor, the count of ADDITIONAL live originals that resolved to this
+   * same planned slot (occupants − 1) — the extra live attempts the collapse folds out of the resolved
+   * list so it stays one-per-slot. `citationReport` surfaces the per-version sum as `liveExtra` (the exact
+   * live analogue of `erasedExtra`), so 3 originals at one slot report 2 extras, not a silent drop. Absent
+   * (0) on any non-collapsed capture. Never a new planned slot and never counted as `observed`. */
+  liveDuplicateExtras?: number;
+}
+
+/**
+ * Resolve stored manual captures against the actual owner-locked panels and approved brand runs
+ * before any counting (§8). A capture whose panel version is missing, unlocked or of the wrong
+ * version — because it was deleted or superseded — no longer resolves: its dependent claim is
+ * invalidated (outcome `protocol_deviant`, `panel_unresolved`) without deleting the raw capture. A
+ * resolved capture's outcome and deviations are re-derived through the released PR137 helpers so
+ * the read never trusts a value baked into the capture. Brand runs are the trusted approved set
+ * from storage, exactly as `protocolDeviations`/`slotOutcome` expect.
+ *
+ * Only the active leaf of each correction chain is resolved: a capture that another *resolvable
+ * capture* supersedes (an original or an intermediate correction) is raw history and is skipped here,
+ * so a valid correction re-describing the same observation never yields two records for one slot
+ * (which would double-count or trip `panelCounts`' duplicate-slot guard). A context-less or malformed
+ * successor is NOT a resolvable capture and so cannot supersede a capture away — see the note in the
+ * body. This mirrors `evidenceCohorts`' supersession convention and handles correction-of-correction
+ * chains transitively. Nothing is deleted; the superseded rows remain readable via `readAnswerEvidence`.
+ */
+export function resolveStoredCaptures(
+  answers: StoredCaptureAnswer[],
+  panels: PanelProtocol[],
+  brandRuns: BrandRun[],
+  // Slot keys (same shape as the internal `slotKey`) of KNOWN erased originals. A surviving live
+  // capture that shares its slot with an erased independent original is ambiguous duplicate history:
+  // it is flagged `erased_duplicate_slot` and demoted to `protocol_deviant`, so it stays inspectable
+  // but is never promoted to a silent measurement success. Callers must already have dropped a deleted
+  // chain's own rows (by root identity) BEFORE calling this, so the collapse never discards a real
+  // survivor. Default empty: the pure resolver keeps its original behaviour when no erasure is known.
+  erasedSlotKeys: Set<string> = new Set(),
+): ResolvedCapture[] {
+  // A record only supersedes another in the resolved graph if it is itself a resolvable capture (its
+  // captureContext parses). So a context-less or malformed successor — e.g. a legacy Answer-panel
+  // "Correct" that submits supersedesId with no captureContext — never marks its capture-bound
+  // predecessor superseded; otherwise a valid observation would vanish from the resolved counts (the
+  // original excluded as superseded, the successor skipped below as unresolvable). Superseded records
+  // that ARE resolvable captures stay raw history but are not re-counted (active-leaf only).
+  // Correction lineage is matched by SEMANTIC uuid identity: a successor's `supersedesId` is persisted
+  // from the client document (possibly UPPERCASE) while the predecessor's `id` is a canonical-lowercase
+  // DB id, so a raw-string set would fail to link the chain and both rows would resolve (a false
+  // duplicate). Normalize both ends.
+  const superseded = new Set<string>();
+  for (const a of answers)
+    if (a.supersedesId && captureContextSchema.safeParse(a.captureContext).success)
+      superseded.add(canonicalUuid(a.supersedesId));
+  // A PRESENT-context answer that no VALID successor supersedes is a surviving resolved record (valid or
+  // malformed). A context-less/malformed successor whose `supersedesId` points at such a survivor is a
+  // FAILED CORRECTION that merely re-describes that already-resolved observation: it never supersedes the
+  // survivor (only a valid successor does — see `superseded`), and it must not be re-surfaced as an
+  // independent attempt (which would double-count/demote the survivor's slot in an order-dependent way).
+  // Such a successor is folded below (context-less at the null guard; malformed at the parse-fail branch).
+  // A malformed row whose predecessor does NOT survive (independent original, or correction of a deleted/
+  // context-less/superseded row) is NOT folded — it is surfaced as explicit invalid evidence.
+  const survivingCaptureIds = new Set<string>();
+  for (const a of answers)
+    if (
+      a.captureContext !== undefined &&
+      a.captureContext !== null &&
+      !superseded.has(canonicalUuid(a.id))
+    )
+      survivingCaptureIds.add(canonicalUuid(a.id));
+  const foldsIntoSurvivor = (a: StoredCaptureAnswer) =>
+    a.supersedesId != null && survivingCaptureIds.has(canonicalUuid(a.supersedesId));
+  // The released PR137 helpers (protocolDeviations/slotOutcome) compare `answer.promptId` to the panel
+  // question's `promptId`, and run/panel ids, by RAW string. A panel document can carry an UPPERCASE
+  // question promptId (the lock validates it by casting to uuid, then persists it verbatim), so a capture
+  // bound by uuid VALUE at write time would otherwise read as prompt_mismatch and be demoted. Feed those
+  // helpers DERIVED copies whose panel ids, question promptIds and run ids are canonicalized (the answer
+  // promptId is canonicalized at the call site); questionId and question TEXT stay verbatim, and no stored
+  // document is rewritten.
+  const normPanels = panels.map((p) => ({
+    ...p,
+    panelId: canonicalUuid(p.panelId),
+    questions: p.questions.map((q) => ({ ...q, promptId: canonicalUuid(q.promptId) })),
+  }));
+  const normRuns = brandRuns.map((r) => ({
+    ...r,
+    id: canonicalUuid(r.id),
+    panelId: canonicalUuid(r.panelId),
+  }));
+  // v1 permits exactly ONE locked+approved discovery baseline per project (spec §§2, 5.2, §5.3): one
+  // manual consumer surface, one immutable 10x4 discovery panel version. The lock guard now prevents
+  // creating a second, but a project with HISTORICAL multiple locked discovery baselines (pre-guard or a
+  // direct write) must NOT be presented as one valid v1 experiment. Distinct locked+approved discovery
+  // (panelId, version) pairs are counted — a different panel is a parallel experiment, a same-panel new
+  // locked version is a change mid-pilot; either makes >1. When ambiguous, every resolving discovery
+  // capture is flagged `discovery_baseline_ambiguous` and demoted from a would-be `complete`, so the raw
+  // data stays inspectable (never deleted) but never reads as a clean single-baseline measurement. Brand
+  // panels/runs are a separate opt-in and are unaffected.
+  const discoveryBaselines = new Set(
+    normPanels
+      .filter((p) => p.kind === "discovery" && p.status === "locked" && !!p.approval)
+      .map((p) => `${p.panelId}:${p.version}`),
+  );
+  const singleDiscoveryBaseline = discoveryBaselines.size <= 1;
+  const out: ResolvedCapture[] = [];
+  for (const answer of answers) {
+    if (answer.captureContext === undefined || answer.captureContext === null) continue;
+    // Skip superseded captures: resolve only the active leaf of each capture correction chain.
+    if (superseded.has(canonicalUuid(answer.id))) continue;
+    const parsed = captureContextSchema.safeParse(answer.captureContext);
+    if (!parsed.success) {
+      // A malformed CORRECTION of a still-surviving capture is folded (it re-describes that survivor's
+      // already-resolved observation; it never supersedes it and must not be re-surfaced as an independent
+      // attempt). An independent malformed original — or a correction of a non-surviving predecessor — is
+      // surfaced below as explicit invalid evidence.
+      if (foldsIntoSurvivor(answer)) continue;
+      // A PRESENT-but-malformed captureContext is a would-be capture that must NOT be silently dropped:
+      // dropping it makes a discovery slot read `neverObserved` and hides a brand attempt the SQL consumed
+      // aggregate already counted. Surface it as explicit INVALID evidence carrying ONLY the recognizable
+      // scoped identity — no field is invented to fit the schema. When the slot maps to a real planned
+      // slot of a recognized panel/run it is an observed-invalid attempt at that KNOWN slot; when the slot
+      // is unrecognizable (but the panel is), the version's coverage is UNKNOWN (never a false definitive
+      // neverObserved); when even the panel is unrecognizable it is an orphan deviation. Legacy
+      // context-less rows are handled by the null check above and are never captures.
+      const rawCtx =
+        answer.captureContext && typeof answer.captureContext === "object"
+          ? (answer.captureContext as Record<string, unknown>)
+          : {};
+      const rawPanelId = typeof rawCtx.panelId === "string" ? rawCtx.panelId : null;
+      const rawVersion = rawCtx.panelVersion;
+      const version =
+        typeof rawVersion === "number" && Number.isInteger(rawVersion) ? rawVersion : null;
+      const rawRun = typeof rawCtx.brandRunId === "string" ? rawCtx.brandRunId : null;
+      const mBrandRunId = rawRun && PG_UUID_RE.test(rawRun) ? canonicalUuid(rawRun) : null;
+      const mPanel =
+        rawPanelId && version !== null && PG_UUID_RE.test(rawPanelId)
+          ? normPanels.find(
+              (p) =>
+                p.panelId === canonicalUuid(rawPanelId) &&
+                p.version === version &&
+                p.status === "locked" &&
+                !!p.approval,
+            )
+          : undefined;
+      // Recognize the slot ONLY when it maps to a real planned slot of the recognized panel/run.
+      let mSlot: { questionId: string; round: number } | null = null;
+      if (mPanel) {
+        const slotObj =
+          rawCtx.slot && typeof rawCtx.slot === "object"
+            ? (rawCtx.slot as Record<string, unknown>)
+            : {};
+        const qid = typeof slotObj.questionId === "string" ? slotObj.questionId : null;
+        const round =
+          typeof slotObj.round === "number" && Number.isInteger(slotObj.round)
+            ? slotObj.round
+            : null;
+        const run =
+          mBrandRunId === null
+            ? undefined
+            : normRuns.find(
+                (r) =>
+                  r.id === mBrandRunId &&
+                  r.panelId === mPanel.panelId &&
+                  r.panelVersion === mPanel.version,
+              );
+        const roundOk =
+          round !== null &&
+          round >= 1 &&
+          (mPanel.kind === "discovery"
+            ? mBrandRunId === null && round <= mPanel.rounds
+            : !!run && round <= run.rounds);
+        if (qid !== null && mPanel.questions.some((q) => q.id === qid) && roundOk)
+          mSlot = { questionId: qid, round: round as number };
+      }
+      out.push({
+        answerId: answer.id,
+        panelId: mPanel ? mPanel.panelId : rawPanelId ? canonicalUuid(rawPanelId) : "malformed",
+        panelVersion: version ?? 0,
+        kind: mPanel ? mPanel.kind : null,
+        outcome: "protocol_deviant",
+        deviations: [
+          "malformed_capture_context",
+          ...(mPanel ? [] : ["panel_unresolved"]),
+          ...(mPanel && !mSlot ? ["unknown_slot"] : []),
+        ],
+        panelResolved: !!mPanel,
+        brandRunResolved:
+          mPanel && mPanel.kind === "brand"
+            ? mBrandRunId !== null &&
+              normRuns.some(
+                (r) =>
+                  r.id === mBrandRunId &&
+                  r.panelId === mPanel.panelId &&
+                  r.panelVersion === mPanel.version,
+              )
+            : null,
+        contextMalformed: true,
+        slot: mSlot,
+        brandRunId: mBrandRunId,
+        captureContext: null,
+      });
+      continue;
+    }
+    // Normalize the DERIVED context's uuid identities to canonical (lowercase) ONCE, at this boundary,
+    // before any comparison — including the released PR137 helpers (protocolDeviations/slotOutcome), which
+    // compare `context.panelId`/`brandRunId` to the panel/run by raw string. The panel document id and the
+    // approved-run id are already canonical (the write path derives them from `::text`), so a capture that
+    // stored an UPPERCASE panelId/brandRunId would otherwise read as `panel_mismatch`/run-not-found and be
+    // demoted, though it was validly admitted. This never rewrites the stored document — only the derived
+    // representation used for resolution — and leaves questionId/text untouched.
+    const context: CaptureContext = {
+      ...parsed.data,
+      panelId: canonicalUuid(parsed.data.panelId),
+      brandRunId: canonicalRun(parsed.data.brandRunId),
+    };
+    // Resolve the panel by SEMANTIC uuid identity: the panel document's `panelId` is canonical lowercase
+    // (the draft write enforces `panelId = p_panel::text`), but the capture's `context.panelId` keeps the
+    // client's original spelling (possibly UPPERCASE) — the write RPC admitted it by casting to uuid. A
+    // raw-string compare would then mis-report a validly-admitted capture as `panel_unresolved`.
+    const panel = normPanels.find(
+      (p) =>
+        p.panelId === canonicalUuid(context.panelId) &&
+        p.version === context.panelVersion &&
+        p.status === "locked" &&
+        !!p.approval,
+    );
+    if (!panel) {
+      out.push({
+        answerId: answer.id,
+        panelId: context.panelId,
+        panelVersion: context.panelVersion,
+        kind: null,
+        // No resolvable panel means no methodology to compare against, so the capture cannot be an
+        // eligible complete slot; it is a deviation, never silently promoted to a comparable pair.
+        outcome: "protocol_deviant",
+        deviations: ["panel_unresolved"],
+        panelResolved: false,
+        brandRunResolved: null,
+        contextMalformed: false,
+        slot: { questionId: context.slot.questionId, round: context.slot.round },
+        brandRunId: canonicalRun(context.brandRunId),
+        captureContext: context,
+      });
+      continue;
+    }
+    // Pass the normalized panel/runs AND a canonicalized answer promptId, so the released helpers compare
+    // question-binding and run/panel identity by uuid VALUE (a mixed-case promptId no longer mis-reads as
+    // prompt_mismatch). questionId/text remain exact, and the stored answer is not mutated.
+    const deviations = protocolDeviations(panel, context, normRuns);
+    const outcome = slotOutcome(
+      panel,
+      {
+        status: answer.status,
+        promptId: canonicalUuid(answer.promptId),
+        promptRevision: answer.promptRevision,
+      },
+      context,
+      normRuns,
+    );
+    // Prospective panel approval (spec Appendix A: owner review BEFORE USE). A locked panel version
+    // is a usable baseline only from its DB-minted approval instant onward, so a capture whose
+    // instant predates that approval — or a missing/unparseable approval instant — was not collected
+    // under an approved protocol. Such a raw record stays inspectable (it still resolves against the
+    // panel) but is never an eligible complete slot: it is flagged and a would-be `complete` is
+    // demoted to `protocol_deviant`. A genuine failure/truncation is preserved as itself, never
+    // masked. The write RPC refuses new pre-approval captures outright; this covers pre-approval
+    // records already on disk without rewriting raw history and needs no change to citation-panel.ts.
+    const approvedAt = panel.approval ? Date.parse(panel.approval.approvedAt) : NaN;
+    const capturedAt = Date.parse(context.time.capturedAt);
+    const approvedBeforeCapture =
+      Number.isFinite(approvedAt) && Number.isFinite(capturedAt) && capturedAt >= approvedAt;
+    // v1 is consumer-only (spec §§2, 5.2): a stored capture on an API surface is never a complete
+    // consumer measurement. The write path refuses new API captures; this flags any already-stored
+    // one so historical invalid data cannot read as a complete consumer slot — it is a deviation and
+    // a would-be `complete` is demoted, exactly like the pre-approval case; failures stay themselves.
+    const consumerSurface = context.surface.mode !== "api";
+    // v1 discovery is the fixed 10×4 grid of ten DISTINCT questions (spec §5.3, CI11-T13). The lock
+    // path refuses an under-/over-sized grid AND a grid whose ten questions are not distinct (ten ids
+    // bound to one prompt, or ten prompts with identical copied text); this flags any already-stored
+    // capture resolving against a historical invalid grid so it can never read as a complete v1
+    // measurement. Brand panels are exempt.
+    const gridValid =
+      panel.kind !== "discovery" ||
+      (panel.questions.length === V1_DISCOVERY_QUESTIONS &&
+        panel.rounds === V1_DISCOVERY_ROUNDS &&
+        v1DiscoveryQuestionsDistinct(panel));
+    // A discovery capture is only an eligible v1 measurement when the project has a SINGLE discovery
+    // baseline; an ambiguous (multi-baseline) project can never present a clean measurement.
+    const baselineOk = panel.kind !== "discovery" || singleDiscoveryBaseline;
+    // v1 discovery runs the ten questions ONCE WEEKLY for four weeks (spec §§5.1, 5.2 Time, 5.3): each
+    // capture must match its round's owner-approved intended weekly slot, record a truthful delay, and
+    // have actually run within that round's week. A missing schedule (historical), an off-schedule
+    // intended slot (e.g. four same-day "rounds"), an untruthful delay, or a run that slipped into a
+    // later week is a methodology deviation — inspectable, but never a clean weekly observation, so a
+    // would-be `complete` is demoted (a genuine failure/truncation is preserved as itself). The lock
+    // path refuses a new discovery lock without a valid prospective schedule; this flags any historical
+    // or off-schedule capture without rewriting raw history. Brand captures are unscheduled → no gate.
+    const scheduleDeviations = discoveryScheduleDeviations(panel, context);
+    const scheduleOk = scheduleDeviations.length === 0;
+    const eligible =
+      approvedBeforeCapture && consumerSurface && gridValid && baselineOk && scheduleOk;
+    out.push({
+      answerId: answer.id,
+      panelId: panel.panelId,
+      panelVersion: panel.version,
+      kind: panel.kind,
+      outcome: outcome === "complete" && !eligible ? "protocol_deviant" : outcome,
+      deviations: [
+        ...deviations,
+        ...(approvedBeforeCapture ? [] : ["panel_approved_after_capture"]),
+        ...(consumerSurface ? [] : ["non_consumer_surface"]),
+        ...(gridValid ? [] : ["panel_grid_invalid"]),
+        ...(baselineOk ? [] : ["discovery_baseline_ambiguous"]),
+        ...scheduleDeviations,
+      ],
+      panelResolved: true,
+      brandRunResolved:
+        panel.kind === "brand"
+          ? normRuns.some(
+              (r) =>
+                r.id === canonicalRun(context.brandRunId) &&
+                r.panelId === panel.panelId &&
+                r.panelVersion === panel.version,
+            )
+          : null,
+      contextMalformed: false,
+      slot: { questionId: context.slot.questionId, round: context.slot.round },
+      brandRunId: canonicalRun(context.brandRunId),
+      captureContext: context,
+    });
+  }
+  // Guard against already-stored slot duplicates. The write path now enforces one original per slot
+  // atomically, but if two active-leaf captures still resolve to the same panel slot (panel version,
+  // brand run, question, round), feeding both to `panelCounts` would trip its duplicate-slot guard and
+  // make the whole report unreportable. Collapse each conflicted slot to ONE explicitly-invalid entry
+  // (outcome protocol_deviant, deviation `duplicate_slot`) in stable input order and exclude the
+  // extras from the resolved counts; the raw captures remain in storage. This never promotes a
+  // duplicate to a silent measurement success. Panel-unresolved captures carry no comparable slot and
+  // pass through unchanged.
+  // Slot key by SEMANTIC uuid identity for the uuid components (panel, brand run) so two spellings of one
+  // slot collapse to one key and match the erased-slot keys derived from lowercase tombstone columns; the
+  // questionId is left verbatim (grid ids are case-sensitive by contract).
+  const slotKey = (c: ResolvedCapture) =>
+    JSON.stringify([
+      canonicalUuid(c.panelId),
+      c.panelVersion,
+      c.brandRunId,
+      c.slot?.questionId ?? null,
+      c.slot?.round ?? null,
+    ]);
+  // A slot occupant is any panel-resolved capture with a RECOGNIZED slot — valid OR malformed. Both count
+  // toward the duplicate collapse so a valid original and an INDEPENDENT malformed original at the same
+  // planned slot are DETERMINISTICALLY one `protocol_deviant`/`duplicate_slot` entry regardless of input
+  // order (before this, the malformed row skipped the collapse and `citationReport`'s first-wins slot
+  // dedup made the slot read `complete` or invalid depending on order). An orphan (no resolvable panel)
+  // and a malformed capture with an UNRECOGNIZED slot carry no comparable planned slot: they pass through
+  // unchanged as their own explicit invalid evidence and never collapse anything. (Malformed corrections
+  // of a survivor were already folded above, so a survivor is never demoted by a re-description of itself.)
+  const slotCount = new Map<string, number>();
+  for (const c of out)
+    if (c.panelResolved && c.slot) slotCount.set(slotKey(c), (slotCount.get(slotKey(c)) ?? 0) + 1);
+  const seen = new Set<string>();
+  const deduped: ResolvedCapture[] = [];
+  for (const c of out) {
+    if (!c.panelResolved || !c.slot) {
+      deduped.push(c);
+      continue;
+    }
+    const key = slotKey(c);
+    const liveDuplicate = (slotCount.get(key) ?? 0) > 1;
+    // A slot is ambiguous either because two live captures resolve to it, OR because a KNOWN erased
+    // original shared it with this survivor. Both are duplicate history and must never read as a clean
+    // success; the survivor stays inspectable but is demoted to `protocol_deviant` and flagged.
+    const erasedDuplicate = erasedSlotKeys.has(key);
+    if (!liveDuplicate && !erasedDuplicate) {
+      deduped.push(c);
+      continue;
+    }
+    if (seen.has(key)) continue; // exclude the extra live duplicate(s); the raw rows remain in storage
+    seen.add(key);
+    const deviation = liveDuplicate ? "duplicate_slot" : "erased_duplicate_slot";
+    deduped.push({
+      ...c,
+      outcome: "protocol_deviant",
+      deviations: c.deviations.includes(deviation) ? c.deviations : [...c.deviations, deviation],
+      // Preserve the EXACT count of extra live originals folded out of this slot (occupants − 1). Live
+      // captures are the whole snapshot (bounded by the 100-answer cap, never LIMIT-truncated like
+      // tombstones), so this count is authoritative; the report surfaces it as `liveExtra`, analogous to
+      // the erased `erasedExtra`, without ever counting an extra as an observed/planned slot.
+      liveDuplicateExtras: liveDuplicate ? (slotCount.get(key) ?? 1) - 1 : 0,
+    });
+  }
+  return deduped;
+}
+
+/** A resolved erased slot: the content-free fact that a slot was observed and then erased, re-derived
+ * against the current panels/runs exactly like a live capture. It is DISTINCT from a never-observed
+ * slot (which appears in neither the resolved captures nor here), so the report can count it as an
+ * erased observation — never an absent/missed one — and a brand run's budget stays consumed even after
+ * every capture is deleted. It carries no answer content. */
+export interface ErasedSlot {
+  answerId: string;
+  panelId: string;
+  panelVersion: number;
+  brandRunId: string | null;
+  questionId: string;
+  round: number;
+  /** Whether the referenced locked panel version still resolves against the stored panels. */
+  panelResolved: boolean;
+  /** For a brand slot, whether its run still resolves; null for discovery or an unresolved panel. */
+  brandRunResolved: boolean | null;
+}
+
+// Shared erased/live slot key. uuid components are normalized to canonical identity (a live capture's
+// brandRunId is client-spelled, a tombstone's is a lowercase column) so live and erased facts for one
+// slot always collapse together; questionId stays verbatim (case-sensitive grid ids).
+const erasedSlotKey = (t: {
+  panelId: string;
+  panelVersion: number;
+  brandRunId: string | null;
+  questionId: string;
+  round: number;
+}) =>
+  JSON.stringify([
+    canonicalUuid(t.panelId),
+    t.panelVersion,
+    canonicalRun(t.brandRunId),
+    t.questionId,
+    t.round,
+  ]);
+
+/**
+ * Resolve content-free erasure tombstones into erased-slot facts, EXCLUDING any slot a surviving
+ * resolved capture already occupies (so a deleted original whose chain — or an identical re-import —
+ * still resolves is never double-counted) and collapsing multiple tombstones for one slot to a single
+ * fact. The result lets the report distinguish an erased observation from a slot that never occurred,
+ * and keeps a brand run's budget consumed even when all its captures were removed. Panel/run
+ * resolution mirrors `resolveStoredCaptures` so a later panel/run deletion is reflected, and nothing
+ * here retains any erased answer content — only slot/budget identity. The slot key matches the live
+ * capture slot key above, so live and erased facts for one slot can never both appear.
+ */
+export function resolveErasedSlots(
+  tombstones: ErasedSlotFact[],
+  panels: PanelProtocol[],
+  brandRuns: BrandRun[],
+  resolvedCaptures: ResolvedCapture[],
+): ErasedSlot[] {
+  // A capture holds its slot for erasure de-duplication only when that slot is recognized — a valid
+  // capture, or a malformed one whose slot maps to a real planned slot. A malformed unknown-slot capture
+  // (slot null) has no comparable slot to hold, so an erased tombstone is never wrongly suppressed by it.
+  const liveSlots = new Set(
+    resolvedCaptures
+      .filter((c) => c.panelResolved && c.slot)
+      .map((c) =>
+        erasedSlotKey({
+          panelId: c.panelId,
+          panelVersion: c.panelVersion,
+          brandRunId: c.brandRunId,
+          questionId: c.slot!.questionId,
+          round: c.slot!.round,
+        }),
+      ),
+  );
+  const seen = new Set<string>();
+  const out: ErasedSlot[] = [];
+  for (const t of tombstones) {
+    const key = erasedSlotKey(t);
+    // Collapse to ONE fact per slot (and skip a slot a live capture already holds) so PLANNED coverage is
+    // never double-counted. The additional erased attempts this drops are NOT lost: the report surfaces
+    // them from the exact content-free SQL aggregate (`erasureByVersion.duplicateRows` →
+    // `CitationReport.erasedExtra`), which is computed over the full tombstone set, not this LIMIT-bounded
+    // transmitted subset — so a duplicate/extra historical practice at a slot is reported, not hidden.
+    if (liveSlots.has(key) || seen.has(key)) continue;
+    seen.add(key);
+    // Match panels/runs by SEMANTIC uuid identity (tombstone ids are lowercase columns; a panel document
+    // id is lowercase, but normalize both ends so a mixed-case historical row still resolves).
+    const panel = panels.find(
+      (p) =>
+        canonicalUuid(p.panelId) === canonicalUuid(t.panelId) &&
+        p.version === t.panelVersion &&
+        p.status === "locked" &&
+        !!p.approval,
+    );
+    out.push({
+      answerId: t.answerId,
+      panelId: t.panelId,
+      panelVersion: t.panelVersion,
+      brandRunId: t.brandRunId,
+      questionId: t.questionId,
+      round: t.round,
+      panelResolved: !!panel,
+      brandRunResolved:
+        t.brandRunId === null || !panel
+          ? null
+          : brandRuns.some(
+              (r) =>
+                canonicalUuid(r.id) === canonicalRun(t.brandRunId) &&
+                canonicalUuid(r.panelId) === canonicalUuid(t.panelId) &&
+                r.panelVersion === t.panelVersion,
+            ),
+    });
+  }
+  return out;
+}
+
+/** The trusted erasure facts a report is built from, assembled at the service boundary (NOT re-derived
+ * from the slot-collapsed coverage set). `slots` are the distinct content-safe erased slots (for
+ * observed-vs-erased coverage). `consumedByRun` is the AUTHORITATIVE write-gate-faithful consumed budget
+ * per brand run id, straight from the read RPC's SQL aggregate (live originals — incl. malformed context
+ * — plus each tombstone row), so two historical originals at one slot consume two though they collapse
+ * to one erased slot. `excludedByVersion` is the content-free malformed (non-grid) tombstone count keyed
+ * `${panelId}:${panelVersion}`. `coverageCompleteByVersion` says, per `${panelId}:${panelVersion}`,
+ * whether the transmitted `slots` cover ALL of that version's erased rows (false when the read LIMIT
+ * truncated them) — a missing key means no erased rows, i.e. complete. When incomplete, the report must
+ * NOT claim a definitive `neverObserved`. */
+export interface CitationErasure {
+  slots: ErasedSlot[];
+  consumedByRun: Record<string, number>;
+  excludedByVersion: Record<string, number>;
+  coverageCompleteByVersion: Record<string, boolean>;
+  /** EXACT count of ADDITIONAL erased attempts beyond one per slot, per `${panelId}:${panelVersion}`,
+   * from the read RPC's SQL aggregate (`erasureByVersion.duplicateRows`) — not from the LIMIT-bounded
+   * transmitted tombstones, so a truncated read never hides an extra attempt. A missing key means zero.
+   * This surfaces historical duplicate/extra practice at a slot WITHOUT restoring content or affecting
+   * the planned-coverage counts (`erased` stays one-per-slot). */
+  extraAttemptsByVersion: Record<string, number>;
+}
+
+/** One canonical, erased-aware measurement report for a locked panel version. Live captures supply the
+ * OUTCOME accounting and the observed slots; the trusted erasure facts supply the erased slots and the
+ * consumed budget so a deleted attempt counts as ERASED (never absent/missed) and a run's budget stays
+ * consumed after every capture is erased. Erasure never contributes an eligible numerator. Human-
+ * reviewed numerators (citations/mentions/recommendations) remain the report layer's facts. */
+export interface CitationReport {
+  panelId: string;
+  panelVersion: number;
+  kind: PanelProtocol["kind"];
+  /** Discovery: questions × rounds planned slots. Brand: 0 (a run is budget-bounded, not gridded). */
+  planned: number;
+  /** Distinct valid planned slots with a surviving (live) capture. */
+  observed: number;
+  /** Distinct valid planned slots whose observation was erased (unique observations lost). One per slot,
+   * so planned coverage is never double-counted. A floor when `coverageComplete` is false. */
+  erased: number;
+  /** EXACT count of ADDITIONAL erased attempts at already-recorded grid slots for this version (historical
+   * duplicate/extra practice at one slot, beyond the one erased slot counted in `erased`), from the SQL
+   * aggregate — never the LIMIT-bounded transmitted rows, so a truncated read never hides an extra
+   * attempt. Two erased originals at one slot → `erased` 1 AND `erasedExtra` 1. Restores no content and
+   * does not affect planned coverage; a lone erasure or a fully erased correction chain contributes 0. */
+  erasedExtra: number;
+  /** EXACT count of ADDITIONAL live originals at already-recorded slots for this version (historical
+   * duplicate practice: more than one independent live original — valid or malformed — resolved to one
+   * planned slot, beyond the single occupant counted in `observed`). The live analogue of `erasedExtra`,
+   * summed from the resolver's collapse survivors; live captures are the whole snapshot (bounded by the
+   * 100-answer cap, never LIMIT-truncated), so this is exact. Three originals at one slot → `observed` 1
+   * AND `liveExtra` 2. Never a new planned slot and never double-counts `observed`; a lone capture or a
+   * correction chain (one active leaf) contributes 0. */
+  liveExtra: number;
+  /** observed + erased: distinct slots attempted (live or erased), explicit vs never-observed. */
+  recorded: number;
+  /** Discovery only: planned − observed − erased. `null` when the erased-slot coverage for this version
+   * is incomplete (the read LIMIT truncated it) — a definitive missing count cannot be derived from
+   * partial tombstones. Brand: 0. */
+  neverObserved: number | null;
+  /** Whether the erased-slot coverage for this version is complete (false → some erased rows were not
+   * transmitted, so `erased` is a floor and `neverObserved` is null). */
+  coverageComplete: boolean;
+  /** Live/erased facts that do not map to a valid planned slot/run for this version, PLUS the
+   * content-free count of malformed historical tombstones. Visible, never silently dropped. */
+  excluded: number;
+  /** Outcome tally of the LIVE valid-slot captures only; erasure yields no outcome. */
+  outcomes: Record<SlotOutcome, number>;
+  /** Per approved brand run for this version (empty for discovery). `consumed` is the write-gate count
+   * (live originals + each erased attempt); `erased` is the count of distinct erased slots (unique
+   * observations lost) — `consumed` can exceed `observed + erased` when historical duplicates existed. */
+  brandRuns: {
+    runId: string;
+    approvedBudget: number;
+    consumed: number;
+    observed: number;
+    erased: number;
+  }[];
+}
+
+const emptyOutcomes = (): Record<SlotOutcome, number> =>
+  Object.fromEntries(SLOT_OUTCOMES.map((o) => [o, 0])) as Record<SlotOutcome, number>;
+
+/**
+ * Build the canonical erased-aware report for ONE locked panel version from trusted facts. Pure and
+ * TOTAL: it never throws (a malformed historical erasure arrives already reduced to a content-free
+ * count). `consumed` per run comes from the trusted `consumedByRun` (write-gate faithful), NOT from the
+ * slot-collapsed coverage — so `consumed` counts each erased attempt (unique-observation undercount is
+ * avoided) while `erased` counts distinct slots. Coverage slots are de-duplicated so a slot is never
+ * double-counted, and a slot held by a live capture is never also counted as erased. Eligible numerators
+ * come only from live outcomes.
+ */
+export function citationReport(
+  panel: PanelProtocol,
+  resolvedCaptures: ResolvedCapture[],
+  erasure: CitationErasure,
+  approvedBrandRuns: BrandRun[] = [],
+): CitationReport {
+  // Group by SEMANTIC uuid identity throughout: panel/run ids from documents keep the client's spelling
+  // while ids from uuid columns are lowercase, so raw-string grouping would drop a validly-admitted
+  // capture or brand run from its version/run. questionId/round stay verbatim.
+  const forVersion = (pid: string, ver: number) =>
+    canonicalUuid(pid) === canonicalUuid(panel.panelId) && ver === panel.version;
+  const questionIds = new Set(panel.questions.map((q) => q.id));
+  const outcomes = emptyOutcomes();
+  const runs = approvedBrandRuns.filter((r) => forVersion(r.panelId, r.panelVersion));
+  const runById = new Map(runs.map((r) => [canonicalUuid(r.id), r]));
+  const runObserved = new Map<string, number>();
+  const runErased = new Map<string, number>();
+  const validSlot = (questionId: string, round: number, brandRunId: string | null): boolean => {
+    if (!questionIds.has(questionId)) return false;
+    if (panel.kind === "discovery")
+      return brandRunId === null && round >= 1 && round <= panel.rounds;
+    const run = brandRunId === null ? undefined : runById.get(brandRunId);
+    return !!run && round >= 1 && round <= run.rounds;
+  };
+  const liveSlotKeys = new Set<string>();
+  let observed = 0;
+  let excluded = 0;
+  // Additional live originals folded out of a duplicate slot by the resolver's collapse (occupants − 1 per
+  // conflicted slot). Surfaced as the exact `liveExtra`, the live analogue of `erasedExtra`, so a slot with
+  // 3 historical originals reports observed 1 AND liveExtra 2 — never a silent drop, never a new planned
+  // slot, never double-counting the one occupant scored in `observed`.
+  let liveExtra = 0;
+  // A malformed live capture on THIS version whose slot is unrecognizable: we cannot attribute it to a
+  // planned slot, but its answer row exists (and the SQL consumed aggregate counts it), so the specific
+  // planned slots' coverage is UNKNOWN — `neverObserved` must not read as a false definitive absence.
+  let unknownAttempt = false;
+  for (const c of resolvedCaptures) {
+    if (!c.panelResolved || !forVersion(c.panelId, c.panelVersion)) continue;
+    liveExtra += c.liveDuplicateExtras ?? 0;
+    if (c.contextMalformed && !c.slot) {
+      excluded += 1;
+      outcomes[c.outcome] += 1;
+      unknownAttempt = true;
+      continue;
+    }
+    // A valid capture always has a slot; a malformed one reaching here has a RECOGNIZED planned slot, so
+    // it is counted as an observed-but-invalid attempt at that KNOWN slot (never a clean measurement).
+    if (!c.slot) continue;
+    const brandRunId = c.brandRunId;
+    const { questionId, round } = c.slot;
+    const key = JSON.stringify([brandRunId, questionId, round]);
+    if (!validSlot(questionId, round, brandRunId) || liveSlotKeys.has(key)) {
+      excluded += 1;
+      continue;
+    }
+    liveSlotKeys.add(key);
+    observed += 1;
+    outcomes[c.outcome] += 1;
+    if (panel.kind === "brand" && brandRunId)
+      runObserved.set(brandRunId, (runObserved.get(brandRunId) ?? 0) + 1);
+  }
+  const erasedSlotKeys = new Set<string>();
+  let erased = 0;
+  for (const e of erasure.slots) {
+    if (!forVersion(e.panelId, e.panelVersion)) continue;
+    const eRun = canonicalRun(e.brandRunId);
+    const key = JSON.stringify([eRun, e.questionId, e.round]);
+    if (
+      !validSlot(e.questionId, e.round, eRun) ||
+      liveSlotKeys.has(key) ||
+      erasedSlotKeys.has(key)
+    ) {
+      excluded += 1;
+      continue;
+    }
+    erasedSlotKeys.add(key);
+    erased += 1;
+    if (panel.kind === "brand" && eRun) runErased.set(eRun, (runErased.get(eRun) ?? 0) + 1);
+  }
+  // Malformed historical tombstones for this version are already a content-free count — surface them.
+  // The key is canonicalized (shared helper) so an UPPERCASE panel document still matches the SQL
+  // producer's lowercase-column keys; otherwise excluded/extra would drop and coverage would default true.
+  const versionKey = panelVersionKey(panel.panelId, panel.version);
+  excluded += erasure.excludedByVersion[versionKey] ?? 0;
+  // Additional erased attempts at already-recorded grid slots (duplicate/extra historical practice) come
+  // from the EXACT SQL aggregate, so a truncated tombstone transmit never hides one; `erased` stays
+  // one-per-slot so planned coverage is not double-counted, and this is surfaced separately, not dropped.
+  const erasedExtra = erasure.extraAttemptsByVersion[versionKey] ?? 0;
+  // Coverage completeness: a missing key means no erased rows for this version (trivially complete). It is
+  // ALSO unknown when a malformed live capture on this version had an unrecognizable slot — that attempt
+  // could have been any planned slot, so a definitive `neverObserved` cannot be derived (absence unknown).
+  const coverageComplete =
+    (erasure.coverageCompleteByVersion[versionKey] ?? true) && !unknownAttempt;
+  const planned = panel.kind === "discovery" ? panel.questions.length * panel.rounds : 0;
+  // neverObserved is a definitive count only when coverage is complete; otherwise it is unknown (null)
+  // — never derived from partial (truncated) tombstones.
+  const neverObserved =
+    panel.kind === "discovery"
+      ? coverageComplete
+        ? Math.max(0, planned - observed - erased)
+        : null
+      : 0;
+  return {
+    panelId: panel.panelId,
+    panelVersion: panel.version,
+    kind: panel.kind,
+    planned,
+    observed,
+    erased,
+    erasedExtra,
+    liveExtra,
+    recorded: observed + erased,
+    neverObserved,
+    coverageComplete,
+    excluded,
+    outcomes,
+    brandRuns: runs.map((r) => ({
+      runId: r.id,
+      approvedBudget: r.observationBudget,
+      consumed: erasure.consumedByRun[canonicalUuid(r.id)] ?? 0,
+      observed: runObserved.get(canonicalUuid(r.id)) ?? 0,
+      erased: runErased.get(canonicalUuid(r.id)) ?? 0,
+    })),
+  };
+}
+
+/** Canonical reports for every locked panel version present, so a consumer reading the service
+ * boundary cannot silently drop erased facts. Bounded by the panel-version and brand-run caps. */
+export function citationReports(
+  panels: PanelProtocol[],
+  brandRuns: BrandRun[],
+  resolvedCaptures: ResolvedCapture[],
+  erasure: CitationErasure,
+): CitationReport[] {
+  return panels
+    .filter((p) => p.status === "locked" && !!p.approval)
+    .map((p) => citationReport(p, resolvedCaptures, erasure, brandRuns));
+}

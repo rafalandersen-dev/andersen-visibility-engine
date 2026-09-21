@@ -10,6 +10,7 @@ const released = [
   "20260907150000_operational_notifications.sql",
   "20260907170000_operational_email_outbox.sql",
   "20260909200000_project_knowledge.sql",
+  "20260910210000_answer_evidence.sql",
   "20260910100000_source_refresh.sql",
   "20260911000000_output_knowledge_integrity.sql",
   "20260911010000_output_knowledge_reviews.sql",
@@ -52,8 +53,10 @@ const releasedConversationPacket = [
   // Reviewed and applied diagnostics and artifact staging.
   "20260919160000_milo_conversation_diagnostics.sql",
   "20260919165000_native_report_artifacts.sql",
+  // PR148 applied and verified on 20 September.
+  "20260920180000_milo_conversation_checkpoint_lock_wait.sql",
 ];
-const candidates = ["20260920180000_milo_conversation_checkpoint_lock_wait.sql"];
+const candidates = ["20260920190000_citation_protocol.sql"];
 const allowed = async (role: string, fn: string) =>
   (
     await db.query<{ allowed: boolean }>("SELECT has_function_privilege($1,$2,'EXECUTE') allowed", [
@@ -112,6 +115,11 @@ describe("candidate migration chain", () => {
     expect(unapplied).toEqual(candidates);
   });
   it.each([
+    "read_citation_protocol(uuid,text)",
+    "save_citation_panel_draft(uuid,text,uuid,integer,jsonb)",
+    "lock_citation_panel(uuid,text,uuid,integer)",
+    "approve_citation_brand_run(uuid,text,uuid,uuid,integer,integer,integer)",
+    "save_citation_capture(uuid,text,jsonb)",
     "record_milo_conversation_diagnostic(uuid,uuid,text,text,text,text,text,integer,text,text)",
     "prune_milo_conversation_diagnostics(timestamptz,integer)",
     "save_ai_native_report_artifact(uuid,text,jsonb,text)",
@@ -135,6 +143,8 @@ describe("candidate migration chain", () => {
       expect(await allowed(role, fn)).toBe(false);
   });
   it.each([
+    "native_artifact_utf16_length(text)",
+    "tombstone_citation_capture()",
     "milo_conversation_turn_view(public.milo_conversation_turns)",
     "assert_milo_conversation_access(uuid,uuid,text)",
     "assert_project_team_seat(uuid,text,text,text,integer,integer)",
@@ -180,6 +190,8 @@ describe("candidate migration chain", () => {
       "milo_erased_conversations",
       "milo_erased_turns",
       "milo_conversation_dispatch_control",
+      "citation_panels",
+      "citation_brand_runs",
       "milo_conversation_dispatch_attempts",
       "project_team_members",
       "project_team_invitations",
