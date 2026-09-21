@@ -218,9 +218,11 @@ describe("candidate migration chain", () => {
     "citation_redact_answer_fields(jsonb)",
     "citation_forget_redact_answer(uuid,text,uuid)",
     "citation_forget_answer_passages()",
-    // Fact-delete erasure objects: the fact redactor and the trigger function fired by AFTER DELETE on
-    // ai_citation_business_facts. Both REVOKEd from every role — reached only from the trigger.
-    "citation_forget_redact_fact(uuid,text,uuid)",
+    // Fact-delete erasure objects: the fact-reference matcher (row-pin OR logical id+version, finding 4061340380),
+    // the fact redactor and the trigger function fired by AFTER DELETE on ai_citation_business_facts. All REVOKEd
+    // from every role — the matcher is reached only from the redactor/save guard, the redactor only from the trigger.
+    "citation_fact_ref_matches(jsonb,uuid,uuid,integer)",
+    "citation_forget_redact_fact(uuid,text,uuid,uuid,integer)",
     "citation_forget_fact_records()",
   ])("%s is reachable only from definer functions", async (fn) => {
     for (const role of ["anon", "authenticated", "service_role", "public"])

@@ -653,7 +653,8 @@ REVOKE ALL ON FUNCTION public.citation_finding_review_status(uuid,text,uuid) FRO
 -- digest is RETAINED server-side (ai_citation_findings.record_sha256 + each receipt row) for audit and is never
 -- destroyed. OWNER surfaces are unaffected (owner retention vs reviewer access). This mirrors
 -- read_ai_citation_finding_for_review's own erased/withheld decision (same rule: erased, or any cited source not
--- 'active') so the detail read and the receipt list agree. Internal-only.
+-- 'active' — INCLUDING a malformed/missing/null source id that resolves to no active row, finding 4061393769) so
+-- the detail read, the receipt list AND the review-save digest gate all agree. Internal-only.
 CREATE FUNCTION public.citation_finding_review_digest_masked(p_user uuid,p_project text,p_row uuid)
 RETURNS boolean LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path='' AS $$
 DECLARE frec jsonb; er timestamptz; e jsonb; st text;
@@ -664,8 +665,19 @@ BEGIN
   IF er IS NOT NULL THEN RETURN true; END IF;
   IF jsonb_typeof(frec->'evidence')='array' THEN
     FOR e IN SELECT jsonb_array_elements(frec->'evidence') LOOP
-      IF e->>'kind'='source'
-         AND (e->>'id') ~ '^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$' THEN
+      IF e->>'kind'='source' THEN
+        -- A MALFORMED / missing / null source id (the public evidence schema allows any non-empty text id) resolves
+        -- to NO active row — EXACTLY as read_ai_citation_finding_for_review treats it (ref:=NULL -> src NULL ->
+        -- passages withheld) — so it MASKS here too (finding 4061393769). Previously the uuid guard was ANDed into
+        -- the same IF, so a non-uuid source was SILENTLY SKIPPED and left the finding un-masked: the reviewer read
+        -- withheld its prose/hash while the review-save's digest gate said "not masked", so a WRONG expected hash
+        -- returned `citation_review_stale` and the CORRECT (withheld) hash succeeded — an offline guessing oracle
+        -- for the hidden digest. Guard the uuid shape as a SEPARATE statement, then cast (no reliance on OR
+        -- short-circuit; a non-uuid never reaches the cast), so a historical bad/empty/null id fails CLOSED to
+        -- masked without a cast crash.
+        IF (e->>'id') IS NULL OR (e->>'id') !~ '^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$' THEN
+          RETURN true;
+        END IF;
         SELECT payload->>'status' INTO st FROM public.project_knowledge_sources
           WHERE user_id=p_user AND project_id=p_project AND id=(e->>'id')::uuid;
         IF st IS DISTINCT FROM 'active' THEN RETURN true; END IF;
@@ -1066,16 +1078,20 @@ BEGIN
     p_record := public.citation_redact_answer_fields(p_record);
     erased := true;
   END IF;
-  -- Anti-resurrection (finding 4059689464): a new/altered version whose accuracy[] PINS a fact ROW whose fact was
-  -- DELETED must not become a fresh un-erased attestation whose free prose / receipt notes could re-expose the
+  -- Anti-resurrection (findings 4059689464 + 4061340380): a new/altered version whose accuracy[] REFERENCES a
+  -- DELETED fact — by exact row-pin OR (for a schema-allowed rowless assessment) by the fact's LOGICAL id +
+  -- version — must not become a fresh un-erased attestation whose free prose / receipt notes could re-expose the
   -- deleted fact value. There is NO fact-value copy in the record to scrub (accuracy[].claimSpan is answer-derived
   -- and must not be touched by a fact delete), so mark the row evidence-erased: its free prose is then withheld
-  -- from reviewers and new reviews are blocked. Row-id scoped by SEMANTIC uuid, so a delete-then-recreate (new row
-  -- id) or a finding pinning a surviving version is unaffected. Independent of the source/answer guards above.
+  -- from reviewers and new reviews are blocked. Matching reuses citation_fact_ref_matches against the content-free
+  -- erasure markers (which retain the deleted fact's logical id + version), so a delete-then-recreate (a NEW row
+  -- id AND a new logical id) or a finding referencing a SURVIVING version is unaffected. Independent of the
+  -- source/answer guards above.
   IF EXISTS(SELECT 1 FROM jsonb_array_elements(
         CASE WHEN jsonb_typeof(p_record->'accuracy')='array' THEN p_record->'accuracy' ELSE '[]'::jsonb END) a
       JOIN public.ai_citation_fact_erasures x
-        ON x.user_id=p_user AND x.project_id=p_project AND x.fact_row_id::text=lower(a->>'factRowId')) THEN
+        ON x.user_id=p_user AND x.project_id=p_project
+       AND public.citation_fact_ref_matches(a,x.fact_row_id,x.fact_id,x.version)) THEN
     erased := true;
   END IF;
   INSERT INTO public.ai_citation_findings
@@ -1505,36 +1521,72 @@ CREATE TABLE public.ai_citation_fact_erasures (
   project_collection text NOT NULL DEFAULT 'projects' CHECK(project_collection='projects'),
   project_id text NOT NULL,
   fact_row_id uuid NOT NULL,
+  -- Content-free LOGICAL identity of the deleted fact (its reusable fact_id + numeric version), retained so a
+  -- later fresh/altered resave that references the fact by logical id + version WITHOUT a row-pin is still caught
+  -- by the save-time anti-resurrection guard (finding 4061340380). These are IDENTIFIERS only — never the fact
+  -- VALUE or any prose — mirroring the logical-id-only dissent tombstone.
+  fact_id uuid NOT NULL,
+  version integer NOT NULL,
   erased_at timestamptz NOT NULL DEFAULT clock_timestamp(),
   PRIMARY KEY(user_id,project_id,fact_row_id),
   FOREIGN KEY(user_id,project_collection,project_id) REFERENCES public.workspace_entities(user_id,collection,entity_id) ON DELETE CASCADE
 );
 ALTER TABLE public.ai_citation_fact_erasures ENABLE ROW LEVEL SECURITY;
 REVOKE ALL ON public.ai_citation_fact_erasures FROM PUBLIC,anon,authenticated,service_role;
--- Marks every version of every finding of the SAME owner+project whose accuracy[] pins the DELETED fact ROW
--- (semantic uuid, exact owner+project) evidence-erased — activating the same erased machinery as an answer/source
--- forget: reviewer digest + receipt + free prose masked/withheld, new reviews blocked, review/improvement current
--- status downgraded. Receipt NOTES are erased in storage (content-free marker). NO structured field is scrubbed:
--- the fact VALUE is never copied into the record (resolved live via factRowId), and accuracy[].claimSpan is
--- ANSWER-derived, so a fact delete must not touch it — the free prose that may quote the fact is RESPONSE-withheld
--- to the reviewer (honest owner retention), consistent with the current prose policy. record_sha256 is left as the
--- pre-erasure digest (masked from reviewers). Project-delete safe: skip when the workspace_entities project row is
--- already gone (the FK cascade purges facts AFTER the project row; inserting provenance would orphan the FK 23503).
-CREATE FUNCTION public.citation_forget_redact_fact(p_user uuid,p_project text,p_fact uuid) RETURNS void
+-- Does an accuracy entry `a` REFERENCE the fact identified by (p_fact_row row-id, p_fact_id logical-id,
+-- p_version)? A VALID row-pin is AUTHORITATIVE — it matches ONLY that exact deleted row and NEVER logical-falls-
+-- back, so an inconsistent logical id can never erase a finding whose pin resolves to a different SURVIVING row.
+-- A rowless entry is SCHEMA-ALLOWED (an assessed state requires only factId + reviewer; factRowId/factVersion may
+-- be absent) and resolves 'unpinned' at read (not rebindable, not falsely resolved), but its free prose / receipt
+-- notes may still quote the fact — so on a fact DELETE it must be erasable by LOGICAL id: match p_fact_id, at the
+-- SAME version when a clean factVersion is present (other versions stay unaffected) and by factId ALONE when
+-- factVersion is absent/malformed (CONSERVATIVE — an unversioned reference to a now-deleted fact must not leave
+-- its quoted content accessible, per finding 4061340380). Pure over its inputs; every cast is control-flow-guarded
+-- (a malformed pin fails closed, never raising). Internal-only.
+CREATE FUNCTION public.citation_fact_ref_matches(a jsonb,p_fact_row uuid,p_fact_id uuid,p_version integer)
+RETURNS boolean LANGUAGE plpgsql IMMUTABLE SET search_path='' AS $$
+DECLARE u constant text := '^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$';
+BEGIN
+  IF a IS NULL OR jsonb_typeof(a) IS DISTINCT FROM 'object' THEN RETURN false; END IF;
+  IF jsonb_typeof(a->'factRowId')='string' AND (a->>'factRowId') ~ u THEN
+    RETURN lower(a->>'factRowId') = p_fact_row::text;
+  END IF;
+  IF jsonb_typeof(a->'factId') IS DISTINCT FROM 'string' OR (a->>'factId') !~ u THEN RETURN false; END IF;
+  IF lower(a->>'factId') IS DISTINCT FROM p_fact_id::text THEN RETURN false; END IF;
+  IF jsonb_typeof(a->'factVersion')='number' AND (a->>'factVersion') ~ '^[0-9]{1,5}$' THEN
+    RETURN (a->>'factVersion')::integer = p_version;
+  END IF;
+  RETURN true;
+END; $$;
+REVOKE ALL ON FUNCTION public.citation_fact_ref_matches(jsonb,uuid,uuid,integer) FROM PUBLIC,anon,authenticated,service_role;
+-- Marks every version of every finding of the SAME owner+project whose accuracy[] REFERENCES the DELETED fact —
+-- by exact row-pin OR (for a schema-allowed rowless assessment) by the fact's LOGICAL id + version — evidence-
+-- erased (finding 4061340380 extends finding 4059689464 beyond row-pins), activating the same erased machinery as
+-- an answer/source forget: reviewer digest + receipt + free prose masked/withheld, new reviews blocked,
+-- review/improvement current status downgraded. Receipt NOTES are erased in storage (content-free marker). NO
+-- structured field is scrubbed: the fact VALUE is never copied into the record (resolved live), and
+-- accuracy[].claimSpan is ANSWER-derived, so a fact delete must not touch it — the free prose that may quote the
+-- fact is RESPONSE-withheld to the reviewer (honest owner retention), consistent with the current prose policy.
+-- record_sha256 is left as the pre-erasure digest (masked from reviewers). The content-free marker retains the
+-- deleted fact's LOGICAL id + version too, so a later rowless resurrection is caught. Project-delete safe: skip
+-- when the workspace_entities project row is already gone (the FK cascade purges facts AFTER the project row;
+-- inserting provenance would orphan the FK 23503). The resolution status is untouched — a rowless entry stays
+-- 'unpinned' (unresolved); this only erases the evidence-derived prose/notes, never rebinds or marks it resolved.
+CREATE FUNCTION public.citation_forget_redact_fact(p_user uuid,p_project text,p_fact uuid,p_fact_id uuid,p_version integer) RETURNS void
 LANGUAGE plpgsql SECURITY DEFINER SET search_path='' AS $$
 BEGIN
   IF NOT EXISTS(SELECT 1 FROM public.workspace_entities
        WHERE user_id=p_user AND collection='projects' AND entity_id=p_project) THEN
     RETURN;
   END IF;
-  INSERT INTO public.ai_citation_fact_erasures(user_id,project_id,fact_row_id)
-    VALUES(p_user,p_project,p_fact) ON CONFLICT(user_id,project_id,fact_row_id) DO NOTHING;
+  INSERT INTO public.ai_citation_fact_erasures(user_id,project_id,fact_row_id,fact_id,version)
+    VALUES(p_user,p_project,p_fact,p_fact_id,p_version) ON CONFLICT(user_id,project_id,fact_row_id) DO NOTHING;
   UPDATE public.ai_citation_findings f
     SET evidence_erased_at = coalesce(f.evidence_erased_at, clock_timestamp())
     WHERE f.user_id=p_user AND f.project_id=p_project
       AND EXISTS(SELECT 1 FROM jsonb_array_elements(
             CASE WHEN jsonb_typeof(f.record->'accuracy')='array' THEN f.record->'accuracy' ELSE '[]'::jsonb END) a
-          WHERE lower(a->>'factRowId')=p_fact::text);
+          WHERE public.citation_fact_ref_matches(a,p_fact,p_fact_id,p_version));
   UPDATE public.ai_citation_finding_reviews r
     SET note='[redacted: finding evidence forgotten]'
     WHERE r.user_id=p_user AND r.project_id=p_project AND NOT r.withdrawn AND r.note IS NOT NULL
@@ -1542,12 +1594,12 @@ BEGIN
         WHERE f.id=r.finding_row_id AND f.user_id=p_user AND f.project_id=p_project
           AND jsonb_typeof(f.record->'accuracy')='array'
           AND EXISTS(SELECT 1 FROM jsonb_array_elements(f.record->'accuracy') a
-            WHERE lower(a->>'factRowId')=p_fact::text));
+            WHERE public.citation_fact_ref_matches(a,p_fact,p_fact_id,p_version)));
 END; $$;
-REVOKE ALL ON FUNCTION public.citation_forget_redact_fact(uuid,text,uuid) FROM PUBLIC,anon,authenticated,service_role;
+REVOKE ALL ON FUNCTION public.citation_forget_redact_fact(uuid,text,uuid,uuid,integer) FROM PUBLIC,anon,authenticated,service_role;
 CREATE FUNCTION public.citation_forget_fact_records() RETURNS trigger
 LANGUAGE plpgsql SECURITY DEFINER SET search_path='' AS $$
-BEGIN PERFORM public.citation_forget_redact_fact(OLD.user_id,OLD.project_id,OLD.id); RETURN OLD; END; $$;
+BEGIN PERFORM public.citation_forget_redact_fact(OLD.user_id,OLD.project_id,OLD.id,OLD.fact_id,OLD.version); RETURN OLD; END; $$;
 REVOKE ALL ON FUNCTION public.citation_forget_fact_records() FROM PUBLIC,anon,authenticated,service_role;
 CREATE TRIGGER citation_forget_fact_records_trg
   AFTER DELETE ON public.ai_citation_business_facts

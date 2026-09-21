@@ -1562,6 +1562,141 @@ describe("the independent inspection gate reuses the canonical accuracy resolver
     );
     expect(remaining.rows[0].n).toBe(0);
   });
+  it("propagates erasure to a finding whose accuracy references the deleted fact by LOGICAL id+version with NO row-pin — prose+note withheld, resolution stays unresolved, owner retention (finding 4061340380)", async () => {
+    const OBS_SECRET = "OBS-SECRET-4X8: the deleted fact recorded the private 999 rate.";
+    const NOTE_SECRET = "NOTE-SECRET-4X8: this reviewer note quotes the deleted fact.";
+    const fact = await seedFact();
+    // The SCHEMA-ALLOWED rowless assessed shape: factId + factVersion, NO factRowId (assessed states require only
+    // factId + reviewer). Saved through the CLIENT path so the schema itself admits it — not an RPC-forced fixture.
+    const f = await saveF("60000000-0000-4000-8000-000000000953", "accepted", {
+      family: "recommendation_accuracy",
+      evidence: [{ kind: "answer", id: ANSWER }],
+      accuracy: [
+        {
+          claimSpan: "The price is 500 SEK.",
+          factKind: "price",
+          status: "accurate_at_capture",
+          factId: FACT,
+          factVersion: fact.version,
+          captureEvidenceId: ANSWER,
+          review: { reviewer: user, reviewedAt: now },
+        },
+      ],
+      observation: OBS_SECRET,
+    });
+    // While the fact is live the finding is visible, and the rowless entry is honestly UNRESOLVED (never rebound).
+    const before = await getCitationFindingForReview(
+      reviewer,
+      { ownerId: user, projectId: "p", findingRowId: f.id },
+      rpc,
+    );
+    expect(before.evidenceErased).toBe(false);
+    expect(before.accuracyStatus).toBe("unresolved");
+    await submit(reviewer, f.id, before.recordSha256!, "approved", NOTE_SECRET);
+    // Delete the fact via the REAL RPC — the trigger passes its logical id + version, matching the rowless entry.
+    expect(
+      (
+        await rpc("remove_ai_citation_business_fact", {
+          p_user: user,
+          p_project: "p",
+          p_id: fact.id,
+        })
+      ).error,
+    ).toBeNull();
+    const view = await getCitationFindingForReview(
+      reviewer,
+      { ownerId: user, projectId: "p", findingRowId: f.id },
+      rpc,
+    );
+    expect(view.evidenceErased).toBe(true);
+    expect(view.record.observation).toBe("[withheld: finding evidence hidden]");
+    expect(view.reviews[0].note).toBeNull();
+    // Resolution is UNTOUCHED — the entry still resolves unresolved; erasure never rebinds or marks it resolved.
+    expect(view.accuracyStatus).toBe("unresolved");
+    const whole = JSON.stringify(view);
+    expect(whole).not.toContain("OBS-SECRET-4X8");
+    expect(whole).not.toContain("NOTE-SECRET-4X8");
+    // A NEW review is blocked (no note resurrection); the OWNER retains the prose; the note is erased in storage.
+    await expect(submit(reviewer, f.id, "a".repeat(64), "approved")).rejects.toThrow();
+    expect(JSON.stringify(await getCitationFinding(scope, f.id, rpc))).toContain("OBS-SECRET-4X8");
+    const ownerList = await readCitationFindingReviews(
+      user,
+      { ownerId: user, projectId: "p", findingRowId: f.id },
+      rpc,
+    );
+    expect(ownerList.reviews[0].note).toBe("[redacted: finding evidence forgotten]");
+    expect(ownerList.reviews[0].decision).toBe("approved");
+  });
+  it("matches unpinned logical references for erasure + resurrection while preserving EXACT version/fact scope, project-delete safe (finding 4061340380)", async () => {
+    const fact = await seedFact(); // (FACT, v1)
+    // A schema-allowed rowless assessed entry referencing (factId, factVersion) with NO row-pin.
+    const rowless = (factId: string, factVersion: number) => ({
+      claimSpan: "The price is 500 SEK.",
+      factKind: "price",
+      status: "accurate_at_capture" as const,
+      factId,
+      factVersion,
+      captureEvidenceId: ANSWER,
+      review: { reviewer: user, reviewedAt: now },
+    });
+    const evidence = [{ kind: "answer" as const, id: ANSWER }];
+    // (a) a rowless finding referencing a DIFFERENT VERSION of the same logical fact, and (b) one referencing a
+    // DIFFERENT logical fact — both must be UNAFFECTED by deleting (FACT, v1).
+    const otherVersion = await saveF("60000000-0000-4000-8000-000000000954", "accepted", {
+      family: "recommendation_accuracy",
+      evidence,
+      accuracy: [rowless(FACT, 2)],
+    });
+    const otherFact = await saveF("60000000-0000-4000-8000-000000000955", "accepted", {
+      family: "recommendation_accuracy",
+      evidence,
+      accuracy: [rowless(FACT2, 1)],
+    });
+    await rpc("remove_ai_citation_business_fact", { p_user: user, p_project: "p", p_id: fact.id });
+    const erasedOf = async (rowId: string) =>
+      (
+        await db.query<{ e: string | null }>(
+          "SELECT evidence_erased_at::text e FROM ai_citation_findings WHERE id=$1",
+          [rowId],
+        )
+      ).rows[0].e;
+    // Exact version scope + other-fact scope: a different version and a different logical fact are untouched.
+    expect(await erasedOf(otherVersion.id)).toBeNull();
+    expect(await erasedOf(otherFact.id)).toBeNull();
+    // A FRESH rowless resave referencing the now-deleted (FACT, v1) is erased at save (no prose/note resurrection).
+    const fresh = await saveF("60000000-0000-4000-8000-000000000956", "accepted", {
+      family: "recommendation_accuracy",
+      evidence,
+      accuracy: [rowless(FACT, 1)],
+      observation: "FRESH-SECRET-4X8: quotes the deleted fact.",
+    });
+    expect(await erasedOf(fresh.id)).not.toBeNull();
+    const freshView = await getCitationFindingForReview(
+      reviewer,
+      { ownerId: user, projectId: "p", findingRowId: fresh.id },
+      rpc,
+    );
+    expect(freshView.evidenceErased).toBe(true);
+    expect(freshView.record.observation).toBe("[withheld: finding evidence hidden]");
+    expect(JSON.stringify(freshView)).not.toContain("FRESH-SECRET-4X8");
+    await expect(
+      submit(reviewer, fresh.id, "a".repeat(64), "approved", "resurrected note"),
+    ).rejects.toThrow();
+    // A whole-project delete cascades the findings and markers cleanly (the trigger's project-exists guard skips,
+    // so no orphaned marker / FK 23503) — the erasure markers for the project are gone.
+    await db.query(
+      "DELETE FROM workspace_entities WHERE user_id=$1 AND collection='projects' AND entity_id='p'",
+      [user],
+    );
+    expect(
+      (
+        await db.query<{ n: number }>(
+          "SELECT count(*)::int n FROM ai_citation_fact_erasures WHERE user_id=$1 AND project_id='p'",
+          [user],
+        )
+      ).rows[0].n,
+    ).toBe(0);
+  });
 });
 describe("withdrawal is reviewer-only, auditable, and never silently sanitises a dissent (gap 4)", () => {
   it("lets only the receipt's own reviewer withdraw (a content-free tombstone), never the owner or a stranger", async () => {
@@ -1834,6 +1969,85 @@ describe("save review pre-lock boundary: finding/hash resolved and idempotency a
         )
       ).rows[0].s,
     ).toBe(sha);
+  });
+  it("BLOCKS a new review on a finding citing a MALFORMED or missing source id — the reviewer read masks it, and a wrong hash, a valid-format guess, AND the finding's REAL stored digest all raise the SAME unavailable error (no oracle, no receipt); a valid active source is unaffected (finding 4061393769)", async () => {
+    const masked = async (rowId: string) =>
+      (
+        await db.query<{ m: boolean }>(
+          "SELECT public.citation_finding_review_digest_masked($1,'p',$2) m",
+          [user, rowId],
+        )
+      ).rows[0].m;
+    // POSITIVE — independent inspectability is not weakened: a finding citing a VALID ACTIVE source is NOT masked,
+    // so the reviewer gets the real digest and a NEW receipt is written.
+    await seedSource("active", SOURCE);
+    const okF = await saveF("60000000-0000-4000-8000-000000000053", "accepted", {
+      evidence: [{ kind: "source", id: SOURCE }],
+    });
+    expect(await masked(okF.id)).toBe(false);
+    const okSha = await shaFor(okF.id);
+    expect(okSha).toMatch(/^[a-f0-9]{64}$/);
+    expect((await submit(reviewer, okF.id, okSha, "approved")).recordSha256).toBe(okSha);
+    // (1) A SCHEMA-VALID MALFORMED source id (evidence.id is free text(200)) that resolves to NO active row is
+    // MASKED — previously it was silently skipped by the uuid-guarded IF and left un-masked.
+    const badF = await saveF("60000000-0000-4000-8000-000000000054", "accepted", {
+      evidence: [{ kind: "source", id: "not-a-uuid-source" }],
+    });
+    expect(await masked(badF.id)).toBe(true);
+    // The reviewer read treats it as missing exactly as the digest gate now does: prose withheld, digest null,
+    // NOT erased — so the read, the receipt surface, and the review-save gate all agree.
+    const view = await getCitationFindingForReview(
+      reviewer,
+      { ownerId: user, projectId: "p", findingRowId: badF.id },
+      rpc,
+    );
+    expect(view.evidenceErased).toBe(false);
+    expect(view.sourcePassagesWithheld).toBe(true);
+    expect(view.recordSha256).toBeNull();
+    expect(view.record.observation).toBe("[withheld: finding evidence hidden]");
+    // (2) A HISTORICAL missing-id source (straight through the RPC, bypassing the client's non-empty id) fails
+    // CLOSED to masked WITHOUT a cast crash (the null id never reaches ::uuid).
+    const nullSaved = await rpc("save_ai_citation_finding", {
+      p_user: user,
+      p_project: "p",
+      p_record: {
+        ...finding("60000000-0000-4000-8000-000000000055", "accepted", {
+          evidence: [{ kind: "source", id: SOURCE }],
+        }),
+        evidence: [{ kind: "source" }],
+      },
+      p_scope: panelScope,
+    });
+    if (nullSaved.error) throw nullSaved.error;
+    const nullRow = (nullSaved.data as { id: string }).id;
+    expect(await masked(nullRow)).toBe(true);
+    // The finding's REAL stored digest (owner-side; the reviewer never sees it — masked to null above).
+    const badStored = (
+      await db.query<{ s: string }>(
+        "SELECT record_sha256 s FROM ai_citation_findings WHERE id=$1",
+        [badF.id],
+      )
+    ).rows[0].s;
+    // Delete the owner's workspace_meta so the lock fails closed if ever reached — proving the rejection is pre-lock.
+    await db.query("DELETE FROM workspace_meta WHERE user_id=$1", [user]);
+    // A wrong hash, a valid-format guess, AND the finding's REAL stored digest ALL raise the SAME unavailable error
+    // BEFORE the hash compare / idempotency / lock — so the withheld digest is never a stale-vs-success oracle.
+    for (const sha of ["b".repeat(64), VALID_SHA, badStored])
+      expect(await rawSubmit(reviewer, badF.id, sha)).toMatch(/citation_finding_unavailable/);
+    // An identical retry cannot unmask via idempotency; the historical missing-id finding likewise fails closed.
+    expect(await rawSubmit(reviewer, badF.id, badStored, "approved", null)).toMatch(
+      /citation_finding_unavailable/,
+    );
+    expect(await rawSubmit(reviewer, nullRow, VALID_SHA)).toMatch(/citation_finding_unavailable/);
+    // NO reviewer receipt was created on either masked finding (only the valid-source positive above wrote one).
+    expect(
+      (
+        await db.query<{ n: number }>(
+          "SELECT count(*)::int n FROM ai_citation_finding_reviews WHERE finding_row_id IN ($1,$2)",
+          [badF.id, nullRow],
+        )
+      ).rows[0].n,
+    ).toBe(0);
   });
 });
 describe("a failed/empty answer capture is visible but never completes an independent inspection (spec §4.5)", () => {
