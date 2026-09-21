@@ -1408,6 +1408,56 @@ describe("improvement eligibility: a required-but-missing second review caps own
     // The historic pin/receipt are untouched: f1 read on its own is still independent_reviewed.
     expect((await getCitationFinding(scope, f1.id, rpc)).reviewStatus).toBe("independent_reviewed");
   });
+  it("removing a DISSENTED successor head does not silently regain owner_attested — the dissent survives as a content-free logical tombstone (finding 4059365611)", async () => {
+    const fid = "60000000-0000-4000-8000-000000000023";
+    const f1 = await saveF(fid, "accepted");
+    await submit(reviewer, f1.id, await shaFor(f1.id), "approved"); // f1 independently reviewed
+    const imp = await attestedImprovement(fid, "70000000-0000-4000-8000-000000000023");
+    expect(imp.verificationStatus).toBe("owner_attested");
+    // A NEW head (a correction) that an independent reviewer DISSENTS on -> the improvement caps.
+    const f2 = await saveF(fid, "needs_second_review");
+    expect(f2.supersedesId).toBe(f1.id);
+    await submit(reviewer, f2.id, await shaFor(f2.id), "needs_changes", "Still wrong.");
+    expect((await getCitationImprovement(scope, imp.id, rpc)).verificationStatus).toBe(
+      "connector_receipt",
+    );
+    // The owner DELETES the dissented successor; its dissent receipt cascades away and f1 (accepted, approved)
+    // becomes the head again — but the improvement must NOT silently regain owner_attested.
+    expect(
+      (await rpc("remove_ai_citation_finding", { p_user: user, p_project: "p", p_id: f2.id }))
+        .error,
+    ).toBeNull();
+    expect((await getCitationImprovement(scope, imp.id, rpc)).verificationStatus).toBe(
+      "connector_receipt",
+    );
+    // The dissent survives as a content-free LOGICAL tombstone: the surviving head reads independent_dissent,
+    // and re-attesting the improvement cannot silently resurrect authority.
+    expect(await reviewStatusOf(f1.id)).toBe("independent_dissent");
+    expect(
+      (await attestedImprovement(fid, "70000000-0000-4000-8000-000000000023")).verificationStatus,
+    ).toBe("connector_receipt");
+  });
+  it("removing a NON-dissented (or withdrawn-dissent) successor leaves the improvement sound — no spurious tombstone (finding 4059365611)", async () => {
+    const fid = "60000000-0000-4000-8000-000000000024";
+    const impId = "70000000-0000-4000-8000-000000000024";
+    const f1 = await saveF(fid, "accepted");
+    await submit(reviewer, f1.id, await shaFor(f1.id), "approved");
+    expect((await attestedImprovement(fid, impId)).verificationStatus).toBe("owner_attested");
+    // A pending correction with NO dissent -> the improvement caps while it is the head...
+    const f2 = await saveF(fid, "needs_second_review");
+    expect((await attestedImprovement(fid, impId)).verificationStatus).toBe("connector_receipt");
+    // ...but removing it (no dissent erased) lets f1 legitimately re-attest — no spurious tombstone.
+    await rpc("remove_ai_citation_finding", { p_user: user, p_project: "p", p_id: f2.id });
+    expect(await reviewStatusOf(f1.id)).toBe("independent_reviewed");
+    expect((await attestedImprovement(fid, impId)).verificationStatus).toBe("owner_attested");
+    // A successor whose dissent is legitimately WITHDRAWN before deletion likewise leaves nothing to tombstone.
+    const f3 = await saveF(fid, "needs_second_review");
+    const d = await submit(reviewer, f3.id, await shaFor(f3.id), "needs_changes", "temp");
+    await removeCitationFindingReview(reviewer, { ownerId: user, projectId: "p", id: d.id }, rpc);
+    await rpc("remove_ai_citation_finding", { p_user: user, p_project: "p", p_id: f3.id });
+    expect(await reviewStatusOf(f1.id)).toBe("independent_reviewed");
+    expect((await attestedImprovement(fid, impId)).verificationStatus).toBe("owner_attested");
+  });
 });
 // Two linked evidence-lifecycle fixes, exercised through the ACTUAL released forget_project_knowledge RPC:
 //  (1) forgetting a SOURCE erases the copied support[].sourcePassage a finding kept in its own record (across
@@ -1546,6 +1596,89 @@ describe("evidence lifecycle: forgetting a source erases copied material and dow
     const id2 = await saveRaw(rec);
     expect(id2).toBe(id1);
     expect(await storedPassage(id1)).toBe(REDACTED);
+  });
+  it("erases receipt NOTES quoting a forgotten source across both reviewer routes; the owner sees the marker, not the secret (finding 4059365606)", async () => {
+    const NOTE_SECRET =
+      "REVIEWER-NOTE-SECRET-7Q2X: the forgotten page listed the private cancellation fee.";
+    await seedSource("active", SOURCE);
+    const fid = "60000000-0000-4000-8000-0000000000f0";
+    const row = await saveRaw(sourceFinding(fid));
+    // A reviewer records an approved receipt whose NOTE quotes the source verbatim (the finding record redaction
+    // does not touch receipt notes).
+    await submit(reviewer, row, await shaFor(row), "approved", NOTE_SECRET);
+    // A REAL source forget: the finding is erased, and the note must be erased too.
+    await forget("source", SOURCE);
+    // Reviewer route 1: the for-review detail (embedded reviews[]) — the secret must not appear anywhere.
+    const view = await getCitationFindingForReview(
+      reviewer,
+      { ownerId: user, projectId: "p", findingRowId: row },
+      rpc,
+    );
+    expect(view.evidenceErased).toBe(true);
+    expect(view.reviews[0].note).toBeNull();
+    expect(JSON.stringify(view)).not.toContain("SECRET-7Q2X");
+    // Reviewer route 2: the standalone receipt list.
+    const revList = await readCitationFindingReviews(
+      reviewer,
+      { ownerId: user, projectId: "p", findingRowId: row },
+      rpc,
+    );
+    expect(revList.reviews[0].note).toBeNull();
+    expect(JSON.stringify(revList)).not.toContain("SECRET-7Q2X");
+    // The OWNER sees the note ERASED to the content-free marker (honest retention: the note is gone in storage,
+    // not merely hidden) — never the secret — while the decision/attribution stay for audit.
+    const ownerList = await readCitationFindingReviews(
+      user,
+      { ownerId: user, projectId: "p", findingRowId: row },
+      rpc,
+    );
+    expect(ownerList.reviews[0].note).toBe("[redacted: finding evidence forgotten]");
+    expect(ownerList.reviews[0].decision).toBe("approved");
+    expect(JSON.stringify(ownerList)).not.toContain("SECRET-7Q2X");
+    // Storage is genuinely erased (the retention claim is honest).
+    const stored = await db.query<{ n: string }>(
+      "SELECT note n FROM ai_citation_finding_reviews WHERE user_id=$1 AND finding_row_id=$2",
+      [user, row],
+    );
+    expect(stored.rows[0].n).toBe("[redacted: finding evidence forgotten]");
+  });
+  it("withholds a receipt NOTE from the reviewer for a REVOKED (not forgotten) source while the owner retains it (finding 4059365606)", async () => {
+    const NOTE_SECRET = "REVIEWER-NOTE-SECRET-8R4Y: quoted from the now-revoked source.";
+    await seedSource("active", SOURCE);
+    const fid = "60000000-0000-4000-8000-0000000000f1";
+    const row = await saveRaw(sourceFinding(fid));
+    await submit(reviewer, row, await shaFor(row), "approved", NOTE_SECRET);
+    // Revocation is NOT a forget: the source row survives with status flipped, no trigger fires.
+    await db.query(
+      "UPDATE project_knowledge_sources SET payload=jsonb_build_object('status','revoked') WHERE user_id=$1 AND project_id='p' AND id=$2",
+      [user, SOURCE],
+    );
+    // Reviewer routes withhold the note (response-only); the secret is absent from both.
+    const view = await getCitationFindingForReview(
+      reviewer,
+      { ownerId: user, projectId: "p", findingRowId: row },
+      rpc,
+    );
+    expect(view.evidenceErased).toBe(false);
+    expect(view.sourcePassagesWithheld).toBe(true);
+    expect(view.reviews[0].note).toBeNull();
+    expect(JSON.stringify(view)).not.toContain("SECRET-8R4Y");
+    expect(
+      (
+        await readCitationFindingReviews(
+          reviewer,
+          { ownerId: user, projectId: "p", findingRowId: row },
+          rpc,
+        )
+      ).reviews[0].note,
+    ).toBeNull();
+    // The owner RETAINS the note (revocation is not erasure) — it is not destroyed in storage.
+    const ownerList = await readCitationFindingReviews(
+      user,
+      { ownerId: user, projectId: "p", findingRowId: row },
+      rpc,
+    );
+    expect(ownerList.reviews[0].note).toBe(NOTE_SECRET);
   });
   it("downgrades a previously owner_attested improvement to connector_receipt after a record-only forget, leaving the historical receipt auditable", async () => {
     await seedApproval();

@@ -263,6 +263,8 @@ describe("candidate migration chain", () => {
       "ai_citation_source_erasures",
       // Content-free answer-level erasure provenance (P2 answer-delete propagation; ids + timestamp only).
       "ai_citation_answer_erasures",
+      // Content-free logical-finding dissent tombstone (a dissent survives a version/head delete; ids + timestamp).
+      "ai_citation_finding_dissent_tombstones",
     ]) {
       const { rows } = await db.query<{ rls: boolean; policies: string }>(
         "SELECT c.relrowsecurity rls,(SELECT count(*)::text FROM pg_policy WHERE polrelid=c.oid) policies FROM pg_class c JOIN pg_namespace s ON s.oid=c.relnamespace WHERE s.nspname='public' AND c.relname=$1",

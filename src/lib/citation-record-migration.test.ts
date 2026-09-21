@@ -666,6 +666,104 @@ describe("delegated (team) approval binding reuses the CURRENT canonical predica
     );
   });
 });
+describe("intervention/retest dates are reconciled to trusted server events (no backdating)", () => {
+  const fid = "60000000-0000-4000-8000-0000000000b0";
+  const impId = "70000000-0000-4000-8000-0000000000b0";
+  beforeEach(async () => {
+    await saveF(finding(fid));
+  });
+  it("derives change.approvedAt from the approval and verification.verifiedAt from the owner inspection, discarding a backdated owner claim", async () => {
+    const observedAt = await isoAt("- interval '1 hour'");
+    const rec = improvement(impId, fid, { verified: true });
+    // The owner tries to BACKDATE both the intervention approval and the retest to long before the real events.
+    rec.change.approvedAt = "2020-01-01T00:00:00Z";
+    rec.verification!.verifiedAt = "2020-01-02T00:00:00Z";
+    const imp = await saveI(
+      rec,
+      binding({ inspection: { checkResult: "shows_approved_content", observedAt } }),
+    );
+    expect(imp.verificationStatus).toBe("owner_attested");
+    const detail = await getCitationImprovement(scope, imp.id, rpc);
+    // approvedAt is DERIVED from the approval's updated_at; verifiedAt from the validated observed instant —
+    // compared by parsed instant (same-instant precision), not raw ISO-string equality.
+    const appr = await db.query<{ t: string }>(
+      "SELECT to_char(updated_at AT TIME ZONE 'UTC','YYYY-MM-DD\"T\"HH24:MI:SS.US\"Z\"') t FROM publication_approvals WHERE user_id=$1 AND project_id='p' AND asset_id=$2",
+      [user, ASSET],
+    );
+    expect(Date.parse(detail.record.change.approvedAt)).toBe(Date.parse(appr.rows[0].t));
+    expect(Date.parse(detail.record.verification!.verifiedAt)).toBe(Date.parse(observedAt));
+    // The backdated owner claims are gone, and the real event order holds (retest on/after intervention).
+    expect(Date.parse(detail.record.change.approvedAt)).toBeGreaterThan(
+      Date.parse("2020-01-02T00:00:00Z"),
+    );
+    expect(Date.parse(detail.record.verification!.verifiedAt)).toBeGreaterThanOrEqual(
+      Date.parse(detail.record.change.approvedAt),
+    );
+  });
+  it("refuses a verification block with no server-validated owner inspection to anchor it (unbacked)", async () => {
+    // No binding at all — nothing trusted to reconcile the retest/approval instants to.
+    await expect(saveI(improvement(impId, fid, { verified: true }), null)).rejects.toThrow();
+    // A binding but NO owner inspection — still no trusted retest instant.
+    await expect(saveI(improvement(impId, fid, { verified: true }), binding())).rejects.toThrow();
+    const n = await db.query<{ n: number }>(
+      "SELECT count(*)::int n FROM ai_citation_improvements WHERE user_id=$1",
+      [user],
+    );
+    expect(n.rows[0].n).toBe(0);
+  });
+});
+describe("embedded reviewer identity is matched case-insensitively (semantic UUID), forgeries refused", () => {
+  // A hex-LETTERED owner so an UPPERCASE embedded reviewer is a REAL case difference (the all-digit `user` is
+  // case-invariant). save_ai_citation_finding derives the reviewer from the authenticated caller and refuses
+  // ANY embedded reviewer (top review, secondReview, nested) that is not that caller.
+  const letteredOwner = "a1b2c3d4-0000-4000-8000-00000000000a";
+  const foreignReviewer = "b2c3d4e5-0000-4000-8000-00000000000b";
+  const asOwner = { ownerId: letteredOwner, projectId: "p" };
+  const efid = "60000000-0000-4000-8000-0000000000c0";
+  beforeEach(async () => {
+    await db.query("INSERT INTO auth.users(id) VALUES($1),($2) ON CONFLICT DO NOTHING", [
+      letteredOwner,
+      foreignReviewer,
+    ]);
+    await db.query("INSERT INTO workspace_meta(user_id) VALUES($1) ON CONFLICT DO NOTHING", [
+      letteredOwner,
+    ]);
+    await db.query(
+      "INSERT INTO workspace_entities(user_id,collection,entity_id) VALUES($1,'projects','p') ON CONFLICT DO NOTHING",
+      [letteredOwner],
+    );
+  });
+  it("accepts UPPERCASE embedded reviewers (top review AND secondReview) that are the owner's own UUID", async () => {
+    const rec = {
+      ...finding(efid, undefined, letteredOwner.toUpperCase()),
+      secondReview: { reviewer: letteredOwner.toUpperCase(), reviewedAt: now },
+    };
+    const saved = await saveCitationFinding(asOwner, { scope: panelScope, finding: rec }, rpc);
+    // Accepted (not a reviewer mismatch); the server-derived reviewer is the owner (lowercase).
+    expect(saved.reviewerId).toBe(letteredOwner);
+  });
+  it("refuses a foreign embedded reviewer in a nested location", async () => {
+    const rec = {
+      ...finding(efid, undefined, letteredOwner),
+      secondReview: { reviewer: foreignReviewer, reviewedAt: now },
+    };
+    await expect(
+      saveCitationFinding(asOwner, { scope: panelScope, finding: rec }, rpc),
+    ).rejects.toThrow();
+  });
+  it("fails closed on a malformed non-uuid embedded reviewer submitted straight to the RPC (no unsafe cast)", async () => {
+    const r = await rpc("save_ai_citation_finding", {
+      p_user: letteredOwner,
+      p_project: "p",
+      p_record: {
+        ...finding(efid, undefined, letteredOwner),
+        secondReview: { reviewer: "NOT-a-uuid", reviewedAt: now },
+      },
+      p_scope: panelScope,
+    });
+    expect(r.error).toBeTruthy();
+  });
+});
 describe("before/after baseline axis is reported separately and gates owner_attested", () => {
   const fid = "60000000-0000-4000-8000-000000000060";
   beforeEach(async () => {

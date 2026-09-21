@@ -204,6 +204,19 @@ BEGIN
             CASE WHEN jsonb_typeof(f.record->'evidence')='array' THEN f.record->'evidence' ELSE '[]'::jsonb END) e
           WHERE e->>'kind'='source' AND lower(e->>'id')=p_source::text)
       AND EXISTS(SELECT 1 FROM jsonb_array_elements(f.record->'support') s WHERE s->>'sourcePassage' IS NOT NULL);
+  -- Receipt NOTES are free reviewer text that may QUOTE the forgotten source verbatim; the record redaction
+  -- above does not touch them (finding 4059365606). Erase the note (content-free marker) on every NON-withdrawn
+  -- receipt of a finding that cites the forgotten source — decision/reviewer/timestamps stay for audit (the same
+  -- shape as a withdrawal tombstone), and a withdrawn receipt's note was already erased. New reviews on an erased
+  -- finding are already blocked, so this is not resurrectable.
+  UPDATE public.ai_citation_finding_reviews r
+    SET note='[redacted: finding evidence forgotten]'
+    WHERE r.user_id=p_user AND r.project_id=p_project AND NOT r.withdrawn AND r.note IS NOT NULL
+      AND EXISTS(SELECT 1 FROM public.ai_citation_findings f
+        WHERE f.id=r.finding_row_id AND f.user_id=p_user AND f.project_id=p_project
+          AND jsonb_typeof(f.record->'evidence')='array'
+          AND EXISTS(SELECT 1 FROM jsonb_array_elements(f.record->'evidence') e
+            WHERE e->>'kind'='source' AND lower(e->>'id')=p_source::text));
 END; $$;
 REVOKE ALL ON FUNCTION public.citation_forget_redact_source(uuid,text,uuid) FROM PUBLIC,anon,authenticated,service_role;
 CREATE FUNCTION public.citation_forget_source_passages() RETURNS trigger
@@ -277,6 +290,17 @@ BEGIN
       AND EXISTS(SELECT 1 FROM jsonb_array_elements(
             CASE WHEN jsonb_typeof(f.record->'evidence')='array' THEN f.record->'evidence' ELSE '[]'::jsonb END) e
           WHERE e->>'kind'='answer' AND lower(e->>'id')=p_answer::text);
+  -- Receipt NOTES may QUOTE the forgotten answer verbatim; erase the note (content-free marker) on every
+  -- NON-withdrawn receipt of a finding citing the answer — same rationale/audit shape as the source redactor
+  -- (finding 4059365606).
+  UPDATE public.ai_citation_finding_reviews r
+    SET note='[redacted: finding evidence forgotten]'
+    WHERE r.user_id=p_user AND r.project_id=p_project AND NOT r.withdrawn AND r.note IS NOT NULL
+      AND EXISTS(SELECT 1 FROM public.ai_citation_findings f
+        WHERE f.id=r.finding_row_id AND f.user_id=p_user AND f.project_id=p_project
+          AND jsonb_typeof(f.record->'evidence')='array'
+          AND EXISTS(SELECT 1 FROM jsonb_array_elements(f.record->'evidence') e
+            WHERE e->>'kind'='answer' AND lower(e->>'id')=p_answer::text));
 END; $$;
 REVOKE ALL ON FUNCTION public.citation_forget_redact_answer(uuid,text,uuid) FROM PUBLIC,anon,authenticated,service_role;
 CREATE FUNCTION public.citation_forget_answer_passages() RETURNS trigger
@@ -445,6 +469,25 @@ BEGIN
 END; $$;
 REVOKE ALL ON FUNCTION public.citation_finding_inspectable(uuid,text,jsonb) FROM PUBLIC,anon,authenticated,service_role;
 
+-- Content-free LOGICAL-finding dissent tombstone (finding 4059365611). Records that a finding VERSION carrying
+-- a standing independent dissent was DELETED, so deleting a dissented head can never let an older accepted
+-- version resurface as the head and silently regain owner_attested — the owner cannot erase another reviewer's
+-- dissent through a version/head delete. Keyed by the LOGICAL finding_id (ids + a timestamp only — no prose, no
+-- decision text). RLS-on, REVOKEd from every role, workspace_entities FK ON DELETE CASCADE so it is cleaned up
+-- on project/account deletion (never orphaning the FK). Tenant- and project-scoped; monotonic per distinct
+-- dissented-then-deleted finding, bounded only by project lifecycle (mirrors the erasure markers).
+CREATE TABLE public.ai_citation_finding_dissent_tombstones (
+  user_id uuid NOT NULL,
+  project_collection text NOT NULL DEFAULT 'projects' CHECK(project_collection='projects'),
+  project_id text NOT NULL,
+  finding_id uuid NOT NULL,
+  created_at timestamptz NOT NULL DEFAULT clock_timestamp(),
+  PRIMARY KEY(user_id,project_id,finding_id),
+  FOREIGN KEY(user_id,project_collection,project_id) REFERENCES public.workspace_entities(user_id,collection,entity_id) ON DELETE CASCADE
+);
+ALTER TABLE public.ai_citation_finding_dissent_tombstones ENABLE ROW LEVEL SECURITY;
+REVOKE ALL ON public.ai_citation_finding_dissent_tombstones FROM PUBLIC,anon,authenticated,service_role;
+
 -- Aggregate INDEPENDENT-review status of one finding ROW, for the canonical reads and the improvement gate.
 -- Computed over ALL that row's receipts (never a display page — a dissent is never truncated away):
 --   'owner_only'             no active independent receipt, and the finding did not ask for a second review.
@@ -461,9 +504,9 @@ REVOKE ALL ON FUNCTION public.citation_finding_inspectable(uuid,text,jsonb) FROM
 -- OTHER than the owner count (defence in depth; the save already forbids the owner). Internal-only.
 CREATE FUNCTION public.citation_finding_review_status(p_user uuid,p_project text,p_row uuid)
 RETURNS text LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path='' AS $$
-DECLARE dec text; erased timestamptz; approved_complete integer; approved_opinion integer; dissent integer;
+DECLARE dec text; erased timestamptz; fid uuid; approved_complete integer; approved_opinion integer; dissent integer;
 BEGIN
-  SELECT decision,evidence_erased_at INTO dec,erased FROM public.ai_citation_findings WHERE user_id=p_user AND project_id=p_project AND id=p_row;
+  SELECT decision,evidence_erased_at,finding_id INTO dec,erased,fid FROM public.ai_citation_findings WHERE user_id=p_user AND project_id=p_project AND id=p_row;
   IF dec IS NULL THEN RETURN 'owner_only'; END IF;
   SELECT count(*) FILTER (WHERE decision='approved' AND inspection_complete),
          count(*) FILTER (WHERE decision='approved' AND NOT inspection_complete),
@@ -475,7 +518,13 @@ BEGIN
   -- current (redacted) payload: they stay in the receipts list as historic, and the current status collapses
   -- to owner_only rather than pretending an independent_reviewed/opinion of erased content. No new receipt can
   -- lift it (save_ai_citation_finding_review refuses an erased finding), so there is no silent resurrection.
-  IF dissent>0 THEN RETURN 'independent_dissent'; END IF;
+  -- A standing dissent whose receipt was destroyed by a version/head DELETE survives as a content-free
+  -- LOGICAL-finding tombstone (finding 4059365611): the owner cannot erase an independent dissent by deleting
+  -- the dissented version and letting an older accepted head resurface. It is treated as a CURRENT dissent, so
+  -- every dependent (the improvement gate reads this status on the current head) stays capped below
+  -- owner_attested and a recreated head cannot silently resurrect authority.
+  IF dissent>0 OR EXISTS(SELECT 1 FROM public.ai_citation_finding_dissent_tombstones
+       WHERE user_id=p_user AND project_id=p_project AND finding_id=fid) THEN RETURN 'independent_dissent'; END IF;
   IF erased IS NOT NULL THEN RETURN 'owner_only'; END IF;
   IF approved_complete>0 THEN RETURN 'independent_reviewed'; END IF;
   IF dec='needs_second_review' THEN RETURN 'second_review_pending'; END IF;
@@ -788,9 +837,12 @@ BEGIN
   END IF;
   -- ...and NO embedded reviewer identity anywhere (secondReview, recommendation, support[], accuracy[])
   -- may be a different, unauthenticated identity. A foreign reviewer is a forged provenance claim and is
-  -- refused; two-person review needs a trusted reviewer-resolution boundary that P3 does not yet have.
+  -- refused; two-person review needs a trusted reviewer-resolution boundary that P3 does not yet have. The
+  -- reviewer id is a UUID string the client accepts in EITHER case, so compare SEMANTICALLY via a case-fold on
+  -- text (NO uuid cast on the arbitrary scanned value — a malformed/non-uuid embedded reviewer is simply not the
+  -- owner and stays refused, fail-closed).
   IF EXISTS(SELECT 1 FROM jsonb_array_elements_text(jsonb_path_query_array(p_record,'$.**.reviewer')) r
-            WHERE r IS DISTINCT FROM p_user::text) THEN
+            WHERE lower(r) IS DISTINCT FROM lower(p_user::text)) THEN
     RAISE EXCEPTION 'citation_finding_reviewer_mismatch' USING ERRCODE='22023';
   END IF;
   IF jsonb_typeof(p_scope->'panelId')<>'string' OR (p_scope->>'panelId') !~ '^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$'
@@ -934,6 +986,20 @@ BEGIN
   -- older superseded version, and no deleted content is retained.
   UPDATE public.ai_citation_findings SET supersedes_id=NULL, predecessor_deleted=true
     WHERE user_id=p_user AND project_id=p_project AND supersedes_id=p_id;
+  -- Content-free DISSENT tombstone (finding 4059365611): if the row being deleted carries a NON-withdrawn
+  -- independent dissent, record the LOGICAL finding_id so deleting this version (and cascading its receipts via
+  -- FK) cannot let an older accepted version resurface as head and silently regain owner_attested — the owner
+  -- cannot erase another reviewer's standing dissent through a version/head delete (citation_finding_review_status
+  -- reads this tombstone on the surviving head). A legitimately WITHDRAWN dissent (withdrawn=true) leaves nothing
+  -- to tombstone, and deleting a NON-dissented row records nothing, so regular correction/withdrawal stay sound.
+  -- Runs BEFORE the delete (row + receipts still present); the project row exists (locked above), so the FK holds.
+  INSERT INTO public.ai_citation_finding_dissent_tombstones(user_id,project_id,finding_id)
+    SELECT f.user_id,f.project_id,f.finding_id FROM public.ai_citation_findings f
+    WHERE f.user_id=p_user AND f.project_id=p_project AND f.id=p_id
+      AND EXISTS(SELECT 1 FROM public.ai_citation_finding_reviews r
+        WHERE r.user_id=p_user AND r.project_id=p_project AND r.finding_row_id=p_id
+          AND r.reviewer_id<>p_user AND NOT r.withdrawn AND r.decision IN ('rejected','needs_changes'))
+    ON CONFLICT(user_id,project_id,finding_id) DO NOTHING;
   DELETE FROM public.ai_citation_findings WHERE user_id=p_user AND project_id=p_project AND id=p_id;
   RETURN true;
 END; $$;
@@ -1116,6 +1182,28 @@ BEGIN
       END IF;
     END IF;
   END IF;
+  -- INTERVENTION/RETEST DATE INTEGRITY (P1): the stored record's change.approvedAt and verification.verifiedAt
+  -- must be TRUSTED server events, not owner free-text that could BACKDATE the intervention/retest order the
+  -- downstream before/after comparison (isVerifiedImprovement / comparablePairs) reads. A before/after
+  -- VERIFICATION is only trustworthy when anchored to server-validated events: the bound approval
+  -- (approval.updated_at = appr_at) and a structured owner inspection of the published liveUrl
+  -- (ownerInspection.observedAt = obs, already validated finite + on/after publication AND approval + non-future
+  -- above). So a verification with no such trusted inspection is REFUSED (fail-closed; no inspection is
+  -- fabricated), and when present the two instants are DERIVED into the record — and thus into the idempotency
+  -- digest and every downstream comparison — at the database's supported MICROSECOND precision as canonical UTC
+  -- ISO-8601 (not raw ISO-string equality). The owner's raw claimed dates are discarded, so a backdated claim
+  -- collapses to the same trusted record (idempotent) and cannot reorder intervention vs retest. This does NOT
+  -- turn owner_attested into independent proof: obs is still an owner observation, unchanged in meaning.
+  IF v IS NOT NULL AND jsonb_typeof(v)='object' THEN
+    IF obs IS NULL OR appr_at IS NULL THEN
+      RAISE EXCEPTION 'citation_improvement_verification_unbacked' USING ERRCODE='22023';
+    END IF;
+    p_record := jsonb_set(
+      jsonb_set(p_record,'{change,approvedAt}',
+        to_jsonb(to_char(appr_at AT TIME ZONE 'UTC','YYYY-MM-DD"T"HH24:MI:SS.US"Z"'))),
+      '{verification,verifiedAt}',
+        to_jsonb(to_char(obs AT TIME ZONE 'UTC','YYYY-MM-DD"T"HH24:MI:SS.US"Z"')));
+  END IF;
   IF EXISTS(SELECT 1 FROM public.ai_citation_improvements
      WHERE user_id=p_user AND project_id=p_project AND improvement_id=iid
        AND (panel_id<>panel OR panel_version<>pver OR client_name<>cname OR client_market<>cmarket)) THEN
@@ -1266,9 +1354,11 @@ BEGIN
     RAISE EXCEPTION 'invalid_citation_business_fact' USING ERRCODE='22023';
   END IF;
   -- Confirmation identity is server-derived: the caller may only claim itself (the authenticated owner) as
-  -- the confirmer; a foreign confirmedBy is a forged provenance claim and is refused. confirmedAt is not
-  -- trusted from the client at all — it is stamped from the authenticated action below.
-  IF jsonb_typeof(p_record->'confirmedBy') IS DISTINCT FROM 'string' OR (p_record->>'confirmedBy') IS DISTINCT FROM p_user::text THEN
+  -- the confirmer; a foreign confirmedBy is a forged provenance claim and is refused. confirmedBy is a UUID
+  -- string the client accepts in EITHER case, so compare SEMANTICALLY via a case-fold on text (NO uuid cast on
+  -- the arbitrary value — a malformed/non-uuid confirmedBy is not the owner and stays refused, fail-closed).
+  -- confirmedAt is not trusted from the client at all — it is stamped from the authenticated action below.
+  IF jsonb_typeof(p_record->'confirmedBy') IS DISTINCT FROM 'string' OR lower(p_record->>'confirmedBy') IS DISTINCT FROM lower(p_user::text) THEN
     RAISE EXCEPTION 'citation_business_fact_confirmer_mismatch' USING ERRCODE='22023';
   END IF;
   -- Declared validity interval: finite and ordered, and separate from the confirmation instant. Precision
@@ -1776,8 +1866,13 @@ BEGIN
     count(*) FILTER (WHERE NOT withdrawn AND decision='approved' AND reviewer_id<>p_owner)
     INTO total,active_dissent,active_approved
     FROM public.ai_citation_finding_reviews WHERE user_id=p_owner AND project_id=p_project AND finding_row_id=p_finding;
+  -- The note is masked on the SAME reviewer condition as the digest: a note is free reviewer text that may
+  -- quote the forgotten/withheld value, so a reviewer never receives it for a masked (erased/revoked-source)
+  -- finding. The OWNER (v_masked false) still sees the stored note — which is already the '[redacted: finding
+  -- evidence forgotten]' marker for an ERASED finding (blanked in storage by the forget redactor), and the real
+  -- note for a merely REVOKED (not erased) source, matching owner retention of the copied passage.
   SELECT coalesce(jsonb_agg(jsonb_build_object('id',id,'reviewerId',reviewer_id,'mine',reviewer_id=p_actor,
-    'owner',reviewer_id=p_owner,'reviewerRole',reviewer_role,'decision',decision,'note',note,
+    'owner',reviewer_id=p_owner,'reviewerRole',reviewer_role,'decision',decision,'note',CASE WHEN v_masked THEN NULL ELSE note END,
     'inspectionComplete',inspection_complete,'withdrawn',withdrawn,'withdrawnAt',withdrawn_at,
     'findingVersion',finding_version,'recordSha256',CASE WHEN v_masked THEN NULL ELSE record_sha256 END,'createdAt',created_at)
     ORDER BY created_at DESC,id DESC),'[]'::jsonb)
@@ -1927,8 +2022,11 @@ BEGIN
   -- unaffected. A fully-visible finding still exposes the exact binding hash a reviewer needs to submit.
   v_masked := (frow.evidence_erased_at IS NOT NULL OR passages_withheld);
   SELECT count(*) INTO total FROM public.ai_citation_finding_reviews WHERE user_id=p_owner AND project_id=p_project AND finding_row_id=p_id;
+  -- This is the reviewer surface (owner is refused above), so mask each note on the SAME masked condition as
+  -- the digest: a note may quote the forgotten/withheld value verbatim, so it is never served to the reviewer
+  -- for an erased/revoked-source finding (an erased finding's stored note is already the redacted marker).
   SELECT coalesce(jsonb_agg(jsonb_build_object('id',id,'reviewerId',reviewer_id,'mine',reviewer_id=p_actor,
-    'owner',reviewer_id=p_owner,'reviewerRole',reviewer_role,'decision',decision,'note',note,
+    'owner',reviewer_id=p_owner,'reviewerRole',reviewer_role,'decision',decision,'note',CASE WHEN v_masked THEN NULL ELSE note END,
     'inspectionComplete',inspection_complete,'withdrawn',withdrawn,'withdrawnAt',withdrawn_at,
     'findingVersion',finding_version,'recordSha256',CASE WHEN v_masked THEN NULL ELSE record_sha256 END,'createdAt',created_at)
     ORDER BY created_at DESC,id DESC),'[]'::jsonb)

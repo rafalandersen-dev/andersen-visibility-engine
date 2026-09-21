@@ -209,6 +209,50 @@ describe("dated business facts: server-derived confirmation, declared validity, 
   it("refuses a forged confirmer (confirmedBy other than the authenticated owner)", async () => {
     await expect(saveFact(fact(FACT, { confirmedBy: other }))).rejects.toThrow();
   });
+  describe("confirmedBy is matched case-insensitively (semantic UUID), forgeries still refused", () => {
+    // A hex-LETTERED owner so an UPPERCASE confirmedBy is a real case difference (the all-digit `user` is
+    // case-invariant). confirmedBy is compared by a case-fold on text (no uuid cast), and the STORED confirmedBy
+    // is always the server-derived p_user (lowercase), never the submitted string.
+    const letteredOwner = "a1b2c3d4-0000-4000-8000-00000000000a";
+    beforeEach(async () => {
+      await db.query("INSERT INTO auth.users(id) VALUES($1) ON CONFLICT DO NOTHING", [
+        letteredOwner,
+      ]);
+      await db.query("INSERT INTO workspace_meta(user_id) VALUES($1) ON CONFLICT DO NOTHING", [
+        letteredOwner,
+      ]);
+      await db.query(
+        "INSERT INTO workspace_entities(user_id,collection,entity_id) VALUES($1,'projects','p') ON CONFLICT DO NOTHING",
+        [letteredOwner],
+      );
+    });
+    it("accepts an UPPERCASE confirmedBy that is the owner's own UUID", async () => {
+      const saved = await saveCitationBusinessFact(
+        { ownerId: letteredOwner, projectId: "p" },
+        { fact: fact(FACT, { confirmedBy: letteredOwner.toUpperCase() }) },
+        rpc,
+      );
+      // Accepted (not a confirmer mismatch); the stored confirmer is the server-derived owner (lowercase).
+      expect(saved.record.confirmedBy).toBe(letteredOwner);
+    });
+    it("still refuses a foreign confirmer and fails closed on a malformed non-uuid (no unsafe cast)", async () => {
+      await expect(
+        saveCitationBusinessFact(
+          { ownerId: letteredOwner, projectId: "p" },
+          { fact: fact(FACT2, { confirmedBy: user }) },
+          rpc,
+        ),
+      ).rejects.toThrow();
+      // Straight to the RPC (bypassing the client uuid schema): a non-uuid confirmedBy is a controlled
+      // case-fold mismatch, never a uuid-cast crash, and stores nothing.
+      const r = await rpc("save_ai_citation_business_fact", {
+        p_user: letteredOwner,
+        p_project: "p",
+        p_record: { ...fact(FACT2), confirmedBy: "NOT-a-uuid" },
+      });
+      expect(r.error).toBeTruthy();
+    });
+  });
   it("ignores a submitted confirmedAt: identical content re-saves idempotently to the same version", async () => {
     const v1 = await saveFact(fact(FACT, { confirmedAt: "2020-01-01T00:00:00Z" }));
     const again = await saveFact(fact(FACT, { confirmedAt: "2099-01-01T00:00:00Z" }));
