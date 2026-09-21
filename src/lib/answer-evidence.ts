@@ -47,6 +47,21 @@ export const evidencePromptRowSchema = z
   })
   .strict();
 export type EvidencePrompt = z.infer<typeof evidencePromptRowSchema>;
+// `captureContext` (below) carries optional CI-2 manual-capture provenance opaquely on the answer
+// record. The citation-protocol layer owns its exact shape (captureContextSchema) and re-parses it
+// strictly before use; this module never interprets it, and importing that schema here would be
+// circular (citation-panel.ts already imports this module). It must nonetheless be a concrete,
+// JSON-serializable type — never `unknown`, which the TanStack Start server-function return
+// serializer cannot represent (readAnswerEvidenceFn feeds AnswerEvidencePanel). It is therefore a
+// bounded, finite-depth JSON object: scalars, arrays of scalars, and one level of nested
+// objects/arrays. Every captureContextSchema value round-trips through it (its longest strings and
+// largest arrays are far smaller than these bounds and its nesting is shallower), while the type
+// stays finite so the serialized shape is well-defined.
+const captureContextScalar = z.union([z.string().max(4096), z.number(), z.boolean(), z.null()]);
+const captureContextLeaf = z.union([captureContextScalar, z.array(captureContextScalar).max(256)]);
+const captureContextValue = z.record(
+  z.union([captureContextLeaf, z.array(captureContextLeaf).max(256), z.record(captureContextLeaf)]),
+);
 export const answerEvidenceSchema = z
   .object({
     promptId: z.string().uuid(),
@@ -64,6 +79,17 @@ export const answerEvidenceSchema = z
     reportedCostUsd: z.number().finite().min(0).max(10000).nullable(),
     sourceUrl: url.nullable(),
     supersedesId: z.string().uuid().nullable(),
+    // Optional CI-2 manual-capture provenance (product/CITATION_INTELLIGENCE_SPEC.md §5.2, §8).
+    // Left opaque here so the existing read path tolerates capture-bound records without this
+    // module depending on the citation layer; the citation-protocol layer validates its exact
+    // shape (captureContextSchema) and, crucially, resolves it against the stored, owner-locked
+    // panel and any approved brand run. Legacy intake never carries it (see importAnswerEvidence);
+    // a capture context is authorized only through the panel-aware save path, so its mere presence
+    // in a document is never authority. Being inside `input` keeps it in the dedup hash, so genuine
+    // captures with identical answer text but different slot/time provenance stay distinct. Its type
+    // is a bounded, finite-depth serializable JSON object (captureContextValue above), not `unknown`,
+    // so the answer read path stays serializable for the TanStack server functions.
+    captureContext: captureContextValue.optional(),
   })
   .strict()
   .superRefine((v, ctx) => {

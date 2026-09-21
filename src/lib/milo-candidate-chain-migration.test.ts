@@ -16,6 +16,7 @@ const released = [
   "20260907150000_operational_notifications.sql",
   "20260907170000_operational_email_outbox.sql",
   "20260909200000_project_knowledge.sql",
+  "20260910210000_answer_evidence.sql",
   "20260910100000_source_refresh.sql",
   "20260911000000_output_knowledge_integrity.sql",
   "20260911010000_output_knowledge_reviews.sql",
@@ -27,7 +28,6 @@ const released = [
   // store and the owner-supplied answer evidence + prompts. Reused verbatim (the focused citation suites use
   // the same real migrations), never invented substitutes; both predate the candidate cutoff.
   "20260910200000_publication_evidence.sql",
-  "20260910210000_answer_evidence.sql",
   "20260911050000_project_team_edits.sql",
   "20260911060000_project_team_approval_policy.sql",
   "20260911070000_project_team_review_context.sql",
@@ -63,15 +63,12 @@ const releasedConversationPacket = [
   // Reviewed and applied diagnostics and artifact staging.
   "20260919160000_milo_conversation_diagnostics.sql",
   "20260919165000_native_report_artifacts.sql",
+  // PR148 applied and verified on 20 September.
+  "20260920180000_milo_conversation_checkpoint_lock_wait.sql",
 ];
-// Applied to production on 20 September (the conversation checkpoint lock-wait), AFTER the conversation
-// packet and BEFORE the still-unapplied P3 citation candidate. Enumerated as an applied migration and
-// subtracted from the unapplied set, so it is never mistaken for a pending candidate.
-const releasedCheckpoint = ["20260920180000_milo_conversation_checkpoint_lock_wait.sql"];
-// The only UNAPPLIED candidate in this worktree: P3 citation findings/improvements/facts/review. It applies
-// on top of the full released chain (its real released prerequisites are enumerated above). There is NO P2
-// citation panel candidate here yet (PR146 is a separate, still-open author); it is deliberately absent
-// rather than cherry-picked or duplicated.
+// PR146 applied and verified on 21 September; immutable released prerequisite for P3.
+const releasedCitationProtocol = ["20260920190000_citation_protocol.sql"];
+// P3 is the only unapplied migration after integrating the released protocol.
 const candidates = ["20260920200000_citation_findings_improvements.sql"];
 const allowed = async (role: string, fn: string) =>
   (
@@ -109,7 +106,7 @@ beforeAll(async () => {
     ...released,
     ...releasedAfterCutoff,
     ...releasedConversationPacket,
-    ...releasedCheckpoint,
+    ...releasedCitationProtocol,
     ...candidates,
   ])
     await db.exec(readFileSync(`supabase/migrations/${file}`, "utf8"));
@@ -129,13 +126,18 @@ describe("candidate migration chain", () => {
     const applied = [
       ...releasedAfterCutoff,
       ...releasedConversationPacket,
-      ...releasedCheckpoint,
+      ...releasedCitationProtocol,
     ].sort();
     expect(files.filter((file) => applied.includes(file))).toEqual(applied);
     const unapplied = files.filter((file) => !applied.includes(file));
     expect(unapplied).toEqual(candidates);
   });
   it.each([
+    "read_citation_protocol(uuid,text)",
+    "save_citation_panel_draft(uuid,text,uuid,integer,jsonb)",
+    "lock_citation_panel(uuid,text,uuid,integer)",
+    "approve_citation_brand_run(uuid,text,uuid,uuid,integer,integer,integer)",
+    "save_citation_capture(uuid,text,jsonb)",
     "record_milo_conversation_diagnostic(uuid,uuid,text,text,text,text,text,integer,text,text)",
     "prune_milo_conversation_diagnostics(timestamptz,integer)",
     "save_ai_native_report_artifact(uuid,text,jsonb,text)",
@@ -180,6 +182,8 @@ describe("candidate migration chain", () => {
       expect(await allowed(role, fn)).toBe(false);
   });
   it.each([
+    "native_artifact_utf16_length(text)",
+    "tombstone_citation_capture()",
     "milo_conversation_turn_view(public.milo_conversation_turns)",
     "assert_milo_conversation_access(uuid,uuid,text)",
     "assert_project_team_seat(uuid,text,text,text,integer,integer)",
@@ -250,6 +254,8 @@ describe("candidate migration chain", () => {
       "milo_erased_conversations",
       "milo_erased_turns",
       "milo_conversation_dispatch_control",
+      "citation_panels",
+      "citation_brand_runs",
       "milo_conversation_dispatch_attempts",
       "project_team_members",
       "project_team_invitations",

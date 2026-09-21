@@ -18,6 +18,19 @@ export const MAX_PANEL_QUESTIONS = 10;
 export const DISCOVERY_ROUNDS = 4;
 const text = (max: number) => z.string().trim().min(1).max(max);
 const instant = z.string().datetime({ offset: true });
+/** A consumer account tier LABEL when known (spec §5.2): the ACTUAL tier (e.g. "Free", "Plus", "Pro"), a
+ * bounded, provider-agnostic string — trimmed, non-blank, no control characters, ≤40 chars — so it keeps
+ * the exact tier for comparability (Plus ≠ Pro even though both are paid). The bound constrains SYNTAX
+ * only; it does NOT detect secrets. By intended use, record only the tier here — not passwords, account
+ * ids, emails or session tokens (spec §5.2); no secret-detection mechanism is added. The literal "unknown"
+ * and an ABSENT field both mean not-known; no tier is invented for history. No fixed provider list is
+ * assumed. */
+const accountTierLabel = z
+  .string()
+  .trim()
+  .min(1)
+  .max(40)
+  .regex(/^\P{Cc}+$/u, "control characters are not allowed");
 const questionId = z.string().regex(/^[A-Z]{2}-[DB]\d{2}$/);
 export const panelQuestionSchema = z
   .object({
@@ -38,6 +51,10 @@ export const sessionProtocolSchema = z
     memory: z.enum(["off", "on", "unknown"]),
     customInstructions: z.enum(["none", "present", "unknown"]),
     connectedTools: z.enum(["none", "present", "unknown"]),
+    /** Consumer account tier when known (spec §5.2): the ACTUAL intended tier label (see accountTierLabel).
+     * OPTIONAL for backward compatibility: a historical panel with no tier field still parses (treated as
+     * not-known); a new panel may record the intended tier label or the literal "unknown". */
+    accountTier: accountTierLabel.optional(),
     /** No extra "cite sources" or client-seeding instruction is allowed in the protocol. */
     extraInstruction: z.null(),
     priorMessages: z.literal(0),
@@ -57,6 +74,23 @@ export const surfaceSchema = z
      * methodology; on a capture it is the observed state. `unknown` never matches a definite
      * locked expectation, so an unknown observation is never promoted to an invented success. */
     webSearchEvidenced: z.enum(["evidenced", "not_evidenced", "unknown"]),
+  })
+  .strict();
+/** One owner-approved intended weekly slot of a discovery panel's run schedule: the round and the
+ * instant that round is planned to run. Instants are stored UTC and compared as absolute instants,
+ * so an equivalent offset spelling ("+02:00" vs "Z") is the same slot. */
+export const scheduleSlotSchema = z
+  .object({ round: z.number().int().min(1).max(12), intendedAt: instant })
+  .strict();
+/** A discovery panel's immutable weekly run schedule (spec §5.1 Frequency, §5.2 Time, §5.3): the ten
+ * questions are attempted once per week for four weeks on one surface, so each round has one intended
+ * weekly slot. v1 fixes Europe/Stockholm as the cadence/display timezone; the weekly cadence is defined
+ * on the Stockholm wall clock, so it stays correct across a DST transition (the same local time, seven
+ * local days apart, even when the UTC gap is 167 or 169 hours). */
+export const discoveryScheduleSchema = z
+  .object({
+    timezone: z.literal("Europe/Stockholm"),
+    slots: z.array(scheduleSlotSchema).min(1).max(12),
   })
   .strict();
 export const panelProtocolSchema = z
@@ -88,6 +122,13 @@ export const panelProtocolSchema = z
     questions: z.array(panelQuestionSchema).min(1).max(MAX_PANEL_QUESTIONS),
     /** Weekly rounds for a discovery panel; a brand panel is never scheduled here. */
     rounds: z.number().int().min(0).max(12),
+    /** The owner-approved immutable weekly run schedule for a DISCOVERY panel: one intended weekly slot
+     * per round, on Europe/Stockholm time, once per week (spec §§5.1 Frequency, 5.2 Time, 5.3).
+     * Optional on the schema so a historical pre-schedule panel still parses and reads (it is not an
+     * eligible clean baseline — the resolver flags it); a NEW locked discovery panel REQUIRES a valid
+     * prospective schedule (`lockedPanelSchema` + the lock RPC). Brand panels are unscheduled and carry
+     * none. Never inferred or backfilled from capture instants. */
+    schedule: discoveryScheduleSchema.nullable().optional(),
     status: z.enum(["draft", "locked"]),
     approval: z.object({ approvedBy: z.string().uuid(), approvedAt: instant }).strict().nullable(),
   })
@@ -136,6 +177,186 @@ export function plannedSlots(panel: PanelProtocol) {
     panel.questions.map((q) => ({ round: r + 1, questionId: q.id })),
   ).flat();
 }
+/**
+ * Weekly discovery-schedule policy (spec §5.1 Frequency "once per week, four weeks", §5.2 Time
+ * "intended weekly slot, actual run time and any delay… display Stockholm time", §5.3 four-week
+ * execution). The ten questions run ONCE per week on one surface, so a locked discovery panel carries
+ * an owner-approved intended weekly slot per round, on Europe/Stockholm wall-clock time. Consecutive
+ * rounds are exactly one Stockholm week apart (same local time, seven local days later), so the cadence
+ * is DST-correct and four SAME-DAY "rounds" can never be a valid four-week schedule. The spec fixes no
+ * explicit delay tolerance, so the resolver applies a minimal, non-inventing window derived from the
+ * schedule itself (see `discoveryScheduleDeviations`).
+ */
+const SCHEDULE_TZ = "Europe/Stockholm";
+// MILLISECOND is the explicit supported precision for every schedule slot and capture instant, chosen so
+// TS and SQL compare IDENTICALLY: JS `Date.parse` is millisecond-precision and PostgreSQL `timestamptz`
+// is microsecond-precision, so a finer (sub-millisecond) instant would be seen differently by the two
+// layers (TS admits, the SQL lock rejects). Sub-millisecond precision is therefore refused at NEW
+// admission (the lock RPC + `lockedPanelSchema` via `discoveryScheduleValid`; the capture RPC) and reads
+// fail-closed (`discoveryScheduleValid`/`discoveryScheduleDeviations` reject it), never rewriting the
+// stored document. The Stockholm wall clock is computed to the millisecond, so a differing fractional
+// second across rounds (e.g. .000 vs .500) is a real cadence difference in BOTH layers.
+const stockholmFmt = new Intl.DateTimeFormat("en-CA", {
+  timeZone: SCHEDULE_TZ,
+  year: "numeric",
+  month: "2-digit",
+  day: "2-digit",
+  hour: "2-digit",
+  minute: "2-digit",
+  second: "2-digit",
+  fractionalSecondDigits: 3,
+  hourCycle: "h23",
+});
+/** Whether an ISO instant carries NO sub-millisecond precision — the supported precision. No fractional
+ * seconds, ≤3 fractional digits, or only-zero digits beyond the third all qualify; a nonzero microsecond
+ * digit does not. Used to refuse a finer instant at new admission and to fail closed on read. */
+function isMillisecondPrecise(iso: string): boolean {
+  const m = /T\d{2}:\d{2}:\d{2}\.(\d+)/.exec(iso);
+  return !m || m[1].length <= 3 || /^0*$/.test(m[1].slice(3));
+}
+/** The millisecond epoch of an ISO instant IFF it is finite AND at the supported (millisecond) precision;
+ * otherwise null. The TS twin of the SQL `citation_ts_ms(text)` helper: an equivalent offset spelling of
+ * one instant yields the same epoch (so `+02:00` and its `Z` equivalent compare equal), while a
+ * sub-millisecond, non-finite, or malformed value yields null (fail closed) rather than being truncated.
+ * Used to compare two capture instants by VALUE at the supported precision at intake, so TS admission and
+ * the SQL guard agree; the raw stored string is never rewritten. */
+export function supportedInstantMs(iso: string): number | null {
+  const ms = Date.parse(iso);
+  if (!Number.isFinite(ms) || !isMillisecondPrecise(iso)) return null;
+  return ms;
+}
+/** The Stockholm wall-clock day-number (days since the epoch for the local Y-M-D) and MILLISECOND-of-day
+ * for an instant, or null if unparseable. The weekly cadence is checked on these LOCAL parts to the
+ * millisecond, so it is DST-correct (two instants one Stockholm week apart share a millisecond-of-day and
+ * are seven day-numbers apart even when their UTC gap is 167 or 169 hours) AND consistent with the SQL
+ * lock's full-precision `loc::time` comparison once sub-millisecond precision is refused at admission. */
+function stockholmParts(instantMs: number): Record<string, number> {
+  const parts: Record<string, number> = {};
+  for (const part of stockholmFmt.formatToParts(new Date(instantMs)))
+    if (part.type !== "literal") parts[part.type] = Number(part.value);
+  return parts;
+}
+function stockholmWallClock(iso: string): { dayNumber: number; msOfDay: number } | null {
+  const ms = Date.parse(iso);
+  if (!Number.isFinite(ms)) return null;
+  const p = stockholmParts(ms);
+  const dayNumber = Math.floor(Date.UTC(p.year, p.month - 1, p.day) / 86400000);
+  const msOfDay = p.hour * 3600000 + p.minute * 60000 + p.second * 1000 + (p.fractionalSecond ?? 0);
+  return { dayNumber, msOfDay };
+}
+/** The offset in ms between the Stockholm wall clock and UTC at a given instant: (local-as-UTC − instant),
+ * i.e. +2h in CEST, +1h in CET. Includes the millisecond so it cancels exactly. */
+function stockholmOffsetMs(instantMs: number): number {
+  const p = stockholmParts(instantMs);
+  return (
+    Date.UTC(p.year, p.month - 1, p.day, p.hour, p.minute, p.second, p.fractionalSecond ?? 0) -
+    instantMs
+  );
+}
+/** The instant exactly one Stockholm WALL-CLOCK week later (same local time to the millisecond, seven
+ * local days later), DST-correct — so the LAST round's window uses the same weekly cadence as the
+ * explicit inter-round gaps even across a spring/autumn transition (a fixed 168h would be an hour off),
+ * and a fractional-second slot's window is neither shifted nor lost. Resolves the target local wall clock
+ * to an instant by subtracting the offset and refining once for any DST change in that week. */
+function stockholmWeekLater(iso: string): number | null {
+  const ms = Date.parse(iso);
+  if (!Number.isFinite(ms)) return null;
+  const p = stockholmParts(ms);
+  const targetLocalAsUTC = Date.UTC(
+    p.year,
+    p.month - 1,
+    p.day + 7,
+    p.hour,
+    p.minute,
+    p.second,
+    p.fractionalSecond ?? 0,
+  );
+  let guess = targetLocalAsUTC - stockholmOffsetMs(ms);
+  guess = targetLocalAsUTC - stockholmOffsetMs(guess);
+  return guess;
+}
+/** Whether a panel's schedule is a valid weekly run schedule for its kind. A DISCOVERY panel needs an
+ * Europe/Stockholm schedule with exactly one intended slot per round (rounds 1..N, each once), each
+ * consecutive round exactly one Stockholm week later at the same local time (once per week). A BRAND
+ * panel is unscheduled, so it is valid only when it carries no schedule. Used by `lockedPanelSchema`
+ * (a NEW lock must satisfy this) and the read resolver (a stored panel that does not is not a clean
+ * baseline). Malformed/backfilled schedules never pass; nothing is inferred. */
+export function discoveryScheduleValid(panel: PanelProtocol): boolean {
+  if (panel.kind !== "discovery") return panel.schedule == null;
+  const sched = panel.schedule;
+  if (!sched || sched.timezone !== SCHEDULE_TZ || sched.slots.length !== panel.rounds) return false;
+  const byRound = new Map<number, string>();
+  for (const s of sched.slots) {
+    if (s.round < 1 || s.round > panel.rounds || byRound.has(s.round)) return false;
+    // Sub-millisecond precision is unsupported (TS/SQL would compare it differently): a NEW lock is
+    // refused here (via lockedPanelSchema) and a historical finer slot fails closed on read.
+    if (!isMillisecondPrecise(s.intendedAt)) return false;
+    byRound.set(s.round, s.intendedAt);
+  }
+  let prev: { dayNumber: number; msOfDay: number } | null = null;
+  for (let r = 1; r <= panel.rounds; r += 1) {
+    const at = byRound.get(r);
+    if (at === undefined) return false;
+    const wall = stockholmWallClock(at);
+    if (!wall) return false;
+    // Same local time-of-day (to the millisecond) and exactly seven local days later — once per week.
+    if (prev && (wall.msOfDay !== prev.msOfDay || wall.dayNumber !== prev.dayNumber + 7))
+      return false;
+    prev = wall;
+  }
+  return true;
+}
+/** Per-capture weekly-schedule deviations for a DISCOVERY capture (spec §§5.1, 5.2 Time, 5.3). The read
+ * resolver appends these and demotes a would-be `complete` when any is present, so a capture is a clean
+ * weekly observation only when: the panel has a valid schedule; the capture's claimed intended weekly
+ * slot equals its round's owner-approved instant (so four same-day "rounds" never all match the four
+ * distinct weekly slots); the recorded `delayMinutes` is the truthful whole-minute lateness and the run
+ * is at/after the intended slot (a weekly slot cannot be observed before it opens); and the run actually
+ * fell within that round's week — before the NEXT round's slot (for the last round, within one week of
+ * it). That window is derived from the schedule's own weekly cadence, inventing no arbitrary tolerance.
+ * A missing schedule (historical), an off-schedule slot, an untruthful delay, or a run that slipped into
+ * a later week stays inspectable and is never invented into a comparable observation. Brand captures are
+ * unscheduled and return none. */
+export function discoveryScheduleDeviations(
+  panel: PanelProtocol,
+  context: CaptureContext,
+): string[] {
+  if (panel.kind !== "discovery") return [];
+  const sched = panel.schedule;
+  if (!sched) return ["discovery_schedule_missing"];
+  if (!discoveryScheduleValid(panel)) return ["discovery_schedule_invalid"];
+  const slot = sched.slots.find((s) => s.round === context.slot.round);
+  const slotMs = slot ? Date.parse(slot.intendedAt) : NaN;
+  const intendedMs = Date.parse(context.time.intendedSlotAt);
+  const capturedMs = Date.parse(context.time.capturedAt);
+  // Compare at the supported MILLISECOND precision (matching the SQL admission binding). A capture instant
+  // finer than a millisecond is unsupported: the intended slot fails to match / the delay is untruthful,
+  // so a historical sub-millisecond capture reads deviant (fail closed) exactly as the RPC refuses a new one.
+  if (
+    !slot ||
+    !isMillisecondPrecise(context.time.intendedSlotAt) ||
+    !Number.isFinite(slotMs) ||
+    !Number.isFinite(intendedMs) ||
+    slotMs !== intendedMs
+  )
+    return ["intended_slot_mismatch"];
+  if (
+    !isMillisecondPrecise(context.time.capturedAt) ||
+    !Number.isFinite(capturedMs) ||
+    capturedMs < slotMs ||
+    context.time.delayMinutes === null ||
+    context.time.delayMinutes !== Math.floor((capturedMs - slotMs) / 60000)
+  )
+    return ["delay_untruthful"];
+  // The window ends at the NEXT round's slot; for the LAST round there is none, so it ends one Stockholm
+  // WALL-CLOCK week after this slot — the same weekly cadence, DST-correct (not a fixed 168h).
+  const next = sched.slots.find((s) => s.round === context.slot.round + 1);
+  const windowEnd = next
+    ? Date.parse(next.intendedAt)
+    : (stockholmWeekLater(slot.intendedAt) ?? NaN);
+  if (Number.isFinite(windowEnd) && capturedMs >= windowEnd) return ["capture_window_overrun"];
+  return [];
+}
 /** A separately approved brand diagnostic run: its own identity, scope, budget and dates. The
  * `id` is what a brand capture's `brandRunId` must resolve to; a run without an id could not be
  * distinguished from a fabricated one. */
@@ -167,6 +388,10 @@ export const captureContextSchema = z
         customInstructions: z.enum(["none", "present", "unknown"]),
         connectedTools: z.enum(["none", "present", "unknown"]),
         temporaryChat: z.enum(["yes", "no", "unknown"]),
+        /** Consumer account tier when known (spec §5.2): the ACTUAL tier label (see accountTierLabel).
+         * OPTIONAL so a historical capture with no tier still parses (not-known) and no prior tier is ever
+         * invented; the literal "unknown" is the explicit not-known value. */
+        accountTier: accountTierLabel.optional(),
       })
       .strict(),
     location: z
@@ -252,6 +477,21 @@ export function protocolDeviations(
     out.push("custom_instructions_differ");
   if (context.session.connectedTools !== panel.session.connectedTools)
     out.push("connected_tools_differ");
+  // Account tier (spec §5.2, "account tier if known") is compared ONLY when BOTH the panel's intended tier
+  // and the capture's tier are KNOWN (recorded and not "unknown"). An absent/unknown tier on either side is
+  // NOT a mismatch, so a historical capture (no tier field) or a genuinely not-known tier never fabricates
+  // a deviation or an invented prior tier. When both are known and differ, the capture ran on a different
+  // account tier and is not a comparable measurement.
+  const panelTier = panel.session.accountTier;
+  const captureTier = context.session.accountTier;
+  if (
+    panelTier !== undefined &&
+    panelTier !== "unknown" &&
+    captureTier !== undefined &&
+    captureTier !== "unknown" &&
+    panelTier !== captureTier
+  )
+    out.push("account_tier_differs");
   if (context.instructions.extraInstruction !== null) out.push("extra_instruction");
   if (context.instructions.priorMessages > 0) out.push("prior_messages");
   if (
