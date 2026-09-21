@@ -69,6 +69,21 @@ const brandQuestion = {
   text: brandText,
   language: "sv",
 };
+// v1 weekly discovery schedule (spec §§5.1 Frequency, 5.2 Time, 5.3): four owner-approved intended
+// weekly slots at 09:00 Europe/Stockholm — 07:00Z in September (CEST, UTC+2) — one week apart, all
+// after the fixture approval (2026-09-01, so prospective). No DST transition falls in this window.
+const slotInstant = (round: number) =>
+  `2026-09-${String(7 * round).padStart(2, "0")}T07:00:00.000Z`;
+const discoverySchedule = {
+  timezone: "Europe/Stockholm" as const,
+  slots: [1, 2, 3, 4].map((round) => ({ round, intendedAt: slotInstant(round) })),
+};
+// A capture's truthful time for its round: the run happens `delayMinutes` after the intended weekly slot.
+const slotTime = (round: number, delayMinutes = 60) => ({
+  capturedAt: new Date(Date.parse(slotInstant(round)) + delayMinutes * 60000).toISOString(),
+  intendedSlotAt: slotInstant(round),
+  delayMinutes,
+});
 const discoveryPanel = (over: Partial<PanelProtocol> = {}): PanelProtocol => ({
   panelId: uuid(1),
   version: 1,
@@ -81,6 +96,7 @@ const discoveryPanel = (over: Partial<PanelProtocol> = {}): PanelProtocol => ({
   collection,
   questions: discoveryQuestions,
   rounds: 4,
+  schedule: discoverySchedule,
   status: "locked",
   approval: { approvedBy: owner, approvedAt: "2026-09-01T00:00:00Z" },
   ...over,
@@ -91,6 +107,7 @@ const brandPanel = (): PanelProtocol => ({
   kind: "brand",
   questions: [brandQuestion],
   rounds: 0,
+  schedule: null, // brand diagnostics are unscheduled (never inherit the discovery weekly schedule)
 });
 const brandRun = (over: Partial<BrandRun> = {}): BrandRun => ({
   id: uuid(50),
@@ -102,39 +119,40 @@ const brandRun = (over: Partial<BrandRun> = {}): BrandRun => ({
   rounds: 1,
   ...over,
 });
-const context = (over: Partial<CaptureContext> = {}): CaptureContext => ({
-  panelId: uuid(1),
-  panelVersion: 1,
-  slot: { round: 1, questionId: "SY-D01" },
-  brandRunId: null,
-  session: {
-    freshSession: true,
-    personalisation: "non_personalised",
-    signedIn: "signed_in",
-    memory: "off",
-    customInstructions: "none",
-    connectedTools: "none",
-    temporaryChat: "yes",
-  },
-  location: {
-    inQuestion: "Limhamn",
-    collectionCountry: "Sweden",
-    collectionCity: "Malmö",
-    devicePermission: "granted",
-    vpn: false,
-  },
-  language: { prompt: "sv", interface: "en", answer: "sv" },
-  surface,
-  time: {
-    capturedAt: "2026-09-08T10:00:00Z",
-    intendedSlotAt: "2026-09-08T09:00:00Z",
-    delayMinutes: 60,
-  },
-  instructions: { questionText: discoveryText, extraInstruction: null, priorMessages: 0 },
-  capture: { screenshotRef: null, missingReason: null },
-  deviationNotes: [],
-  ...over,
-});
+const context = (over: Partial<CaptureContext> = {}): CaptureContext => {
+  const slot = over.slot ?? { round: 1, questionId: "SY-D01" };
+  return {
+    panelId: uuid(1),
+    panelVersion: 1,
+    slot,
+    brandRunId: null,
+    session: {
+      freshSession: true,
+      personalisation: "non_personalised",
+      signedIn: "signed_in",
+      memory: "off",
+      customInstructions: "none",
+      connectedTools: "none",
+      temporaryChat: "yes",
+    },
+    location: {
+      inQuestion: "Limhamn",
+      collectionCountry: "Sweden",
+      collectionCity: "Malmö",
+      devicePermission: "granted",
+      vpn: false,
+    },
+    language: { prompt: "sv", interface: "en", answer: "sv" },
+    surface,
+    // Default the capture time to THIS round's owner-approved weekly slot (+ a truthful 60-min delay),
+    // so a round-2/3/4 capture is schedule-consistent (spec §§5.1/5.2/5.3) unless a test overrides `time`.
+    time: over.time ?? slotTime(slot.round),
+    instructions: { questionText: discoveryText, extraInstruction: null, priorMessages: 0 },
+    capture: { screenshotRef: null, missingReason: null },
+    deviationNotes: [],
+    ...over,
+  };
+};
 const answer = (over: Partial<AnswerEvidence> = {}): AnswerEvidence => ({
   promptId: uuid(101),
   promptRevision: 1,
@@ -142,7 +160,7 @@ const answer = (over: Partial<AnswerEvidence> = {}): AnswerEvidence => ({
   mode: "search",
   method: "manual copy v1",
   modelVersion: null,
-  capturedAt: "2026-09-08T10:00:00Z",
+  capturedAt: slotTime(1).capturedAt, // matches context()'s round-1 weekly slot time (§5.2 consistency)
   status: "complete",
   rawAnswer: "FIXTURE answer text",
   citations: [],
@@ -674,6 +692,132 @@ describe("citation protocol pure contract", () => {
     );
     expect(r).toMatchObject({ panelResolved: true, outcome: "protocol_deviant" });
     expect(r.deviations).toContain("panel_grid_invalid");
+  });
+});
+
+describe("weekly discovery schedule at lock and resolve (spec §§5.1 Frequency, 5.2 Time, 5.3)", () => {
+  const cap = (round: number, over: Partial<CaptureContext> = {}) => ({
+    id: `r${round}`,
+    status: "complete" as const,
+    promptId: uuid(101),
+    promptRevision: 1,
+    supersedesId: null,
+    captureContext: context({ slot: { round, questionId: "SY-D01" }, ...over }),
+  });
+  it("locks only a discovery panel with a valid PROSPECTIVE weekly schedule", () => {
+    // The fixture schedule (four weekly Stockholm slots after the 2026-09-01 approval) locks.
+    expect(lockedPanelSchema.safeParse(discoveryPanel()).success).toBe(true);
+    // No schedule cannot lock (a NEW discovery lock requires one).
+    expect(lockedPanelSchema.safeParse(discoveryPanel({ schedule: null })).success).toBe(false);
+    // A slot BEFORE the approval is not prospective (owner approves the schedule before running it).
+    const backdated = {
+      timezone: "Europe/Stockholm" as const,
+      slots: [
+        { round: 1, intendedAt: "2026-08-25T07:00:00.000Z" }, // before the 2026-09-01 approval
+        { round: 2, intendedAt: "2026-09-01T07:00:00.000Z" },
+        { round: 3, intendedAt: "2026-09-08T07:00:00.000Z" },
+        { round: 4, intendedAt: "2026-09-15T07:00:00.000Z" },
+      ],
+    };
+    expect(lockedPanelSchema.safeParse(discoveryPanel({ schedule: backdated })).success).toBe(
+      false,
+    );
+    // Four SAME-DAY slots (all round 1's instant) can never be a four-week schedule.
+    const sameDay = {
+      timezone: "Europe/Stockholm" as const,
+      slots: [1, 2, 3, 4].map((round) => ({ round, intendedAt: slotInstant(1) })),
+    };
+    expect(lockedPanelSchema.safeParse(discoveryPanel({ schedule: sameDay })).success).toBe(false);
+  });
+  it("refuses a locked BRAND panel carrying a weekly schedule; an unscheduled brand locks", () => {
+    expect(
+      lockedPanelSchema.safeParse({ ...brandPanel(), schedule: discoverySchedule }).success,
+    ).toBe(false);
+    expect(lockedPanelSchema.safeParse(brandPanel()).success).toBe(true);
+  });
+  it("resolves four DISTINCT weekly rounds as complete (a genuine four-week schedule)", () => {
+    const resolved = resolveStoredCaptures(
+      [cap(1), cap(2), cap(3), cap(4)],
+      [discoveryPanel()],
+      [],
+    );
+    expect(resolved.map((r) => r.outcome)).toEqual([
+      "complete",
+      "complete",
+      "complete",
+      "complete",
+    ]);
+    expect(resolved.every((r) => r.deviations.length === 0)).toBe(true);
+  });
+  it("never lets four SAME-DAY captures pass as four weekly rounds", () => {
+    // Rounds 2-4 all claim round 1's intended slot (same day). Only round 1 matches its weekly slot;
+    // the others are off-schedule → protocol_deviant, never a clean weekly observation.
+    const resolved = resolveStoredCaptures(
+      [1, 2, 3, 4].map((round) => cap(round, { time: slotTime(1) })),
+      [discoveryPanel()],
+      [],
+    );
+    const byId = Object.fromEntries(resolved.map((r) => [r.answerId, r]));
+    expect(byId.r1.outcome).toBe("complete"); // round 1 is on its own weekly slot
+    for (const round of [2, 3, 4]) {
+      expect(byId[`r${round}`].outcome).toBe("protocol_deviant");
+      expect(byId[`r${round}`].deviations).toContain("intended_slot_mismatch");
+    }
+  });
+  it("demotes a capture whose recorded delay is untruthful, and one before its slot", () => {
+    const untruthful = resolveStoredCaptures(
+      [
+        cap(1, {
+          time: {
+            capturedAt: "2026-09-07T08:00:00.000Z",
+            intendedSlotAt: slotInstant(1),
+            delayMinutes: 0,
+          },
+        }),
+      ],
+      [discoveryPanel()],
+      [],
+    )[0];
+    expect(untruthful.outcome).toBe("protocol_deviant");
+    expect(untruthful.deviations).toContain("delay_untruthful");
+    const beforeSlot = resolveStoredCaptures(
+      [
+        cap(1, {
+          time: {
+            capturedAt: "2026-09-06T08:00:00.000Z",
+            intendedSlotAt: slotInstant(1),
+            delayMinutes: 0,
+          },
+        }),
+      ],
+      [discoveryPanel()],
+      [],
+    )[0];
+    expect(beforeSlot.deviations).toContain("delay_untruthful");
+  });
+  it("keeps a capture against a historical no-schedule panel inspectable but never complete", () => {
+    const [r] = resolveStoredCaptures([cap(1)], [discoveryPanel({ schedule: null })], []);
+    expect(r).toMatchObject({ panelResolved: true, outcome: "protocol_deviant" });
+    expect(r.deviations).toContain("discovery_schedule_missing");
+  });
+  it("matches a timezone-equivalent intended-slot spelling (same instant) as on-schedule", () => {
+    // 09:00+02:00 is the same instant as 07:00Z, so a capture spelling its intended slot with the local
+    // offset still lands on the owner-approved weekly slot and stays complete.
+    const [r] = resolveStoredCaptures(
+      [
+        cap(1, {
+          time: {
+            capturedAt: "2026-09-07T09:00:00.000+02:00",
+            intendedSlotAt: "2026-09-07T09:00:00.000+02:00",
+            delayMinutes: 0,
+          },
+        }),
+      ],
+      [discoveryPanel()],
+      [],
+    );
+    expect(r).toMatchObject({ outcome: "complete" });
+    expect(r.deviations).toEqual([]);
   });
 });
 

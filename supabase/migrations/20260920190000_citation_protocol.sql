@@ -255,7 +255,7 @@ END; $$;
 -- from the database clock). A non-draft, stale or unbound draft fails closed.
 CREATE FUNCTION public.lock_citation_panel(p_user uuid,p_project text,p_panel uuid,p_expected integer)
 RETURNS jsonb LANGUAGE plpgsql SECURITY DEFINER SET search_path='' AS $$
-DECLARE draft jsonb; current_version integer; locked jsonb;
+DECLARE draft jsonb; current_version integer; locked jsonb; v_now timestamptz; v_sched_ok boolean;
 BEGIN
   PERFORM public.assert_knowledge_project(p_user,p_project,true);
   -- Serialize the 200-version capacity guard under the account's workspace_meta row (see
@@ -315,9 +315,54 @@ BEGIN
   -- historical over-capacity direct write); it deliberately does NOT re-reserve, which would wrongly
   -- reject the final pending head that is only consuming its own reserved slot. Cap unchanged at 200.
   IF (SELECT count(*) FROM public.citation_panels WHERE user_id=p_user AND project_id=p_project)>=200 THEN RAISE EXCEPTION 'citation_panel_capacity'; END IF;
+  v_now := clock_timestamp();
+  -- Owner-approved weekly run schedule (spec §§5.1 Frequency, 5.2 Time, 5.3). A DISCOVERY lock requires
+  -- an Europe/Stockholm schedule with exactly one intended slot per round (rounds 1..N once each), each
+  -- consecutive round exactly one Stockholm WALL-CLOCK week later at the same local time (once per week,
+  -- DST-correct via AT TIME ZONE — so four same-day "rounds" can never pass), and PROSPECTIVE (every
+  -- slot at or after this lock instant; the owner approves the schedule before running it, never
+  -- backdated). A BRAND panel is unscheduled and must carry no schedule. The client schema enforces the
+  -- same before the RPC; this is the authoritative DB guard so a direct call cannot lock an unscheduled,
+  -- contradictory or same-day panel. The approval receipt below reuses v_now, so a slot exactly at the
+  -- lock instant is prospective consistently across the DB guard and the client schema.
+  IF draft->>'kind'='discovery' THEN
+    -- Shape gate, NULL-safe (IS DISTINCT FROM): a missing timezone/slots/round-count can never slip past
+    -- as a NULL comparison. The schedule must be a Stockholm object whose slot count equals the rounds.
+    IF draft->'schedule' IS NULL OR jsonb_typeof(draft->'schedule') IS DISTINCT FROM 'object'
+      OR draft->'schedule'->>'timezone' IS DISTINCT FROM 'Europe/Stockholm'
+      OR jsonb_typeof(draft->'schedule'->'slots') IS DISTINCT FROM 'array'
+      OR jsonb_array_length(draft->'schedule'->'slots') IS DISTINCT FROM (draft->>'rounds')::integer THEN
+      RAISE EXCEPTION 'citation_panel_schedule_invalid';
+    END IF;
+    -- Every slot must be the exact sequence rounds 1..N (one each), one Stockholm WALL-CLOCK week apart at
+    -- the same local time (DST-correct via AT TIME ZONE), and PROSPECTIVE. Each per-row predicate makes a
+    -- NULL field yield FALSE (not a NULL that bool_and would SKIP), so a malformed slot can never be
+    -- silently ignored into a passing aggregate. An empty set (impossible here — count = rounds >= 1)
+    -- would yield NULL, which `IS NOT TRUE` also rejects.
+    SELECT bool_and(
+        rnd IS NOT NULL AND ts IS NOT NULL AND loc IS NOT NULL
+        AND rnd = ord
+        AND (prev_loc IS NULL OR (loc::time = prev_loc::time AND loc::date = prev_loc::date + 7))
+        AND ts >= v_now)
+      INTO v_sched_ok
+      FROM (
+        SELECT (s->>'round')::integer AS rnd,
+               row_number() OVER (ORDER BY (s->>'round')::integer NULLS LAST) AS ord,
+               (s->>'intendedAt')::timestamptz AS ts,
+               ((s->>'intendedAt')::timestamptz AT TIME ZONE 'Europe/Stockholm') AS loc,
+               lag((s->>'intendedAt')::timestamptz AT TIME ZONE 'Europe/Stockholm')
+                 OVER (ORDER BY (s->>'round')::integer NULLS LAST) AS prev_loc
+        FROM jsonb_array_elements(draft->'schedule'->'slots') AS t(s)
+      ) q;
+    IF v_sched_ok IS NOT TRUE THEN RAISE EXCEPTION 'citation_panel_schedule_invalid'; END IF;
+  ELSIF draft->'schedule' IS NOT NULL AND jsonb_typeof(draft->'schedule') IS DISTINCT FROM 'null' THEN
+    -- A brand panel is unscheduled: a missing key or a JSON null is fine, but a real schedule object is
+    -- contradictory and refused.
+    RAISE EXCEPTION 'citation_panel_schedule_invalid';
+  END IF;
   locked := draft || jsonb_build_object(
     'version',p_expected+1,'status','locked',
-    'approval',jsonb_build_object('approvedBy',p_user::text,'approvedAt',to_char(clock_timestamp() AT TIME ZONE 'UTC','YYYY-MM-DD"T"HH24:MI:SS.MS"Z"')));
+    'approval',jsonb_build_object('approvedBy',p_user::text,'approvedAt',to_char(v_now AT TIME ZONE 'UTC','YYYY-MM-DD"T"HH24:MI:SS.MS"Z"')));
   INSERT INTO public.citation_panels(user_id,project_id,panel_id,version,document) VALUES(p_user,p_project,p_panel,p_expected+1,locked);
   RETURN locked;
 END; $$;
@@ -372,7 +417,7 @@ CREATE FUNCTION public.save_citation_capture(p_user uuid,p_project text,p_docume
 RETURNS uuid LANGUAGE plpgsql SECURITY DEFINER SET search_path='' AS $$
 DECLARE
   ctx jsonb; digest text; result uuid; prompt uuid; rev integer; replaced uuid; saved jsonb;
-  panel_doc jsonb; panel_kind text; run_doc jsonb; v_run uuid; v_panel uuid; question jsonb; rnd integer; pred_ctx jsonb;
+  panel_doc jsonb; panel_kind text; run_doc jsonb; v_run uuid; v_panel uuid; question jsonb; rnd integer; pred_ctx jsonb; v_slot_at text;
 BEGIN
   PERFORM public.assert_knowledge_project(p_user,p_project,true);
   -- Serialization safety for the observation budget: the count+insert below must run under the
@@ -444,6 +489,29 @@ BEGIN
   IF panel_kind='discovery' THEN
     IF v_run IS NOT NULL THEN RAISE EXCEPTION 'brand_run_on_discovery'; END IF;
     IF rnd<1 OR rnd>(panel_doc->>'rounds')::integer THEN RAISE EXCEPTION 'round_out_of_panel'; END IF;
+    -- Weekly schedule binding (spec §§5.1 Frequency, 5.2 Time, 5.3): when the locked panel carries an
+    -- owner-approved weekly schedule (every v1 discovery lock now does), the capture's claimed intended
+    -- weekly slot MUST equal the approved instant for its round, and the recorded delayMinutes must be
+    -- the truthful whole-minute lateness with the run at/after that slot. A forged or same-day intended
+    -- slot, or an untruthful/negative delay, is fabricated provenance and is refused — exactly as a
+    -- forged prompt binding is — so four same-day "rounds" can never be admitted as four weekly rounds.
+    -- Instants are compared as absolute values (an equivalent offset spelling still matches). A
+    -- pre-schedule historical panel carries none; the read resolver flags such a capture instead.
+    IF panel_doc->'schedule' IS NOT NULL THEN
+      SELECT s->>'intendedAt' INTO v_slot_at
+        FROM jsonb_array_elements(panel_doc->'schedule'->'slots') AS t(s)
+        WHERE (s->>'round')::integer=rnd;
+      IF v_slot_at IS NULL
+        OR (ctx->'time'->>'intendedSlotAt')::timestamptz IS DISTINCT FROM v_slot_at::timestamptz THEN
+        RAISE EXCEPTION 'citation_intended_slot_mismatch';
+      END IF;
+      IF (ctx->'time'->>'capturedAt')::timestamptz < v_slot_at::timestamptz
+        OR ctx->'time'->>'delayMinutes' IS NULL
+        OR (ctx->'time'->>'delayMinutes')::integer IS DISTINCT FROM
+           floor(extract(epoch FROM ((ctx->'time'->>'capturedAt')::timestamptz - v_slot_at::timestamptz))/60)::integer THEN
+        RAISE EXCEPTION 'citation_delay_untruthful';
+      END IF;
+    END IF;
   ELSE
     IF v_run IS NULL THEN RAISE EXCEPTION 'brand_capture_without_run'; END IF;
     -- The run must be an owner-approved run for THIS exact panel and version. Missing, foreign or

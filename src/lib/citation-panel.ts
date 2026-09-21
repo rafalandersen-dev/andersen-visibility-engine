@@ -59,6 +59,23 @@ export const surfaceSchema = z
     webSearchEvidenced: z.enum(["evidenced", "not_evidenced", "unknown"]),
   })
   .strict();
+/** One owner-approved intended weekly slot of a discovery panel's run schedule: the round and the
+ * instant that round is planned to run. Instants are stored UTC and compared as absolute instants,
+ * so an equivalent offset spelling ("+02:00" vs "Z") is the same slot. */
+export const scheduleSlotSchema = z
+  .object({ round: z.number().int().min(1).max(12), intendedAt: instant })
+  .strict();
+/** A discovery panel's immutable weekly run schedule (spec §5.1 Frequency, §5.2 Time, §5.3): the ten
+ * questions are attempted once per week for four weeks on one surface, so each round has one intended
+ * weekly slot. v1 fixes Europe/Stockholm as the cadence/display timezone; the weekly cadence is defined
+ * on the Stockholm wall clock, so it stays correct across a DST transition (the same local time, seven
+ * local days apart, even when the UTC gap is 167 or 169 hours). */
+export const discoveryScheduleSchema = z
+  .object({
+    timezone: z.literal("Europe/Stockholm"),
+    slots: z.array(scheduleSlotSchema).min(1).max(12),
+  })
+  .strict();
 export const panelProtocolSchema = z
   .object({
     panelId: z.string().uuid(),
@@ -88,6 +105,13 @@ export const panelProtocolSchema = z
     questions: z.array(panelQuestionSchema).min(1).max(MAX_PANEL_QUESTIONS),
     /** Weekly rounds for a discovery panel; a brand panel is never scheduled here. */
     rounds: z.number().int().min(0).max(12),
+    /** The owner-approved immutable weekly run schedule for a DISCOVERY panel: one intended weekly slot
+     * per round, on Europe/Stockholm time, once per week (spec §§5.1 Frequency, 5.2 Time, 5.3).
+     * Optional on the schema so a historical pre-schedule panel still parses and reads (it is not an
+     * eligible clean baseline — the resolver flags it); a NEW locked discovery panel REQUIRES a valid
+     * prospective schedule (`lockedPanelSchema` + the lock RPC). Brand panels are unscheduled and carry
+     * none. Never inferred or backfilled from capture instants. */
+    schedule: discoveryScheduleSchema.nullable().optional(),
     status: z.enum(["draft", "locked"]),
     approval: z.object({ approvedBy: z.string().uuid(), approvedAt: instant }).strict().nullable(),
   })
@@ -135,6 +159,131 @@ export function plannedSlots(panel: PanelProtocol) {
   return Array.from({ length: panel.rounds }, (_, r) =>
     panel.questions.map((q) => ({ round: r + 1, questionId: q.id })),
   ).flat();
+}
+/**
+ * Weekly discovery-schedule policy (spec §5.1 Frequency "once per week, four weeks", §5.2 Time
+ * "intended weekly slot, actual run time and any delay… display Stockholm time", §5.3 four-week
+ * execution). The ten questions run ONCE per week on one surface, so a locked discovery panel carries
+ * an owner-approved intended weekly slot per round, on Europe/Stockholm wall-clock time. Consecutive
+ * rounds are exactly one Stockholm week apart (same local time, seven local days later), so the cadence
+ * is DST-correct and four SAME-DAY "rounds" can never be a valid four-week schedule. The spec fixes no
+ * explicit delay tolerance, so the resolver applies a minimal, non-inventing window derived from the
+ * schedule itself (see `discoveryScheduleDeviations`).
+ */
+const SCHEDULE_TZ = "Europe/Stockholm";
+const stockholmFmt = new Intl.DateTimeFormat("en-CA", {
+  timeZone: SCHEDULE_TZ,
+  year: "numeric",
+  month: "2-digit",
+  day: "2-digit",
+  hour: "2-digit",
+  minute: "2-digit",
+  second: "2-digit",
+  hourCycle: "h23",
+});
+/** The Stockholm wall-clock day-number (days since the epoch for the local Y-M-D) and second-of-day for
+ * an instant, or null if unparseable. The weekly cadence is checked on these LOCAL parts, so it is
+ * DST-correct: two instants one Stockholm week apart share a second-of-day and are seven day-numbers
+ * apart even when their UTC gap is 167 or 169 hours across a spring/autumn transition. */
+function stockholmParts(instantMs: number): Record<string, number> {
+  const parts: Record<string, number> = {};
+  for (const part of stockholmFmt.formatToParts(new Date(instantMs)))
+    if (part.type !== "literal") parts[part.type] = Number(part.value);
+  return parts;
+}
+function stockholmWallClock(iso: string): { dayNumber: number; secondOfDay: number } | null {
+  const ms = Date.parse(iso);
+  if (!Number.isFinite(ms)) return null;
+  const parts = stockholmParts(ms);
+  const dayNumber = Math.floor(Date.UTC(parts.year, parts.month - 1, parts.day) / 86400000);
+  return { dayNumber, secondOfDay: parts.hour * 3600 + parts.minute * 60 + parts.second };
+}
+/** The offset in ms between the Stockholm wall clock and UTC at a given instant: (local-as-UTC − instant),
+ * i.e. +2h in CEST, +1h in CET. */
+function stockholmOffsetMs(instantMs: number): number {
+  const p = stockholmParts(instantMs);
+  return Date.UTC(p.year, p.month - 1, p.day, p.hour, p.minute, p.second) - instantMs;
+}
+/** The instant exactly one Stockholm WALL-CLOCK week later (same local time, seven local days later),
+ * DST-correct — so the LAST round's window uses the same weekly cadence as the explicit inter-round gaps
+ * even across a spring/autumn transition (a fixed 168h would be an hour off). Resolves the target local
+ * wall clock to an instant by subtracting the offset and refining once for any DST change in that week. */
+function stockholmWeekLater(iso: string): number | null {
+  const ms = Date.parse(iso);
+  if (!Number.isFinite(ms)) return null;
+  const p = stockholmParts(ms);
+  const targetLocalAsUTC = Date.UTC(p.year, p.month - 1, p.day + 7, p.hour, p.minute, p.second);
+  let guess = targetLocalAsUTC - stockholmOffsetMs(ms);
+  guess = targetLocalAsUTC - stockholmOffsetMs(guess);
+  return guess;
+}
+/** Whether a panel's schedule is a valid weekly run schedule for its kind. A DISCOVERY panel needs an
+ * Europe/Stockholm schedule with exactly one intended slot per round (rounds 1..N, each once), each
+ * consecutive round exactly one Stockholm week later at the same local time (once per week). A BRAND
+ * panel is unscheduled, so it is valid only when it carries no schedule. Used by `lockedPanelSchema`
+ * (a NEW lock must satisfy this) and the read resolver (a stored panel that does not is not a clean
+ * baseline). Malformed/backfilled schedules never pass; nothing is inferred. */
+export function discoveryScheduleValid(panel: PanelProtocol): boolean {
+  if (panel.kind !== "discovery") return panel.schedule == null;
+  const sched = panel.schedule;
+  if (!sched || sched.timezone !== SCHEDULE_TZ || sched.slots.length !== panel.rounds) return false;
+  const byRound = new Map<number, string>();
+  for (const s of sched.slots) {
+    if (s.round < 1 || s.round > panel.rounds || byRound.has(s.round)) return false;
+    byRound.set(s.round, s.intendedAt);
+  }
+  let prev: { dayNumber: number; secondOfDay: number } | null = null;
+  for (let r = 1; r <= panel.rounds; r += 1) {
+    const at = byRound.get(r);
+    if (at === undefined) return false;
+    const wall = stockholmWallClock(at);
+    if (!wall) return false;
+    if (prev && (wall.secondOfDay !== prev.secondOfDay || wall.dayNumber !== prev.dayNumber + 7))
+      return false;
+    prev = wall;
+  }
+  return true;
+}
+/** Per-capture weekly-schedule deviations for a DISCOVERY capture (spec §§5.1, 5.2 Time, 5.3). The read
+ * resolver appends these and demotes a would-be `complete` when any is present, so a capture is a clean
+ * weekly observation only when: the panel has a valid schedule; the capture's claimed intended weekly
+ * slot equals its round's owner-approved instant (so four same-day "rounds" never all match the four
+ * distinct weekly slots); the recorded `delayMinutes` is the truthful whole-minute lateness and the run
+ * is at/after the intended slot (a weekly slot cannot be observed before it opens); and the run actually
+ * fell within that round's week — before the NEXT round's slot (for the last round, within one week of
+ * it). That window is derived from the schedule's own weekly cadence, inventing no arbitrary tolerance.
+ * A missing schedule (historical), an off-schedule slot, an untruthful delay, or a run that slipped into
+ * a later week stays inspectable and is never invented into a comparable observation. Brand captures are
+ * unscheduled and return none. */
+export function discoveryScheduleDeviations(
+  panel: PanelProtocol,
+  context: CaptureContext,
+): string[] {
+  if (panel.kind !== "discovery") return [];
+  const sched = panel.schedule;
+  if (!sched) return ["discovery_schedule_missing"];
+  if (!discoveryScheduleValid(panel)) return ["discovery_schedule_invalid"];
+  const slot = sched.slots.find((s) => s.round === context.slot.round);
+  const slotMs = slot ? Date.parse(slot.intendedAt) : NaN;
+  const intendedMs = Date.parse(context.time.intendedSlotAt);
+  const capturedMs = Date.parse(context.time.capturedAt);
+  if (!slot || !Number.isFinite(slotMs) || !Number.isFinite(intendedMs) || slotMs !== intendedMs)
+    return ["intended_slot_mismatch"];
+  if (
+    !Number.isFinite(capturedMs) ||
+    capturedMs < slotMs ||
+    context.time.delayMinutes === null ||
+    context.time.delayMinutes !== Math.floor((capturedMs - slotMs) / 60000)
+  )
+    return ["delay_untruthful"];
+  // The window ends at the NEXT round's slot; for the LAST round there is none, so it ends one Stockholm
+  // WALL-CLOCK week after this slot — the same weekly cadence, DST-correct (not a fixed 168h).
+  const next = sched.slots.find((s) => s.round === context.slot.round + 1);
+  const windowEnd = next
+    ? Date.parse(next.intendedAt)
+    : (stockholmWeekLater(slot.intendedAt) ?? NaN);
+  if (Number.isFinite(windowEnd) && capturedMs >= windowEnd) return ["capture_window_overrun"];
+  return [];
 }
 /** A separately approved brand diagnostic run: its own identity, scope, budget and dates. The
  * `id` is what a brand capture's `brandRunId` must resolve to; a run without an id could not be

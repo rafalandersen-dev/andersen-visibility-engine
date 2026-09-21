@@ -839,24 +839,76 @@ not silently dropped in the report.
   excludedRows 2`, and the report attributes `erased 1`, `erasedExtra 1`, `excluded 2`,
   `coverageComplete true`, `neverObserved 39` to the uppercase panel version.
 
+### Review round 24 — an immutable owner-approved weekly run schedule for discovery (P1 4058057176)
+
+A locked discovery panel carried a `rounds` COUNT but no owner-approved dated weekly schedule, so a
+capture at round 1..4 could all be the same day and still resolve `complete` — the panel did not encode
+the actual "ten questions, once weekly for four weeks" methodology (spec §§5.1 Frequency, 5.2 Time, 5.3).
+
+- **The methodology fix (contract extension, in scope).** `citation-panel.ts` gains an optional immutable
+  `schedule` on `panelProtocolSchema`: for a DISCOVERY panel, one owner-approved intended weekly slot per
+  round, on **Europe/Stockholm** wall-clock time, once per week. The weekly cadence is defined on the
+  Stockholm wall clock (same local time, seven local days apart), so it is **DST-correct** (a spring/autumn
+  transition shifts the UTC gap to 167/169 h but the local cadence holds). Optional so a historical
+  pre-schedule panel still parses and reads; a NEW discovery lock REQUIRES a valid **prospective** schedule.
+  Two exported pure helpers, `discoveryScheduleValid` and `discoveryScheduleDeviations`, hold the policy.
+- **Enforced at every boundary.** (1) *Lock* — `lockedPanelSchema` and the candidate SQL `lock_citation_panel`
+  require a discovery lock to carry a Stockholm weekly schedule with one slot per round, exact weekly cadence,
+  and every slot at/after the (server-minted) approval instant (prospective; no backdated slot). A BRAND
+  panel stays unscheduled and must carry none. The SQL guard is NULL-safe (`IS DISTINCT FROM` shape checks;
+  a single `bool_and` whose per-row predicate makes a missing round/`intendedAt`/timezone yield FALSE, never
+  a skipped NULL), so a direct call cannot slip a malformed or same-day schedule past. (2) *Capture admission*
+  — `save_citation_capture` binds a discovery capture's `intendedSlotAt` to its round's approved slot
+  (compared as an absolute instant, so an equivalent offset spelling still matches) and requires a truthful
+  whole-minute `delayMinutes` with the run at/after the slot; a forged/same-day slot or an untruthful delay
+  is refused, so four same-day captures can never be admitted as four weekly rounds. (3) *Read resolver* —
+  `resolveStoredCaptures` appends the per-capture schedule deviations (`discovery_schedule_missing`,
+  `discovery_schedule_invalid`, `intended_slot_mismatch`, `delay_untruthful`, `capture_window_overrun`) and
+  demotes a would-be `complete` when any is present, so a historical/off-schedule capture stays inspectable
+  but is never a clean weekly observation.
+- **Window policy (one documented rule, DST-consistent).** A capture belongs to its round's week when its
+  actual run is at/after the intended slot and strictly before the NEXT round's slot; for the LAST round the
+  window ends one Stockholm WALL-CLOCK week after its slot (`stockholmWeekLater`, DST-correct — not a fixed
+  168 h, which round 23's earlier draft used). The window is derived from the schedule's own weekly cadence,
+  inventing no arbitrary tolerance; a late-but-same-week run stays complete with its delay recorded.
+- **Preserved.** Brand diagnostics remain separately approved, unscheduled and budgeted (never forced
+  weekly). Failed/missed/truncated outcomes are still surfaced as themselves (the schedule gate only demotes
+  a would-be `complete`). No approval/date is ever backfilled or inferred. The original 40 planned slots and
+  the week-4 re-test are unchanged; no call/scheduler/reminder/owner-pilot approval was added. The
+  one-baseline, semantic-UUID, idempotency, erasure and cap invariants are untouched.
+- Tests: the released helpers (valid four-week schedule; same-day / six-day / short / missing rejected;
+  DST-correct cadence; per-capture deviations; the last-round window across BOTH the autumn and spring DST
+  transitions). Real storage (a coherent controllable timeline — lock with a FUTURE prospective schedule via
+  the real RPC, then a fixture advances the panel to its historical state so on-schedule captures land at
+  now-past slots within the `[2020, now]` capture bound): lock requires a valid prospective schedule and
+  rejects no-schedule / same-day / past / brand-with-schedule / malformed (missing timezone/round/intendedAt,
+  wrong tz) via direct SQL; admission binds `intendedSlotAt` + truthful delay (off-schedule and lying-delay
+  captures refused); four distinct weekly rounds read all `complete`; an equivalent-offset intended slot is
+  accepted; a schedule-stripped (historical) panel reads `protocol_deviant`/`discovery_schedule_missing`,
+  never `complete`; and the locked schedule is frozen immutably. The resolver/pure tests also cover
+  same-day, untruthful-delay and missing-schedule demotion and a timezone-equivalent on-schedule complete.
+
 ## Files
 
 | File | Change |
 | --- | --- |
 | `src/lib/pg-uuid.ts` | New (leaf, no imports). Shared semantic-UUID identity: `PG_UUID_RE`, `canonicalUuid`, `canonicalRun`. Imported by the citation-protocol layer and the legacy answer-evidence intake without a circular import. |
-| `src/lib/citation-protocol.ts` | New. Pure storage contract: `panelDraftSchema`, `lockedPanelSchema`, `citationProtocolStateSchema`, `brandRunApprovalSchema`, `parseManualCaptureInput`, `resolveStoredCaptures` (semantic-uuid identity throughout; discovery-baseline-ambiguity flag), `citationReport`/`citationReports`, caps. Exports the shared `panelVersionKey(panelId, version)` (canonicalizes the panelId) so the report keys the per-version erasure metadata exactly as the server producer does. Re-exports `canonicalUuid`/`canonicalRun` from `./pg-uuid`. Reuses PR137 schemas; never redefines them. |
+| `src/lib/citation-panel.ts` | Released PR137 contract, extended COMPATIBLY (round 24): an optional immutable `schedule` on `panelProtocolSchema` (`scheduleSlotSchema`/`discoveryScheduleSchema`) plus pure helpers `discoveryScheduleValid` and `discoveryScheduleDeviations` (Europe/Stockholm weekly cadence, DST-correct via `stockholmWeekLater`). Additive only — the field is optional (historical panels parse unchanged) and `protocolDeviations`/`slotOutcome`/`panelCounts`/`comparablePairs` signatures/behaviour are untouched. |
+| `src/lib/citation-protocol.ts` | New. Pure storage contract: `panelDraftSchema`, `lockedPanelSchema` (now also requires a valid prospective weekly schedule for a discovery lock / no schedule for brand), `citationProtocolStateSchema`, `brandRunApprovalSchema`, `parseManualCaptureInput`, `resolveStoredCaptures` (semantic-uuid identity; discovery-baseline-ambiguity flag; per-capture weekly-schedule gate), `citationReport`/`citationReports`, caps. Exports the shared `panelVersionKey(panelId, version)`. Re-exports `canonicalUuid`/`canonicalRun` from `./pg-uuid`. Reuses PR137 schemas; never redefines them. |
 | `src/lib/citation-protocol.server.ts` | New. Service RPC helpers: read, save draft, lock, approve brand run, import capture, read+resolve. Owner/time/approval derived server-side; network-free. Draft panelId, prompt binding and the lock/brand owner-receipt checks compare by SEMANTIC uuid value (`canonicalUuid`); the per-version erasure-metadata maps are keyed via the shared `panelVersionKey`. |
 | `src/lib/citation-protocol.functions.ts` | New. Six `requireSupabaseAuth` endpoints, each refusing an owner mismatch and never accepting a client approval/reviewer/timestamp. |
 | `src/lib/citation-protocol.test.ts` | New. Pure-contract + mocked-server unit tests. |
 | `src/lib/citation-protocol.functions.test.ts` | New. Endpoint authentication/validation tests. |
 | `src/lib/citation-protocol-migration.test.ts` | New. Real PGlite SQL round trips (isolation, auth, missing project, reference forgery, approval version, protocol binding, capacity, deletion, idempotency). |
-| `supabase/migrations/20260920190000_citation_protocol.sql` | New (one migration). Three tables (panels, brand runs, content-free capture tombstones) + five service-only SECURITY DEFINER RPCs + one internal `IMMUTABLE` helper (`citation_ctx_run`, semantic brandRunId identity, granted to no role) + an `AFTER DELETE` tombstone trigger on `ai_answer_evidence`; RLS on, project-scoped FKs, project-deletion cascade. |
+| `supabase/migrations/20260920190000_citation_protocol.sql` | New (one migration). Three tables (panels, brand runs, content-free capture tombstones) + five service-only SECURITY DEFINER RPCs + one internal `IMMUTABLE` helper (`citation_ctx_run`, semantic brandRunId identity, granted to no role) + an `AFTER DELETE` tombstone trigger on `ai_answer_evidence`; RLS on, project-scoped FKs, project-deletion cascade. Round 24: `lock_citation_panel` requires a discovery lock to carry a NULL-safe, prospective Europe/Stockholm weekly schedule (one slot per round, exact wall-clock cadence) and forbids a brand schedule; `save_citation_capture` binds a discovery capture's `intendedSlotAt` to its round's approved slot and a truthful delay. |
 | `src/lib/answer-evidence.ts` | Additive only: optional opaque `captureContext` on `answerEvidenceSchema` so reads tolerate capture-bound records. Legacy documents are byte-identical (field absent). |
 | `src/lib/answer-evidence.server.ts` | Additive only: `importAnswerEvidence` refuses a capture context (legacy path stays capture-blind; captures must use the panel-aware path), and now compares the predecessor and prompt by SEMANTIC uuid value (`canonicalUuid` from `./pg-uuid`) so an UPPERCASE `supersedesId` cannot bypass `evidence_capture_correction_requires_context`. |
 | `product/CITATION_PROTOCOL_IMPLEMENTATION_2026_09_19.md`, `evidence/citation-protocol-storage-2026-09-19.md` | New. This doc and the evidence record. |
 
-No other files were touched. `citation-panel.ts`, `citation-finding.ts`, `native-ai-*`, the P1
-migration/design/evidence and all conversation files are unmodified.
+No other files were touched. `citation-panel.ts` is extended ONLY additively (round 24: an optional
+`schedule` field + two pure helpers; existing exports/behaviour unchanged). `citation-finding.ts`,
+`native-ai-*`, the released P1/answer-evidence SQL migrations, design/evidence and all conversation files
+are unmodified.
 
 ## Caps (checked against the existing stack)
 
@@ -1020,16 +1072,40 @@ and the report consumer so the keys cannot diverge; the immutable document/hash,
 counts/truncation/no-invented-coverage and case-sensitive question ids/text are preserved, and a different
 uuid/version stays a separate report — `citation-protocol.ts` + `citation-protocol.server.ts` + P2 tests +
 docs only (no SQL change, rollback inventory unchanged).
-**All prior PASS counts — including the latest Codex run on 9cc5b971 (141 focused / 6336 full PASS,
-types/scoped-lint/build PASS, 45.17s) — are a prior stage and do not carry over**; every check below, including the
-round-16 single-snapshot read tests, the round-17 capacity-reservation tests, the round-18
-erased-extra-attempt tests, the round-19 brandRunId-identity tests, the round-20 semantic-UUID
-identity tests, the round-21 single-baseline + legacy-intake tests, the round-22 admission-boundary
-identity tests, and the round-23 per-version erasure-key canonicalization tests, is UNRUN in this worktree and must
-be re-executed by Codex. The repository-wide lint is separately RED (~3790 errors / 14 warnings, pre-existing across the repo); this packet does NOT mass-format or claim a global-lint pass — only the SCOPED lint on the touched P2 files applies. No released SQL, released `citation-panel.ts`, global
-migration inventory, or P3/R09 file was touched (the last commit `777ee67f` — Codex's doc rollback
-inventory fix — is preserved); USD50/manual-free is unchanged. The prepared deploy SQL /
-expected-identity artifacts are STALE — never execute them; nothing here is deployed.
+Round 24 (this turn, on `a3641fef`) fixes P1 4058057176: a locked discovery panel had a `rounds` count but
+no owner-approved dated weekly schedule, so four SAME-DAY captures resolved `complete`. It adds an immutable
+owner-approved Europe/Stockholm weekly schedule (one prospective slot per round, once per week, DST-correct)
+to the discovery protocol — a COMPATIBLE, in-scope extension of the released `citation-panel.ts`
+(`panelProtocolSchema.schedule` optional + `discoveryScheduleValid`/`discoveryScheduleDeviations`) — enforced
+at lock (`lockedPanelSchema` + the candidate SQL, NULL-safe), at capture admission (the candidate SQL binds
+`intendedSlotAt` + a truthful delay so same-day rounds are refused) and at the read resolver (off-schedule /
+missing-schedule captures demote to `protocol_deviant`, never `complete`). Brand stays unscheduled;
+failed/missed/truncated evidence is preserved; no approval/date is backfilled; the 40 slots, week-4 re-test
+and the one-baseline/UUID/idempotency/erasure/cap invariants are unchanged. Only the candidate SQL
+(`20260920190000`), `citation-panel.ts` (compatible extension), `citation-protocol.ts`, the P2 test files
+and these docs changed — no applied migration, no P3, no provider, no commit/deploy.
+**HONEST RUN STATUS.** The prior worktree process for round 24 terminated on a plan/credit limit, not
+success; its partial Codex verification was `tsc` PASS but **150 tests PASS / 38 FAIL** in
+`citation-protocol-migration.test.ts` — a **FAILED prior attempt of this work, not a passing baseline**. Two
+verified causes are now fixed: (a) the future (2099) capture fixtures violated `answerEvidenceSchema`'s
+`[2020, now]` `capturedAt` bound — resolved by a coherent two-anchor timeline (lock with a FUTURE prospective
+schedule via the real RPC, then `backdatePanelApproval` advances the panel to a historical state with a
+recent-PAST approval + schedule so on-schedule captures land at now-past slots that pass the bound); and
+(b) a `round: 5` fixture built "September 35" and threw a RangeError before the out-of-panel admission was
+exercised — resolved by real Date arithmetic in the slot helper. **No production future-date or
+prospective-approval guard was weakened, no storage assertion was replaced with a mock, and no public
+admission was bypassed to make tests pass.** All earlier PASS counts (including the pre-round-24 Codex run on
+`9cc5b971`: 141 focused / 6336 full PASS) are a prior stage and **do not carry over**; every check below —
+including the round-16…23 suites and the new round-24 weekly-schedule tests (lock/admission/resolver, the
+malformed-schedule NULL/bool_and rejection, and the spring/autumn DST last-round window) — is UNRUN in this
+worktree and must be re-executed by Codex; this assistant did not run tests and claims no PASS. The
+repository-wide lint is separately RED (~3790 errors / 14 warnings, pre-existing across the repo); this
+packet does NOT mass-format or claim a global-lint pass — only the SCOPED lint on the touched files applies.
+The released P1 SQL migrations, global migration inventory, and P3/R09 files were not touched; the released
+`citation-panel.ts` was extended ONLY additively (an optional field + two pure helpers), never breaking its
+existing contract; USD50/manual-free is unchanged; a real pilot still requires genuine owner approval and a
+real four weeks. The prepared deploy SQL / expected-identity artifacts are STALE — never execute them;
+nothing here is deployed.
 
 - `npx vitest run src/lib/citation-protocol.test.ts`
 - `npx vitest run src/lib/citation-protocol.functions.test.ts`

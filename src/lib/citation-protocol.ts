@@ -4,6 +4,8 @@ import { answerEvidenceSchema, evidenceRowSchema, type AnswerEvidence } from "./
 import {
   brandRunSchema,
   captureContextSchema,
+  discoveryScheduleDeviations,
+  discoveryScheduleValid,
   panelProtocolSchema,
   protocolDeviations,
   slotOutcome,
@@ -102,6 +104,43 @@ function assertV1DiscoveryGrid(panel: PanelProtocol, ctx: z.RefinementCtx) {
     });
 }
 
+// A locked panel's run schedule (spec §§5.1 Frequency, 5.2 Time, 5.3). A DISCOVERY panel must carry an
+// owner-approved Europe/Stockholm weekly schedule — one intended slot per round, once per week — that is
+// PROSPECTIVE (the owner approves the schedule before running it, so no slot precedes the approval
+// instant; §5.3 "Do not backdate"). Four same-day "rounds" can never form a valid four-week schedule.
+// A BRAND panel is unscheduled and must carry no schedule. Enforced only at lock, so a historical
+// pre-schedule locked panel still reads (the resolver flags it, never a clean baseline) and a draft may
+// still be incomplete; the lock RPC enforces the same at the DB boundary. Never inferred/backfilled.
+function assertLockedRunSchedule(panel: PanelProtocol, ctx: z.RefinementCtx) {
+  if (panel.kind === "brand") {
+    if (panel.schedule != null)
+      ctx.addIssue({
+        code: "custom",
+        path: ["schedule"],
+        message: "Brand panels are unscheduled; a diagnostic run carries no weekly schedule",
+      });
+    return;
+  }
+  if (!discoveryScheduleValid(panel)) {
+    ctx.addIssue({
+      code: "custom",
+      path: ["schedule"],
+      message:
+        "A locked v1 discovery panel needs an owner-approved Europe/Stockholm weekly schedule: one intended slot per round, once per week",
+    });
+    return;
+  }
+  const approvedMs = panel.approval ? Date.parse(panel.approval.approvedAt) : NaN;
+  const earliest = Math.min(...panel.schedule!.slots.map((s) => Date.parse(s.intendedAt)));
+  if (!Number.isFinite(approvedMs) || !Number.isFinite(earliest) || earliest < approvedMs)
+    ctx.addIssue({
+      code: "custom",
+      path: ["schedule"],
+      message:
+        "Every scheduled weekly slot must be at or after the owner approval (prospective; no backdated slot)",
+    });
+}
+
 export const panelDraftSchema = panelProtocolSchema.superRefine((panel, ctx) => {
   if (panel.status !== "draft")
     ctx.addIssue({
@@ -128,6 +167,7 @@ export const lockedPanelSchema = panelProtocolSchema.superRefine((panel, ctx) =>
     });
   assertConsumerV1Panel(panel, ctx);
   assertV1DiscoveryGrid(panel, ctx);
+  assertLockedRunSchedule(panel, ctx);
 });
 
 /** The content-free erased-slot fact for a slot whose observation was deleted (spec §5.2 attempts
@@ -471,7 +511,18 @@ export function resolveStoredCaptures(
     // A discovery capture is only an eligible v1 measurement when the project has a SINGLE discovery
     // baseline; an ambiguous (multi-baseline) project can never present a clean measurement.
     const baselineOk = panel.kind !== "discovery" || singleDiscoveryBaseline;
-    const eligible = approvedBeforeCapture && consumerSurface && gridValid && baselineOk;
+    // v1 discovery runs the ten questions ONCE WEEKLY for four weeks (spec §§5.1, 5.2 Time, 5.3): each
+    // capture must match its round's owner-approved intended weekly slot, record a truthful delay, and
+    // have actually run within that round's week. A missing schedule (historical), an off-schedule
+    // intended slot (e.g. four same-day "rounds"), an untruthful delay, or a run that slipped into a
+    // later week is a methodology deviation — inspectable, but never a clean weekly observation, so a
+    // would-be `complete` is demoted (a genuine failure/truncation is preserved as itself). The lock
+    // path refuses a new discovery lock without a valid prospective schedule; this flags any historical
+    // or off-schedule capture without rewriting raw history. Brand captures are unscheduled → no gate.
+    const scheduleDeviations = discoveryScheduleDeviations(panel, context);
+    const scheduleOk = scheduleDeviations.length === 0;
+    const eligible =
+      approvedBeforeCapture && consumerSurface && gridValid && baselineOk && scheduleOk;
     out.push({
       answerId: answer.id,
       panelId: panel.panelId,
@@ -484,6 +535,7 @@ export function resolveStoredCaptures(
         ...(consumerSurface ? [] : ["non_consumer_surface"]),
         ...(gridValid ? [] : ["panel_grid_invalid"]),
         ...(baselineOk ? [] : ["discovery_baseline_ambiguous"]),
+        ...scheduleDeviations,
       ],
       panelResolved: true,
       brandRunResolved:

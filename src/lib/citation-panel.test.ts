@@ -3,6 +3,8 @@ import {
   brandRunSchema,
   captureContextSchema,
   comparablePairs,
+  discoveryScheduleDeviations,
+  discoveryScheduleValid,
   panelCounts,
   panelProtocolSchema,
   plannedSlots,
@@ -122,6 +124,174 @@ const context = (round: number, n: number, over: Partial<CaptureContext> = {}): 
   capture: { screenshotRef: null, missingReason: null },
   deviationNotes: [],
   ...over,
+});
+describe("weekly discovery schedule policy (spec §§5.1 Frequency, 5.2 Time, 5.3)", () => {
+  // 09:00 Europe/Stockholm (CEST, 07:00Z) one week apart. Prospective vs approval is a lock concern
+  // (tested in citation-protocol.test.ts); these cases exercise cadence and per-capture deviations only.
+  const wk = (round: number) =>
+    `2026-09-${String(7 + (round - 1) * 7).padStart(2, "0")}T07:00:00.000Z`;
+  const scheduled = () =>
+    panelProtocolSchema.parse({
+      ...panel(),
+      schedule: {
+        timezone: "Europe/Stockholm",
+        slots: [1, 2, 3, 4].map((round) => ({ round, intendedAt: wk(round) })),
+      },
+    });
+  const capAt = (
+    round: number,
+    capturedAt: string,
+    intendedSlotAt: string,
+    delayMinutes: number | null,
+  ) => context(round, 1, { time: { capturedAt, intendedSlotAt, delayMinutes } });
+  it("accepts a valid four-week Stockholm schedule and rejects same-day/wrong-cadence/short ones", () => {
+    expect(discoveryScheduleValid(scheduled())).toBe(true);
+    const withSchedule = (slots: Array<{ round: number; intendedAt: string }>) =>
+      panelProtocolSchema.parse({
+        ...panel(),
+        schedule: { timezone: "Europe/Stockholm", slots },
+      });
+    // Four SAME-DAY slots are never four weekly rounds.
+    expect(
+      discoveryScheduleValid(
+        withSchedule([1, 2, 3, 4].map((round) => ({ round, intendedAt: wk(1) }))),
+      ),
+    ).toBe(false);
+    // A six-day gap is not once-weekly.
+    expect(
+      discoveryScheduleValid(
+        withSchedule([
+          { round: 1, intendedAt: wk(1) },
+          { round: 2, intendedAt: "2026-09-13T07:00:00.000Z" },
+          { round: 3, intendedAt: wk(3) },
+          { round: 4, intendedAt: wk(4) },
+        ]),
+      ),
+    ).toBe(false);
+    // Wrong slot count (3 for a 4-round panel), and a missing schedule, are both invalid for discovery.
+    expect(
+      discoveryScheduleValid(
+        withSchedule([1, 2, 3].map((round) => ({ round, intendedAt: wk(round) }))),
+      ),
+    ).toBe(false);
+    expect(discoveryScheduleValid(panel())).toBe(false);
+  });
+  it("keeps the weekly cadence correct across a DST transition (Stockholm wall clock)", () => {
+    // DST ends 2026-10-25: 09:00 local is CEST (07:00Z) on Oct 18 and CET (08:00Z) on Oct 25 — one
+    // Stockholm week apart at the same local time. A naive fixed-168h slot would be 08:00 local, rejected.
+    const twoRound = { ...panel(), rounds: 2 };
+    const dst = (round2Z: string) =>
+      panelProtocolSchema.parse({
+        ...twoRound,
+        schedule: {
+          timezone: "Europe/Stockholm",
+          slots: [
+            { round: 1, intendedAt: "2026-10-18T07:00:00.000Z" },
+            { round: 2, intendedAt: round2Z },
+          ],
+        },
+      });
+    expect(discoveryScheduleValid(dst("2026-10-25T08:00:00.000Z"))).toBe(true); // 09:00 local, +7 days
+    expect(discoveryScheduleValid(dst("2026-10-25T07:00:00.000Z"))).toBe(false); // 168h later = 08:00 local
+  });
+  it("flags per-capture schedule deviations and passes a truthful on-slot capture", () => {
+    const p = scheduled();
+    // On its round's slot with a truthful delay → no schedule deviation.
+    expect(discoveryScheduleDeviations(p, capAt(1, "2026-09-07T08:00:00.000Z", wk(1), 60))).toEqual(
+      [],
+    );
+    // An equivalent-offset spelling of the same instant still matches (09:00+02:00 == 07:00Z).
+    expect(
+      discoveryScheduleDeviations(
+        p,
+        capAt(1, "2026-09-07T09:00:00.000+02:00", "2026-09-07T09:00:00.000+02:00", 0),
+      ),
+    ).toEqual([]);
+    // A missing schedule (historical panel) → not an eligible clean baseline.
+    expect(discoveryScheduleDeviations(panel(), capAt(1, wk(1), wk(1), 0))).toEqual([
+      "discovery_schedule_missing",
+    ]);
+    // An off-schedule intended slot (a second same-day "round 2") → mismatch.
+    expect(
+      discoveryScheduleDeviations(p, capAt(2, "2026-09-07T09:00:00.000Z", wk(1), 120)),
+    ).toEqual(["intended_slot_mismatch"]);
+    // An untruthful delay (claims 0 but ran 60 min late), or a run before its slot, is a deviation.
+    expect(discoveryScheduleDeviations(p, capAt(1, "2026-09-07T08:00:00.000Z", wk(1), 0))).toEqual([
+      "delay_untruthful",
+    ]);
+    expect(discoveryScheduleDeviations(p, capAt(1, "2026-09-06T08:00:00.000Z", wk(1), 0))).toEqual([
+      "delay_untruthful",
+    ]);
+    // A run that slipped into the next week's slot overruns this round's window.
+    expect(discoveryScheduleDeviations(p, capAt(1, wk(2), wk(1), 10080))).toEqual([
+      "capture_window_overrun",
+    ]);
+    // Brand captures are unscheduled → no schedule deviations.
+    const brand = panelProtocolSchema.parse({
+      ...panel(),
+      panelId: uuid(2),
+      kind: "brand",
+      rounds: 0,
+      schedule: null,
+      questions: Array.from({ length: 5 }, (_, i) => question(i + 1, "B")),
+    });
+    expect(
+      discoveryScheduleDeviations(
+        brand,
+        context(1, 1, { slot: { round: 1, questionId: "SY-B01" } }),
+      ),
+    ).toEqual([]);
+  });
+  it("bounds the LAST round's window by one Stockholm wall-clock week across autumn DST (not fixed 168h)", () => {
+    // Round 4 sits on 2026-10-18 (09:00 CEST, 07:00Z); DST ends 2026-10-25, so one Stockholm week later
+    // is 2026-10-25 09:00 CET = 08:00Z — an hour past a naive 168h (07:00Z). A round-4 run at 07:30Z on
+    // Oct 25 (08:30 local) is still within the week; a naive 168h window would wrongly flag it.
+    const autumn = panelProtocolSchema.parse({
+      ...panel(),
+      schedule: {
+        timezone: "Europe/Stockholm",
+        slots: [
+          { round: 1, intendedAt: "2026-09-27T07:00:00.000Z" },
+          { round: 2, intendedAt: "2026-10-04T07:00:00.000Z" },
+          { round: 3, intendedAt: "2026-10-11T07:00:00.000Z" },
+          { round: 4, intendedAt: "2026-10-18T07:00:00.000Z" },
+        ],
+      },
+    });
+    const r4 = (
+      p: PanelProtocol,
+      capturedAt: string,
+      intendedSlotAt: string,
+      delayMinutes: number,
+    ) =>
+      discoveryScheduleDeviations(
+        p,
+        context(4, 1, { time: { capturedAt, intendedSlotAt, delayMinutes } }),
+      );
+    expect(r4(autumn, "2026-10-25T07:30:00.000Z", "2026-10-18T07:00:00.000Z", 10110)).toEqual([]);
+    expect(r4(autumn, "2026-10-25T08:00:00.000Z", "2026-10-18T07:00:00.000Z", 10140)).toEqual([
+      "capture_window_overrun",
+    ]);
+    // Spring: round 4 on 2026-03-22 (09:00 CET, 08:00Z); DST starts 2026-03-29, so one Stockholm week
+    // later is 2026-03-29 09:00 CEST = 07:00Z — an hour BEFORE a naive 168h (08:00Z). A run at 07:00Z is
+    // already the next week (overrun); one at 06:30Z is still within.
+    const spring = panelProtocolSchema.parse({
+      ...panel(),
+      schedule: {
+        timezone: "Europe/Stockholm",
+        slots: [
+          { round: 1, intendedAt: "2026-03-01T08:00:00.000Z" },
+          { round: 2, intendedAt: "2026-03-08T08:00:00.000Z" },
+          { round: 3, intendedAt: "2026-03-15T08:00:00.000Z" },
+          { round: 4, intendedAt: "2026-03-22T08:00:00.000Z" },
+        ],
+      },
+    });
+    expect(r4(spring, "2026-03-29T06:30:00.000Z", "2026-03-22T08:00:00.000Z", 9990)).toEqual([]);
+    expect(r4(spring, "2026-03-29T07:00:00.000Z", "2026-03-22T08:00:00.000Z", 10020)).toEqual([
+      "capture_window_overrun",
+    ]);
+  });
 });
 describe("panel protocol and planned observations (CI11-T13, T14)", () => {
   it("plans exactly forty discovery slots and includes the fourth-round re-test", () => {

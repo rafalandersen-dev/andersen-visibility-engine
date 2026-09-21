@@ -77,6 +77,37 @@ const discoveryQuestions = Array.from({ length: 10 }, (_, i) => ({
   text: discoveryQuestionText(i),
   language: "sv",
 }));
+// v1 weekly discovery schedule (spec §§5.1 Frequency, 5.2 Time, 5.3): four owner-approved intended
+// weekly slots at 09:00 Europe/Stockholm (07:00Z in a CEST month), one Stockholm week apart. The lock
+// guard requires PROSPECTIVE slots, but a stored capture's `capturedAt` must be within 2020..now
+// (answerEvidenceSchema). A real pilot locks with FUTURE weekly slots; then the weeks arrive and the
+// captures land at those (now-past) slots. The fixtures model that coherent timeline with two anchors:
+//   • futureSchedule — 2099 September (CEST, DST-free), always after the real lock clock, embedded in
+//     the DRAFT so lock_citation_panel's prospective guard passes.
+//   • pastSchedule   — July 2026 (CEST, DST-free), safely before the test clock, so captures at these
+//     slots pass the 2020..now bound. backdatePanelApproval rewrites a locked discovery panel to this
+//     historical state (past approval + past schedule), exactly as a panel whose scheduled weeks have
+//     arrived. Weekly cadence within each anchor is DST-simple (one CEST month, no transition).
+// Real Date arithmetic (never a "September 35"), so an out-of-panel round still yields a valid instant.
+const weeklyInstant = (baseZ: string, round: number) =>
+  new Date(Date.parse(baseZ) + (round - 1) * 7 * 86400000).toISOString();
+const futureSlotInstant = (round: number) => weeklyInstant("2099-09-07T07:00:00.000Z", round);
+const futureSchedule = {
+  timezone: "Europe/Stockholm",
+  slots: [1, 2, 3, 4].map((round) => ({ round, intendedAt: futureSlotInstant(round) })),
+};
+const slotInstant = (round: number) => weeklyInstant("2026-07-06T07:00:00.000Z", round);
+const pastSchedule = {
+  timezone: "Europe/Stockholm",
+  slots: [1, 2, 3, 4].map((round) => ({ round, intendedAt: slotInstant(round) })),
+};
+const PAST_APPROVAL = "2026-07-01T00:00:00.000Z";
+// A capture's truthful time for its round on the PAST (historical) schedule: `delayMinutes` after the slot.
+const slotTime = (round: number, delayMinutes = 60) => ({
+  capturedAt: new Date(Date.parse(slotInstant(round)) + delayMinutes * 60000).toISOString(),
+  intendedSlotAt: slotInstant(round),
+  delayMinutes,
+});
 const draftDiscovery = (over: Record<string, unknown> = {}) => ({
   panelId: discoveryPanelId,
   version: 1,
@@ -89,6 +120,7 @@ const draftDiscovery = (over: Record<string, unknown> = {}) => ({
   collection,
   questions: discoveryQuestions,
   rounds: 4,
+  schedule: futureSchedule, // prospective at lock; backdatePanelApproval rewrites it to pastSchedule
   status: "draft",
   approval: null,
   ...over,
@@ -101,6 +133,7 @@ const draftBrand = (over: Record<string, unknown> = {}) => ({
     { id: "SY-B01", promptId: brandPromptId, promptRevision: 1, text: brandText, language: "sv" },
   ],
   rounds: 0,
+  schedule: null, // brand diagnostics are unscheduled (never inherit the discovery weekly schedule)
   ...over,
 });
 const ctxBase = {
@@ -144,17 +177,18 @@ function discoveryCapture(
   ctxOver: Record<string, unknown> = {},
   answerOver: Record<string, unknown> = {},
 ) {
-  const time = {
-    capturedAt: "2026-09-08T10:00:00Z",
-    intendedSlotAt: "2026-09-08T09:00:00Z",
-    delayMinutes: 60,
-    ...((ctxOver.time as object) || {}),
+  // Default the capture time to THIS round's owner-approved weekly slot (+ a truthful 60-min delay), so
+  // a round-1..4 capture is schedule-consistent (spec §§5.1/5.2/5.3) unless a test overrides `time`.
+  const slot = (ctxOver.slot as { round: number; questionId: string } | undefined) ?? {
+    round: 1,
+    questionId: "SY-D01",
   };
+  const time = { ...slotTime(slot.round), ...((ctxOver.time as object) || {}) };
   const ctx = {
     ...ctxBase,
     panelId: discoveryPanelId,
     panelVersion: 2,
-    slot: { round: 1, questionId: "SY-D01" },
+    slot,
     brandRunId: null,
     instructions: { questionText: discoveryText, extraInstruction: null, priorMessages: 0 },
     ...ctxOver,
@@ -215,18 +249,20 @@ async function insertBrandRun(runId: string, over: Record<string, unknown> = {})
   );
   return doc;
 }
-/** Fixture: stamp a locked panel version with an explicit HISTORICAL owner-approval instant so a
- * capture dated after it is legitimately post-approval (spec Appendix A). This models a panel
- * approved on a past date; it is a raw test-fixture write, never a product path, and does not touch
- * the immutability of the lock RPC (which mints approval at the live DB clock). */
-async function backdatePanelApproval(
-  panelId: string,
-  version = 2,
-  approvedAt = "2026-09-01T00:00:00.000Z",
-) {
+/** Fixture: advance a just-locked panel to its HISTORICAL state — a past owner-approval instant so a
+ * capture dated after it is legitimately post-approval (spec Appendix A), and, for a DISCOVERY panel,
+ * the past weekly schedule whose scheduled weeks have now arrived (so on-schedule captures at those
+ * now-past slots pass the 2020..now capture bound). The lock legitimately required a PROSPECTIVE future
+ * schedule; this raw fixture write models the passage of time to the run weeks. It is never a product
+ * path and does not touch the lock RPC's immutability (which mints approval and copies the schedule at
+ * the live DB clock). A brand panel is unscheduled, so its schedule is left untouched (null). */
+async function backdatePanelApproval(panelId: string, version = 2, approvedAt = PAST_APPROVAL) {
   await db.query(
-    "UPDATE citation_panels SET document=jsonb_set(document,'{approval,approvedAt}',to_jsonb($4::text)) WHERE user_id=$1 AND project_id='p' AND panel_id=$2 AND version=$3",
-    [user, panelId, version, approvedAt],
+    `UPDATE citation_panels SET document =
+       jsonb_set(document,'{approval,approvedAt}',to_jsonb($4::text))
+       || (CASE WHEN document->>'kind'='discovery' THEN jsonb_build_object('schedule',$5::jsonb) ELSE '{}'::jsonb END)
+     WHERE user_id=$1 AND project_id='p' AND panel_id=$2 AND version=$3`,
+    [user, panelId, version, approvedAt, JSON.stringify(pastSchedule)],
   );
   return approvedAt;
 }
@@ -609,7 +645,8 @@ describe("CI-2 manual capture resolution and binding", () => {
   beforeEach(async () => {
     await saveCitationPanelDraft(scope, discoveryPanelId, 0, draftDiscovery(), rpc);
     await lockCitationPanel(scope, discoveryPanelId, 1, rpc);
-    // Historical approval so the 2026-09-08 fixture captures are legitimately post-approval.
+    // Advance to the historical state (past approval + past weekly schedule) so the fixture captures at
+    // their now-past weekly slots are legitimately post-approval and on-schedule.
     await backdatePanelApproval(discoveryPanelId);
   });
   it("legacy intake: an UPPERCASE supersedesId cannot bypass the capture-correction guard; a legacy chain is allowed", async () => {
@@ -866,9 +903,11 @@ describe("CI-2 manual capture resolution and binding", () => {
     ]);
   });
   it("refuses a capture collected before the panel version's approval and accepts one at or after it", async () => {
+    // Before the historical approval (PAST_APPROVAL, 2026-07-01) — so the approval guard, which runs
+    // before the schedule binding, is what refuses it (and the instant stays within the 2020..now bound).
     const preApprovalTime = {
-      capturedAt: "2026-08-15T10:00:00Z",
-      intendedSlotAt: "2026-08-15T09:00:00Z",
+      capturedAt: "2026-06-15T10:00:00Z",
+      intendedSlotAt: "2026-06-15T09:00:00Z",
       delayMinutes: 0,
     };
     // Public wrapper: a pre-approval capture is refused and nothing is inserted. The server maps the
@@ -881,7 +920,7 @@ describe("CI-2 manual capture resolution and binding", () => {
     // SQL guard specifically: assemble a valid stored document via the PGlite path, then move its
     // capture instant (input and context together) before the panel approval — the RPC raises the
     // exact guard error and stores nothing.
-    const validId = await importManualCapture(scope, discoveryCapture(), rpc); // 2026-09-08, accepted
+    const validId = await importManualCapture(scope, discoveryCapture(), rpc); // on-schedule round 1, accepted
     const stored = (await readAnswerEvidence(scope, rpc)).answers[0];
     const preApproval = {
       input: {
@@ -895,23 +934,19 @@ describe("CI-2 manual capture resolution and binding", () => {
     await expect(
       db.query("SELECT save_citation_capture($1,$2,$3)", [user, "p", preApproval]),
     ).rejects.toThrow(/citation_panel_approved_after_capture/);
-    // Exactly at the approval instant, and after it, are accepted with their correct timestamps. Use
-    // a distinct slot (round 2) from validId's round 1 so acceptance is not masked by the one-per-slot
-    // guard — this test is about approval time, not slot occupancy.
-    const at = "2026-09-01T00:00:00.000Z"; // equals the historical fixture approval
+    // After the approval, a capture at a DISTINCT slot (round 2) on its owner-approved weekly slot is
+    // accepted (distinct from validId's round 1 so acceptance is not masked by the one-per-slot guard).
+    // A prospective weekly schedule means the earliest run is round 1's slot, well after the approval, so
+    // the boundary this test proves is "before approval refused, on/after accepted", not an at-instant tie.
     expect(
       await importManualCapture(
         scope,
-        discoveryCapture({
-          slot: { round: 2, questionId: "SY-D01" },
-          time: { capturedAt: at, intendedSlotAt: at, delayMinutes: 0 },
-        }),
+        discoveryCapture({ slot: { round: 2, questionId: "SY-D01" } }, { rawAnswer: "round 2" }),
         rpc,
       ),
     ).toBeTypeOf("string");
     expect(validId).toBeTypeOf("string");
-    // Only the round-1 (2026-09-08) and the at-approval round-2 captures persist; neither pre-approval
-    // attempt stored anything.
+    // Only the two accepted round-1 / round-2 captures persist; neither pre-approval attempt stored anything.
     expect((await readAnswerEvidence(scope, rpc)).answers).toHaveLength(2);
   });
   it("rejects a capture against a draft version, a foreign version, a drifted question or an out-of-panel round", async () => {
@@ -2865,5 +2900,221 @@ describe("CI-2 capacity, isolation, deletion and access control", () => {
         )
       ).rows[0],
     ).toEqual({ n: 3 });
+  });
+});
+
+describe("CI-2 weekly discovery schedule at lock and capture admission (spec §§5.1/5.2/5.3)", () => {
+  it("locks a discovery panel only with a valid PROSPECTIVE weekly Stockholm schedule", async () => {
+    // A draft with NO schedule saves (drafts may be incomplete) but never locks (grid passes, schedule
+    // fails): the DB guard raises the specific error, the wrapper a generic one.
+    const noSchedule = ((): Record<string, unknown> => {
+      const d = draftDiscovery() as Record<string, unknown>;
+      delete d.schedule;
+      return d;
+    })();
+    await saveCitationPanelDraft(scope, discoveryPanelId, 0, noSchedule, rpc);
+    await expect(
+      db.query("SELECT lock_citation_panel($1,'p',$2,$3)", [user, discoveryPanelId, 1]),
+    ).rejects.toThrow(/citation_panel_schedule_invalid/);
+    await expect(lockCitationPanel(scope, discoveryPanelId, 1, rpc)).rejects.toThrow();
+    // Same-day slots (all round 1's FUTURE instant, so prospective passes and the cadence guard is what
+    // rejects) are never four weekly rounds → refused at the DB boundary.
+    const sameDay = {
+      timezone: "Europe/Stockholm",
+      slots: [1, 2, 3, 4].map((round) => ({ round, intendedAt: futureSlotInstant(1) })),
+    };
+    await saveCitationPanelDraft(
+      scope,
+      uuid(710),
+      0,
+      draftDiscovery({ panelId: uuid(710), schedule: sameDay }),
+      rpc,
+    );
+    await expect(
+      db.query("SELECT lock_citation_panel($1,'p',$2,$3)", [user, uuid(710), 1]),
+    ).rejects.toThrow(/citation_panel_schedule_invalid/);
+    // A past (non-prospective) schedule is refused — the owner cannot approve a schedule already elapsed.
+    const past = {
+      timezone: "Europe/Stockholm",
+      slots: [1, 2, 3, 4].map((round) => ({
+        round,
+        intendedAt: `2020-09-${String(7 * round).padStart(2, "0")}T07:00:00.000Z`,
+      })),
+    };
+    await saveCitationPanelDraft(
+      scope,
+      uuid(711),
+      0,
+      draftDiscovery({ panelId: uuid(711), schedule: past }),
+      rpc,
+    );
+    await expect(
+      db.query("SELECT lock_citation_panel($1,'p',$2,$3)", [user, uuid(711), 1]),
+    ).rejects.toThrow(/citation_panel_schedule_invalid/);
+    // A brand panel carrying a schedule is contradictory (brand is unscheduled) and refused.
+    await saveCitationPanelDraft(
+      scope,
+      brandPanelId,
+      0,
+      draftBrand({ schedule: futureSchedule }),
+      rpc,
+    );
+    await expect(
+      db.query("SELECT lock_citation_panel($1,'p',$2,$3)", [user, brandPanelId, 1]),
+    ).rejects.toThrow(/citation_panel_schedule_invalid/);
+    // The valid prospective fixture schedule locks; none of the above drafts locked, so this is the first
+    // discovery baseline. The approved (future) schedule is copied verbatim (immutable).
+    await saveCitationPanelDraft(scope, uuid(712), 0, draftDiscovery({ panelId: uuid(712) }), rpc);
+    const locked = await lockCitationPanel(scope, uuid(712), 1, rpc);
+    expect(locked.schedule?.slots.map((s) => s.intendedAt)).toEqual(
+      [1, 2, 3, 4].map(futureSlotInstant),
+    );
+  });
+  it("binds a discovery capture to its round's owner-approved weekly slot and a truthful delay", async () => {
+    await saveCitationPanelDraft(scope, discoveryPanelId, 0, draftDiscovery(), rpc);
+    await lockCitationPanel(scope, discoveryPanelId, 1, rpc);
+    await backdatePanelApproval(discoveryPanelId);
+    // On-schedule round 1 is admitted.
+    expect(await importManualCapture(scope, discoveryCapture(), rpc)).toBeTypeOf("string");
+    const base = (await readAnswerEvidence(scope, rpc)).answers[0];
+    // An off-schedule intended slot (round 2 claiming round 1's slot — a same-day "round") is refused as
+    // fabricated provenance: specific SQL error via the direct path, generic via the wrapper.
+    const off = discoveryCapture(
+      { slot: { round: 2, questionId: "SY-D01" }, time: slotTime(1) },
+      { rawAnswer: "off-schedule round 2" },
+    );
+    await expect(
+      db.query("SELECT save_citation_capture($1,'p',$2)", [
+        user,
+        { input: off, prompt: base.prompt, analysis: base.analysis },
+      ]),
+    ).rejects.toThrow(/citation_intended_slot_mismatch/);
+    await expect(importManualCapture(scope, off, rpc)).rejects.toThrow();
+    // An untruthful delay (claims 0 minutes but ran 60 late) is refused.
+    const badDelay = discoveryCapture(
+      {
+        slot: { round: 2, questionId: "SY-D01" },
+        time: {
+          capturedAt: new Date(Date.parse(slotInstant(2)) + 3600000).toISOString(),
+          intendedSlotAt: slotInstant(2),
+          delayMinutes: 0,
+        },
+      },
+      { rawAnswer: "lying delay" },
+    );
+    await expect(
+      db.query("SELECT save_citation_capture($1,'p',$2)", [
+        user,
+        { input: badDelay, prompt: base.prompt, analysis: base.analysis },
+      ]),
+    ).rejects.toThrow(/citation_delay_untruthful/);
+    // Only the one on-schedule round-1 capture persisted; no forged/off-schedule row was stored.
+    expect((await readAnswerEvidence(scope, rpc)).answers).toHaveLength(1);
+  });
+  it("admits four DISTINCT weekly rounds and reads them all complete (a genuine four-week schedule)", async () => {
+    await saveCitationPanelDraft(scope, discoveryPanelId, 0, draftDiscovery(), rpc);
+    await lockCitationPanel(scope, discoveryPanelId, 1, rpc);
+    await backdatePanelApproval(discoveryPanelId);
+    for (const round of [1, 2, 3, 4])
+      await importManualCapture(
+        scope,
+        discoveryCapture(
+          { slot: { round, questionId: "SY-D01" } },
+          { rawAnswer: `round ${round}` },
+        ),
+        rpc,
+      );
+    const { captures, reports } = await readResolvedCaptures(scope, rpc);
+    expect(captures.filter((c) => c.outcome === "complete")).toHaveLength(4);
+    const r = reports.find((x) => x.panelId === discoveryPanelId && x.panelVersion === 2);
+    expect(r?.outcomes.complete).toBe(4);
+  });
+  it("accepts a capture whose intended slot is spelled with an equivalent offset (same instant)", async () => {
+    await saveCitationPanelDraft(scope, discoveryPanelId, 0, draftDiscovery(), rpc);
+    await lockCitationPanel(scope, discoveryPanelId, 1, rpc);
+    await backdatePanelApproval(discoveryPanelId);
+    // 2026-07-06T09:00+02:00 is the SAME instant as the round-1 slot 2026-07-06T07:00Z (CEST). It binds.
+    const offsetSpelled = discoveryCapture({
+      time: {
+        capturedAt: "2026-07-06T09:00:00.000+02:00",
+        intendedSlotAt: "2026-07-06T09:00:00.000+02:00",
+        delayMinutes: 0,
+      },
+    });
+    expect(await importManualCapture(scope, offsetSpelled, rpc)).toBeTypeOf("string");
+    const r = (await readResolvedCaptures(scope, rpc)).reports.find(
+      (x) => x.panelId === discoveryPanelId && x.panelVersion === 2,
+    );
+    expect(r?.outcomes.complete).toBe(1);
+  });
+  it("reads a capture against a schedule-stripped (historical) locked panel as never a clean baseline", async () => {
+    await saveCitationPanelDraft(scope, discoveryPanelId, 0, draftDiscovery(), rpc);
+    await lockCitationPanel(scope, discoveryPanelId, 1, rpc);
+    await backdatePanelApproval(discoveryPanelId);
+    await importManualCapture(scope, discoveryCapture(), rpc); // on-schedule; would be complete
+    // Simulate a pre-schedule historical panel: strip the schedule from the stored locked document. No
+    // approval/date is ever backfilled; the capture stays inspectable but is never a clean measurement.
+    await db.query(
+      "UPDATE citation_panels SET document = document - 'schedule' WHERE user_id=$1 AND project_id='p' AND panel_id=$2 AND version=2",
+      [user, discoveryPanelId],
+    );
+    const { captures, reports } = await readResolvedCaptures(scope, rpc);
+    expect(captures[0]).toMatchObject({ panelResolved: true, outcome: "protocol_deviant" });
+    expect(captures[0].deviations).toContain("discovery_schedule_missing");
+    expect(
+      reports.find((x) => x.panelId === discoveryPanelId && x.panelVersion === 2)?.outcomes
+        .complete,
+    ).toBe(0);
+  });
+  it("freezes the approved schedule immutably: a stale draft over the locked version or a re-lock is refused", async () => {
+    await saveCitationPanelDraft(scope, discoveryPanelId, 0, draftDiscovery(), rpc);
+    const locked = await lockCitationPanel(scope, discoveryPanelId, 1, rpc);
+    expect(locked.schedule?.slots).toHaveLength(4);
+    // The locked version is immutable: a draft at the locked version, or a re-lock, is refused.
+    await expect(
+      saveCitationPanelDraft(scope, discoveryPanelId, 1, draftDiscovery({ version: 2 }), rpc),
+    ).rejects.toThrow();
+    await expect(lockCitationPanel(scope, discoveryPanelId, 1, rpc)).rejects.toThrow();
+    const stored = (await readCitationProtocol(scope, rpc)).panels.find((p) => p.version === 2);
+    expect(stored?.schedule?.slots.map((s) => s.intendedAt)).toEqual(
+      [1, 2, 3, 4].map(futureSlotInstant),
+    );
+  });
+  it("refuses a malformed schedule at lock via direct SQL (no NULL/bool_and bypass)", async () => {
+    // Direct-SQL forgeries that a JSON null / missing field might slip past a naive check: a missing
+    // timezone, a slot missing its round, and a slot missing its intendedAt must each fail closed. None
+    // of these can lock, and none read as a clean baseline (they never reach a capture).
+    const malformed = [
+      { timezone: "Europe/Stockholm", slots: [1, 2, 3, 4].map((round) => ({ round })) }, // no intendedAt
+      {
+        slots: [1, 2, 3, 4].map((round) => ({ round, intendedAt: futureSlotInstant(round) })),
+      }, // no timezone
+      {
+        timezone: "Europe/Stockholm",
+        slots: [
+          { intendedAt: futureSlotInstant(1) }, // a slot missing its round
+          { round: 2, intendedAt: futureSlotInstant(2) },
+          { round: 3, intendedAt: futureSlotInstant(3) },
+          { round: 4, intendedAt: futureSlotInstant(4) },
+        ],
+      },
+      {
+        timezone: "UTC",
+        slots: [1, 2, 3, 4].map((round) => ({ round, intendedAt: futureSlotInstant(round) })),
+      }, // wrong tz
+    ];
+    let n = 800;
+    for (const schedule of malformed) {
+      const pid = uuid((n += 1));
+      // Save the draft directly (the client schema would reject these; the DB save does not validate the
+      // schedule, so a direct write can carry a malformed one — exactly the forgery the lock must catch).
+      await db.query(
+        "INSERT INTO citation_panels(user_id,project_id,panel_id,version,document) VALUES($1,'p',$2,1,$3)",
+        [user, pid, draftDiscovery({ panelId: pid, schedule })],
+      );
+      await expect(
+        db.query("SELECT lock_citation_panel($1,'p',$2,$3)", [user, pid, 1]),
+      ).rejects.toThrow(/citation_panel_schedule_invalid/);
+    }
   });
 });
