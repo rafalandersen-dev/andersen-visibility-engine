@@ -39,6 +39,7 @@ import { ltPublicStudies } from "./lt-public-studies";
 import { ltServicesScreen } from "./lt-services-screen";
 import { ltSetupScreen } from "./lt-setup-screen";
 import { ltSharedUi } from "./lt-shared-ui";
+import { ltCitationReview } from "./lt-citation-review";
 /** Lithuanian authoring in progress; never imported by the runtime catalog. */
 export const LT_STAGED_BATCHES = [
   {
@@ -285,6 +286,13 @@ export const LT_STAGED_BATCHES = [
     namespaces: ["chat"],
     sourceRevision: "account conversations candidate after ff9b085",
     sourceHash: "d37f66e7435e11e49b2e69c75ace0f494c1d288b7c4e4b1d3f3c110a1274649b",
+  },
+  {
+    name: "citation review",
+    copy: ltCitationReview,
+    namespaces: ["citationReview"],
+    sourceRevision: "P4 citation review candidate after bab861c8",
+    sourceHash: "d41949f7901f0d37b4debab152a406f238c34273ed422fe230df34ff41dcb151",
   },
 ] as const;
 export const LT_STAGED_CATALOG: Readonly<Record<string, string>> = Object.freeze(

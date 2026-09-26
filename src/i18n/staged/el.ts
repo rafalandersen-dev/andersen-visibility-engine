@@ -27,6 +27,7 @@ import { elBillingScreen } from "./el-billing-screen";
 import { elAuthScreen } from "./el-auth-screen";
 import { elSharedUi } from "./el-shared-ui";
 import { elCore } from "./el-core";
+import { elCitationReview } from "./el-citation-review";
 /** Greek authoring; never imported by the runtime catalog. */
 export const EL_STAGED_BATCHES = [
   {
@@ -267,6 +268,13 @@ export const EL_STAGED_BATCHES = [
     ],
     sourceRevision: "73e6880",
     sourceHash: "845b2b1ade4a0935ab924dcc4bdc27d72a7a120388740354bd69a697aa1c7ff2",
+  },
+  {
+    name: "citation review",
+    copy: elCitationReview,
+    namespaces: ["citationReview"],
+    sourceRevision: "P4 citation review candidate after bab861c8",
+    sourceHash: "d41949f7901f0d37b4debab152a406f238c34273ed422fe230df34ff41dcb151",
   },
 ] as const;
 export const EL_STAGED_CATALOG: Readonly<Record<string, string>> = Object.freeze(

@@ -27,6 +27,7 @@ import { bgSetupScreen } from "./bg-setup-screen";
 import { bgCore } from "./bg-core";
 import { bgAuthScreen } from "./bg-auth-screen";
 import { bgSharedUi } from "./bg-shared-ui";
+import { bgCitationReview } from "./bg-citation-review";
 /** Bulgarian authoring; never imported by the runtime catalog. */
 export const BG_STAGED_BATCHES = [
   {
@@ -267,6 +268,13 @@ export const BG_STAGED_BATCHES = [
     namespaces: ["sharedUi"],
     sourceRevision: "7a9ab2d",
     sourceHash: "678278d00a51f6b4df582627cce0d38b176e65972d6ac578682f8e2e247d9de5",
+  },
+  {
+    name: "citation review",
+    copy: bgCitationReview,
+    namespaces: ["citationReview"],
+    sourceRevision: "P4 citation review candidate after bab861c8",
+    sourceHash: "d41949f7901f0d37b4debab152a406f238c34273ed422fe230df34ff41dcb151",
   },
 ] as const;
 export const BG_STAGED_CATALOG: Readonly<Record<string, string>> = Object.freeze(

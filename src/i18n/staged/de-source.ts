@@ -31,4 +31,6 @@ export const DE_AUTHORING_SOURCE_HASHES: Readonly<Record<string, string>> = {
   "beta controls": "c4dcf4827cb49219199aab22d2969e33f643ade8a8c2c348bb899d61f3a08119",
   "public pricing": "8e7cecc9d6ca14af722fe8b4131d7982241e9e856335586f8d4e724469d0de60",
   "public studies": "ace563fb757a52abcd667e7e691d3e48024045a4e4f265e6949c66a828f5e8de",
+  // P4 citation review candidate after bab861c8 (2026-09-26); English source in src/i18n/citation-review.ts.
+  "citation review": "d41949f7901f0d37b4debab152a406f238c34273ed422fe230df34ff41dcb151",
 };

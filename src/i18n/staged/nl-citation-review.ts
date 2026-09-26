@@ -1,0 +1,153 @@
+/** Dutch authoring only; not registered in the runtime or language picker. Machine-authored on
+ * 2026-09-26 from the English P4 citation-review namespace; fluent human acceptance pending. */
+export const nlCitationReview: Readonly<Record<string, string>> = {
+  "citationReview.title": "Citatiebeoordeling",
+  "citationReview.subtitle":
+    "Beheer de onafhankelijke tweede beoordeling van citatiebevindingen voor dit project.",
+  "citationReview.loading": "Laden…",
+  "citationReview.owner.intro":
+    "Uw bevindingen voor dit project. De statussen zijn de huidige, actuele waarden — een verklaring van de eigenaar is nooit een onafhankelijk of causaal bewijs. Het opstellen van bevindingen, panelkoppeling en het uitlezen van native rapporten maken geen deel uit van deze weergave.",
+  "citationReview.owner.empty": "Nog geen citatiebevindingen voor dit project.",
+  "citationReview.owner.version": "v{version}",
+  "citationReview.owner.openFinding": "Bevinding openen: {family}",
+  "citationReview.owner.recorded": "vastgelegd op {date}",
+  "citationReview.error.loadFindings":
+    "De bevindingen konden niet worden geladen. Vernieuw en probeer het opnieuw.",
+  "citationReview.error.loadDetail": "Deze bevinding kon niet worden geladen.",
+  "citationReview.family.citation_source": "Citatie-/bronhiaat",
+  "citationReview.family.recommendation_accuracy": "Juistheid van de aanbeveling",
+  "citationReview.decision.accepted": "Geaccepteerd",
+  "citationReview.decision.dismissed": "Afgewezen",
+  "citationReview.decision.needs_second_review": "Tweede beoordeling nodig",
+  "citationReview.reviewStatus.owner_only": "Alleen eigenaar",
+  "citationReview.reviewStatus.second_review_pending": "Tweede beoordeling in afwachting",
+  "citationReview.reviewStatus.independent_reviewed": "Onafhankelijk beoordeeld",
+  "citationReview.reviewStatus.independent_opinion": "Onafhankelijke mening (niet controleerbaar)",
+  "citationReview.reviewStatus.independent_dissent": "Onafhankelijk bezwaar",
+  "citationReview.accuracy.none": "Geen beoordeelde juistheid",
+  "citationReview.accuracy.resolved": "Juistheid vastgesteld",
+  "citationReview.accuracy.unresolved": "Juistheid niet vastgesteld",
+  "citationReview.chip.sourceUnavailable": "Geciteerde bron niet beschikbaar",
+  "citationReview.detail.title": "Details van de bevinding",
+  "citationReview.detail.current": "Huidig",
+  "citationReview.detail.evidenceErased": "bewijs vergeten",
+  "citationReview.detail.legacyRecord":
+    "Verouderd of misvormd record, ruw getoond ter inspectie en verwijdering; geen geldige huidige bevinding.",
+  "citationReview.record.observation": "Waarneming",
+  "citationReview.record.hypothesis": "Hypothese",
+  "citationReview.record.recommendation": "Aanbeveling",
+  "citationReview.record.support": "Onderbouwing",
+  "citationReview.record.accuracy": "Beoordeelde juistheid",
+  "citationReview.record.rawAudit": "Ruw record (audit)",
+  "citationReview.grant.title": "Wijs een beoordelaar toe aan deze bevinding",
+  "citationReview.grant.failed":
+    "De toewijzing kon niet worden bijgewerkt. Het lid komt mogelijk niet meer in aanmerking; vernieuw en probeer het opnieuw.",
+  "citationReview.grant.rosterError":
+    "De teamlijst of het goedkeuringsbeleid kon niet worden geladen.",
+  "citationReview.grant.noEligible":
+    "Geen beoordelaar in het team komt in aanmerking onder het huidige goedkeuringsbeleid. Stel eerst een beoordelaars-/redacteursbeleid in bij Medewerkers.",
+  "citationReview.grant.selectReviewer": "Selecteer een teamlid dat in aanmerking komt",
+  "citationReview.grant.grant": "Beoordelingstoegang verlenen",
+  "citationReview.grant.selectRevoke": "Selecteer een lid om toegang in te trekken",
+  "citationReview.grant.revoke": "Beoordelingstoegang intrekken",
+  "citationReview.grant.departed": "niet langer actief",
+  "citationReview.grant.granted": "Beoordelingstoegang verleend voor deze bevinding.",
+  "citationReview.grant.revoked": "Beoordelingstoegang ingetrokken voor deze bevinding.",
+  "citationReview.grant.linkHelp":
+    "Deel deze in-app-link met de toegewezen beoordelaar zodat die precies deze bevinding kan openen:",
+  "citationReview.grant.link": "Afgebakende beoordelingslink",
+  "citationReview.grant.copy": "Kopiëren",
+  "citationReview.grant.copied": "Gekopieerd",
+  "citationReview.role.reviewer": "Beoordelaar",
+  "citationReview.role.editor": "Redacteur",
+  "citationReview.role.viewer": "Kijker",
+  "citationReview.share.sharedTitle":
+    "De toegewezen beoordelaar kan inzien, alleen voor DEZE bevinding:",
+  "citationReview.share.withheldTitle": "De beoordelaar ziet nooit:",
+  "citationReview.share.answerContent": "de vastgelegde antwoordtekst en de citaties ervan",
+  "citationReview.share.selectedSourceMaterial":
+    "de geselecteerde bronrecords die deze bevinding citeert (niet de hele bron)",
+  "citationReview.share.datedFacts": "de gedateerde feiten achter elke beoordeelde juistheidsclaim",
+  "citationReview.share.recordAndStatus":
+    "het bevindingsrecord, de inhoudshash ervan en de huidige status",
+  "citationReview.share.notOtherFindings": "uw andere bevindingen",
+  "citationReview.share.notFindingsList": "uw volledige lijst met bevindingen",
+  "citationReview.share.notArtifactBytes": "ruwe bytes van native artefacten",
+  "citationReview.share.notFactManagement": "beheer van bedrijfsfeiten",
+  "citationReview.share.notExports": "exports",
+  "citationReview.reviewer.title": "Deze toegewezen bevinding beoordelen",
+  "citationReview.reviewer.unavailable":
+    "Deze bevinding is niet voor u beschikbaar. De toegang is mogelijk ingetrokken of verlopen.",
+  "citationReview.reviewer.withheld":
+    "Het bewijs voor deze bevinding wordt achtergehouden (vergeten, of een geciteerde bron is ingetrokken of ontbreekt). U kunt het niet inzien of goedkeuren.",
+  "citationReview.reviewer.inspectable": "Volledig controleerbaar",
+  "citationReview.reviewer.notInspectable":
+    "Niet volledig controleerbaar — goedkeuring is niet mogelijk; u kunt nog wel een mening of bezwaar vastleggen.",
+  "citationReview.reviewer.decisionLabel": "Beslissing",
+  "citationReview.reviewer.chooseDecision": "Kies een beslissing",
+  "citationReview.reviewer.noteLabel": "Beoordelingsnotitie (optioneel, platte tekst)",
+  "citationReview.reviewer.notePlaceholder": "Optionele notitie",
+  "citationReview.reviewer.submit": "Beslissing indienen",
+  "citationReview.reviewer.staleRefreshed":
+    "De bevinding is gewijzigd sinds u haar opende, of er is al een andere beslissing of notitie voor vastgelegd. Uw keuze is gewist — controleer de huidige versie en kies opnieuw.",
+  "citationReview.reviewer.reviewsError":
+    "Bestaande beoordelingen konden niet worden geladen. Vernieuw om de huidige status te zien.",
+  "citationReview.reviewer.recorded": "U hebt vastgelegd: {decision}",
+  "citationReview.reviewer.withdraw": "Mijn beslissing intrekken",
+  "citationReview.reviewer.truncated":
+    "Recente beoordelingen worden getoond van in totaal {total}.",
+  "citationReview.reviewer.evidence": "Geciteerd bewijs",
+  "citationReview.reviewer.noEvidence": "Deze bevinding citeert geen herleidbaar bewijs.",
+  "citationReview.reviewer.facts": "Gedateerde feiten",
+  "citationReview.reviewDecision.approved": "Goedkeuren",
+  "citationReview.reviewDecision.rejected": "Afwijzen",
+  "citationReview.reviewDecision.needs_changes": "Wijzigingen nodig",
+  "citationReview.guard.withheld":
+    "Het bewijs wordt achtergehouden, dus er kan geen beslissing worden vastgelegd.",
+  "citationReview.guard.uninspectable":
+    "Deze bevinding is niet volledig controleerbaar en kan daarom niet worden goedgekeurd.",
+  "citationReview.guard.choose": "Kies een beslissing om in te dienen.",
+  "citationReview.evidence.answer": "Vastgelegd antwoord",
+  "citationReview.evidence.available": "beschikbaar",
+  "citationReview.evidence.deleted": "verwijderd",
+  "citationReview.evidence.truncated":
+    "De antwoordinhoud overschrijdt de inspectielimiet en is afgekapt.",
+  "citationReview.evidence.citations": "Citaties",
+  "citationReview.evidence.source": "Bron",
+  "citationReview.evidence.unknownStatus": "status onbekend",
+  "citationReview.evidence.label": "Label",
+  "citationReview.evidence.url": "URL-adres",
+  "citationReview.evidence.selectedRecords": "Geselecteerde records",
+  "citationReview.evidence.validUntil": "geldig tot",
+  "citationReview.evidence.native": "Native artefact",
+  "citationReview.evidence.notInspectable":
+    "niet controleerbaar (ondoorzichtige tijdelijk opgeslagen bytes)",
+  "citationReview.evidence.factUnavailable": "feit niet beschikbaar (verwijderd)",
+  "citationReview.link.invalid":
+    "Deze beoordelingslink is onvolledig of misvormd. Vraag de projecteigenaar om een actuele beoordelingslink.",
+  "citationReview.navFromVisibility": "Citatiebeoordeling (bevindingen voor tweede beoordeling) →",
+  "citationReview.record.passage": "Passage",
+  "citationReview.record.suitability": "Geschiktheid",
+  "citationReview.record.citedUrl": "Geciteerd URL-adres",
+  "citationReview.record.sourcePassage": "Bronpassage",
+  "citationReview.record.humanStatus": "vastgelegd oordeel",
+  "citationReview.record.resolution": "actuele vaststelling",
+  "citationReview.record.capturedOn": "vastgelegd op",
+  "citationReview.record.factKind": "soort feit",
+  "citationReview.resolution.not_assessed": "niet beoordeeld",
+  "citationReview.resolution.unpinned": "geen exact feit vastgepind",
+  "citationReview.resolution.capture_unresolved": "vastlegtijdstip niet vastgesteld",
+  "citationReview.resolution.fact_missing": "vastgepind feit verwijderd",
+  "citationReview.resolution.wrong_kind": "vastgepind feit van een andere soort",
+  "citationReview.resolution.out_of_period": "feit niet geldig op het moment van vastleggen",
+  "citationReview.resolution.ambiguous": "dubbelzinnig (meerdere dekkende feiten)",
+  "citationReview.resolution.superseded_correction": "vervangen door een latere correctie",
+  "citationReview.resolution.resolved": "vastgesteld tegen het gedateerde feit",
+  "citationReview.reviewer.passagesWithheld":
+    "Gekopieerde bronpassages worden in deze weergave achtergehouden omdat een geciteerde bron is ingetrokken of ontbreekt; het opgeslagen record van de eigenaar is ongewijzigd.",
+  "citationReview.reviewer.revokedOwnReceipt":
+    "Uw eigen vastgelegde beslissing kunt u nog steeds intrekken.",
+  "citationReview.reviewer.withdrawn": "Uw beslissing is ingetrokken.",
+  "citationReview.reviewer.withdrawFailed":
+    "Uw beslissing kon niet worden ingetrokken. Vernieuw en probeer het opnieuw.",
+};

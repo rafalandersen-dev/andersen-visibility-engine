@@ -35,6 +35,9 @@ const properNames = new Set<string>([
   "shopify.shopify",
   "claude.cliHeading",
   "claude.desktopHeading",
+  // "URL" and the version chip "v{version}" are technical tokens, identical in Maltese (P4 citation review).
+  "citationReview.evidence.url",
+  "citationReview.owner.version",
 ]);
 
 const tokens = (value: string, pattern: RegExp) =>
@@ -74,7 +77,7 @@ it("keeps staged Maltese outside runtime and assigns each authored key once", ()
   const keys = MT_STAGED_BATCHES.flatMap((batch) => Object.keys(batch.copy));
   expect(new Set(keys).size).toBe(keys.length);
   expect(Object.keys(MT_STAGED_CATALOG).sort()).toEqual(keys.sort());
-  expect(keys).toHaveLength(3860);
+  expect(keys).toHaveLength(3984);
   expect(Object.isFrozen(MT_STAGED_CATALOG)).toBe(true);
 });
 it("covers the complete current English interface key set", () => {

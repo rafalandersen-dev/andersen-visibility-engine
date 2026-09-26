@@ -1,0 +1,153 @@
+/** Romanian authoring only; not registered in the runtime or language picker. Machine-authored on
+ * 2026-09-26 from the English P4 citation-review namespace; fluent human acceptance pending. */
+export const roCitationReview: Readonly<Record<string, string>> = {
+  "citationReview.title": "Revizuirea citărilor",
+  "citationReview.subtitle":
+    "Gestionați a doua revizuire independentă a constatărilor de citare pentru acest proiect.",
+  "citationReview.loading": "Se încarcă…",
+  "citationReview.owner.intro":
+    "Constatările dvs. pentru acest proiect. Stările sunt valorile curente, în timp real — o atestare a proprietarului nu este niciodată o dovadă independentă sau cauzală. Redactarea constatărilor, legarea de panou și analiza rapoartelor native nu fac parte din această vizualizare.",
+  "citationReview.owner.empty": "Încă nu există constatări de citare pentru acest proiect.",
+  "citationReview.owner.version": "v{version}",
+  "citationReview.owner.openFinding": "Deschide constatarea: {family}",
+  "citationReview.owner.recorded": "înregistrată la {date}",
+  "citationReview.error.loadFindings":
+    "Constatările nu au putut fi încărcate. Reîmprospătați și încercați din nou.",
+  "citationReview.error.loadDetail": "Această constatare nu a putut fi încărcată.",
+  "citationReview.family.citation_source": "Lacună de citare / sursă",
+  "citationReview.family.recommendation_accuracy": "Acuratețea recomandării",
+  "citationReview.decision.accepted": "Acceptată",
+  "citationReview.decision.dismissed": "Respinsă",
+  "citationReview.decision.needs_second_review": "Necesită a doua revizuire",
+  "citationReview.reviewStatus.owner_only": "Doar proprietarul",
+  "citationReview.reviewStatus.second_review_pending": "A doua revizuire în așteptare",
+  "citationReview.reviewStatus.independent_reviewed": "Revizuită independent",
+  "citationReview.reviewStatus.independent_opinion": "Opinie independentă (neverificabilă)",
+  "citationReview.reviewStatus.independent_dissent": "Dezacord independent",
+  "citationReview.accuracy.none": "Nicio acuratețe evaluată",
+  "citationReview.accuracy.resolved": "Acuratețe rezolvată",
+  "citationReview.accuracy.unresolved": "Acuratețe nerezolvată",
+  "citationReview.chip.sourceUnavailable": "Sursa citată nu este disponibilă",
+  "citationReview.detail.title": "Detaliile constatării",
+  "citationReview.detail.current": "Curent",
+  "citationReview.detail.evidenceErased": "dovezi uitate",
+  "citationReview.detail.legacyRecord":
+    "Înregistrare veche sau malformată afișată brut pentru inspecție și ștergere; nu este o constatare curentă validă.",
+  "citationReview.record.observation": "Observație",
+  "citationReview.record.hypothesis": "Ipoteză",
+  "citationReview.record.recommendation": "Recomandare",
+  "citationReview.record.support": "Susținere",
+  "citationReview.record.accuracy": "Acuratețe evaluată",
+  "citationReview.record.rawAudit": "Înregistrare brută (audit)",
+  "citationReview.grant.title": "Atribuiți un revizor acestei constatări",
+  "citationReview.grant.failed":
+    "Atribuirea nu a putut fi actualizată. Membrul poate să nu mai fie eligibil; reîmprospătați și încercați din nou.",
+  "citationReview.grant.rosterError":
+    "Lista echipei sau politica de aprobare nu a putut fi încărcată.",
+  "citationReview.grant.noEligible":
+    "Niciun revizor eligibil în echipă conform politicii de aprobare curente. Setați mai întâi o politică de revizor/editor în Colaboratori.",
+  "citationReview.grant.selectReviewer": "Selectați un membru eligibil al echipei",
+  "citationReview.grant.grant": "Acordă acces de revizuire",
+  "citationReview.grant.selectRevoke": "Selectați un membru pentru revocare",
+  "citationReview.grant.revoke": "Revocă accesul de revizuire",
+  "citationReview.grant.departed": "nu mai este activ",
+  "citationReview.grant.granted": "Acces de revizuire acordat pentru această constatare.",
+  "citationReview.grant.revoked": "Acces de revizuire revocat pentru această constatare.",
+  "citationReview.grant.linkHelp":
+    "Partajați acest link din aplicație cu revizorul atribuit, ca să poată deschide exact această constatare:",
+  "citationReview.grant.link": "Link de revizuire delimitat",
+  "citationReview.grant.copy": "Copiază",
+  "citationReview.grant.copied": "Copiat",
+  "citationReview.role.reviewer": "Revizor",
+  "citationReview.role.editor": "Editor",
+  "citationReview.role.viewer": "Cititor",
+  "citationReview.share.sharedTitle":
+    "Revizorul atribuit poate inspecta, doar pentru ACEASTĂ constatare:",
+  "citationReview.share.withheldTitle": "Revizorul nu vede niciodată:",
+  "citationReview.share.answerContent": "textul răspunsului capturat și citările sale",
+  "citationReview.share.selectedSourceMaterial":
+    "înregistrările-sursă selectate pe care le citează această constatare (nu întreaga sursă)",
+  "citationReview.share.datedFacts":
+    "faptele datate din spatele fiecărei afirmații de acuratețe evaluate",
+  "citationReview.share.recordAndStatus":
+    "înregistrarea constatării, hash-ul conținutului și starea curentă",
+  "citationReview.share.notOtherFindings": "celelalte constatări ale dvs.",
+  "citationReview.share.notFindingsList": "lista dvs. completă de constatări",
+  "citationReview.share.notArtifactBytes": "octeții bruți ai artefactelor native",
+  "citationReview.share.notFactManagement": "gestionarea faptelor de afaceri",
+  "citationReview.share.notExports": "exporturile",
+  "citationReview.reviewer.title": "Revizuiți această constatare atribuită",
+  "citationReview.reviewer.unavailable":
+    "Această constatare nu vă este disponibilă. Accesul poate să fi fost revocat sau să fi expirat.",
+  "citationReview.reviewer.withheld":
+    "Dovezile pentru această constatare sunt reținute (uitate, sau o sursă citată este revocată ori lipsește). Nu o puteți inspecta sau aproba.",
+  "citationReview.reviewer.inspectable": "Complet inspectabilă",
+  "citationReview.reviewer.notInspectable":
+    "Nu este complet inspectabilă — aprobarea nu este disponibilă; puteți totuși înregistra o opinie sau un dezacord.",
+  "citationReview.reviewer.decisionLabel": "Decizie",
+  "citationReview.reviewer.chooseDecision": "Alegeți o decizie",
+  "citationReview.reviewer.noteLabel": "Notă de revizuire (opțională, text simplu)",
+  "citationReview.reviewer.notePlaceholder": "Notă opțională",
+  "citationReview.reviewer.submit": "Trimite decizia",
+  "citationReview.reviewer.staleRefreshed":
+    "Constatarea s-a schimbat de când ați deschis-o sau există deja înregistrată o altă decizie ori notă pentru ea. Selecția dvs. a fost ștearsă — inspectați versiunea curentă și alegeți din nou.",
+  "citationReview.reviewer.reviewsError":
+    "Revizuirile existente nu au putut fi încărcate. Reîmprospătați pentru a vedea starea curentă.",
+  "citationReview.reviewer.recorded": "Ați înregistrat: {decision}",
+  "citationReview.reviewer.withdraw": "Retrage decizia mea",
+  "citationReview.reviewer.truncated": "Se afișează revizuirile recente din {total} în total.",
+  "citationReview.reviewer.evidence": "Dovezi citate",
+  "citationReview.reviewer.noEvidence":
+    "Această constatare nu citează nicio dovadă care poate fi găsită.",
+  "citationReview.reviewer.facts": "Fapte datate",
+  "citationReview.reviewDecision.approved": "Aprobă",
+  "citationReview.reviewDecision.rejected": "Respinge",
+  "citationReview.reviewDecision.needs_changes": "Necesită modificări",
+  "citationReview.guard.withheld":
+    "Dovezile sunt reținute, așa că nu se poate înregistra nicio decizie.",
+  "citationReview.guard.uninspectable":
+    "Această constatare nu este complet inspectabilă, așa că nu poate fi aprobată.",
+  "citationReview.guard.choose": "Alegeți o decizie de trimis.",
+  "citationReview.evidence.answer": "Răspuns capturat",
+  "citationReview.evidence.available": "disponibil",
+  "citationReview.evidence.deleted": "șters",
+  "citationReview.evidence.truncated":
+    "Conținutul răspunsului depășește limita de inspecție și a fost trunchiat.",
+  "citationReview.evidence.citations": "Citări",
+  "citationReview.evidence.source": "Sursă",
+  "citationReview.evidence.unknownStatus": "stare necunoscută",
+  "citationReview.evidence.label": "Etichetă",
+  "citationReview.evidence.url": "Adresă URL",
+  "citationReview.evidence.selectedRecords": "Înregistrări selectate",
+  "citationReview.evidence.validUntil": "valabil până la",
+  "citationReview.evidence.native": "Artefact nativ",
+  "citationReview.evidence.notInspectable": "neinspectabil (octeți opaci stocați temporar)",
+  "citationReview.evidence.factUnavailable": "fapt indisponibil (șters)",
+  "citationReview.link.invalid":
+    "Acest link de revizuire este incomplet sau malformat. Cereți proprietarului proiectului un link de revizuire actual.",
+  "citationReview.navFromVisibility": "Revizuirea citărilor (constatări pentru a doua revizuire) →",
+  "citationReview.record.passage": "Pasaj",
+  "citationReview.record.suitability": "Adecvare",
+  "citationReview.record.citedUrl": "Adresă URL citată",
+  "citationReview.record.sourcePassage": "Pasaj din sursă",
+  "citationReview.record.humanStatus": "aprecierea înregistrată",
+  "citationReview.record.resolution": "rezolvarea curentă",
+  "citationReview.record.capturedOn": "capturat la",
+  "citationReview.record.factKind": "tipul faptului",
+  "citationReview.resolution.not_assessed": "neevaluat",
+  "citationReview.resolution.unpinned": "niciun fapt exact fixat",
+  "citationReview.resolution.capture_unresolved": "momentul capturii nerezolvat",
+  "citationReview.resolution.fact_missing": "faptul fixat a fost șters",
+  "citationReview.resolution.wrong_kind": "faptul fixat este de alt tip",
+  "citationReview.resolution.out_of_period": "faptul nu era valabil la momentul capturii",
+  "citationReview.resolution.ambiguous": "ambiguu (mai multe fapte acoperă perioada)",
+  "citationReview.resolution.superseded_correction": "înlocuit de o corecție ulterioară",
+  "citationReview.resolution.resolved": "rezolvat față de faptul datat",
+  "citationReview.reviewer.passagesWithheld":
+    "Pasajele copiate din sursă sunt reținute în această vizualizare deoarece o sursă citată este revocată sau lipsește; înregistrarea stocată a proprietarului rămâne neschimbată.",
+  "citationReview.reviewer.revokedOwnReceipt":
+    "Propria decizie înregistrată rămâne la dispoziția dvs. pentru retragere.",
+  "citationReview.reviewer.withdrawn": "Decizia dvs. a fost retrasă.",
+  "citationReview.reviewer.withdrawFailed":
+    "Decizia dvs. nu a putut fi retrasă. Reîmprospătați și încercați din nou.",
+};

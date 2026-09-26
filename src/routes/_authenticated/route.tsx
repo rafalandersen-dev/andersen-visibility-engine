@@ -6,34 +6,21 @@
  *
  * Onboarding guard: once hydrated, if the active project is not set up (or the
  * user has no projects), normal users are redirected into /app/onboarding.
- * Owners bypass the guard (dev/admin), and /app/onboarding itself is exempt.
+ * Owners bypass the guard (dev/admin); the exempt paths (onboarding itself,
+ * consent, setup, team pages, the scoped citation-review link) are the tested
+ * pure contract in `@/lib/onboarding-guard`.
  */
 import { createFileRoute, Outlet, useNavigate, useRouterState } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { useAuth } from "@/lib/auth";
 import { hydrateForUser, resetStore, useStore } from "@/lib/store";
-import { isProjectSetupComplete } from "@/lib/onboarding";
+import { ONBOARDING_PATH, onboardingRedirectNeeded } from "@/lib/onboarding-guard";
 import { useT } from "@/i18n";
 import { Button } from "@/components/ui/button";
 
 export const Route = createFileRoute("/_authenticated")({
   component: AuthenticatedLayout,
 });
-
-const ONBOARDING_PATH = "/app/onboarding";
-const CONNECT_PATH = "/app/connect";
-const SETUP_PATH = "/app/setup";
-// Routes that must render for any authenticated user regardless of how far
-// through onboarding they are (consent page, project setup itself).
-const ONBOARDING_EXEMPT_PATHS = [
-  ONBOARDING_PATH,
-  CONNECT_PATH,
-  SETUP_PATH,
-  "/app/collaborators",
-  "/app/conversations",
-  "/app",
-  "/app/",
-];
 
 function AuthenticatedLayout() {
   const { loading, session, isOwner, roleLoaded } = useAuth();
@@ -107,12 +94,10 @@ function AuthenticatedLayout() {
       isOwner
     )
       return;
-    // The consent page must render for any authenticated user regardless of
-    // onboarding state, so it is exempt from the onboarding guard.
-    if (ONBOARDING_EXEMPT_PATHS.includes(pathname)) return;
-    const active = projects.find((p) => p.id === activeProjectId) ?? projects[0];
-    const needsOnboarding = projects.length === 0 || !isProjectSetupComplete(active);
-    if (needsOnboarding) {
+    // Exempt paths (consent, setup, team pages, the scoped citation-review link
+    // an assigned reviewer opens without an owned workspace) render for any
+    // authenticated user; everyone else without a set-up project is onboarded.
+    if (onboardingRedirectNeeded({ pathname, projects, activeProjectId })) {
       navigate({ to: ONBOARDING_PATH, replace: true });
     }
   }, [

@@ -38,6 +38,10 @@ const properNames = new Set([
   "shopify.shopify",
   "claude.cliHeading",
   "claude.desktopHeading",
+  // P4 citation review (2026-09-26): the version chip "v{version}" is a technical token, and "Editor" is the
+  // same Romanian role label already used for collaboration.editor above.
+  "citationReview.owner.version",
+  "citationReview.role.editor",
 ]);
 
 const tokens = (value: string, pattern: RegExp) =>
@@ -77,7 +81,7 @@ it("keeps staged Romanian outside runtime and assigns each authored key once", (
   const keys = RO_STAGED_BATCHES.flatMap((batch) => Object.keys(batch.copy));
   expect(new Set(keys).size).toBe(keys.length);
   expect(Object.keys(RO_STAGED_CATALOG).sort()).toEqual(keys.sort());
-  expect(keys).toHaveLength(3860);
+  expect(keys).toHaveLength(3984);
   expect(Object.isFrozen(RO_STAGED_CATALOG)).toBe(true);
 });
 it("covers the complete current English interface key set", () => {

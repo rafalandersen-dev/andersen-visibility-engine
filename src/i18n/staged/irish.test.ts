@@ -30,6 +30,8 @@ const properNames = new Set<string>([
   "shopify.shopify",
   "claude.cliHeading",
   "claude.desktopHeading",
+  // "URL" is the standard technical label in Irish too (P4 citation review, 2026-09-26).
+  "citationReview.evidence.url",
 ]);
 
 const tokens = (value: string, pattern: RegExp) =>
@@ -69,7 +71,7 @@ it("keeps staged Irish outside runtime and assigns each authored key once", () =
   const keys = GA_STAGED_BATCHES.flatMap((batch) => Object.keys(batch.copy));
   expect(new Set(keys).size).toBe(keys.length);
   expect(Object.keys(GA_STAGED_CATALOG).sort()).toEqual(keys.sort());
-  expect(keys).toHaveLength(3860);
+  expect(keys).toHaveLength(3984);
   expect(Object.isFrozen(GA_STAGED_CATALOG)).toBe(true);
 });
 it("covers the complete current English interface key set", () => {
