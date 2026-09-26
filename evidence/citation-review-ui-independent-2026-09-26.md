@@ -22,3 +22,11 @@ Two independently discovered privacy defects (withdrawal clearing the denial, an
 ## Boundaries and remaining acceptance
 
 Fixtures prove UI reactions, not production authorization or a real two-person journey. Parent routing has code and regression evidence; a browser journey using a real non-admin reviewer without owned projects remains open. No full screen-reader or fluent-language acceptance claim. Fresh reload after revocation cannot discover a receipt id for withdrawal; owner assignment inventory and reviewer inbox need separate narrow endpoints. Findings authoring, dated-fact UI, authenticated panel binding, independent destination proof, native parser based on genuine exports, approved manual pilot, comparable retest and full launch acceptance remain required. No applied SQL was modified/replayed. USD50 monthly AI and manual budget grants for free accounts remain unchanged.
+
+## PR150 OAuth review correction
+
+External review of e160e660 identified finding 4111227860: Google/Apple hardcoded `/app`, dropping the scoped reviewer destination. Both external code and security reviews completed on that head; this was the only published actionable finding. Claude corrected the production handler to preserve the validated destination through `/auth?redirect=...`; ordinary dashboard sign-in keeps its existing callback. Codex reviewed the three-file source/test delta against the actual Lovable adapter and the auth page session effect. Internal-path validation rejects non-app, protocol-relative, backslash and path-escape targets. Signup email and password-reset destinations are unchanged.
+
+Independent correction checks: 48 tests / 3 files PASS (auth redirect, onboarding guard, review UI); TypeScript PASS; scoped ESLint PASS; production build PASS, sequential command exit 0. The prior full-suite result above applies to e160e660; no repeated full-suite result is claimed for this three-file correction. Author separately reports 99 tests / 6 files, types, formatting and scoped lint passing.
+
+These tests prove the production callback construction and internal navigation contracts. They do not prove the external broker/provider round-trip; real Google/Apple login and an ordinary assigned reviewer remain production acceptance requirements. No credentials, allowlists, SQL or provider calls were changed or executed.
