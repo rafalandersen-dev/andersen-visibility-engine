@@ -80,6 +80,11 @@ export const ptCitationAuthoring: Readonly<Record<string, string>> = {
     "defina um calendário semanal Europe/Stockholm: uma faixa por ronda",
   "citationAuthoring.lockIssue.scheduleProspective": "cada faixa agendada tem de estar no futuro",
   "citationAuthoring.lockIssue.brandUnscheduled": "um painel de marca não tem calendário",
+  "citationAuthoring.panels.slotIssue.invalidDate": "Essa data do calendário não existe",
+  "citationAuthoring.panels.slotIssue.nonexistent":
+    "Essa hora de Estocolmo não existe nessa data (os relógios avançam); escolha outra hora",
+  "citationAuthoring.panels.slotIssue.ambiguous":
+    "Essa hora de Estocolmo ocorre duas vezes nessa data (os relógios atrasam); escolha outra hora",
   "citationAuthoring.panels.status.draft": "Rascunho",
   "citationAuthoring.panels.status.locked": "Bloqueado",
   "citationAuthoring.panels.version": "v. {version}",
@@ -119,6 +124,7 @@ export const ptCitationAuthoring: Readonly<Record<string, string>> = {
   "citationAuthoring.facts.value": "Valor",
   "citationAuthoring.facts.validFrom": "Válido desde",
   "citationAuthoring.facts.validUntil": "Válido até (opcional)",
+  "citationAuthoring.facts.validityUtc": "A validade é declarada e apresentada em UTC",
   "citationAuthoring.facts.save": "Confirmar facto",
   "citationAuthoring.facts.saveCorrection": "Guardar correção como versão {version}",
   "citationAuthoring.facts.saved": "Facto guardado como versão {version}.",

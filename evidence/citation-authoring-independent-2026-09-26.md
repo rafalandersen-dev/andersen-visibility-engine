@@ -46,3 +46,30 @@ Actual isolated Chrome checks:
 - With every mocked call delayed 4000ms, clicked Approve and lock under A; observed disabled pending control, then switched B before result. Owner subtree changed from instance1 to instance3, old review vanished. The completed lock log retains projectId harness_project at13:41:34.848; B remained a fresh form, no A success banner/draft. Fixture stores are deliberately shared: subsequent B reads show shared saved fixtures, which is NOT a database isolation test. Backend scope checks remain separately tested.
 
 B release blockers are resolved within the local/mock evidence boundary. External exact-head code/security review and CI, new guarded migration once, deployment and live verification remain gates. Genuine pilot, two-person acceptance, native exports/parser and destination proof remain open. No paid/provider/production actions, permission or budget changes occurred.
+
+
+## Packet C — independent delta review (26 September, 19:37 UTC onward)
+
+Desktop terminal confirmed. Uncommitted delta on d2bfd42b. C1 requires a real resolved answer capture instant; frozen payload's live binding checked at Save. C2 clears foreign pins on source change and rejects stored mismatches at review. C3 explicitly labels validity controls/list/history as UTC. C4 round-trips and counts Stockholm candidate instants, rejects spring gaps/autumn folds/impossible dates, refuses any invalid weekly round. SQL unchanged, SHA25617d022bf65d698c7c453f0f33e9e9e1b2f8faa2cf2a29c2ebc6d61857694dea5; prior214critical tests still apply.
+
+Executed independently: production build exit0, TypeScript exit0,4 focused suites48tests passed, git diff --check clean. Logs .coordination/codex-authoring-c-{build,types,tests}-20260926.log.
+
+Actual Chrome local fixture tab1596627668:
+- C2 pinned the Saturday source record, cleared cited source: only none remains; restoring cited source does not restore the hidden pin. Claim/status/passage remain.
+- C3 created LOCAL C3 UTC CHECK with native input2026-06-01T10:00; saved list shows2026-06-01 10:00 UTC. Input and explanatory text explicitly UTC.
+- C4 discovery revision2027-03-28 02:30 shows nonexistent-hour refusal; Save refuses without a write.2027-10-31 02:30 shows ambiguous-hour refusal.2027-03-21 02:30 refuses round2. Changing to10:00 shows all four10:00Stockholm slots with09:00Z before and08:00Z after DST. Native fill alone does not notifyReact in this runtime; ArrowUp on chosen year/hour did. No production records/pilot approvals.
+
+C1 browser gate remains: author recipe25 incorrectly assumes invalidate clears cached ReactQuery data; uniform4s delay also races detail against same-delay answer query. Requested visible independent answer-read controls/uncached-state setup. This is a harness deficiency, not a newly established app defect.
+
+CI diagnosis rejected its full-output safety claim. Official anthropics/claude-code-action@v1 action.yml explicitly warns show_full_output emits all messages/tool results, including possible secrets. SDK source confirms local execution JSON is written before failure; no artifact does not imply pre-SDK failure. Saved official inputs/run-sdk/execution-file in.coordination. Message75 to sameClaude requests harness-only C1 additions plus bounded failure-only CI diagnostic (fixed enum/boolean/count output, no raw text/input/errors/artifacts, no permissions expansion or success override). Existing application/locale/SQL frozen; finish HARNESS-CI-DIAGNOSTIC-D. Actual CI cause remains unknown.
+
+
+## D follow-up review and C1 browser acceptance
+
+Desktop terminal HARNESS-CI-DIAGNOSTIC-D confirmed. SHA256 manifest comparison: none of the eight reviewed application/helper/SQL files changed. Failure-only workflow step preserves existing permissions and failed-review outcome. Diagnostic emits fixed enum literals, booleans and bounded integers; raw result/message/tool input/URL/exception strings are never emitted. No artifact upload/show_full_output. Independently executed all5 diagnostic child-process tests, including secret sentinels and malformed/missing/oversize inputs: PASS. No production build repeat needed for an unchanged application.
+
+Local Chrome1596627668: no-answer mode→open stored finding→Review refused with explicit missing capture-time issue. Restore actual fixture answer and refresh the stale fixture fact reference→explicit review succeeds. Return same answerid with changed capturedAt→existing review stays shown but Save disabled with evidence-stale warning. Restore original capturedAt→Save enabled. Store-success/response-loss mode then writes v2 rowddbe7fb6 and throws; review is retained; ordinary background refetch does not remove cached data. Retry result recorded separately below. These are real component interactions against explicit local mocks, not production evidence.
+
+All C source fixes remain uncommitted on d2bfd42b at this note. External review must cover the updated commit. CI diagnostic has not yet run on GitHub; failure cause remains unknown. SQL remains UNAPPLIED and no release was attempted.
+
+C1 retry confirmed20:17:58.042: idempotent v2 SAMErowddbe7fb6 after20:17:35.212 stored-v2/lostresponse. No duplicate version; originalexpectedVersion1/headf9. Full JSON equality in the localmock covers the frozen capture/review timestamps.

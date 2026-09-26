@@ -18,7 +18,7 @@ import {
   lockIssues,
   panelHeads,
   stockholmLocalLabel,
-  weeklyStockholmSlots,
+  weeklyStockholmSlotsResult,
   type PanelDraftForm,
   type PromptChoice,
 } from "@/lib/citation-panel-ui";
@@ -812,13 +812,26 @@ export function CitationPanelProtocolPanel({
                   </label>
                   <div className="text-xs text-muted-foreground">
                     <div>{t("citationAuthoring.panels.schedulePreview")}</div>
-                    <ul>
-                      {(weeklyStockholmSlots(editing.form.firstSlot, 4) ?? []).map((s) => (
-                        <li key={s.round}>
-                          {s.round}: {s.intendedAt.slice(0, 16).replace("T", " ")} UTC
-                        </li>
-                      ))}
-                    </ul>
+                    {(() => {
+                      if (!editing.form.firstSlot.date) return null;
+                      const r = weeklyStockholmSlotsResult(editing.form.firstSlot, 4);
+                      // A skipped (spring) or doubled (autumn) Stockholm time, or an impossible date, is named
+                      // with its round; the owner picks another hour — no silent shift.
+                      return r.ok ? (
+                        <ul>
+                          {r.slots.map((s) => (
+                            <li key={s.round}>
+                              {s.round}: {stockholmLocalLabel(s.intendedAt)} ·{" "}
+                              {s.intendedAt.slice(0, 16).replace("T", " ")} UTC
+                            </li>
+                          ))}
+                        </ul>
+                      ) : (
+                        <p className="text-amber-600" role="status">
+                          {r.round}: {t(`citationAuthoring.panels.slotIssue.${r.reason}`)}
+                        </p>
+                      );
+                    })()}
                   </div>
                 </fieldset>
               ) : null}

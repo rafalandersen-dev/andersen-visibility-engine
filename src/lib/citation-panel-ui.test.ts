@@ -9,8 +9,10 @@ import {
   panelHeads,
   questionIdFor,
   questionIdPrefix,
+  stockholmLocalInstant,
   stockholmLocalLabel,
   stockholmLocalToIso,
+  weeklyStockholmSlotsResult,
   tzOffsetMinutes,
   weeklyStockholmSlots,
 } from "./citation-panel-ui";
@@ -70,6 +72,84 @@ describe("question ids and Stockholm schedule", () => {
 });
 
 describe("buildPanelDraft — exact P2 draft document", () => {
+  it("refuses nonexistent (spring gap), ambiguous (autumn fold) and impossible Stockholm times instead of shifting them (Codex C4)", () => {
+    // 2027-03-28: Stockholm clocks jump 02:00 → 03:00; 02:30 never happens that day.
+    expect(stockholmLocalInstant("2027-03-28", "02:30")).toEqual({
+      ok: false,
+      reason: "nonexistent",
+    });
+    expect(stockholmLocalToIso("2027-03-28", "02:30")).toBeNull(); // previously silently became 03:30
+    expect(stockholmLocalInstant("2027-03-28", "01:59")).toEqual({
+      ok: true,
+      iso: "2027-03-28T00:59:00.000Z",
+    });
+    expect(stockholmLocalInstant("2027-03-28", "03:00")).toEqual({
+      ok: true,
+      iso: "2027-03-28T01:00:00.000Z",
+    });
+    // 2027-10-31: clocks fall back 03:00 → 02:00; 02:30 happens twice (CEST then CET) — refused, not guessed.
+    expect(stockholmLocalInstant("2027-10-31", "02:30")).toEqual({
+      ok: false,
+      reason: "ambiguous",
+    });
+    expect(stockholmLocalInstant("2027-10-31", "01:30")).toEqual({
+      ok: true,
+      iso: "2027-10-30T23:30:00.000Z",
+    });
+    expect(stockholmLocalInstant("2027-10-31", "03:30")).toEqual({
+      ok: true,
+      iso: "2027-10-31T02:30:00.000Z",
+    });
+    // Ordinary times on both sides of the transitions, and impossible calendar dates.
+    expect(stockholmLocalInstant("2027-03-27", "02:30")).toEqual({
+      ok: true,
+      iso: "2027-03-27T01:30:00.000Z",
+    });
+    expect(stockholmLocalInstant("2027-11-01", "02:30")).toEqual({
+      ok: true,
+      iso: "2027-11-01T01:30:00.000Z",
+    });
+    expect(stockholmLocalInstant("2027-02-30", "10:00")).toEqual({
+      ok: false,
+      reason: "invalidDate",
+    });
+    expect(stockholmLocalInstant("2027-04-31", "10:00")).toEqual({
+      ok: false,
+      reason: "invalidDate",
+    });
+    expect(stockholmLocalInstant("2027-13-01", "10:00")).toEqual({
+      ok: false,
+      reason: "invalidDate",
+    });
+    // A weekly schedule keeps the same wall-clock across a VALID transition (already covered above) but refuses
+    // as a whole when a later round would land in the gap, naming that round.
+    expect(weeklyStockholmSlotsResult({ date: "2027-03-21", time: "02:30" }, 4)).toEqual({
+      ok: false,
+      round: 2,
+      reason: "nonexistent",
+    });
+    expect(weeklyStockholmSlotsResult({ date: "2027-10-24", time: "02:30" }, 2)).toEqual({
+      ok: false,
+      round: 2,
+      reason: "ambiguous",
+    });
+    const fine = weeklyStockholmSlotsResult({ date: "2027-03-21", time: "10:00" }, 4);
+    expect(fine.ok && fine.slots.map((s) => s.intendedAt)).toEqual([
+      "2027-03-21T09:00:00.000Z",
+      "2027-03-28T08:00:00.000Z",
+      "2027-04-04T08:00:00.000Z",
+      "2027-04-11T08:00:00.000Z",
+    ]);
+    // The draft builder surfaces the refusal with the round instead of building a shifted schedule.
+    const refused = buildPanelDraft(
+      form({ firstSlot: { date: "2027-03-28", time: "02:30" } }),
+      PANEL,
+      0,
+      prompts,
+    );
+    expect(refused.ok).toBe(false);
+    if (!refused.ok) expect(refused.issues).toEqual(["schedule: round 1 nonexistent"]);
+  });
   it("builds a valid discovery draft for the next version with bound questions and a weekly schedule", () => {
     const out = buildPanelDraft(form(), PANEL, 0, prompts);
     expect(out.ok).toBe(true);

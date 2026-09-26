@@ -15,6 +15,8 @@ import {
   instantFromUtcInput,
   instantToUtcInput,
   newFindingDraft,
+  retargetSource,
+  reviewedBindingCurrent,
   staleSelections,
   type AuthoringState,
 } from "./citation-authoring";
@@ -399,6 +401,146 @@ describe("authoring state machine (component interaction contract, no DOM)", () 
       head: { id: HEAD_V2, version: 2, record: built.finding },
     });
     expect(settled.conflict).toBeNull();
+  });
+  it("never invents the answer capture time: pending/failed evidence refuses review; the exact instant is frozen once it arrives (Codex C1)", () => {
+    // The evidence read is still pending (null) when the owner reviews: refused with an evidence issue, no payload.
+    let s = start();
+    s = authoringReducer(s, {
+      type: "review",
+      ownerId: owner,
+      nowIso: now,
+      answerCapturedAt: null,
+    });
+    expect(s.stage).toBe("edit");
+    expect(s.reviewed).toBeNull();
+    expect(s.issues.some((i) => i.startsWith("evidence:") && i.includes("capture time"))).toBe(
+      true,
+    );
+    // A failed read (still null) later: still refused; a malformed instant is refused too.
+    s = authoringReducer(s, {
+      type: "review",
+      ownerId: owner,
+      nowIso: now,
+      answerCapturedAt: null,
+    });
+    expect(s.reviewed).toBeNull();
+    s = authoringReducer(s, {
+      type: "review",
+      ownerId: owner,
+      nowIso: now,
+      answerCapturedAt: "not-a-date",
+    });
+    expect(s.reviewed).toBeNull();
+    // The evidence arrives: an EXPLICIT review freezes the answer's own capturedAt, never `now`.
+    s = reviewAt(s, now);
+    expect(s.stage).toBe("review");
+    expect(s.reviewed!.finding.support).toEqual([]); // no support entries in this draft…
+    const withSupport = ready();
+    withSupport.support = [
+      { ...emptySupport(), claimSpan: "c", citedUrl: "https://x.example", status: "not_checked" },
+    ];
+    let w = authoringReducer(initialAuthoringState(identity), {
+      type: "startNew",
+      draft: withSupport,
+    });
+    w = reviewAt(w, now);
+    expect(w.reviewed!.finding.support[0].answerCapturedAt).toBe(capturedAt); // …and here it is the real one
+    expect(w.reviewed!.finding.support[0].answerCapturedAt).not.toBe(now);
+    // Binding revalidation before save: an unrelated refetch returning the same instant keeps the frozen record
+    // current (a retry sends the same bytes); a vanished/changed instant makes it stale — never rebuilt silently.
+    expect(reviewedBindingCurrent(w, capturedAt)).toBe(true);
+    const frozen = JSON.stringify(w.reviewed!.finding);
+    w = authoringReducer(w, { type: "saveFailed", code: "citation_record_unavailable" });
+    expect(reviewedBindingCurrent(w, capturedAt)).toBe(true);
+    expect(JSON.stringify(w.reviewed!.finding)).toBe(frozen);
+    expect(reviewedBindingCurrent(w, null)).toBe(false);
+    expect(reviewedBindingCurrent(w, "2026-09-11T09:00:00Z")).toBe(false);
+    // The frozen payload is untouched by the stale binding; only an explicit new review would rebuild it.
+    expect(JSON.stringify(w.reviewed!.finding)).toBe(frozen);
+  });
+  it("a selected-record pin can only belong to the cited source: changing/clearing the source clears foreign pins, a stored mismatch is refused (Codex C2)", () => {
+    const SOURCE_B = "80000000-0000-4000-8000-000000000002";
+    const RECORD_B = "b1000000-0000-4000-8000-000000000002";
+    const d = ready();
+    d.sourceId = SOURCE;
+    d.support = [
+      {
+        ...emptySupport(),
+        claimSpan: "keep me",
+        citedUrl: "https://x.example",
+        status: "supports",
+        sourcePassage: "p",
+        sourceCapturedAt: "2026-09-10T09:30:00Z",
+        reason: "why",
+        selectedRecord: {
+          sourceId: SOURCE,
+          recordId: RECORD,
+          sourceRevision: 3,
+          recordRevision: 1,
+        },
+      },
+      {
+        ...emptySupport(),
+        claimSpan: "unpinned",
+        citedUrl: "https://y.example",
+        status: "not_checked",
+      },
+    ];
+    // Same-source pin: valid.
+    expect(draftToFinding(d, owner, now, capturedAt).ok).toBe(true);
+    // Switch to source B: the foreign pin is cleared explicitly, the claim text/status/passage/reason stay.
+    const toB = retargetSource(d, SOURCE_B);
+    expect(toB.sourceId).toBe(SOURCE_B);
+    expect(toB.support[0]).toMatchObject({
+      claimSpan: "keep me",
+      status: "supports",
+      sourcePassage: "p",
+      reason: "why",
+      selectedRecord: null,
+    });
+    expect(toB.support[1].selectedRecord).toBeNull();
+    // Clear the source: the pin is cleared too (no pin without a cited source).
+    expect(retargetSource(d, null).support[0].selectedRecord).toBeNull();
+    // Re-pinning under B with B's record is valid; a pin from A under B is a stored mismatch → refused on review.
+    const pinnedB = { ...d, ...toB };
+    pinnedB.support[0].selectedRecord = {
+      sourceId: SOURCE_B,
+      recordId: RECORD_B,
+      sourceRevision: 1,
+      recordRevision: 1,
+    };
+    expect(draftToFinding(pinnedB, owner, now, capturedAt).ok).toBe(true);
+    const mismatch = { ...d, sourceId: SOURCE_B };
+    const out = draftToFinding(mismatch, owner, now, capturedAt);
+    expect(out.ok).toBe(false);
+    if (!out.ok) expect(out.issues).toEqual([expect.stringContaining("support.0.selectedRecord")]);
+    const noSource = { ...d, sourceId: null };
+    expect(draftToFinding(noSource, owner, now, capturedAt).ok).toBe(false);
+    // Reopening a stored record whose pin points at another source than its evidence yields the same refusal.
+    const built = draftToFinding(d, owner, now, capturedAt);
+    if (!built.ok) throw new Error(built.issues.join());
+    const storedMismatch = {
+      ...built.finding,
+      evidence: [
+        { kind: "answer" as const, id: ANSWER },
+        { kind: "source" as const, id: SOURCE_B },
+      ],
+    };
+    const reopened = draftFromRecord(storedMismatch, scope, {
+      id: "60000000-0000-4000-8000-0000000000e2",
+      version: 1,
+    });
+    expect(reopened.sourceId).toBe(SOURCE_B);
+    expect(draftToFinding(reopened, owner, now, capturedAt).ok).toBe(false);
+    // Exact revision validation stays in the fresh-read check: a source-revision drift is stale.
+    const fresh = {
+      answers: [{ id: ANSWER }],
+      sources: [{ id: SOURCE, revision: 4, status: "active" }],
+      records: [{ id: RECORD, revision: 1, sourceId: SOURCE, sourceRevision: 4 }],
+      facts: [],
+      lockedScopes: [{ panelId: scope.panelId, panelVersion: 2 }],
+    };
+    expect(staleSelections(d, fresh)).toEqual(["support.0"]); // pinned at sourceRevision 3, live is 4
   });
   it("binds state to the owner+project identity: a project switch drops the draft, the same identity keeps it", () => {
     let s = reviewAt(start(), now);

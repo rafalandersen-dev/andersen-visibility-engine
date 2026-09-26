@@ -131,40 +131,91 @@ export function tzOffsetMinutes(ms: number, timeZone: string): number {
   return Math.round((asUtc - ms) / 60000);
 }
 
-/** The UTC instant (ISO, millisecond precision) of a Stockholm wall-clock date + time. */
-export function stockholmLocalToIso(date: string, time: string): string | null {
+/** Stockholm wall-clock (`YYYY-MM-DDTHH:MM`) of a UTC instant, via Intl. */
+function stockholmWallClock(ms: number): string {
+  const parts = new Intl.DateTimeFormat("en-US", {
+    timeZone: STOCKHOLM,
+    hourCycle: "h23",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+  }).formatToParts(new Date(ms));
+  const get = (type: string) => parts.find((p) => p.type === type)?.value ?? "";
+  const hour = get("hour") === "24" ? "00" : get("hour");
+  return `${get("year")}-${get("month")}-${get("day")}T${hour}:${get("minute")}`;
+}
+
+/** Why a Stockholm wall-clock date + time cannot become an instant (i18n keys under
+ * `citationAuthoring.panels.slotIssue.*`): a calendar date that does not exist, a local time skipped by the
+ * spring-forward transition (`nonexistent`), or a local time that occurs twice at the autumn fall-back
+ * (`ambiguous`). The owner is asked to choose another hour; an entered time is NEVER silently shifted. */
+export type SlotIssue = "invalidDate" | "nonexistent" | "ambiguous";
+/** The UTC instant (ISO, millisecond precision) of a Stockholm wall-clock date + time, verified by round trip:
+ * the candidate instant must format back to exactly the requested wall-clock in Europe/Stockholm, and exactly
+ * ONE candidate may do so. */
+export function stockholmLocalInstant(
+  date: string,
+  time: string,
+): { ok: true; iso: string } | { ok: false; reason: SlotIssue } {
   const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(date);
   const t = /^(\d{2}):(\d{2})$/.exec(time);
-  if (!m || !t) return null;
+  if (!m || !t) return { ok: false, reason: "invalidDate" };
   const [y, mo, d] = [Number(m[1]), Number(m[2]), Number(m[3])];
   const [hh, mm] = [Number(t[1]), Number(t[2])];
-  if (mo < 1 || mo > 12 || d < 1 || d > 31 || hh > 23 || mm > 59) return null;
+  if (mo < 1 || mo > 12 || d < 1 || d > 31 || hh > 23 || mm > 59)
+    return { ok: false, reason: "invalidDate" };
   const guess = Date.UTC(y, mo - 1, d, hh, mm, 0, 0);
-  let utc = guess - tzOffsetMinutes(guess, STOCKHOLM) * 60000;
-  // Re-check across a DST transition: the offset at the corrected instant must reproduce the wall clock.
-  const offset2 = tzOffsetMinutes(utc, STOCKHOLM);
-  utc = guess - offset2 * 60000;
-  if (!Number.isFinite(utc)) return null;
-  return new Date(utc).toISOString();
+  const g = new Date(guess);
+  // Date.UTC normalises an impossible day (30 February → 2 March): refuse instead of accepting the shifted date.
+  if (g.getUTCFullYear() !== y || g.getUTCMonth() !== mo - 1 || g.getUTCDate() !== d)
+    return { ok: false, reason: "invalidDate" };
+  const wanted = `${date}T${time}`;
+  // Every UTC offset in force within a day of the guess is a candidate (Stockholm: +60 or +120 minutes).
+  const offsets = new Set([-12, 0, 12].map((h) => tzOffsetMinutes(guess + h * 3600000, STOCKHOLM)));
+  const matches = [...new Set([...offsets].map((o) => guess - o * 60000))].filter(
+    (utc) => stockholmWallClock(utc) === wanted,
+  );
+  if (matches.length === 0) return { ok: false, reason: "nonexistent" };
+  if (matches.length > 1) return { ok: false, reason: "ambiguous" };
+  return { ok: true, iso: new Date(matches[0]).toISOString() };
+}
+/** Convenience form of `stockholmLocalInstant`: the ISO instant, or null for any refusal. */
+export function stockholmLocalToIso(date: string, time: string): string | null {
+  const r = stockholmLocalInstant(date, time);
+  return r.ok ? r.iso : null;
 }
 
 /** Weekly Stockholm slots: the same local wall-clock time, seven local days apart, one per round (DST-safe by
- * construction — each slot is converted from its own local date). */
-export function weeklyStockholmSlots(
+ * construction — each slot is converted from its own local date and round-trip verified). A round whose local
+ * time does not exist or is ambiguous refuses the WHOLE schedule with the round and reason. */
+export function weeklyStockholmSlotsResult(
   first: { date: string; time: string },
   rounds: number,
-): Array<{ round: number; intendedAt: string }> | null {
+):
+  | { ok: true; slots: Array<{ round: number; intendedAt: string }> }
+  | { ok: false; round: number; reason: SlotIssue } {
   const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(first.date);
-  if (!m || rounds < 1) return null;
+  if (!m || rounds < 1) return { ok: false, round: 1, reason: "invalidDate" };
+  const firstCheck = stockholmLocalInstant(first.date, first.time);
+  if (!firstCheck.ok) return { ok: false, round: 1, reason: firstCheck.reason };
   const slots: Array<{ round: number; intendedAt: string }> = [];
   for (let i = 0; i < rounds; i += 1) {
     const local = new Date(Date.UTC(Number(m[1]), Number(m[2]) - 1, Number(m[3]) + 7 * i));
     const date = local.toISOString().slice(0, 10);
-    const iso = stockholmLocalToIso(date, first.time);
-    if (!iso) return null;
-    slots.push({ round: i + 1, intendedAt: iso });
+    const r = stockholmLocalInstant(date, first.time);
+    if (!r.ok) return { ok: false, round: i + 1, reason: r.reason };
+    slots.push({ round: i + 1, intendedAt: r.iso });
   }
-  return slots;
+  return { ok: true, slots };
+}
+export function weeklyStockholmSlots(
+  first: { date: string; time: string },
+  rounds: number,
+): Array<{ round: number; intendedAt: string }> | null {
+  const r = weeklyStockholmSlotsResult(first, rounds);
+  return r.ok ? r.slots : null;
 }
 
 /** Build the exact `panelDraftSchema` document for the next version (`expected + 1`). Returns the parsed draft or
@@ -193,6 +244,12 @@ export function buildPanelDraft(
     })
     .filter((q): q is NonNullable<typeof q> => q !== null);
   const rounds = form.kind === "discovery" ? DISCOVERY_ROUNDS : 0;
+  // A discovery first slot that names a nonexistent/ambiguous Stockholm time or an impossible date is refused
+  // here with the round and reason (the owner must choose another hour); nothing is shifted to make it fit.
+  if (form.kind === "discovery" && form.firstSlot.date) {
+    const r = weeklyStockholmSlotsResult(form.firstSlot, rounds);
+    if (!r.ok) return { ok: false, issues: [`schedule: round ${r.round} ${r.reason}`] };
+  }
   const schedule =
     form.kind === "discovery" && form.firstSlot.date
       ? (() => {

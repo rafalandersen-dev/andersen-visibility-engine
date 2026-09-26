@@ -81,6 +81,11 @@ export const deCitationAuthoring: Readonly<Record<string, string>> = {
   "citationAuthoring.lockIssue.scheduleProspective":
     "jeder geplante Termin muss in der Zukunft liegen",
   "citationAuthoring.lockIssue.brandUnscheduled": "ein Marken-Panel hat keinen Plan",
+  "citationAuthoring.panels.slotIssue.invalidDate": "Dieses Kalenderdatum existiert nicht",
+  "citationAuthoring.panels.slotIssue.nonexistent":
+    "Diese Stockholmer Uhrzeit existiert an diesem Datum nicht (die Uhr springt vor); wählen Sie eine andere Stunde",
+  "citationAuthoring.panels.slotIssue.ambiguous":
+    "Diese Stockholmer Uhrzeit kommt an diesem Datum zweimal vor (die Uhr wird zurückgestellt); wählen Sie eine andere Stunde",
   "citationAuthoring.panels.status.draft": "Entwurf",
   "citationAuthoring.panels.status.locked": "Gesperrt",
   "citationAuthoring.panels.version": "V. {version}",
@@ -120,6 +125,7 @@ export const deCitationAuthoring: Readonly<Record<string, string>> = {
   "citationAuthoring.facts.value": "Wert",
   "citationAuthoring.facts.validFrom": "Gültig ab",
   "citationAuthoring.facts.validUntil": "Gültig bis (optional)",
+  "citationAuthoring.facts.validityUtc": "Die Gültigkeit wird in UTC angegeben und angezeigt",
   "citationAuthoring.facts.save": "Fakt bestätigen",
   "citationAuthoring.facts.saveCorrection": "Korrektur als Version {version} speichern",
   "citationAuthoring.facts.saved": "Fakt als Version {version} gespeichert.",

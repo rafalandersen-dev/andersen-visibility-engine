@@ -83,6 +83,11 @@ export const roCitationAuthoring: Readonly<Record<string, string>> = {
   "citationAuthoring.lockIssue.scheduleProspective":
     "fiecare interval programat trebuie să fie în viitor",
   "citationAuthoring.lockIssue.brandUnscheduled": "un panel de brand nu are program",
+  "citationAuthoring.panels.slotIssue.invalidDate": "Această dată calendaristică nu există",
+  "citationAuthoring.panels.slotIssue.nonexistent":
+    "Această oră de Stockholm nu există la acea dată (ceasurile sar înainte); alegeți altă oră",
+  "citationAuthoring.panels.slotIssue.ambiguous":
+    "Această oră de Stockholm apare de două ori la acea dată (ceasurile sunt date înapoi); alegeți altă oră",
   "citationAuthoring.panels.status.draft": "Ciornă",
   "citationAuthoring.panels.status.locked": "Blocat",
   "citationAuthoring.panels.version": "v. {version}",
@@ -122,6 +127,7 @@ export const roCitationAuthoring: Readonly<Record<string, string>> = {
   "citationAuthoring.facts.value": "Valoare",
   "citationAuthoring.facts.validFrom": "Valabil de la",
   "citationAuthoring.facts.validUntil": "Valabil până la (opțional)",
+  "citationAuthoring.facts.validityUtc": "Valabilitatea este declarată și afișată în UTC",
   "citationAuthoring.facts.save": "Confirmă faptul",
   "citationAuthoring.facts.saveCorrection": "Salvează corecția ca versiunea {version}",
   "citationAuthoring.facts.saved": "Faptul a fost salvat ca versiunea {version}.",

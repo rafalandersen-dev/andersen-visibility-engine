@@ -80,6 +80,11 @@ export const bgCitationAuthoring: Readonly<Record<string, string>> = {
     "задайте седмичен график Europe/Stockholm: по един слот на кръг",
   "citationAuthoring.lockIssue.scheduleProspective": "всеки планиран слот трябва да е в бъдещето",
   "citationAuthoring.lockIssue.brandUnscheduled": "панелът за марка няма график",
+  "citationAuthoring.panels.slotIssue.invalidDate": "Тази календарна дата не съществува",
+  "citationAuthoring.panels.slotIssue.nonexistent":
+    "Този час в Стокхолм не съществува на тази дата (часовниците прескачат напред); изберете друг час",
+  "citationAuthoring.panels.slotIssue.ambiguous":
+    "Този час в Стокхолм се среща два пъти на тази дата (часовниците се връщат назад); изберете друг час",
   "citationAuthoring.panels.status.draft": "Чернова",
   "citationAuthoring.panels.status.locked": "Заключен",
   "citationAuthoring.panels.version": "в. {version}",
@@ -119,6 +124,7 @@ export const bgCitationAuthoring: Readonly<Record<string, string>> = {
   "citationAuthoring.facts.value": "Стойност",
   "citationAuthoring.facts.validFrom": "Валиден от",
   "citationAuthoring.facts.validUntil": "Валиден до (по избор)",
+  "citationAuthoring.facts.validityUtc": "Валидността се декларира и показва в UTC",
   "citationAuthoring.facts.save": "Потвърждаване на факта",
   "citationAuthoring.facts.saveCorrection": "Запазване на корекцията като версия {version}",
   "citationAuthoring.facts.saved": "Фактът е запазен като версия {version}.",

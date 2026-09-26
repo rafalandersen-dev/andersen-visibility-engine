@@ -79,6 +79,11 @@ export const nlCitationAuthoring: Readonly<Record<string, string>> = {
   "citationAuthoring.lockIssue.scheduleProspective":
     "elk ingepland tijdslot moet in de toekomst liggen",
   "citationAuthoring.lockIssue.brandUnscheduled": "een merkpanel heeft geen schema",
+  "citationAuthoring.panels.slotIssue.invalidDate": "Die kalenderdatum bestaat niet",
+  "citationAuthoring.panels.slotIssue.nonexistent":
+    "Die Stockholmse tijd bestaat niet op die datum (de klok springt vooruit); kies een ander uur",
+  "citationAuthoring.panels.slotIssue.ambiguous":
+    "Die Stockholmse tijd komt twee keer voor op die datum (de klok gaat terug); kies een ander uur",
   "citationAuthoring.panels.status.draft": "Concept",
   "citationAuthoring.panels.status.locked": "Vergrendeld",
   "citationAuthoring.panels.version": "v. {version}",
@@ -118,6 +123,7 @@ export const nlCitationAuthoring: Readonly<Record<string, string>> = {
   "citationAuthoring.facts.value": "Waarde",
   "citationAuthoring.facts.validFrom": "Geldig vanaf",
   "citationAuthoring.facts.validUntil": "Geldig tot (optioneel)",
+  "citationAuthoring.facts.validityUtc": "De geldigheid wordt opgegeven en getoond in UTC",
   "citationAuthoring.facts.save": "Feit bevestigen",
   "citationAuthoring.facts.saveCorrection": "Correctie opslaan als versie {version}",
   "citationAuthoring.facts.saved": "Feit opgeslagen als versie {version}.",

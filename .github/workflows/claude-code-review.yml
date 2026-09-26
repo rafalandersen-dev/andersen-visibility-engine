@@ -36,9 +36,22 @@ jobs:
         uses: anthropics/claude-code-action@v1
         with:
           claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
-          plugin_marketplaces: 'https://github.com/anthropics/claude-code.git'
-          plugins: 'code-review@claude-code-plugins'
-          prompt: '/code-review:code-review ${{ github.repository }}/pull/${{ github.event.pull_request.number }}'
+          plugin_marketplaces: "https://github.com/anthropics/claude-code.git"
+          plugins: "code-review@claude-code-plugins"
+          prompt: "/code-review:code-review ${{ github.repository }}/pull/${{ github.event.pull_request.number }}"
           # See https://github.com/anthropics/claude-code-action/blob/main/docs/usage.md
           # or https://code.claude.com/docs/en/cli-reference for available options
 
+      # Failure-only, bounded diagnostic (no permission change, no artifact, no re-run, no continue-on-error):
+      # the review step's failure keeps the job red. It reads the execution file the action writes to
+      # $RUNNER_TEMP before assessing is_error and prints ONLY allowlisted enums, booleans and counts
+      # (result subtype, is_error, turns, permission-denial count, denied tool names from a fixed allowlist,
+      # coarse error categories). It never prints message text, prompts, tool inputs, command arguments, URLs,
+      # paths from the content or exception details — unlike `show_full_output`, which the action itself warns
+      # may expose secrets and is deliberately NOT enabled. See scripts/claude-review-diagnostic.mjs.
+      - name: Review failure diagnostic (bounded, enums only)
+        if: ${{ failure() && steps.claude-review.outcome == 'failure' }}
+        shell: bash
+        env:
+          EXECUTION_FILE: ${{ runner.temp }}/claude-execution-output.json
+        run: node scripts/claude-review-diagnostic.mjs "$EXECUTION_FILE"

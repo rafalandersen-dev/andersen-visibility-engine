@@ -83,6 +83,11 @@ export const gaCitationAuthoring: Readonly<Record<string, string>> = {
   "citationAuthoring.lockIssue.scheduleProspective":
     "ní mór do gach sliotán sceidealta a bheith sa todhchaí",
   "citationAuthoring.lockIssue.brandUnscheduled": "níl aon sceideal ag painéal branda",
+  "citationAuthoring.panels.slotIssue.invalidDate": "Níl an dáta féilire sin ann",
+  "citationAuthoring.panels.slotIssue.nonexistent":
+    "Níl an t-am Stócólm sin ann ar an dáta sin (léimeann na cloig ar aghaidh); roghnaigh uair eile",
+  "citationAuthoring.panels.slotIssue.ambiguous":
+    "Tarlaíonn an t-am Stócólm sin faoi dhó ar an dáta sin (cuirtear na cloig siar); roghnaigh uair eile",
   "citationAuthoring.panels.status.draft": "Dréacht",
   "citationAuthoring.panels.status.locked": "Glasáilte",
   "citationAuthoring.panels.version": "l. {version}",
@@ -122,6 +127,7 @@ export const gaCitationAuthoring: Readonly<Record<string, string>> = {
   "citationAuthoring.facts.value": "Luach",
   "citationAuthoring.facts.validFrom": "Bailí ó",
   "citationAuthoring.facts.validUntil": "Bailí go dtí (roghnach)",
+  "citationAuthoring.facts.validityUtc": "Dearbhaítear agus taispeántar an bhailíocht in UTC",
   "citationAuthoring.facts.save": "Deimhnigh an fhíric",
   "citationAuthoring.facts.saveCorrection": "Sábháil an ceartúchán mar leagan {version}",
   "citationAuthoring.facts.saved": "Fíric sábháilte mar leagan {version}.",

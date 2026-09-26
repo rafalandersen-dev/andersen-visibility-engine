@@ -78,6 +78,11 @@ export const huCitationAuthoring: Readonly<Record<string, string>> = {
   "citationAuthoring.lockIssue.scheduleProspective":
     "minden ütemezett időpontnak a jövőben kell lennie",
   "citationAuthoring.lockIssue.brandUnscheduled": "a márkapanelnek nincs ütemezése",
+  "citationAuthoring.panels.slotIssue.invalidDate": "Ez a naptári dátum nem létezik",
+  "citationAuthoring.panels.slotIssue.nonexistent":
+    "Ez a stockholmi idő azon a napon nem létezik (az órák előreugranak); válasszon másik órát",
+  "citationAuthoring.panels.slotIssue.ambiguous":
+    "Ez a stockholmi idő azon a napon kétszer fordul elő (az órák visszaállnak); válasszon másik órát",
   "citationAuthoring.panels.status.draft": "Vázlat",
   "citationAuthoring.panels.status.locked": "Zárolva",
   "citationAuthoring.panels.version": "{version}. v.",
@@ -117,6 +122,8 @@ export const huCitationAuthoring: Readonly<Record<string, string>> = {
   "citationAuthoring.facts.value": "Érték",
   "citationAuthoring.facts.validFrom": "Érvényes ettől",
   "citationAuthoring.facts.validUntil": "Érvényes eddig (nem kötelező)",
+  "citationAuthoring.facts.validityUtc":
+    "Az érvényesség megadása és megjelenítése UTC szerint történik",
   "citationAuthoring.facts.save": "Tény megerősítése",
   "citationAuthoring.facts.saveCorrection": "Javítás mentése {version}. verzióként",
   "citationAuthoring.facts.saved": "Tény mentve {version}. verzióként.",

@@ -81,6 +81,11 @@ export const ltCitationAuthoring: Readonly<Record<string, string>> = {
   "citationAuthoring.lockIssue.scheduleProspective":
     "kiekvienas suplanuotas laikas turi būti ateityje",
   "citationAuthoring.lockIssue.brandUnscheduled": "prekės ženklo skydelis neturi tvarkaraščio",
+  "citationAuthoring.panels.slotIssue.invalidDate": "Tokios kalendorinės datos nėra",
+  "citationAuthoring.panels.slotIssue.nonexistent":
+    "Tokio Stokholmo laiko tą dieną nėra (laikrodžiai persukami į priekį); pasirinkite kitą valandą",
+  "citationAuthoring.panels.slotIssue.ambiguous":
+    "Toks Stokholmo laikas tą dieną pasikartoja du kartus (laikrodžiai atsukami atgal); pasirinkite kitą valandą",
   "citationAuthoring.panels.status.draft": "Juodraštis",
   "citationAuthoring.panels.status.locked": "Užrakinta",
   "citationAuthoring.panels.version": "v. {version}",
@@ -120,6 +125,7 @@ export const ltCitationAuthoring: Readonly<Record<string, string>> = {
   "citationAuthoring.facts.value": "Reikšmė",
   "citationAuthoring.facts.validFrom": "Galioja nuo",
   "citationAuthoring.facts.validUntil": "Galioja iki (neprivaloma)",
+  "citationAuthoring.facts.validityUtc": "Galiojimas deklaruojamas ir rodomas UTC laiku",
   "citationAuthoring.facts.save": "Patvirtinti faktą",
   "citationAuthoring.facts.saveCorrection": "Išsaugoti pataisymą kaip versiją {version}",
   "citationAuthoring.facts.saved": "Faktas išsaugotas kaip versija {version}.",

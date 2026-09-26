@@ -83,6 +83,11 @@ export const esCitationAuthoring: Readonly<Record<string, string>> = {
   "citationAuthoring.lockIssue.scheduleProspective":
     "cada turno programado debe estar en el futuro",
   "citationAuthoring.lockIssue.brandUnscheduled": "un panel de marca no lleva calendario",
+  "citationAuthoring.panels.slotIssue.invalidDate": "Esa fecha del calendario no existe",
+  "citationAuthoring.panels.slotIssue.nonexistent":
+    "Esa hora de Estocolmo no existe en esa fecha (los relojes saltan hacia adelante); elige otra hora",
+  "citationAuthoring.panels.slotIssue.ambiguous":
+    "Esa hora de Estocolmo ocurre dos veces en esa fecha (los relojes se atrasan); elige otra hora",
   "citationAuthoring.panels.status.draft": "Borrador",
   "citationAuthoring.panels.status.locked": "Bloqueado",
   "citationAuthoring.panels.version": "v. {version}",
@@ -122,6 +127,7 @@ export const esCitationAuthoring: Readonly<Record<string, string>> = {
   "citationAuthoring.facts.value": "Valor",
   "citationAuthoring.facts.validFrom": "Válido desde",
   "citationAuthoring.facts.validUntil": "Válido hasta (opcional)",
+  "citationAuthoring.facts.validityUtc": "La validez se declara y se muestra en UTC",
   "citationAuthoring.facts.save": "Confirmar hecho",
   "citationAuthoring.facts.saveCorrection": "Guardar corrección como versión {version}",
   "citationAuthoring.facts.saved": "Hecho guardado como versión {version}.",

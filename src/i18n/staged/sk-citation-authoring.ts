@@ -77,6 +77,11 @@ export const skCitationAuthoring: Readonly<Record<string, string>> = {
     "nastavte týždenný rozvrh Europe/Stockholm: jeden termín na kolo",
   "citationAuthoring.lockIssue.scheduleProspective": "každý plánovaný termín musí byť v budúcnosti",
   "citationAuthoring.lockIssue.brandUnscheduled": "panel značky nemá rozvrh",
+  "citationAuthoring.panels.slotIssue.invalidDate": "Tento kalendárny dátum neexistuje",
+  "citationAuthoring.panels.slotIssue.nonexistent":
+    "Tento štokholmský čas v daný deň neexistuje (hodiny preskakujú dopredu); zvoľte inú hodinu",
+  "citationAuthoring.panels.slotIssue.ambiguous":
+    "Tento štokholmský čas nastáva v daný deň dvakrát (hodiny sa vracajú späť); zvoľte inú hodinu",
   "citationAuthoring.panels.status.draft": "Koncept",
   "citationAuthoring.panels.status.locked": "Uzamknuté",
   "citationAuthoring.panels.version": "v. {version}",
@@ -116,6 +121,7 @@ export const skCitationAuthoring: Readonly<Record<string, string>> = {
   "citationAuthoring.facts.value": "Hodnota",
   "citationAuthoring.facts.validFrom": "Platné od",
   "citationAuthoring.facts.validUntil": "Platné do (voliteľné)",
+  "citationAuthoring.facts.validityUtc": "Platnosť sa deklaruje a zobrazuje v UTC",
   "citationAuthoring.facts.save": "Potvrdiť fakt",
   "citationAuthoring.facts.saveCorrection": "Uložiť opravu ako verziu {version}",
   "citationAuthoring.facts.saved": "Fakt uložený ako verzia {version}.",

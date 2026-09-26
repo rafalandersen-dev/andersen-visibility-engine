@@ -1,5 +1,13 @@
 import { businessFactSchema, type BusinessFact } from "./citation-finding";
 import type { CitationBusinessFactSummary } from "./citation-business-fact";
+// Validity instants use the same explicit UTC control convention as source capture times (see utc-instant.ts):
+// the control shows UTC wall-clock, the draft holds the exact instant string, an edit yields a `Z` instant.
+export {
+  instantDisplayDiffers,
+  instantFromUtcInput,
+  instantToUtcInput,
+  utcLabel,
+} from "./utc-instant";
 
 /**
  * Pure helpers for the owner's dated business-fact list/create/correct UI. A fact is immutable per version; a
@@ -14,7 +22,8 @@ export interface FactDraft {
   factId: string;
   kind: FactKind;
   value: string;
-  /** ISO 8601 instants (offset or Z), ≤ microsecond precision; `validUntil` may be empty (open-ended). */
+  /** ISO 8601 instants (offset or Z), ≤ microsecond precision, exactly as typed/stored; the UTC control shows
+   * them as UTC wall-clock and writes `…Z` instants (utc-instant.ts). `validUntil` may be empty (open-ended). */
   validFrom: string;
   validUntil: string;
   /** Head ROW being corrected: version (0 for a new fact) + its immutable row id (null for a new fact). The row

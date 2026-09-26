@@ -79,6 +79,11 @@ export const lvCitationAuthoring: Readonly<Record<string, string>> = {
     "iestatiet iknedēļas Europe/Stockholm grafiku: viens laiks katrai kārtai",
   "citationAuthoring.lockIssue.scheduleProspective": "katram plānotajam laikam jābūt nākotnē",
   "citationAuthoring.lockIssue.brandUnscheduled": "zīmola panelim nav grafika",
+  "citationAuthoring.panels.slotIssue.invalidDate": "Šāds kalendāra datums nepastāv",
+  "citationAuthoring.panels.slotIssue.nonexistent":
+    "Šāds Stokholmas laiks tajā datumā nepastāv (pulksteņi pārlec uz priekšu); izvēlieties citu stundu",
+  "citationAuthoring.panels.slotIssue.ambiguous":
+    "Šāds Stokholmas laiks tajā datumā ir divreiz (pulksteņi tiek pagriezti atpakaļ); izvēlieties citu stundu",
   "citationAuthoring.panels.status.draft": "Melnraksts",
   "citationAuthoring.panels.status.locked": "Bloķēts",
   "citationAuthoring.panels.version": "v. {version}",
@@ -118,6 +123,7 @@ export const lvCitationAuthoring: Readonly<Record<string, string>> = {
   "citationAuthoring.facts.value": "Vērtība",
   "citationAuthoring.facts.validFrom": "Derīgs no",
   "citationAuthoring.facts.validUntil": "Derīgs līdz (neobligāts)",
+  "citationAuthoring.facts.validityUtc": "Derīgums tiek deklarēts un rādīts UTC laikā",
   "citationAuthoring.facts.save": "Apstiprināt faktu",
   "citationAuthoring.facts.saveCorrection": "Saglabāt labojumu kā versiju {version}",
   "citationAuthoring.facts.saved": "Fakts saglabāts kā versija {version}.",

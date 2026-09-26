@@ -152,3 +152,30 @@ the project-switch proof is the absence of A's draft/payload in B's calls. Stati
 states; live clicks are the harness's job. Machine-authored pl/sv/da and all staged translations await fluent
 acceptance. No live provider, production write, migration application, purchase, budget or credential change
 occurred; USD 50/month and manual free-account AI grants are unchanged.
+
+## PR151 code-review packet C — corrections (same day, uncommitted delta on d2bfd42b)
+
+External code review of `d2bfd42b` (PR151) returned four P2 findings that Codex confirmed; security review
+found nothing. All four are corrected as UI/helper changes only (no SQL, no server contract; SQL suites not
+re-run). Details and checks: `.coordination/citation-authoring-result-c-20260926.md`.
+
+- **C1 invented capture time.** `draftToFinding` no longer substitutes `now` for a missing answer capture
+  instant: a pending/failed evidence read (or a malformed instant) refuses review with an `evidence:` issue; once
+  the read arrives, an explicit review freezes the answer's own `input.capturedAt`. Before save the frozen
+  payload's binding is revalidated against the live instant (`reviewedBindingCurrent`): an unrelated refetch keeps
+  the same bytes (A2 idempotent retry preserved), a vanished/changed instant disables Save and says so — the
+  payload is never rebuilt behind the owner.
+- **C2 pins under another/no cited source.** Changing or clearing the cited source clears foreign
+  `selectedRecord` pins explicitly (claim text/status/passage/reason kept); the record picker lists only the cited
+  source's records; a stored pin that does not belong to the cited source (e.g. a reopened mismatch) is refused at
+  review. Exact revision drift stays a stale-reference block.
+- **C3 fact validity timezone.** The same explicit UTC convention as source capture times (`src/lib/utc-instant.ts`):
+  seconds-capable controls captioned UTC, exact stored offset/fraction preserved unless edited, "Validity is
+  declared and shown in UTC", list/history labels `YYYY-MM-DD HH:MM UTC`; correction history unchanged.
+- **C4 Stockholm DST.** `stockholmLocalInstant` verifies the round trip and refuses nonexistent (spring gap,
+  e.g. 2027-03-28 02:30), ambiguous (autumn fold, 2027-10-31 02:30) and impossible calendar dates with localized
+  reasons naming the round; a weekly schedule keeps the same wall-clock across a valid transition; nothing is
+  silently shifted.
+- Copy: 4 new keys in all 24 catalogs (220 keys, staged 4204), fingerprint `ffb6a332…55c2a`.
+- Checks: 49 files / 868 tests PASS; `tsc` exit 0; scoped ESLint clean; Prettier formatted. Build/browser are
+  Codex's. The read-only CI diagnosis of the failed review job is `.coordination/ci-review-diagnostic-result-20260926.md`.

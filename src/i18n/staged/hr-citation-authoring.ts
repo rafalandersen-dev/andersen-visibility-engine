@@ -78,6 +78,11 @@ export const hrCitationAuthoring: Readonly<Record<string, string>> = {
     "postavite tjedni raspored Europe/Stockholm: jedan termin po krugu",
   "citationAuthoring.lockIssue.scheduleProspective": "svaki zakazani termin mora biti u budućnosti",
   "citationAuthoring.lockIssue.brandUnscheduled": "panel brenda nema raspored",
+  "citationAuthoring.panels.slotIssue.invalidDate": "Taj kalendarski datum ne postoji",
+  "citationAuthoring.panels.slotIssue.nonexistent":
+    "To stockholmsko vrijeme ne postoji tog datuma (satovi preskaču unaprijed); odaberite drugi sat",
+  "citationAuthoring.panels.slotIssue.ambiguous":
+    "To stockholmsko vrijeme tog datuma nastupa dvaput (satovi se vraćaju unatrag); odaberite drugi sat",
   "citationAuthoring.panels.status.draft": "Nacrt",
   "citationAuthoring.panels.status.locked": "Zaključano",
   "citationAuthoring.panels.version": "v. {version}",
@@ -117,6 +122,7 @@ export const hrCitationAuthoring: Readonly<Record<string, string>> = {
   "citationAuthoring.facts.value": "Vrijednost",
   "citationAuthoring.facts.validFrom": "Vrijedi od",
   "citationAuthoring.facts.validUntil": "Vrijedi do (neobavezno)",
+  "citationAuthoring.facts.validityUtc": "Valjanost se deklarira i prikazuje u UTC-u",
   "citationAuthoring.facts.save": "Potvrdi činjenicu",
   "citationAuthoring.facts.saveCorrection": "Spremi ispravak kao verziju {version}",
   "citationAuthoring.facts.saved": "Činjenica spremljena kao verzija {version}.",

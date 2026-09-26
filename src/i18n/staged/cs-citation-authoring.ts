@@ -78,6 +78,11 @@ export const csCitationAuthoring: Readonly<Record<string, string>> = {
   "citationAuthoring.lockIssue.scheduleProspective":
     "každý plánovaný termín musí být v budoucnosti",
   "citationAuthoring.lockIssue.brandUnscheduled": "panel značky nemá rozvrh",
+  "citationAuthoring.panels.slotIssue.invalidDate": "Toto kalendářní datum neexistuje",
+  "citationAuthoring.panels.slotIssue.nonexistent":
+    "Tento stockholmský čas v daný den neexistuje (hodiny přeskakují vpřed); zvolte jinou hodinu",
+  "citationAuthoring.panels.slotIssue.ambiguous":
+    "Tento stockholmský čas nastává v daný den dvakrát (hodiny se vracejí zpět); zvolte jinou hodinu",
   "citationAuthoring.panels.status.draft": "Koncept",
   "citationAuthoring.panels.status.locked": "Uzamčeno",
   "citationAuthoring.panels.version": "v. {version}",
@@ -117,6 +122,7 @@ export const csCitationAuthoring: Readonly<Record<string, string>> = {
   "citationAuthoring.facts.value": "Hodnota",
   "citationAuthoring.facts.validFrom": "Platné od",
   "citationAuthoring.facts.validUntil": "Platné do (volitelné)",
+  "citationAuthoring.facts.validityUtc": "Platnost se deklaruje a zobrazuje v UTC",
   "citationAuthoring.facts.save": "Potvrdit fakt",
   "citationAuthoring.facts.saveCorrection": "Uložit opravu jako verzi {version}",
   "citationAuthoring.facts.saved": "Fakt uložen jako verze {version}.",

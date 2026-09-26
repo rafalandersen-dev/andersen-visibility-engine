@@ -13,7 +13,11 @@ import {
   factChains,
   factDraftToRecord,
   factErrorKey,
+  instantDisplayDiffers,
+  instantFromUtcInput,
+  instantToUtcInput,
   newFactDraft,
+  utcLabel,
   type FactDraft,
   type FactIssue,
 } from "@/lib/citation-business-fact-ui";
@@ -30,9 +34,12 @@ const chip =
 export function CitationBusinessFactsPanel({
   projectId,
   ownerId,
+  initialDraft,
 }: {
   projectId: string;
   ownerId: string;
+  /** Test seam only: render the form with this draft on first render (static assertions). */
+  initialDraft?: FactDraft;
 }) {
   const t = useT();
   const qc = useQueryClient();
@@ -47,7 +54,7 @@ export function CitationBusinessFactsPanel({
   const chains = useMemo(() => factChains(facts.data?.facts ?? []), [facts.data]);
   const [draftState, setDraftState] = useState<{ identity: string; draft: FactDraft | null }>({
     identity,
-    draft: null,
+    draft: initialDraft ?? null,
   });
   const draft = draftState.identity === identity ? draftState.draft : null;
   const setDraft = (next: FactDraft | null) => setDraftState({ identity, draft: next });
@@ -148,8 +155,10 @@ export function CitationBusinessFactsPanel({
                   {t("citationAuthoring.facts.version", { version: c.head.version })}
                 </span>
                 <span className="text-xs text-muted-foreground">
-                  {c.head.record.validFrom.slice(0, 10)} →{" "}
-                  {c.head.record.validUntil?.slice(0, 10) ?? t("citationAuthoring.facts.openEnded")}
+                  {utcLabel(c.head.record.validFrom)} →{" "}
+                  {c.head.record.validUntil
+                    ? utcLabel(c.head.record.validUntil)
+                    : t("citationAuthoring.facts.openEnded")}
                 </span>
                 <span className="text-[11px] text-muted-foreground">
                   {t("citationAuthoring.facts.confirmed", {
@@ -189,8 +198,10 @@ export function CitationBusinessFactsPanel({
                   {c.versions.slice(1).map((v) => (
                     <li key={v.id}>
                       {t("citationAuthoring.facts.version", { version: v.version })} ·{" "}
-                      {v.record.value} · {v.record.validFrom.slice(0, 10)} →{" "}
-                      {v.record.validUntil?.slice(0, 10) ?? t("citationAuthoring.facts.openEnded")}
+                      {v.record.value} · {utcLabel(v.record.validFrom)} →{" "}
+                      {v.record.validUntil
+                        ? utcLabel(v.record.validUntil)
+                        : t("citationAuthoring.facts.openEnded")}
                     </li>
                   ))}
                 </ul>
@@ -246,25 +257,29 @@ export function CitationBusinessFactsPanel({
                 onChange={(e) => upd({ value: e.target.value })}
               />
             </label>
-            <label className="text-sm sm:col-span-2">
-              {t("citationAuthoring.facts.validFrom")}
-              <input
-                className={field}
-                type="datetime-local"
-                required
-                value={draft.validFrom}
-                onChange={(e) => upd({ validFrom: e.target.value })}
-              />
-            </label>
-            <label className="text-sm sm:col-span-2">
-              {t("citationAuthoring.facts.validUntil")}
-              <input
-                className={field}
-                type="datetime-local"
-                value={draft.validUntil}
-                onChange={(e) => upd({ validUntil: e.target.value })}
-              />
-            </label>
+            <p className="text-[11px] text-muted-foreground sm:col-span-4">
+              {t("citationAuthoring.facts.validityUtc")}
+            </p>
+            {(["validFrom", "validUntil"] as const).map((k) => (
+              <label key={k} className="text-sm sm:col-span-2">
+                {t(`citationAuthoring.facts.${k}`)}
+                {/* UTC wall-clock view; the draft keeps the exact instant string until the visible value changes. */}
+                <input
+                  className={field}
+                  type="datetime-local"
+                  step={1}
+                  required={k === "validFrom"}
+                  value={instantToUtcInput(draft[k])}
+                  onChange={(e) => upd({ [k]: instantFromUtcInput(e.target.value, draft[k]) })}
+                />
+                <span className="block text-[11px] text-muted-foreground">
+                  {t("citationAuthoring.author.utcInstant")}
+                  {instantDisplayDiffers(draft[k])
+                    ? ` · ${t("citationAuthoring.author.storedInstant", { value: draft[k] })}`
+                    : null}
+                </span>
+              </label>
+            ))}
           </fieldset>
           {issues.length ? (
             <ul className="text-xs text-destructive list-disc pl-4">

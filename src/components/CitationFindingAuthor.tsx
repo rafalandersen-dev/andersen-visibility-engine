@@ -29,6 +29,8 @@ import {
   instantFromUtcInput,
   instantToUtcInput,
   newFindingDraft,
+  retargetSource,
+  reviewedBindingCurrent,
   staleSelections,
   type AuthoringState,
   type FindingDraft,
@@ -130,7 +132,10 @@ export function CitationFindingAuthor({
   const answerRow = draft?.answerId
     ? answers.find((a) => a.id.toLowerCase() === draft.answerId!.toLowerCase())
     : undefined;
+  // Null while the evidence read is pending/failed or the answer is gone: review is refused and a frozen payload
+  // no longer matches (`bindingCurrent` false) — the capture instant is never invented.
   const answerCapturedAt = answerRow?.input.capturedAt ?? null;
+  const bindingCurrent = reviewedBindingCurrent(view, answerCapturedAt);
   const fresh = {
     answers,
     sources,
@@ -183,7 +188,7 @@ export function CitationFindingAuthor({
   }
   async function save() {
     // Exactly the FROZEN reviewed payload is sent (never rebuilt at click time); the token is the inspected head.
-    if (!draft || !reviewed || busy || stale.length) return;
+    if (!draft || !reviewed || busy || stale.length || !bindingCurrent) return;
     setBusy(true);
     const startedFor = identity;
     dispatch({ type: "saveStarted" });
@@ -324,9 +329,13 @@ export function CitationFindingAuthor({
           </div>
           {/* The FROZEN payload: what is shown here is byte-for-byte what Save (and any retry) sends. */}
           <FindingRecordView record={reviewed.finding} />
-          {stale.length ? (
-            <p className="text-xs text-amber-600">
-              {t("citationAuthoring.author.stale", { fields: stale.join(", ") })}
+          {stale.length || !bindingCurrent ? (
+            // A reference that vanished, or an evidence binding (the answer's capture instant) that no longer
+            // matches the frozen payload: Save is refused until the owner reviews again; nothing is rebuilt.
+            <p className="text-xs text-amber-600" data-binding-stale={!bindingCurrent || undefined}>
+              {t("citationAuthoring.author.stale", {
+                fields: [...stale, ...(bindingCurrent ? [] : ["evidence"])].join(", "),
+              })}
             </p>
           ) : null}
           {errorKey ? (
@@ -365,7 +374,7 @@ export function CitationFindingAuthor({
             </div>
           ) : null}
           <div className="flex flex-wrap gap-2">
-            <Button size="sm" disabled={busy || stale.length > 0} onClick={save}>
+            <Button size="sm" disabled={busy || stale.length > 0 || !bindingCurrent} onClick={save}>
               {t("citationAuthoring.author.save", { version: draft.expectedVersion + 1 })}
             </Button>
             <Button
@@ -440,7 +449,7 @@ export function CitationFindingAuthor({
               <select
                 className={field}
                 value={draft.sourceId ?? ""}
-                onChange={(e) => upd({ sourceId: e.target.value || null })}
+                onChange={(e) => upd(retargetSource(draft, e.target.value || null))}
               >
                 <option value="">
                   {sources.length ? "—" : t("citationAuthoring.author.sourceNone")}
@@ -763,10 +772,11 @@ export function CitationFindingAuthor({
                         }}
                       >
                         <option value="">{t("citationAuthoring.author.selectedRecordNone")}</option>
+                        {/* Only the CITED source's records can be pinned; with no cited source there is nothing to pin. */}
                         {records
                           .filter(
                             (r) =>
-                              !draft.sourceId ||
+                              draft.sourceId !== null &&
                               r.sourceId.toLowerCase() === draft.sourceId.toLowerCase(),
                           )
                           .map((r) => (

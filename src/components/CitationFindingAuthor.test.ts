@@ -638,6 +638,118 @@ describe("finding author surface", () => {
     expect(html).toContain("2026-09-10T11:30:00.123456+02:00");
     expect(html.match(/citationAuthoring\.author\.storedInstant/g)?.length).toBe(1);
   });
+  it("a frozen review whose evidence binding no longer matches disables Save and says so; the record picker is empty without a cited source (Codex C1/C2)", () => {
+    // Reviewed with the fixture answer, then rendered while the evidence read is pending (no answers loaded).
+    const state = reviewedState(null);
+    h.queries = {
+      "citation-protocol": ok({ panels: [lockedPanel], brandRuns: [], answers: [] }),
+      "answer-evidence": ok({ prompts: [], answers: [] }),
+      "project-knowledge": ok({ sources: [], records: [] }),
+      "citation-business-facts": ok({ facts: [] }),
+      "citation-findings": ok({ findings: [] }),
+    };
+    const html = renderToStaticMarkup(
+      createElement(CitationFindingAuthor, { ...props, initialState: state }),
+    );
+    expect(html).toContain("data-binding-stale");
+    expect(html).toContain("citationAuthoring.author.stale");
+    expect(html).toContain("Observed."); // frozen payload still shown, not rebuilt
+    expect(html).toMatch(/<button[^>]*disabled[^>]*>citationAuthoring\.author\.save/);
+    // Edit stage with an assessed support entry and NO cited source: the pin select offers only "none".
+    const d = newFindingDraft("61000000-0000-4000-8000-000000000001", "citation_source");
+    d.scope = { panelId: lockedPanel.panelId, panelVersion: 2, client: lockedPanel.client };
+    d.answerId = "10000000-0000-4000-8000-000000000001";
+    d.support = [
+      { ...emptySupport(), claimSpan: "c", citedUrl: "https://x.example", status: "supports" },
+    ];
+    withAnswer();
+    h.queries["project-knowledge"] = ok({
+      sources: [
+        {
+          ownerId: owner,
+          projectId: "p",
+          id: "80000000-0000-4000-8000-000000000001",
+          revision: 3,
+          kind: "website",
+          label: "S",
+          fingerprint: "f".repeat(64),
+          observedAt: "2026-09-10T09:30:00Z",
+          status: "active",
+          url: "https://x.example",
+        },
+      ],
+      records: [
+        {
+          ownerId: owner,
+          projectId: "p",
+          id: "b1000000-0000-4000-8000-000000000001",
+          revision: 1,
+          sourceId: "80000000-0000-4000-8000-000000000001",
+          sourceRevision: 3,
+          key: "k",
+          category: "fact",
+          appliesTo: "text",
+          value: "Saturday",
+          locator: "row 6",
+        },
+      ],
+    });
+    const editing = authoringReducer(initialAuthoringState(authoringIdentity(owner, "p")), {
+      type: "startNew",
+      draft: d,
+    });
+    const edit = renderToStaticMarkup(
+      createElement(CitationFindingAuthor, { ...props, initialState: editing }),
+    );
+    expect(edit).toContain("citationAuthoring.author.selectedRecordNone");
+    expect(edit).not.toContain('value="b1000000-0000-4000-8000-000000000001:1"');
+  });
+  it("fact validity controls use the UTC convention and show the exact stored form when it differs (Codex C3)", () => {
+    h.queries = {
+      "citation-business-facts": ok({
+        facts: [
+          {
+            id: "b1000001-0000-4000-8000-000000000001",
+            version: 1,
+            supersedesId: null,
+            predecessorDeleted: false,
+            createdAt: "2026-01-01T00:00:00Z",
+            record: {
+              factId: "a1000000-0000-4000-8000-000000000001",
+              kind: "price",
+              value: "500 SEK",
+              confirmedBy: owner,
+              confirmedAt: "2026-01-01T00:00:00Z",
+              validFrom: "2026-01-01T00:00:00Z",
+              validUntil: "2026-06-30T22:00:00Z",
+            },
+          },
+        ],
+      }),
+    };
+    const html = renderToStaticMarkup(
+      createElement(CitationBusinessFactsPanel, {
+        ...props,
+        initialDraft: {
+          factId: "a1000000-0000-4000-8000-000000000002",
+          kind: "price",
+          value: "v",
+          validFrom: "2026-06-01T10:00:00.5+02:00",
+          validUntil: "",
+          expectedVersion: 0,
+          expectedHeadId: null,
+        },
+      }),
+    );
+    expect(html).toContain("2026-01-01 00:00 UTC"); // list shows the convention
+    expect(html).toContain("2026-06-30 22:00 UTC");
+    expect(html).toContain("citationAuthoring.facts.validityUtc");
+    expect(html).toContain(
+      'type="datetime-local" step="1" required="" value="2026-06-01T08:00:00"',
+    );
+    expect(html).toContain("2026-06-01T10:00:00.5+02:00"); // stored exactly, shown next to the control
+    expect(html).toContain("citationAuthoring.author.utcInstant");
+  });
   it("a state started under another owner/project identity is never rendered under this one", () => {
     withAnswer();
     const foreign = { ...reviewedState(null), identity: authoringIdentity(owner, "other-project") };

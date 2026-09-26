@@ -76,6 +76,11 @@ export const etCitationAuthoring: Readonly<Record<string, string>> = {
     "määrake nädalane Europe/Stockholm ajakava: üks aeg vooru kohta",
   "citationAuthoring.lockIssue.scheduleProspective": "iga kavandatud aeg peab olema tulevikus",
   "citationAuthoring.lockIssue.brandUnscheduled": "brändipaneelil ei ole ajakava",
+  "citationAuthoring.panels.slotIssue.invalidDate": "Sellist kalendrikuupäeva ei ole olemas",
+  "citationAuthoring.panels.slotIssue.nonexistent":
+    "Seda Stockholmi kellaaega sel kuupäeval ei ole (kellad hüppavad edasi); valige teine tund",
+  "citationAuthoring.panels.slotIssue.ambiguous":
+    "See Stockholmi kellaaeg esineb sel kuupäeval kaks korda (kellad keeratakse tagasi); valige teine tund",
   "citationAuthoring.panels.status.draft": "Mustand",
   "citationAuthoring.panels.status.locked": "Lukustatud",
   "citationAuthoring.panels.version": "v. {version}",
@@ -115,6 +120,7 @@ export const etCitationAuthoring: Readonly<Record<string, string>> = {
   "citationAuthoring.facts.value": "Väärtus",
   "citationAuthoring.facts.validFrom": "Kehtib alates",
   "citationAuthoring.facts.validUntil": "Kehtib kuni (valikuline)",
+  "citationAuthoring.facts.validityUtc": "Kehtivus deklareeritakse ja kuvatakse UTC ajas",
   "citationAuthoring.facts.save": "Kinnita fakt",
   "citationAuthoring.facts.saveCorrection": "Salvesta parandus versioonina {version}",
   "citationAuthoring.facts.saved": "Fakt salvestatud versioonina {version}.",

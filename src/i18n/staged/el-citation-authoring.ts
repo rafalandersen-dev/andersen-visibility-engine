@@ -83,6 +83,11 @@ export const elCitationAuthoring: Readonly<Record<string, string>> = {
   "citationAuthoring.lockIssue.scheduleProspective":
     "κάθε προγραμματισμένη θέση πρέπει να είναι στο μέλλον",
   "citationAuthoring.lockIssue.brandUnscheduled": "ένα πάνελ επωνυμίας δεν έχει πρόγραμμα",
+  "citationAuthoring.panels.slotIssue.invalidDate": "Αυτή η ημερολογιακή ημερομηνία δεν υπάρχει",
+  "citationAuthoring.panels.slotIssue.nonexistent":
+    "Αυτή η ώρα Στοκχόλμης δεν υπάρχει εκείνη την ημέρα (τα ρολόγια πηδούν μπροστά)· επιλέξτε άλλη ώρα",
+  "citationAuthoring.panels.slotIssue.ambiguous":
+    "Αυτή η ώρα Στοκχόλμης εμφανίζεται δύο φορές εκείνη την ημέρα (τα ρολόγια γυρίζουν πίσω)· επιλέξτε άλλη ώρα",
   "citationAuthoring.panels.status.draft": "Πρόχειρο",
   "citationAuthoring.panels.status.locked": "Κλειδωμένο",
   "citationAuthoring.panels.version": "έκδ. {version}",
@@ -122,6 +127,7 @@ export const elCitationAuthoring: Readonly<Record<string, string>> = {
   "citationAuthoring.facts.value": "Τιμή",
   "citationAuthoring.facts.validFrom": "Ισχύει από",
   "citationAuthoring.facts.validUntil": "Ισχύει έως (προαιρετικό)",
+  "citationAuthoring.facts.validityUtc": "Η ισχύς δηλώνεται και εμφανίζεται σε UTC",
   "citationAuthoring.facts.save": "Επιβεβαίωση γεγονότος",
   "citationAuthoring.facts.saveCorrection": "Αποθήκευση διόρθωσης ως έκδοση {version}",
   "citationAuthoring.facts.saved": "Το γεγονός αποθηκεύτηκε ως έκδοση {version}.",

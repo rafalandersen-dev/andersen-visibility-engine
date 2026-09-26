@@ -121,33 +121,24 @@ export function emptyAccuracy(): AccuracyDraft {
   return { claimSpan: "", status: "not_checked", fact: null };
 }
 
-/**
- * Stored-instant ↔ `datetime-local` round trip with an EXPLICIT convention: the control shows the instant as UTC
- * wall-clock (`YYYY-MM-DDTHH:MM:SS`, `step=1`) and an edit produces a `…Z` instant. The draft keeps the STORED
- * string untouched until the owner really edits, so a `+02:00` offset or fractional seconds (which the control
- * cannot display) survive review and resave byte-for-byte — the instant is never silently reinterpreted.
- */
-export function instantToUtcInput(iso: string): string {
-  const t = iso.trim();
-  if (!t) return "";
-  const ms = Date.parse(t);
-  if (Number.isNaN(ms)) return "";
-  return new Date(ms).toISOString().slice(0, 19);
-}
-/** The draft value after a control change: the ORIGINAL stored string when the visible UTC wall-clock did not
- * change (no silent rewrite of offset/precision), else the edited wall-clock as a `Z` instant. */
-export function instantFromUtcInput(input: string, original: string): string {
-  if (input === instantToUtcInput(original)) return original;
-  if (/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/.test(input)) return `${input}:00Z`;
-  if (/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}$/.test(input)) return `${input}Z`;
-  return input;
-}
-/** True when the stored string carries something the UTC control cannot show (a non-Z offset or fractional
- * seconds), so the owner should see the exact stored form next to the control. */
-export function instantDisplayDiffers(iso: string): boolean {
-  const t = iso.trim();
-  if (!t || Number.isNaN(Date.parse(t))) return false;
-  return t !== `${instantToUtcInput(t)}Z` && t !== `${instantToUtcInput(t)}.000Z`;
+// The single UTC convention for owner-declared instants (shared with fact validity).
+export { instantDisplayDiffers, instantFromUtcInput, instantToUtcInput } from "./utc-instant";
+
+/** A selected-record pin is only meaningful for the CITED source: when the owner changes or clears the cited
+ * source, every pin that belongs to another source is cleared explicitly (never carried hidden under a new or
+ * absent source). The claim text, status, passage and reason stay. */
+export function retargetSource(
+  draft: FindingDraft,
+  sourceId: string | null,
+): Pick<FindingDraft, "sourceId" | "support"> {
+  const keep = (pinSource: string) =>
+    sourceId !== null && pinSource.toLowerCase() === sourceId.toLowerCase();
+  return {
+    sourceId,
+    support: draft.support.map((s) =>
+      s.selectedRecord && !keep(s.selectedRecord.sourceId) ? { ...s, selectedRecord: null } : s,
+    ),
+  };
 }
 
 const tri = (v: "yes" | "no" | "unknown") => (v === "unknown" ? null : v === "yes");
@@ -169,6 +160,28 @@ export function draftToFinding(
   const issues: string[] = [];
   if (!draft.scope) issues.push("scope: choose a locked panel version");
   if (!draft.answerId) issues.push("evidence: choose the captured answer");
+  // The capture instant is the SAVED answer evidence's own `input.capturedAt`, resolved from the fresh read. It is
+  // never invented: while the evidence read is pending/failed (null) or malformed, review is refused rather than
+  // freezing a made-up date into the record.
+  const captured =
+    answerCapturedAt !== null && !Number.isNaN(Date.parse(answerCapturedAt))
+      ? answerCapturedAt
+      : null;
+  if (draft.answerId && !captured)
+    issues.push(
+      "evidence: the captured answer's capture time is not loaded; wait for the evidence read (or reopen the answer) before reviewing",
+    );
+  // A pinned source record must belong to the CITED source; a pin under another or no cited source is refused.
+  draft.support.forEach((s, i) => {
+    if (
+      s.selectedRecord &&
+      (!draft.sourceId || s.selectedRecord.sourceId.toLowerCase() !== draft.sourceId.toLowerCase())
+    )
+      issues.push(
+        `support.${i}.selectedRecord: the pinned record belongs to a source that is not the cited source; cite that source or clear the pin`,
+      );
+  });
+  if (issues.length || !draft.scope || !captured) return { ok: false, issues };
   const review = { reviewer: ownerId, reviewedAt: nowIso };
   const evidence: Finding["evidence"] = [];
   if (draft.answerId) evidence.push({ kind: "answer", id: draft.answerId });
@@ -178,7 +191,7 @@ export function draftToFinding(
     return {
       claimSpan: s.claimSpan.trim(),
       citedUrl: s.citedUrl.trim(),
-      answerCapturedAt: answerCapturedAt ?? nowIso,
+      answerCapturedAt: captured,
       status: s.status,
       sourcePassage: assessed ? s.sourcePassage.trim() || null : null,
       sourceCapturedAt: assessed ? isoOrNull(s.sourceCapturedAt) : null,
@@ -467,6 +480,20 @@ export function reviewKey(draft: FindingDraft, answerCapturedAt: string | null):
 /** Whether the owner may acknowledge the current head and continue on top of it. */
 export function canContinueOnHead(state: AuthoringState): boolean {
   return state.conflict !== null && state.conflict.record !== null;
+}
+/** Whether the FROZEN reviewed payload still matches the live evidence binding (draft inputs + the answer's
+ * capture instant from the fresh read). A retry after a lost response or an unrelated refetch keeps it true; a
+ * changed/vanished capture instant makes it false, and the save must be refused until the owner reviews again
+ * (the frozen payload is never rebuilt behind the owner's back). */
+export function reviewedBindingCurrent(
+  state: AuthoringState,
+  answerCapturedAt: string | null,
+): boolean {
+  return (
+    state.draft !== null &&
+    state.reviewed !== null &&
+    state.reviewed.key === reviewKey(state.draft, answerCapturedAt)
+  );
 }
 export function authoringReducer(state: AuthoringState, action: AuthoringAction): AuthoringState {
   switch (action.type) {

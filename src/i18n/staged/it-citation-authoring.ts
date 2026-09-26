@@ -80,6 +80,11 @@ export const itCitationAuthoring: Readonly<Record<string, string>> = {
   "citationAuthoring.lockIssue.scheduleProspective":
     "ogni fascia pianificata deve essere nel futuro",
   "citationAuthoring.lockIssue.brandUnscheduled": "un panel brand non ha calendario",
+  "citationAuthoring.panels.slotIssue.invalidDate": "Quella data di calendario non esiste",
+  "citationAuthoring.panels.slotIssue.nonexistent":
+    "Quell'ora di Stoccolma non esiste in quella data (gli orologi saltano avanti); scegli un'altra ora",
+  "citationAuthoring.panels.slotIssue.ambiguous":
+    "Quell'ora di Stoccolma ricorre due volte in quella data (gli orologi tornano indietro); scegli un'altra ora",
   "citationAuthoring.panels.status.draft": "Bozza",
   "citationAuthoring.panels.status.locked": "Bloccato",
   "citationAuthoring.panels.version": "v. {version}",
@@ -119,6 +124,7 @@ export const itCitationAuthoring: Readonly<Record<string, string>> = {
   "citationAuthoring.facts.value": "Valore",
   "citationAuthoring.facts.validFrom": "Valido dal",
   "citationAuthoring.facts.validUntil": "Valido fino al (facoltativo)",
+  "citationAuthoring.facts.validityUtc": "La validità è dichiarata e mostrata in UTC",
   "citationAuthoring.facts.save": "Conferma fatto",
   "citationAuthoring.facts.saveCorrection": "Salva la correzione come versione {version}",
   "citationAuthoring.facts.saved": "Fatto salvato come versione {version}.",

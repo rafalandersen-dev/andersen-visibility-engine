@@ -79,6 +79,11 @@ export const slCitationAuthoring: Readonly<Record<string, string>> = {
   "citationAuthoring.lockIssue.scheduleProspective":
     "vsak načrtovani termin mora biti v prihodnosti",
   "citationAuthoring.lockIssue.brandUnscheduled": "panel blagovne znamke nima razporeda",
+  "citationAuthoring.panels.slotIssue.invalidDate": "Ta koledarski datum ne obstaja",
+  "citationAuthoring.panels.slotIssue.nonexistent":
+    "Ta stockholmski čas na ta datum ne obstaja (ure preskočijo naprej); izberite drugo uro",
+  "citationAuthoring.panels.slotIssue.ambiguous":
+    "Ta stockholmski čas se na ta datum pojavi dvakrat (ure se premaknejo nazaj); izberite drugo uro",
   "citationAuthoring.panels.status.draft": "Osnutek",
   "citationAuthoring.panels.status.locked": "Zaklenjeno",
   "citationAuthoring.panels.version": "r. {version}",
@@ -118,6 +123,7 @@ export const slCitationAuthoring: Readonly<Record<string, string>> = {
   "citationAuthoring.facts.value": "Vrednost",
   "citationAuthoring.facts.validFrom": "Velja od",
   "citationAuthoring.facts.validUntil": "Velja do (neobvezno)",
+  "citationAuthoring.facts.validityUtc": "Veljavnost je navedena in prikazana v UTC",
   "citationAuthoring.facts.save": "Potrdi dejstvo",
   "citationAuthoring.facts.saveCorrection": "Shrani popravek kot različico {version}",
   "citationAuthoring.facts.saved": "Dejstvo je shranjeno kot različica {version}.",

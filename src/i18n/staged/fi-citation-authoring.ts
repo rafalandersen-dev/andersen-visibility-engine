@@ -80,6 +80,11 @@ export const fiCitationAuthoring: Readonly<Record<string, string>> = {
   "citationAuthoring.lockIssue.scheduleProspective":
     "jokaisen suunnitellun ajan on oltava tulevaisuudessa",
   "citationAuthoring.lockIssue.brandUnscheduled": "brändipaneelilla ei ole aikataulua",
+  "citationAuthoring.panels.slotIssue.invalidDate": "Tuota kalenteripäivää ei ole olemassa",
+  "citationAuthoring.panels.slotIssue.nonexistent":
+    "Tuota Tukholman aikaa ei ole sinä päivänä (kellot siirtyvät eteenpäin); valitse toinen tunti",
+  "citationAuthoring.panels.slotIssue.ambiguous":
+    "Tuo Tukholman aika esiintyy sinä päivänä kahdesti (kellot siirtyvät taaksepäin); valitse toinen tunti",
   "citationAuthoring.panels.status.draft": "Luonnos",
   "citationAuthoring.panels.status.locked": "Lukittu",
   "citationAuthoring.panels.version": "v. {version}",
@@ -119,6 +124,7 @@ export const fiCitationAuthoring: Readonly<Record<string, string>> = {
   "citationAuthoring.facts.value": "Arvo",
   "citationAuthoring.facts.validFrom": "Voimassa alkaen",
   "citationAuthoring.facts.validUntil": "Voimassa asti (valinnainen)",
+  "citationAuthoring.facts.validityUtc": "Voimassaolo ilmoitetaan ja näytetään UTC-ajassa",
   "citationAuthoring.facts.save": "Vahvista fakta",
   "citationAuthoring.facts.saveCorrection": "Tallenna korjaus versiona {version}",
   "citationAuthoring.facts.saved": "Fakta tallennettu versiona {version}.",

@@ -82,6 +82,11 @@ export const mtCitationAuthoring: Readonly<Record<string, string>> = {
     "issettja skeda ta' kull ġimgħa Europe/Stockholm: slot wieħed għal kull rawnd",
   "citationAuthoring.lockIssue.scheduleProspective": "kull slot skedat irid ikun fil-futur",
   "citationAuthoring.lockIssue.brandUnscheduled": "panel tal-marka m'għandux skeda",
+  "citationAuthoring.panels.slotIssue.invalidDate": "Dik id-data tal-kalendarju ma teżistix",
+  "citationAuthoring.panels.slotIssue.nonexistent":
+    "Dak il-ħin ta' Stokkolma ma jeżistix f'dik id-data (l-arloġġi jaqbżu 'l quddiem); agħżel siegħa oħra",
+  "citationAuthoring.panels.slotIssue.ambiguous":
+    "Dak il-ħin ta' Stokkolma jseħħ darbtejn f'dik id-data (l-arloġġi jmorru lura); agħżel siegħa oħra",
   "citationAuthoring.panels.status.draft": "Abbozz",
   "citationAuthoring.panels.status.locked": "Issikkat",
   "citationAuthoring.panels.version": "v. {version}",
@@ -121,6 +126,7 @@ export const mtCitationAuthoring: Readonly<Record<string, string>> = {
   "citationAuthoring.facts.value": "Valur",
   "citationAuthoring.facts.validFrom": "Validu minn",
   "citationAuthoring.facts.validUntil": "Validu sa (fakultattiv)",
+  "citationAuthoring.facts.validityUtc": "Il-validità hija ddikjarata u murija f'UTC",
   "citationAuthoring.facts.save": "Ikkonferma l-fatt",
   "citationAuthoring.facts.saveCorrection": "Issejvja l-korrezzjoni bħala verżjoni {version}",
   "citationAuthoring.facts.saved": "Il-fatt ġie salvat bħala verżjoni {version}.",

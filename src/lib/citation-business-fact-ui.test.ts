@@ -4,8 +4,11 @@ import {
   factChains,
   factDraftToRecord,
   factErrorKey,
+  instantFromUtcInput,
+  instantToUtcInput,
   newFactDraft,
   normalizeInstant,
+  utcLabel,
   validAt,
 } from "./citation-business-fact-ui";
 import type { CitationBusinessFactSummary } from "./citation-business-fact";
@@ -70,6 +73,27 @@ describe("fact drafts → exact business-fact records", () => {
     );
     expect(precise.ok ? [] : precise.issues).toEqual(["precision"]);
     expect(normalizeInstant("2026-01-01T00:00:00.123456Z")).toBe("2026-01-01T00:00:00.123456Z");
+  });
+  it("validity uses the explicit UTC control convention; the persisted instant is what the control showed (Codex C3)", () => {
+    // What the owner types into the UTC control becomes a Z instant in the draft and the record, byte-identical.
+    const from = instantFromUtcInput("2026-01-01T00:00", "");
+    const until = instantFromUtcInput("2026-06-30T12:00:30", "");
+    expect(from).toBe("2026-01-01T00:00:00Z");
+    expect(until).toBe("2026-06-30T12:00:30Z");
+    const out = factDraftToRecord(
+      { ...newFactDraft(FACT), value: "v", validFrom: from, validUntil: until },
+      owner,
+      "2026-09-26T10:00:00Z",
+    );
+    expect(out.ok && [out.fact.validFrom, out.fact.validUntil]).toEqual([from, until]);
+    // The control shows a stored instant as UTC wall-clock; an unchanged control keeps an offset/fraction exact.
+    const stored = "2026-06-01T10:00:00.5+02:00";
+    expect(instantToUtcInput(stored)).toBe("2026-06-01T08:00:00");
+    expect(instantFromUtcInput("2026-06-01T08:00:00", stored)).toBe(stored);
+    // Read-only labels spell the convention out.
+    expect(utcLabel("2026-01-01T00:00:00Z")).toBe("2026-01-01 00:00 UTC");
+    expect(utcLabel(stored)).toBe("2026-06-01 08:00 UTC");
+    expect(utcLabel("junk")).toBe("junk");
   });
   it("a correction keeps the logical id, prefills the value and pins the inspected head ROW (version + id)", () => {
     const head = row(2, "550 SEK", "2026-06-01T00:00:00Z");
