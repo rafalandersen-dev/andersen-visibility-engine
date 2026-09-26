@@ -4,7 +4,7 @@ import { findingSchema } from "./citation-finding";
 import {
   citationFindingDetailEnvelopeSchema,
   citationFindingDetailSchema,
-  citationFindingStageSchema,
+  citationFindingStageInputSchema,
   citationFindingSummarySchema,
   citationFindingsStateSchema,
   citationImprovementDetailSchema,
@@ -21,6 +21,12 @@ const scope = z.object({ ownerId: z.string().uuid(), projectId: evidenceProjectI
 const SURFACED_CITATION_ERRORS = new Set([
   "citation_finding_capacity",
   "citation_improvement_capacity",
+  // Owner-resolvable authoring outcomes (additive 20260926190000): a stale different edit (reopen the current
+  // version), a scope that is not a stored LOCKED panel with the same client (lock the panel / fix the scope),
+  // and a reused finding id under a changed scope (a scope change is a NEW finding identity).
+  "citation_finding_version_conflict",
+  "citation_panel_scope_unauthenticated",
+  "citation_finding_scope_drift",
 ]);
 function surfacedCitationError(error: unknown): string {
   const message =
@@ -66,11 +72,20 @@ export async function saveCitationFinding(
   const s = scope.parse(raw);
   // Bounded, fully-validated finding record + declared scope before the RPC. The server derives the
   // actor/reviewer and refuses a record whose reviewer is not the authenticated caller.
-  const input = citationFindingStageSchema.parse(value);
+  const input = citationFindingStageInputSchema.parse(value);
+  // v2 (additive 20260926190000): the same P3 save under the account lock plus the expected-head guard (version
+  // + immutable head row id) and the persisted scope-binding stamp; every insert is scope-enforced by the trigger.
   return citationFindingSummarySchema.parse(
     await call(
-      "save_ai_citation_finding",
-      { p_user: s.ownerId, p_project: s.projectId, p_record: input.finding, p_scope: input.scope },
+      "save_ai_citation_finding_v2",
+      {
+        p_user: s.ownerId,
+        p_project: s.projectId,
+        p_record: input.finding,
+        p_scope: input.scope,
+        p_expected_version: input.expectedVersion ?? null,
+        p_expected_head: input.expectedHeadId ?? null,
+      },
       rpc,
     ),
   );
@@ -78,7 +93,7 @@ export async function saveCitationFinding(
 export async function readCitationFindings(raw: z.infer<typeof scope>, rpc?: KnowledgeRpc) {
   const s = scope.parse(raw);
   return citationFindingsStateSchema.parse(
-    await call("read_ai_citation_findings", { p_user: s.ownerId, p_project: s.projectId }, rpc),
+    await call("read_ai_citation_findings_v2", { p_user: s.ownerId, p_project: s.projectId }, rpc),
   );
 }
 export async function getCitationFinding(
@@ -93,7 +108,7 @@ export async function getCitationFinding(
   // against the exact strict `findingSchema` to pick the discriminated `recordValid` branch.
   const env = citationFindingDetailEnvelopeSchema.parse(
     await call(
-      "read_ai_citation_finding",
+      "read_ai_citation_finding_v2",
       { p_user: s.ownerId, p_project: s.projectId, p_id: z.string().uuid().parse(id) },
       rpc,
     ),
@@ -130,7 +145,7 @@ export async function saveCitationImprovement(
   const input = citationImprovementStageSchema.parse(value);
   return citationImprovementSummarySchema.parse(
     await call(
-      "save_ai_citation_improvement",
+      "save_ai_citation_improvement_v2",
       {
         p_user: s.ownerId,
         p_project: s.projectId,
@@ -145,7 +160,11 @@ export async function saveCitationImprovement(
 export async function readCitationImprovements(raw: z.infer<typeof scope>, rpc?: KnowledgeRpc) {
   const s = scope.parse(raw);
   return citationImprovementsStateSchema.parse(
-    await call("read_ai_citation_improvements", { p_user: s.ownerId, p_project: s.projectId }, rpc),
+    await call(
+      "read_ai_citation_improvements_v2",
+      { p_user: s.ownerId, p_project: s.projectId },
+      rpc,
+    ),
   );
 }
 export async function getCitationImprovement(
@@ -156,7 +175,7 @@ export async function getCitationImprovement(
   const s = scope.parse(raw);
   return citationImprovementDetailSchema.parse(
     await call(
-      "read_ai_citation_improvement",
+      "read_ai_citation_improvement_v2",
       { p_user: s.ownerId, p_project: s.projectId, p_id: z.string().uuid().parse(id) },
       rpc,
     ),

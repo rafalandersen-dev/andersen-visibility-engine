@@ -17,6 +17,7 @@ import {
   saveCitationFindingReview,
 } from "./citation-finding-review.server";
 import { importAnswerEvidence, saveEvidencePrompt } from "./answer-evidence.server";
+import { headToken, headVersionQuery, lockedPanelInsert } from "./citation-panel-fixture";
 import type { KnowledgeRpc } from "./project-knowledge.server";
 // Independent (two-person) review of citation findings (spec §4.5). This exercises the ACTUAL released team
 // admission contract: the real `20260911020000_project_team_reads.sql` migration is applied (real
@@ -125,14 +126,26 @@ const recordedOnlyPassage = (passage: string) => ({
   ...supportBase(passage),
   selectedRecord: null,
 });
-const saveFRaw = (
+// Saves pass the CURRENT head ROW of the logical finding id (version + immutable id, what the owner inspected),
+// as the authoring UI does, so the additive expected-head guard (20260926190000) admits successor versions here.
+const saveFRaw = async (
   findingId: string,
   decision: Parameters<typeof finding>[1] = "accepted",
   opts: FindingOpts = {},
 ) =>
   saveCitationFinding(
     scope,
-    { scope: panelScope, finding: finding(findingId, decision, opts) },
+    {
+      scope: panelScope,
+      finding: finding(findingId, decision, opts),
+      ...headToken(
+        (
+          await db.query<{ v: number; id: string | null }>(
+            ...headVersionQuery("ai_citation_findings", scope.ownerId, scope.projectId, findingId),
+          )
+        ).rows[0],
+      ),
+    },
     rpc,
   );
 // Owner-only finding-scoped assignment helpers (finding 4062796988). `assign` grants; `revokeAssign` revokes.
@@ -349,6 +362,9 @@ beforeAll(async () => {
     "20260910200000_publication_evidence.sql",
     "20260910210000_answer_evidence.sql",
     "20260919165000_native_report_artifacts.sql",
+    // Released P2 panel storage (citation_panels) precedes P3; the additive owner-authoring candidate
+    // (20260926190000) is applied after the team prerequisites below (it needs P2 + P3 only).
+    "20260920190000_citation_protocol.sql",
     "20260920200000_citation_findings_improvements.sql",
     // The REAL released delegated-approval prerequisites the citation review authority AND the improvement
     // binding reuse: project_team_members + assert_project_team_account + the deleted/banned/lock admission
@@ -357,6 +373,7 @@ beforeAll(async () => {
     // hand-cut policy stub — a delegated approval whose reviewer's authority lapsed is refused by the real code.
     "20260911020000_project_team_reads.sql",
     "20260911060000_project_team_approval_policy.sql",
+    "20260926190000_citation_scope_binding_versions.sql",
   ])
     await db.exec(readFileSync("supabase/migrations/" + name, "utf8"));
   // 20260911060000's invalidation trigger (an UNRELATED release concern) fires on a member/policy UPDATE|DELETE
@@ -380,6 +397,17 @@ beforeEach(async () => {
     "INSERT INTO workspace_entities(user_id,collection,entity_id,data) VALUES($1,'content',$2,jsonb_build_object('projectId','p'))",
     [user, ASSET],
   );
+  // Stored LOCKED panel version for the declared scope (additive scope-binding trigger), per project.
+  for (const projectId of ["p", "q"])
+    await db.query(
+      ...lockedPanelInsert({
+        userId: user,
+        projectId,
+        panelId: panelScope.panelId,
+        version: panelScope.panelVersion,
+        client: panelScope.client,
+      }),
+    );
   await saveEvidencePrompt(scope, PROMPT, 0, promptDefaults, rpc);
   ANSWER = await importReal(ACC_CAP, "Acme Massage in Malmö is a good option to book.");
   // Default authority: an active reviewer under a separate-reviewers policy.
@@ -3258,6 +3286,16 @@ describe("evidence lifecycle: forgetting a source erases copied material and dow
       [stranger],
     );
     const theirRow = "60000000-0000-4000-8000-0000000000d9";
+    // Their row must bind to THEIR stored locked panel (scope-binding trigger is owner/project scoped).
+    await db.query(
+      ...lockedPanelInsert({
+        userId: stranger,
+        projectId: "p",
+        panelId: panelScope.panelId,
+        version: panelScope.panelVersion,
+        client: panelScope.client,
+      }),
+    );
     await db.query(
       "INSERT INTO ai_citation_findings(user_id,project_id,id,finding_id,version,family,decision,record,record_sha256,panel_id,panel_version,client_name,client_market,actor_id,reviewer_id) VALUES($1,'p',$2,$2,1,'citation_source','accepted',$3::jsonb,$4,$5,1,'Acme','US',$1,$1)",
       [

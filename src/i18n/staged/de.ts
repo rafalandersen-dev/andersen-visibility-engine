@@ -28,6 +28,7 @@ import { deBillingScreen } from "./de-billing-screen";
 import { deEvidenceScreen } from "./de-evidence-screen";
 import { dePlanScreen } from "./de-plan-screen";
 import { deCitationReview } from "./de-citation-review";
+import { deCitationAuthoring } from "./de-citation-authoring";
 
 /** Complete German catalog authoring, staged for review. This registry never registers a runtime language.
  * Source fingerprints and full catalog parity must pass before integration. */
@@ -132,6 +133,7 @@ export const DE_STAGED_BATCHES = [
   { name: "public pricing", copy: dePublicPricing, namespaces: ["publicPricing"] },
   { name: "public studies", copy: dePublicStudies, namespaces: ["publicStudies"] },
   { name: "citation review", copy: deCitationReview, namespaces: ["citationReview"] },
+  { name: "citation authoring", copy: deCitationAuthoring, namespaces: ["citationAuthoring"] },
 ] as const;
 export const DE_STAGED_CATALOG: Readonly<Record<string, string>> = Object.assign(
   {},

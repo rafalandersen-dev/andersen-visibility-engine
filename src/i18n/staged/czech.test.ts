@@ -42,7 +42,7 @@ it("keeps staged Czech outside runtime and assigns each key once", () => {
   const keys = CS_STAGED_BATCHES.flatMap((batch) => Object.keys(batch.copy));
   expect(new Set(keys).size).toBe(keys.length);
   expect(Object.keys(CS_STAGED_CATALOG).sort()).toEqual(keys.sort());
-  expect(keys).toHaveLength(3984);
+  expect(keys).toHaveLength(4200);
   expect(Object.isFrozen(CS_STAGED_CATALOG)).toBe(true);
 });
 

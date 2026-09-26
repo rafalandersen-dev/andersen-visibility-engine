@@ -14,6 +14,7 @@ import {
   saveCitationFinding,
 } from "./citation-record.server";
 import { importAnswerEvidence, saveEvidencePrompt } from "./answer-evidence.server";
+import { headToken, headVersionQuery, lockedPanelInsert } from "./citation-panel-fixture";
 import type { KnowledgeRpc } from "./project-knowledge.server";
 let db: PGlite;
 const user = "00000000-0000-4000-8000-000000000001",
@@ -98,7 +99,29 @@ const fact = (
   validFrom: opts.validFrom ?? T0,
   validUntil: opts.validUntil === undefined ? T1 : opts.validUntil,
 });
-const saveFact = (f: unknown, s = scope) => saveCitationBusinessFact(s, { fact: f }, rpc);
+// A correction passes the CURRENT head ROW of the logical fact id (version + immutable id, what the owner
+// inspected), exactly as the facts UI does, so the additive expected-head guard (20260926190000) admits it and
+// the P3 semantics under test are unchanged.
+const saveFact = async (f: unknown, s = scope) =>
+  saveCitationBusinessFact(
+    s,
+    {
+      fact: f,
+      ...headToken(
+        (
+          await db.query<{ v: number; id: string | null }>(
+            ...headVersionQuery(
+              "ai_citation_business_facts",
+              s.ownerId,
+              s.projectId,
+              (f as { factId: string }).factId,
+            ),
+          )
+        ).rows[0],
+      ),
+    },
+    rpc,
+  );
 const acc = (
   opts: {
     factKind?: string;
@@ -173,7 +196,11 @@ beforeAll(async () => {
     "20260910200000_publication_evidence.sql",
     "20260910210000_answer_evidence.sql",
     "20260919165000_native_report_artifacts.sql",
+    // Released P2 panel storage + P3, then the additive owner-authoring candidate (20260926190000): inserts
+    // are scope-enforced against a seeded LOCKED panel and the v2 fact save wrapper exists.
+    "20260920190000_citation_protocol.sql",
     "20260920200000_citation_findings_improvements.sql",
+    "20260926190000_citation_scope_binding_versions.sql",
   ])
     await db.exec(readFileSync("supabase/migrations/" + name, "utf8"));
 }, 30000);
@@ -187,6 +214,21 @@ beforeEach(async () => {
     "INSERT INTO workspace_entities(user_id,collection,entity_id) VALUES($1,'projects','p'),($1,'projects','q'),($2,'projects','p')",
     [user, other],
   );
+  // Stored LOCKED panel version for the declared scope (additive scope-binding trigger), per project.
+  for (const [userId, projectId] of [
+    [user, "p"],
+    [user, "q"],
+    [other, "p"],
+  ] as const)
+    await db.query(
+      ...lockedPanelInsert({
+        userId,
+        projectId,
+        panelId: panelScope.panelId,
+        version: panelScope.panelVersion,
+        client: panelScope.client,
+      }),
+    );
   await saveEvidencePrompt(scope, PROMPT, 0, promptData, rpc);
   ANSWER = await importReal(CAP_IN, "Acme Massage in Malmö is a good option to book.");
   ANSWER2 = await importReal(CAP_AFTER, "Acme Massage in Malmö is worth comparing this summer.");

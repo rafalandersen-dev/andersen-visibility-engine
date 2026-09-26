@@ -69,7 +69,13 @@ const releasedConversationPacket = [
 // PR146 applied and verified on 21 September; immutable released prerequisite for P3.
 const releasedCitationProtocol = ["20260920190000_citation_protocol.sql"];
 // P3 is the only unapplied migration after integrating the released protocol.
-const candidates = ["20260920200000_citation_findings_improvements.sql"];
+// P3 is applied in production (20260920200000, immutable); it is listed here because its file sorts after the
+// cutoff, exactly like the released packets above. The sole UNAPPLIED candidate is the additive owner-authoring
+// scope-binding/version migration (26 September 2026).
+const candidates = [
+  "20260920200000_citation_findings_improvements.sql",
+  "20260926190000_citation_scope_binding_versions.sql",
+];
 const allowed = async (role: string, fn: string) =>
   (
     await db.query<{ allowed: boolean }>("SELECT has_function_privilege($1,$2,'EXECUTE') allowed", [
@@ -180,6 +186,16 @@ describe("candidate migration chain", () => {
     // authenticated owner supplied by the middleware; client-initiated, so GRANTed to service_role only.
     "grant_ai_citation_review_assignment(uuid,text,uuid,uuid)",
     "revoke_ai_citation_review_assignment(uuid,text,uuid,uuid)",
+    // Additive owner-authoring candidate 20260926190000: expected-version save wrappers + provenance reads
+    // (service RPCs, service_role only, like their v1 counterparts which keep their grants for rollout).
+    "save_ai_citation_finding_v2(uuid,text,jsonb,jsonb,integer,uuid)",
+    "save_ai_citation_improvement_v2(uuid,text,jsonb,jsonb,jsonb)",
+    "save_ai_citation_business_fact_v2(uuid,text,jsonb,integer,uuid)",
+    "read_ai_citation_findings_v2(uuid,text)",
+    "read_ai_citation_finding_v2(uuid,text,uuid)",
+    "read_ai_citation_improvements_v2(uuid,text)",
+    "read_ai_citation_improvement_v2(uuid,text,uuid)",
+    "read_ai_citation_finding_for_review_v2(uuid,uuid,text,uuid)",
   ])("%s is executable by service_role only", async (fn) => {
     expect(await allowed("service_role", fn)).toBe(true);
     for (const role of ["anon", "authenticated", "public"])
@@ -235,6 +251,10 @@ describe("candidate migration chain", () => {
     "citation_fact_ref_matches(jsonb,uuid,uuid,integer)",
     "citation_forget_redact_fact(uuid,text,uuid,uuid,integer)",
     "citation_forget_fact_records()",
+    // Additive 20260926190000: the locked-panel scope predicate and the BEFORE INSERT enforcement trigger
+    // function on ai_citation_findings / ai_citation_improvements. Reached only from the trigger / definers.
+    "citation_panel_scope_authenticated(uuid,text,uuid,integer,text,text)",
+    "citation_scope_binding_enforce()",
   ])("%s is reachable only from definer functions", async (fn) => {
     for (const role of ["anon", "authenticated", "service_role", "public"])
       expect(await allowed(role, fn)).toBe(false);

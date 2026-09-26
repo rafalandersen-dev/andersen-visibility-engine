@@ -2,16 +2,31 @@ import { createServerFn } from "@tanstack/react-start";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { z } from "zod";
 import { evidenceProjectId } from "./answer-evidence";
-import { citationFindingStageSchema, citationImprovementStageSchema } from "./citation-record";
+import {
+  citationFindingStageSchema,
+  citationImprovementStageSchema,
+  inspectedHeadRefinement,
+} from "./citation-record";
 const scope = z.object({ projectId: evidenceProjectId, expectedOwnerId: z.string().uuid() });
 export const saveCitationFindingFn = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((v: unknown) => scope.extend(citationFindingStageSchema.shape).strict().parse(v))
+  .inputValidator((v: unknown) =>
+    scope
+      .extend(citationFindingStageSchema.shape)
+      .strict()
+      .superRefine(inspectedHeadRefinement)
+      .parse(v),
+  )
   .handler(async ({ data, context }) => {
     if (context.userId !== data.expectedOwnerId) throw Error("evidence_owner_changed");
     return (await import("./citation-record.server")).saveCitationFinding(
       { ownerId: context.userId, projectId: data.projectId },
-      { scope: data.scope, finding: data.finding },
+      {
+        scope: data.scope,
+        finding: data.finding,
+        expectedVersion: data.expectedVersion ?? null,
+        expectedHeadId: data.expectedHeadId ?? null,
+      },
     );
   });
 export const readCitationFindingsFn = createServerFn({ method: "POST" })

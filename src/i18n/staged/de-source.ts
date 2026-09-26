@@ -33,4 +33,6 @@ export const DE_AUTHORING_SOURCE_HASHES: Readonly<Record<string, string>> = {
   "public studies": "ace563fb757a52abcd667e7e691d3e48024045a4e4f265e6949c66a828f5e8de",
   // P4 citation review candidate after bab861c8 (2026-09-26); English source in src/i18n/citation-review.ts.
   "citation review": "d41949f7901f0d37b4debab152a406f238c34273ed422fe230df34ff41dcb151",
+  // Owner authoring candidate after a392775c (2026-09-26); English source in src/i18n/citation-authoring.ts.
+  "citation authoring": "3affd8936a8bce81ce411aaffbf2909c58d56d85e7ccc9e5c3efd6d11e650d4f",
 };

@@ -74,7 +74,7 @@ it("keeps staged Lithuanian outside runtime and assigns each authored key once",
   const keys = LT_STAGED_BATCHES.flatMap((batch) => Object.keys(batch.copy));
   expect(new Set(keys).size).toBe(keys.length);
   expect(Object.keys(LT_STAGED_CATALOG).sort()).toEqual(keys.sort());
-  expect(keys).toHaveLength(3984);
+  expect(keys).toHaveLength(4200);
   expect(Object.isFrozen(LT_STAGED_CATALOG)).toBe(true);
 });
 it("covers the complete current English interface key set", () => {

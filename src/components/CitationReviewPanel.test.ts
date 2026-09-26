@@ -144,6 +144,7 @@ const view: CitationFindingForReview = {
   reviews: [],
   reviewTotal: 0,
   reviewsTruncated: false,
+  scopeEnforcedAt: null,
 };
 const ok = (data: unknown): Q => ({
   data,

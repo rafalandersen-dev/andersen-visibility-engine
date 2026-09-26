@@ -1,7 +1,7 @@
 import { z } from "zod";
 import { evidenceProjectId } from "./answer-evidence";
 import {
-  citationBusinessFactStageSchema,
+  citationBusinessFactStageInputSchema,
   citationBusinessFactSummarySchema,
   citationBusinessFactsStateSchema,
   citationFindingAccuracySchema,
@@ -11,7 +11,11 @@ const scope = z.object({ ownerId: z.string().uuid(), projectId: evidenceProjectI
 // Only this fixed capacity code (resolvable by the owner deleting a fact) is surfaced; every other failure
 // (validation, auth, an unresolved dependency, a missing row, a raw database error, network, or the
 // timeout) collapses to the generic code, so no raw database error text ever escapes.
-const SURFACED_CITATION_ERRORS = new Set(["citation_business_fact_capacity"]);
+const SURFACED_CITATION_ERRORS = new Set([
+  "citation_business_fact_capacity",
+  // A correction submitted against a head version the owner never inspected (additive 20260926190000).
+  "citation_business_fact_version_conflict",
+]);
 function surfacedCitationError(error: unknown): string {
   const message =
     typeof error === "object" && error !== null && "message" in error
@@ -53,11 +57,19 @@ export async function saveCitationBusinessFact(
   const s = scope.parse(raw);
   // Fully-validated business-fact record before the RPC. The server derives confirmedBy/confirmedAt and
   // refuses a foreign confirmer.
-  const input = citationBusinessFactStageSchema.parse(value);
+  const input = citationBusinessFactStageInputSchema.parse(value);
+  // v2 (additive 20260926190000): the unchanged P3 save plus the expected-head guard (version + immutable head
+  // row id) for corrections.
   return citationBusinessFactSummarySchema.parse(
     await call(
-      "save_ai_citation_business_fact",
-      { p_user: s.ownerId, p_project: s.projectId, p_record: input.fact },
+      "save_ai_citation_business_fact_v2",
+      {
+        p_user: s.ownerId,
+        p_project: s.projectId,
+        p_record: input.fact,
+        p_expected_version: input.expectedVersion ?? null,
+        p_expected_head: input.expectedHeadId ?? null,
+      },
       rpc,
     ),
   );
