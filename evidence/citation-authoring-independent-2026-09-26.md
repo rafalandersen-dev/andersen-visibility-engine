@@ -73,3 +73,8 @@ Local Chrome1596627668: no-answer mode→open stored finding→Review refused wi
 All C source fixes remain uncommitted on d2bfd42b at this note. External review must cover the updated commit. CI diagnostic has not yet run on GitHub; failure cause remains unknown. SQL remains UNAPPLIED and no release was attempted.
 
 C1 retry confirmed20:17:58.042: idempotent v2 SAMErowddbe7fb6 after20:17:35.212 stored-v2/lostresponse. No duplicate version; originalexpectedVersion1/headf9. Full JSON equality in the localmock covers the frozen capture/review timestamps.
+
+
+## CI workflow validation — packaging correction
+
+Run36269086035 onb939bdf2 returnedSUCCESS but explicitly SKIPPED Claude execution because the workflow differs from default branch. This is NOT a completed review. Codex integration exception: restored only .github/workflows/claude-code-review.yml to the original reviewed d2bfd42b content so the current PR can run the established review workflow. The safe diagnostic helper/tests remain; the hook patch is preserved at .coordination/claude-review-diagnostic-workflow-pending.patch for a separately reviewed infrastructure change if still needed. No permission expansion, validation bypass, full-output logging or failed-result override. Application and SQL untouched. A fresh normal CI run is required; original execution cause remains unknown until observed.
