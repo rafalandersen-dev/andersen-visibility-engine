@@ -27,6 +27,7 @@ import { hrAuditScreen } from "./hr-audit-screen";
 import { hrCore } from "./hr-core";
 import { hrAuthScreen } from "./hr-auth-screen";
 import { hrSharedUi } from "./hr-shared-ui";
+import { hrCitationReview } from "./hr-citation-review";
 /** Croatian authoring; never imported by the runtime catalog. */
 export const HR_STAGED_BATCHES = [
   {
@@ -267,6 +268,13 @@ export const HR_STAGED_BATCHES = [
     namespaces: ["sharedUi"],
     sourceRevision: "b450bc5",
     sourceHash: "678278d00a51f6b4df582627cce0d38b176e65972d6ac578682f8e2e247d9de5",
+  },
+  {
+    name: "citation review",
+    copy: hrCitationReview,
+    namespaces: ["citationReview"],
+    sourceRevision: "P4 citation review candidate after bab861c8",
+    sourceHash: "d41949f7901f0d37b4debab152a406f238c34273ed422fe230df34ff41dcb151",
   },
 ] as const;
 export const HR_STAGED_CATALOG: Readonly<Record<string, string>> = Object.freeze(

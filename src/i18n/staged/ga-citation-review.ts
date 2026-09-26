@@ -1,0 +1,153 @@
+/** Irish authoring only; not registered in the runtime or language picker. Machine-authored on
+ * 2026-09-26 from the English P4 citation-review namespace; fluent human acceptance pending. */
+export const gaCitationReview: Readonly<Record<string, string>> = {
+  "citationReview.title": "Athbhreithniú ar luanna",
+  "citationReview.subtitle":
+    "Bainistigh an dara hathbhreithniú neamhspleách ar thorthaí luanna don tionscadal seo.",
+  "citationReview.loading": "Á lódáil…",
+  "citationReview.owner.intro":
+    "Do thorthaí don tionscadal seo. Is iad na stádais na luachanna reatha beo — ní cruthúnas neamhspleách ná cúisíoch riamh é dearbhú úinéara. Ní cuid den amharc seo iad údarú torthaí, ceangal painéil ná parsáil tuarascálacha dúchasacha.",
+  "citationReview.owner.empty": "Níl aon torthaí luanna don tionscadal seo fós.",
+  "citationReview.owner.version": "l{version}",
+  "citationReview.owner.openFinding": "Oscail toradh: {family}",
+  "citationReview.owner.recorded": "taifeadta {date}",
+  "citationReview.error.loadFindings":
+    "Níorbh fhéidir na torthaí a lódáil. Athnuaigh agus bain triail eile as.",
+  "citationReview.error.loadDetail": "Níorbh fhéidir an toradh seo a lódáil.",
+  "citationReview.family.citation_source": "Bearna luanna / foinse",
+  "citationReview.family.recommendation_accuracy": "Cruinneas an mholta",
+  "citationReview.decision.accepted": "Glactha",
+  "citationReview.decision.dismissed": "Díbhe",
+  "citationReview.decision.needs_second_review": "Dara hathbhreithniú de dhíth",
+  "citationReview.reviewStatus.owner_only": "Úinéir amháin",
+  "citationReview.reviewStatus.second_review_pending": "Dara hathbhreithniú ar feitheamh",
+  "citationReview.reviewStatus.independent_reviewed": "Athbhreithnithe go neamhspleách",
+  "citationReview.reviewStatus.independent_opinion":
+    "Tuairim neamhspleách (ní féidir í a iniúchadh)",
+  "citationReview.reviewStatus.independent_dissent": "Easaontas neamhspleách",
+  "citationReview.accuracy.none": "Gan cruinneas measúnaithe",
+  "citationReview.accuracy.resolved": "Cruinneas réitithe",
+  "citationReview.accuracy.unresolved": "Cruinneas gan réiteach",
+  "citationReview.chip.sourceUnavailable": "Níl an fhoinse luaite ar fáil",
+  "citationReview.detail.title": "Sonraí an toraidh",
+  "citationReview.detail.current": "Reatha",
+  "citationReview.detail.evidenceErased": "fianaise dearmadta",
+  "citationReview.detail.legacyRecord":
+    "Taifead sean nó míchumtha a thaispeántar amh lena iniúchadh agus lena scriosadh; ní toradh reatha bailí é.",
+  "citationReview.record.observation": "Breathnóireacht",
+  "citationReview.record.hypothesis": "Hipitéis",
+  "citationReview.record.recommendation": "Moladh",
+  "citationReview.record.support": "Tacaíocht",
+  "citationReview.record.accuracy": "Cruinneas measúnaithe",
+  "citationReview.record.rawAudit": "Taifead amh (iniúchadh)",
+  "citationReview.grant.title": "Sann athbhreithneoir don toradh seo",
+  "citationReview.grant.failed":
+    "Níorbh fhéidir an sannadh a nuashonrú. Seans nach bhfuil an ball incháilithe a thuilleadh; athnuaigh agus bain triail eile as.",
+  "citationReview.grant.rosterError":
+    "Níorbh fhéidir uainchlár na foirne ná an polasaí formheasa a lódáil.",
+  "citationReview.grant.noEligible":
+    "Níl aon athbhreithneoir foirne incháilithe faoin bpolasaí formheasa reatha. Socraigh polasaí athbhreithneora/eagarthóra i gComhoibrithe ar dtús.",
+  "citationReview.grant.selectReviewer": "Roghnaigh ball foirne incháilithe",
+  "citationReview.grant.grant": "Deonaigh rochtain athbhreithnithe",
+  "citationReview.grant.selectRevoke": "Roghnaigh ball le cúlghairm",
+  "citationReview.grant.revoke": "Cúlghair rochtain athbhreithnithe",
+  "citationReview.grant.departed": "níl gníomhach a thuilleadh",
+  "citationReview.grant.granted": "Rochtain athbhreithnithe deonaithe don toradh seo.",
+  "citationReview.grant.revoked": "Rochtain athbhreithnithe cúlghairthe don toradh seo.",
+  "citationReview.grant.linkHelp":
+    "Roinn an nasc in-aipe seo leis an athbhreithneoir sannta ionas gur féidir leis an toradh seo go díreach a oscailt:",
+  "citationReview.grant.link": "Nasc athbhreithnithe scóipe",
+  "citationReview.grant.copy": "Cóipeáil",
+  "citationReview.grant.copied": "Cóipeáilte",
+  "citationReview.role.reviewer": "Athbhreithneoir",
+  "citationReview.role.editor": "Eagarthóir",
+  "citationReview.role.viewer": "Léitheoir",
+  "citationReview.share.sharedTitle":
+    "Is féidir leis an athbhreithneoir sannta iniúchadh a dhéanamh, don toradh SEO amháin:",
+  "citationReview.share.withheldTitle": "Ní fheiceann an t-athbhreithneoir riamh:",
+  "citationReview.share.answerContent": "téacs an fhreagra gafa agus a luanna",
+  "citationReview.share.selectedSourceMaterial":
+    "na taifid foinse roghnaithe a luann an toradh seo (ní an fhoinse iomlán)",
+  "citationReview.share.datedFacts":
+    "na fíricí dátaithe taobh thiar de gach éileamh cruinnis measúnaithe",
+  "citationReview.share.recordAndStatus": "taifead an toraidh, hais a ábhair agus a stádas reatha",
+  "citationReview.share.notOtherFindings": "do thorthaí eile",
+  "citationReview.share.notFindingsList": "do liosta iomlán torthaí",
+  "citationReview.share.notArtifactBytes": "bearta amha déantán dúchasach",
+  "citationReview.share.notFactManagement": "bainistíocht fíricí gnó",
+  "citationReview.share.notExports": "easpórtálacha",
+  "citationReview.reviewer.title": "Athbhreithnigh an toradh sannta seo",
+  "citationReview.reviewer.unavailable":
+    "Níl an toradh seo ar fáil duit. Seans gur cúlghaireadh an rochtain nó gur chuaigh sí in éag.",
+  "citationReview.reviewer.withheld":
+    "Tá fianaise an toraidh seo coinnithe siar (dearmadta, nó tá foinse luaite cúlghairthe nó ar iarraidh). Ní féidir leat í a iniúchadh ná a fhormheas.",
+  "citationReview.reviewer.inspectable": "In-iniúchta go hiomlán",
+  "citationReview.reviewer.notInspectable":
+    "Ní in-iniúchta go hiomlán — níl formheas ar fáil; is féidir leat tuairim nó easaontas a thaifeadadh fós.",
+  "citationReview.reviewer.decisionLabel": "Cinneadh",
+  "citationReview.reviewer.chooseDecision": "Roghnaigh cinneadh",
+  "citationReview.reviewer.noteLabel": "Nóta athbhreithnithe (roghnach, gnáth-théacs)",
+  "citationReview.reviewer.notePlaceholder": "Nóta roghnach",
+  "citationReview.reviewer.submit": "Cuir an cinneadh isteach",
+  "citationReview.reviewer.staleRefreshed":
+    "Athraíodh an toradh ó d'oscail tú é, nó tá cinneadh nó nóta eile taifeadta dó cheana. Glanadh do rogha — iniúch an leagan reatha agus roghnaigh arís.",
+  "citationReview.reviewer.reviewsError":
+    "Níorbh fhéidir na hathbhreithnithe atá ann a lódáil. Athnuaigh chun an stádas reatha a fheiceáil.",
+  "citationReview.reviewer.recorded": "Thaifead tú: {decision}",
+  "citationReview.reviewer.withdraw": "Tarraing siar mo chinneadh",
+  "citationReview.reviewer.truncated":
+    "Na hathbhreithnithe is déanaí as {total} san iomlán á dtaispeáint.",
+  "citationReview.reviewer.evidence": "Fianaise luaite",
+  "citationReview.reviewer.noEvidence": "Ní luann an toradh seo aon fhianaise inréitithe.",
+  "citationReview.reviewer.facts": "Fíricí dátaithe",
+  "citationReview.reviewDecision.approved": "Formheas",
+  "citationReview.reviewDecision.rejected": "Diúltaigh",
+  "citationReview.reviewDecision.needs_changes": "Athruithe de dhíth",
+  "citationReview.guard.withheld":
+    "Tá an fhianaise coinnithe siar, mar sin ní féidir aon chinneadh a thaifeadadh.",
+  "citationReview.guard.uninspectable":
+    "Níl an toradh seo in-iniúchta go hiomlán, mar sin ní féidir é a fhormheas.",
+  "citationReview.guard.choose": "Roghnaigh cinneadh le cur isteach.",
+  "citationReview.evidence.answer": "Freagra gafa",
+  "citationReview.evidence.available": "ar fáil",
+  "citationReview.evidence.deleted": "scriosta",
+  "citationReview.evidence.truncated":
+    "Sáraíonn ábhar an fhreagra an teorainn iniúchta agus tá sé teasctha.",
+  "citationReview.evidence.citations": "Luanna",
+  "citationReview.evidence.source": "Foinse",
+  "citationReview.evidence.unknownStatus": "stádas anaithnid",
+  "citationReview.evidence.label": "Lipéad",
+  "citationReview.evidence.url": "URL",
+  "citationReview.evidence.selectedRecords": "Taifid roghnaithe",
+  "citationReview.evidence.validUntil": "bailí go dtí",
+  "citationReview.evidence.native": "Déantán dúchasach",
+  "citationReview.evidence.notInspectable": "ní in-iniúchta (bearta teimhneacha ar stáitse)",
+  "citationReview.evidence.factUnavailable": "níl an fhíric ar fáil (scriosta)",
+  "citationReview.link.invalid":
+    "Tá an nasc athbhreithnithe seo neamhiomlán nó míchumtha. Iarr nasc athbhreithnithe reatha ar úinéir an tionscadail.",
+  "citationReview.navFromVisibility": "Athbhreithniú ar luanna (torthaí don dara hathbhreithniú) →",
+  "citationReview.record.passage": "Sliocht",
+  "citationReview.record.suitability": "Oiriúnacht",
+  "citationReview.record.citedUrl": "URL luaite",
+  "citationReview.record.sourcePassage": "Sliocht foinse",
+  "citationReview.record.humanStatus": "breithiúnas taifeadta",
+  "citationReview.record.resolution": "réiteach beo",
+  "citationReview.record.capturedOn": "gafa",
+  "citationReview.record.factKind": "cineál fírice",
+  "citationReview.resolution.not_assessed": "gan mheasúnú",
+  "citationReview.resolution.unpinned": "níl fíric bheacht pionnáilte",
+  "citationReview.resolution.capture_unresolved": "am gabhála gan réiteach",
+  "citationReview.resolution.fact_missing": "fíric phionnáilte scriosta",
+  "citationReview.resolution.wrong_kind": "fíric phionnáilte de chineál eile",
+  "citationReview.resolution.out_of_period": "ní raibh an fhíric bailí tráth na gabhála",
+  "citationReview.resolution.ambiguous": "débhríoch (roinnt fíricí a chlúdaíonn)",
+  "citationReview.resolution.superseded_correction": "curtha in ionad ag ceartúchán níos déanaí",
+  "citationReview.resolution.resolved": "réitithe i gcoinne na fírice dátaithe",
+  "citationReview.reviewer.passagesWithheld":
+    "Tá sleachta foinse cóipeáilte coinnithe siar san amharc seo toisc go bhfuil foinse luaite cúlghairthe nó ar iarraidh; níl aon athrú ar thaifead stóráilte an úinéara.",
+  "citationReview.reviewer.revokedOwnReceipt":
+    "Is leatsa fós do chinneadh taifeadta féin a tharraingt siar.",
+  "citationReview.reviewer.withdrawn": "Tarraingíodh siar do chinneadh.",
+  "citationReview.reviewer.withdrawFailed":
+    "Níorbh fhéidir do chinneadh a tharraingt siar. Athnuaigh agus bain triail eile as.",
+};

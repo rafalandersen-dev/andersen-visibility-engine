@@ -39,6 +39,7 @@ import { roPublicStudies } from "./ro-public-studies";
 import { roServicesScreen } from "./ro-services-screen";
 import { roSetupScreen } from "./ro-setup-screen";
 import { roSharedUi } from "./ro-shared-ui";
+import { roCitationReview } from "./ro-citation-review";
 /** Romanian authoring in progress; never imported by the runtime catalog. */
 export const RO_STAGED_BATCHES = [
   {
@@ -285,6 +286,13 @@ export const RO_STAGED_BATCHES = [
     namespaces: ["chat"],
     sourceRevision: "account conversations candidate after ff9b085",
     sourceHash: "d37f66e7435e11e49b2e69c75ace0f494c1d288b7c4e4b1d3f3c110a1274649b",
+  },
+  {
+    name: "citation review",
+    copy: roCitationReview,
+    namespaces: ["citationReview"],
+    sourceRevision: "P4 citation review candidate after bab861c8",
+    sourceHash: "d41949f7901f0d37b4debab152a406f238c34273ed422fe230df34ff41dcb151",
   },
 ] as const;
 export const RO_STAGED_CATALOG: Readonly<Record<string, string>> = Object.freeze(

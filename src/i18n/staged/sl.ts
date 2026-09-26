@@ -27,6 +27,7 @@ import { slSetupScreen } from "./sl-setup-screen";
 import { slCore } from "./sl-core";
 import { slAuthScreen } from "./sl-auth-screen";
 import { slSharedUi } from "./sl-shared-ui";
+import { slCitationReview } from "./sl-citation-review";
 /** Slovenian authoring; never imported by the runtime catalog. */
 export const SL_STAGED_BATCHES = [
   {
@@ -267,6 +268,13 @@ export const SL_STAGED_BATCHES = [
     namespaces: ["publicBeta"],
     sourceRevision: "6a24f17",
     sourceHash: "e670953b131c40fc4433b5ce6e5b256556bf37ea8709bc495b211efc361fb59e",
+  },
+  {
+    name: "citation review",
+    copy: slCitationReview,
+    namespaces: ["citationReview"],
+    sourceRevision: "P4 citation review candidate after bab861c8",
+    sourceHash: "d41949f7901f0d37b4debab152a406f238c34273ed422fe230df34ff41dcb151",
   },
 ] as const;
 export const SL_STAGED_CATALOG: Readonly<Record<string, string>> = Object.freeze(

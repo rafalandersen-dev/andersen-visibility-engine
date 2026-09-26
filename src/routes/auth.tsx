@@ -14,6 +14,7 @@ import { toast } from "sonner";
 import { useAuthLanguage } from "@/hooks/use-auth-language";
 import { AuthLanguagePicker } from "@/components/AuthLanguagePicker";
 import { z } from "zod";
+import { safeRedirect, startOAuthSignIn } from "@/lib/auth-redirect";
 
 import {
   EMAIL_LANGUAGE_OPTIONS,
@@ -26,12 +27,9 @@ const searchSchema = z.object({
   message: z.string().optional(),
   redirect: z.string().optional(),
 });
-
-/** Only allow internal app paths as a post-login target (prevents open redirect). */
-function safeRedirect(r: string | undefined): string {
-  if (r && r.startsWith("/app") && !r.startsWith("//")) return r;
-  return "/app";
-}
+// `safeRedirect` (only an internal /app path survives as the post-login target — prevents open redirect)
+// now lives in `@/lib/auth-redirect` so the password flow, the Google/Apple callback and the tests share
+// ONE validation (PR150 finding 4111227860).
 
 export const Route = createFileRoute("/auth")({
   validateSearch: searchSchema,
@@ -149,9 +147,15 @@ function AuthPage() {
     if (busy) return;
     setBusy(true);
     try {
-      const result = await lovable.auth.signInWithOAuth(provider, {
-        redirect_uri: `${window.location.origin}/app`,
-      });
+      // The provider callback returns to THIS origin's /auth carrying the validated internal target (or to
+      // origin + /app when there is none), so a logged-out assigned reviewer who arrived via
+      // /auth?redirect=<scoped review link> lands back here with a session and `goAfterAuth` completes the
+      // same validated navigation the password flow performs. Never a foreign or non-/app destination.
+      const result = await startOAuthSignIn(
+        provider,
+        { origin: window.location.origin, redirect: search.redirect },
+        (p, opts) => lovable.auth.signInWithOAuth(p, opts),
+      );
       if (result && "error" in result && result.error) {
         throw result.error;
       }

@@ -150,6 +150,14 @@ function AiVisibilityPage() {
   return (
     <AppShell title={t("evidenceScreen.title")} description={t("evidenceScreen.subtitle")}>
       <AnswerEvidencePanel projectId={project.id} />
+      <div className="mb-6">
+        <Link
+          to="/app/citation-review"
+          className="text-sm text-foreground/70 underline underline-offset-4 hover:text-foreground"
+        >
+          {t("citationReview.navFromVisibility")}
+        </Link>
+      </div>
       {/* Input card */}
       <div className="rounded-lg border border-border bg-card p-5 mb-6">
         <div className="text-xs uppercase tracking-[0.16em] text-muted-foreground">

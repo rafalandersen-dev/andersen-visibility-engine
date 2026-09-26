@@ -27,6 +27,7 @@ import { itSetupScreen } from "./it-setup-screen";
 import { itAuthScreen } from "./it-auth-screen";
 import { itSharedUi } from "./it-shared-ui";
 import { itCore } from "./it-core";
+import { itCitationReview } from "./it-citation-review";
 
 /** Complete Italian key coverage; language and behavior acceptance pending. Keep isolated from runtime. */
 export const IT_STAGED_BATCHES = [
@@ -268,6 +269,13 @@ export const IT_STAGED_BATCHES = [
     ],
     sourceRevision: "3aba1ad",
     sourceHash: "649e9d723e890e3a356652ad7a515080081167e2d06a4dc5d3ad58cc5e2b6615",
+  },
+  {
+    name: "citation review",
+    copy: itCitationReview,
+    namespaces: ["citationReview"],
+    sourceRevision: "P4 citation review candidate after bab861c8",
+    sourceHash: "d41949f7901f0d37b4debab152a406f238c34273ed422fe230df34ff41dcb151",
   },
 ] as const;
 export const IT_STAGED_CATALOG: Readonly<Record<string, string>> = Object.freeze(

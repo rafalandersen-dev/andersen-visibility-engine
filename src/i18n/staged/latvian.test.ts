@@ -33,6 +33,8 @@ const properNames = new Set<string>([
   "shopify.shopify",
   "claude.cliHeading",
   "claude.desktopHeading",
+  // The version chip "v{version}" is a technical token, identical in Latvian (P4 citation review, 2026-09-26).
+  "citationReview.owner.version",
 ]);
 
 const tokens = (value: string, pattern: RegExp) =>
@@ -72,7 +74,7 @@ it("keeps staged Latvian outside runtime and assigns each authored key once", ()
   const keys = LV_STAGED_BATCHES.flatMap((batch) => Object.keys(batch.copy));
   expect(new Set(keys).size).toBe(keys.length);
   expect(Object.keys(LV_STAGED_CATALOG).sort()).toEqual(keys.sort());
-  expect(keys).toHaveLength(3860);
+  expect(keys).toHaveLength(3984);
   expect(Object.isFrozen(LV_STAGED_CATALOG)).toBe(true);
 });
 it("covers the complete current English interface key set", () => {

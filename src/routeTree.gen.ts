@@ -72,6 +72,7 @@ import { Route as AuthenticatedAppConversationsRouteImport } from './routes/_aut
 import { Route as AuthenticatedAppConnectRouteImport } from './routes/_authenticated/app.connect'
 import { Route as AuthenticatedAppCompetitorsRouteImport } from './routes/_authenticated/app.competitors'
 import { Route as AuthenticatedAppCollaboratorsRouteImport } from './routes/_authenticated/app.collaborators'
+import { Route as AuthenticatedAppCitationReviewRouteImport } from './routes/_authenticated/app.citation-review'
 import { Route as AuthenticatedAppCalendarRouteImport } from './routes/_authenticated/app.calendar'
 import { Route as AuthenticatedAppBillingRouteImport } from './routes/_authenticated/app.billing'
 import { Route as AuthenticatedAppBetaValidationRouteImport } from './routes/_authenticated/app.beta-validation'
@@ -422,6 +423,12 @@ const AuthenticatedAppCollaboratorsRoute =
     path: '/app/collaborators',
     getParentRoute: () => AuthenticatedRouteRoute,
   } as any)
+const AuthenticatedAppCitationReviewRoute =
+  AuthenticatedAppCitationReviewRouteImport.update({
+    id: '/app/citation-review',
+    path: '/app/citation-review',
+    getParentRoute: () => AuthenticatedRouteRoute,
+  } as any)
 const AuthenticatedAppCalendarRoute =
   AuthenticatedAppCalendarRouteImport.update({
     id: '/app/calendar',
@@ -581,6 +588,7 @@ export interface FileRoutesByFullPath {
   '/app/beta-validation': typeof AuthenticatedAppBetaValidationRoute
   '/app/billing': typeof AuthenticatedAppBillingRoute
   '/app/calendar': typeof AuthenticatedAppCalendarRoute
+  '/app/citation-review': typeof AuthenticatedAppCitationReviewRoute
   '/app/collaborators': typeof AuthenticatedAppCollaboratorsRoute
   '/app/competitors': typeof AuthenticatedAppCompetitorsRoute
   '/app/connect': typeof AuthenticatedAppConnectRoute
@@ -665,6 +673,7 @@ export interface FileRoutesByTo {
   '/app/beta-validation': typeof AuthenticatedAppBetaValidationRoute
   '/app/billing': typeof AuthenticatedAppBillingRoute
   '/app/calendar': typeof AuthenticatedAppCalendarRoute
+  '/app/citation-review': typeof AuthenticatedAppCitationReviewRoute
   '/app/collaborators': typeof AuthenticatedAppCollaboratorsRoute
   '/app/competitors': typeof AuthenticatedAppCompetitorsRoute
   '/app/connect': typeof AuthenticatedAppConnectRoute
@@ -751,6 +760,7 @@ export interface FileRoutesById {
   '/_authenticated/app/beta-validation': typeof AuthenticatedAppBetaValidationRoute
   '/_authenticated/app/billing': typeof AuthenticatedAppBillingRoute
   '/_authenticated/app/calendar': typeof AuthenticatedAppCalendarRoute
+  '/_authenticated/app/citation-review': typeof AuthenticatedAppCitationReviewRoute
   '/_authenticated/app/collaborators': typeof AuthenticatedAppCollaboratorsRoute
   '/_authenticated/app/competitors': typeof AuthenticatedAppCompetitorsRoute
   '/_authenticated/app/connect': typeof AuthenticatedAppConnectRoute
@@ -837,6 +847,7 @@ export interface FileRouteTypes {
     | '/app/beta-validation'
     | '/app/billing'
     | '/app/calendar'
+    | '/app/citation-review'
     | '/app/collaborators'
     | '/app/competitors'
     | '/app/connect'
@@ -921,6 +932,7 @@ export interface FileRouteTypes {
     | '/app/beta-validation'
     | '/app/billing'
     | '/app/calendar'
+    | '/app/citation-review'
     | '/app/collaborators'
     | '/app/competitors'
     | '/app/connect'
@@ -1006,6 +1018,7 @@ export interface FileRouteTypes {
     | '/_authenticated/app/beta-validation'
     | '/_authenticated/app/billing'
     | '/_authenticated/app/calendar'
+    | '/_authenticated/app/citation-review'
     | '/_authenticated/app/collaborators'
     | '/_authenticated/app/competitors'
     | '/_authenticated/app/connect'
@@ -1545,6 +1558,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedAppCollaboratorsRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
+    '/_authenticated/app/citation-review': {
+      id: '/_authenticated/app/citation-review'
+      path: '/app/citation-review'
+      fullPath: '/app/citation-review'
+      preLoaderRoute: typeof AuthenticatedAppCitationReviewRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
     '/_authenticated/app/calendar': {
       id: '/_authenticated/app/calendar'
       path: '/app/calendar'
@@ -1700,6 +1720,7 @@ interface AuthenticatedRouteRouteChildren {
   AuthenticatedAppBetaValidationRoute: typeof AuthenticatedAppBetaValidationRoute
   AuthenticatedAppBillingRoute: typeof AuthenticatedAppBillingRoute
   AuthenticatedAppCalendarRoute: typeof AuthenticatedAppCalendarRoute
+  AuthenticatedAppCitationReviewRoute: typeof AuthenticatedAppCitationReviewRoute
   AuthenticatedAppCollaboratorsRoute: typeof AuthenticatedAppCollaboratorsRoute
   AuthenticatedAppCompetitorsRoute: typeof AuthenticatedAppCompetitorsRoute
   AuthenticatedAppConnectRoute: typeof AuthenticatedAppConnectRoute
@@ -1734,6 +1755,7 @@ const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedAppBetaValidationRoute: AuthenticatedAppBetaValidationRoute,
   AuthenticatedAppBillingRoute: AuthenticatedAppBillingRoute,
   AuthenticatedAppCalendarRoute: AuthenticatedAppCalendarRoute,
+  AuthenticatedAppCitationReviewRoute: AuthenticatedAppCitationReviewRoute,
   AuthenticatedAppCollaboratorsRoute: AuthenticatedAppCollaboratorsRoute,
   AuthenticatedAppCompetitorsRoute: AuthenticatedAppCompetitorsRoute,
   AuthenticatedAppConnectRoute: AuthenticatedAppConnectRoute,

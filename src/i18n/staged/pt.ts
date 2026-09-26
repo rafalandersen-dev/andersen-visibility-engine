@@ -27,6 +27,7 @@ import { ptAuditScreen } from "./pt-audit-screen";
 import { ptCore } from "./pt-core";
 import { ptAuthScreen } from "./pt-auth-screen";
 import { ptSharedUi } from "./pt-shared-ui";
+import { ptCitationReview } from "./pt-citation-review";
 
 /** Fully authored European Portuguese; quality acceptance remains open. Never imported by the runtime catalog. */
 export const PT_STAGED_BATCHES = [
@@ -268,6 +269,13 @@ export const PT_STAGED_BATCHES = [
     ],
     sourceRevision: "cc3ae1f",
     sourceHash: "649e9d723e890e3a356652ad7a515080081167e2d06a4dc5d3ad58cc5e2b6615",
+  },
+  {
+    name: "citation review",
+    copy: ptCitationReview,
+    namespaces: ["citationReview"],
+    sourceRevision: "P4 citation review candidate after bab861c8",
+    sourceHash: "d41949f7901f0d37b4debab152a406f238c34273ed422fe230df34ff41dcb151",
   },
 ] as const;
 export const PT_STAGED_CATALOG: Readonly<Record<string, string>> = Object.freeze(

@@ -1,0 +1,153 @@
+/** German authoring only; not registered in the runtime or language picker. Machine-authored on
+ * 2026-09-26 from the English P4 citation-review namespace; fluent human acceptance pending. */
+export const deCitationReview: Readonly<Record<string, string>> = {
+  "citationReview.title": "Zitierprüfung",
+  "citationReview.subtitle":
+    "Verwalten Sie die unabhängige Zweitprüfung von Zitierbefunden für dieses Projekt.",
+  "citationReview.loading": "Wird geladen…",
+  "citationReview.owner.intro":
+    "Ihre Befunde für dieses Projekt. Die Status sind die aktuellen Live-Werte — eine Bestätigung durch den Inhaber ist nie ein unabhängiger oder kausaler Nachweis. Das Erfassen von Befunden, die Panel-Zuordnung und das Auslesen nativer Berichte gehören nicht zu dieser Ansicht.",
+  "citationReview.owner.empty": "Für dieses Projekt gibt es noch keine Zitierbefunde.",
+  "citationReview.owner.version": "v{version}",
+  "citationReview.owner.openFinding": "Befund öffnen: {family}",
+  "citationReview.owner.recorded": "erfasst am {date}",
+  "citationReview.error.loadFindings":
+    "Die Befunde konnten nicht geladen werden. Aktualisieren Sie die Seite und versuchen Sie es erneut.",
+  "citationReview.error.loadDetail": "Dieser Befund konnte nicht geladen werden.",
+  "citationReview.family.citation_source": "Zitier-/Quellenlücke",
+  "citationReview.family.recommendation_accuracy": "Genauigkeit der Empfehlung",
+  "citationReview.decision.accepted": "Angenommen",
+  "citationReview.decision.dismissed": "Verworfen",
+  "citationReview.decision.needs_second_review": "Zweitprüfung erforderlich",
+  "citationReview.reviewStatus.owner_only": "Nur Inhaber",
+  "citationReview.reviewStatus.second_review_pending": "Zweitprüfung ausstehend",
+  "citationReview.reviewStatus.independent_reviewed": "Unabhängig geprüft",
+  "citationReview.reviewStatus.independent_opinion": "Unabhängige Einschätzung (nicht überprüfbar)",
+  "citationReview.reviewStatus.independent_dissent": "Unabhängiger Widerspruch",
+  "citationReview.accuracy.none": "Keine bewertete Genauigkeit",
+  "citationReview.accuracy.resolved": "Genauigkeit geklärt",
+  "citationReview.accuracy.unresolved": "Genauigkeit ungeklärt",
+  "citationReview.chip.sourceUnavailable": "Zitierte Quelle nicht verfügbar",
+  "citationReview.detail.title": "Befunddetails",
+  "citationReview.detail.current": "Aktuell",
+  "citationReview.detail.evidenceErased": "Belege vergessen",
+  "citationReview.detail.legacyRecord":
+    "Alter oder fehlerhafter Datensatz, roh angezeigt zur Prüfung und Löschung; kein gültiger aktueller Befund.",
+  "citationReview.record.observation": "Beobachtung",
+  "citationReview.record.hypothesis": "Hypothese",
+  "citationReview.record.recommendation": "Empfehlung",
+  "citationReview.record.support": "Belegung",
+  "citationReview.record.accuracy": "Bewertete Genauigkeit",
+  "citationReview.record.rawAudit": "Rohdatensatz (Audit)",
+  "citationReview.grant.title": "Prüfer für diesen Befund zuweisen",
+  "citationReview.grant.failed":
+    "Die Zuweisung konnte nicht aktualisiert werden. Das Mitglied ist möglicherweise nicht mehr berechtigt; aktualisieren Sie die Seite und versuchen Sie es erneut.",
+  "citationReview.grant.rosterError":
+    "Die Teamliste oder die Freigaberichtlinie konnte nicht geladen werden.",
+  "citationReview.grant.noEligible":
+    "Unter der aktuellen Freigaberichtlinie gibt es keinen berechtigten Prüfer im Team. Legen Sie zuerst unter „Mitwirkende“ eine Prüfer-/Redakteursrichtlinie fest.",
+  "citationReview.grant.selectReviewer": "Berechtigtes Teammitglied auswählen",
+  "citationReview.grant.grant": "Prüfzugriff gewähren",
+  "citationReview.grant.selectRevoke": "Mitglied zum Entzug auswählen",
+  "citationReview.grant.revoke": "Prüfzugriff entziehen",
+  "citationReview.grant.departed": "nicht mehr aktiv",
+  "citationReview.grant.granted": "Prüfzugriff für diesen Befund gewährt.",
+  "citationReview.grant.revoked": "Prüfzugriff für diesen Befund entzogen.",
+  "citationReview.grant.linkHelp":
+    "Teilen Sie diesen In-App-Link mit dem zugewiesenen Prüfer, damit er genau diesen Befund öffnen kann:",
+  "citationReview.grant.link": "Eingegrenzter Prüflink",
+  "citationReview.grant.copy": "Kopieren",
+  "citationReview.grant.copied": "Kopiert",
+  "citationReview.role.reviewer": "Prüfer",
+  "citationReview.role.editor": "Redakteur",
+  "citationReview.role.viewer": "Betrachter",
+  "citationReview.share.sharedTitle":
+    "Der zugewiesene Prüfer kann einsehen, nur für DIESEN Befund:",
+  "citationReview.share.withheldTitle": "Der Prüfer sieht nie:",
+  "citationReview.share.answerContent": "den erfassten Antworttext und seine Zitate",
+  "citationReview.share.selectedSourceMaterial":
+    "die ausgewählten Quelldatensätze, die dieser Befund zitiert (nicht die gesamte Quelle)",
+  "citationReview.share.datedFacts":
+    "die datierten Fakten hinter jeder bewerteten Genauigkeitsaussage",
+  "citationReview.share.recordAndStatus":
+    "den Befunddatensatz, seinen Inhalts-Hash und den aktuellen Status",
+  "citationReview.share.notOtherFindings": "Ihre anderen Befunde",
+  "citationReview.share.notFindingsList": "Ihre vollständige Befundliste",
+  "citationReview.share.notArtifactBytes": "rohe Bytes nativer Artefakte",
+  "citationReview.share.notFactManagement": "die Verwaltung von Unternehmensfakten",
+  "citationReview.share.notExports": "Exporte",
+  "citationReview.reviewer.title": "Diesen zugewiesenen Befund prüfen",
+  "citationReview.reviewer.unavailable":
+    "Dieser Befund ist für Sie nicht verfügbar. Der Zugriff wurde möglicherweise entzogen oder ist abgelaufen.",
+  "citationReview.reviewer.withheld":
+    "Die Belege für diesen Befund werden zurückgehalten (vergessen, oder eine zitierte Quelle ist widerrufen oder fehlt). Sie können ihn weder einsehen noch freigeben.",
+  "citationReview.reviewer.inspectable": "Vollständig überprüfbar",
+  "citationReview.reviewer.notInspectable":
+    "Nicht vollständig überprüfbar — eine Freigabe ist nicht möglich; Sie können dennoch eine Einschätzung oder einen Widerspruch erfassen.",
+  "citationReview.reviewer.decisionLabel": "Entscheidung",
+  "citationReview.reviewer.chooseDecision": "Entscheidung wählen",
+  "citationReview.reviewer.noteLabel": "Prüfnotiz (optional, reiner Text)",
+  "citationReview.reviewer.notePlaceholder": "Optionale Notiz",
+  "citationReview.reviewer.submit": "Entscheidung senden",
+  "citationReview.reviewer.staleRefreshed":
+    "Der Befund hat sich seit dem Öffnen geändert, oder es ist bereits eine andere Entscheidung oder Notiz dazu erfasst. Ihre Auswahl wurde zurückgesetzt — prüfen Sie die aktuelle Version und wählen Sie erneut.",
+  "citationReview.reviewer.reviewsError":
+    "Vorhandene Prüfungen konnten nicht geladen werden. Aktualisieren Sie die Seite, um den aktuellen Status zu sehen.",
+  "citationReview.reviewer.recorded": "Sie haben erfasst: {decision}",
+  "citationReview.reviewer.withdraw": "Meine Entscheidung zurückziehen",
+  "citationReview.reviewer.truncated": "Zeigt die neuesten Prüfungen von insgesamt {total}.",
+  "citationReview.reviewer.evidence": "Zitierte Belege",
+  "citationReview.reviewer.noEvidence": "Dieser Befund zitiert keine auflösbaren Belege.",
+  "citationReview.reviewer.facts": "Datierte Fakten",
+  "citationReview.reviewDecision.approved": "Freigeben",
+  "citationReview.reviewDecision.rejected": "Ablehnen",
+  "citationReview.reviewDecision.needs_changes": "Änderungen erforderlich",
+  "citationReview.guard.withheld":
+    "Die Belege werden zurückgehalten, daher kann keine Entscheidung erfasst werden.",
+  "citationReview.guard.uninspectable":
+    "Dieser Befund ist nicht vollständig überprüfbar und kann daher nicht freigegeben werden.",
+  "citationReview.guard.choose": "Wählen Sie eine Entscheidung zum Senden.",
+  "citationReview.evidence.answer": "Erfasste Antwort",
+  "citationReview.evidence.available": "verfügbar",
+  "citationReview.evidence.deleted": "gelöscht",
+  "citationReview.evidence.truncated":
+    "Der Antwortinhalt überschreitet die Prüfgrenze und wurde gekürzt.",
+  "citationReview.evidence.citations": "Zitate",
+  "citationReview.evidence.source": "Quelle",
+  "citationReview.evidence.unknownStatus": "Status unbekannt",
+  "citationReview.evidence.label": "Bezeichnung",
+  "citationReview.evidence.url": "URL-Adresse",
+  "citationReview.evidence.selectedRecords": "Ausgewählte Datensätze",
+  "citationReview.evidence.validUntil": "gültig bis",
+  "citationReview.evidence.native": "Natives Artefakt",
+  "citationReview.evidence.notInspectable":
+    "nicht überprüfbar (undurchsichtige zwischengespeicherte Bytes)",
+  "citationReview.evidence.factUnavailable": "Fakt nicht verfügbar (gelöscht)",
+  "citationReview.link.invalid":
+    "Dieser Prüflink ist unvollständig oder fehlerhaft. Bitten Sie den Projektinhaber um einen aktuellen Prüflink.",
+  "citationReview.navFromVisibility": "Zitierprüfung (Befunde zur Zweitprüfung) →",
+  "citationReview.record.passage": "Textstelle",
+  "citationReview.record.suitability": "Eignung",
+  "citationReview.record.citedUrl": "Zitierte URL-Adresse",
+  "citationReview.record.sourcePassage": "Quellenstelle",
+  "citationReview.record.humanStatus": "erfasstes Urteil",
+  "citationReview.record.resolution": "aktuelle Klärung",
+  "citationReview.record.capturedOn": "erfasst am",
+  "citationReview.record.factKind": "Faktenart",
+  "citationReview.resolution.not_assessed": "nicht bewertet",
+  "citationReview.resolution.unpinned": "kein exakter Fakt fixiert",
+  "citationReview.resolution.capture_unresolved": "Erfassungszeitpunkt ungeklärt",
+  "citationReview.resolution.fact_missing": "fixierter Fakt gelöscht",
+  "citationReview.resolution.wrong_kind": "fixierter Fakt anderer Art",
+  "citationReview.resolution.out_of_period": "Fakt zum Erfassungszeitpunkt nicht gültig",
+  "citationReview.resolution.ambiguous": "mehrdeutig (mehrere zutreffende Fakten)",
+  "citationReview.resolution.superseded_correction": "durch eine spätere Korrektur ersetzt",
+  "citationReview.resolution.resolved": "gegen den datierten Fakt geklärt",
+  "citationReview.reviewer.passagesWithheld":
+    "Kopierte Quellenstellen werden in dieser Ansicht zurückgehalten, weil eine zitierte Quelle widerrufen wurde oder fehlt; der gespeicherte Datensatz des Inhabers bleibt unverändert.",
+  "citationReview.reviewer.revokedOwnReceipt":
+    "Ihre eigene erfasste Entscheidung können Sie weiterhin zurückziehen.",
+  "citationReview.reviewer.withdrawn": "Ihre Entscheidung wurde zurückgezogen.",
+  "citationReview.reviewer.withdrawFailed":
+    "Ihre Entscheidung konnte nicht zurückgezogen werden. Aktualisieren Sie die Seite und versuchen Sie es erneut.",
+};

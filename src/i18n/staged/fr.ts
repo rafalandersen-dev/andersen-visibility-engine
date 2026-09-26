@@ -27,6 +27,7 @@ import { frLinks } from "./fr-links";
 import { frOutreach } from "./fr-outreach";
 import { frEditorScreen } from "./fr-editor-screen";
 import { frPlanScreen } from "./fr-plan-screen";
+import { frCitationReview } from "./fr-citation-review";
 
 /** Authoring batches only. Dictionary coverage does not establish full interface
  * acceptance. This catalog is not registered by the runtime or language picker. */
@@ -153,6 +154,11 @@ export const FR_STAGED_BATCHES = [
     name: "collaboration",
     copy: frCollaboration,
     namespaces: ["collaboration", "team", "notifications", "awareness", "emailSettings"],
+  },
+  {
+    name: "citation review",
+    copy: frCitationReview,
+    namespaces: ["citationReview"],
   },
 ] as const;
 

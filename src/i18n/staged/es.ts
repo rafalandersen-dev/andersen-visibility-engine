@@ -27,6 +27,7 @@ import { esSetupScreen } from "./es-setup-screen";
 import { esSharedUi } from "./es-shared-ui";
 import { esTechnical } from "./es-technical";
 import { esWorkflow } from "./es-workflow";
+import { esCitationReview } from "./es-citation-review";
 
 /** Spanish authoring coverage: 3768 messages / 28 batches.
  * All 3,768 English keys reconciled against 5a9416d.
@@ -272,6 +273,13 @@ export const ES_STAGED_BATCHES = [
     ],
     sourceRevision: "5a9416d74f532b65f78c0f19b89d221c6b2af6c2",
     sourceHash: "649e9d723e890e3a356652ad7a515080081167e2d06a4dc5d3ad58cc5e2b6615",
+  },
+  {
+    name: "citation review",
+    copy: esCitationReview,
+    namespaces: ["citationReview"],
+    sourceRevision: "P4 citation review candidate after bab861c8",
+    sourceHash: "d41949f7901f0d37b4debab152a406f238c34273ed422fe230df34ff41dcb151",
   },
 ] as const;
 

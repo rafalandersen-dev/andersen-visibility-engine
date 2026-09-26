@@ -1,0 +1,153 @@
+/** Greek authoring only; not registered in the runtime or language picker. Machine-authored on
+ * 2026-09-26 from the English P4 citation-review namespace; fluent human acceptance pending. */
+export const elCitationReview: Readonly<Record<string, string>> = {
+  "citationReview.title": "Έλεγχος παραπομπών",
+  "citationReview.subtitle":
+    "Διαχειριστείτε τον ανεξάρτητο δεύτερο έλεγχο των ευρημάτων παραπομπών για αυτό το έργο.",
+  "citationReview.loading": "Φόρτωση…",
+  "citationReview.owner.intro":
+    "Τα ευρήματά σας για αυτό το έργο. Οι καταστάσεις είναι οι τρέχουσες, ζωντανές τιμές — η βεβαίωση του ιδιοκτήτη δεν αποτελεί ποτέ ανεξάρτητη ή αιτιώδη απόδειξη. Η σύνταξη ευρημάτων, η σύνδεση με πάνελ και η ανάλυση εγγενών αναφορών δεν ανήκουν σε αυτή την προβολή.",
+  "citationReview.owner.empty": "Δεν υπάρχουν ακόμη ευρήματα παραπομπών για αυτό το έργο.",
+  "citationReview.owner.version": "έκδ. {version}",
+  "citationReview.owner.openFinding": "Άνοιγμα ευρήματος: {family}",
+  "citationReview.owner.recorded": "καταγράφηκε {date}",
+  "citationReview.error.loadFindings":
+    "Δεν ήταν δυνατή η φόρτωση των ευρημάτων. Ανανεώστε και δοκιμάστε ξανά.",
+  "citationReview.error.loadDetail": "Δεν ήταν δυνατή η φόρτωση αυτού του ευρήματος.",
+  "citationReview.family.citation_source": "Κενό παραπομπής / πηγής",
+  "citationReview.family.recommendation_accuracy": "Ακρίβεια σύστασης",
+  "citationReview.decision.accepted": "Αποδεκτό",
+  "citationReview.decision.dismissed": "Απορρίφθηκε",
+  "citationReview.decision.needs_second_review": "Χρειάζεται δεύτερο έλεγχο",
+  "citationReview.reviewStatus.owner_only": "Μόνο ιδιοκτήτης",
+  "citationReview.reviewStatus.second_review_pending": "Εκκρεμεί δεύτερος έλεγχος",
+  "citationReview.reviewStatus.independent_reviewed": "Ελέγχθηκε ανεξάρτητα",
+  "citationReview.reviewStatus.independent_opinion": "Ανεξάρτητη γνώμη (μη επαληθεύσιμο)",
+  "citationReview.reviewStatus.independent_dissent": "Ανεξάρτητη διαφωνία",
+  "citationReview.accuracy.none": "Καμία αξιολογημένη ακρίβεια",
+  "citationReview.accuracy.resolved": "Ακρίβεια διευθετημένη",
+  "citationReview.accuracy.unresolved": "Ακρίβεια μη διευθετημένη",
+  "citationReview.chip.sourceUnavailable": "Η παραπεμπόμενη πηγή δεν είναι διαθέσιμη",
+  "citationReview.detail.title": "Λεπτομέρειες ευρήματος",
+  "citationReview.detail.current": "Τρέχον",
+  "citationReview.detail.evidenceErased": "τα στοιχεία διαγράφηκαν",
+  "citationReview.detail.legacyRecord":
+    "Παλαιά ή κατεστραμμένη εγγραφή, εμφανίζεται ακατέργαστη για επιθεώρηση και διαγραφή· δεν είναι έγκυρο τρέχον εύρημα.",
+  "citationReview.record.observation": "Παρατήρηση",
+  "citationReview.record.hypothesis": "Υπόθεση",
+  "citationReview.record.recommendation": "Σύσταση",
+  "citationReview.record.support": "Τεκμηρίωση",
+  "citationReview.record.accuracy": "Αξιολογημένη ακρίβεια",
+  "citationReview.record.rawAudit": "Ακατέργαστη εγγραφή (έλεγχος)",
+  "citationReview.grant.title": "Αναθέστε ελεγκτή σε αυτό το εύρημα",
+  "citationReview.grant.failed":
+    "Δεν ήταν δυνατή η ενημέρωση της ανάθεσης. Το μέλος ίσως δεν είναι πλέον επιλέξιμο· ανανεώστε και δοκιμάστε ξανά.",
+  "citationReview.grant.rosterError":
+    "Δεν ήταν δυνατή η φόρτωση της λίστας ομάδας ή της πολιτικής έγκρισης.",
+  "citationReview.grant.noEligible":
+    "Κανένας επιλέξιμος ελεγκτής στην ομάδα με την τρέχουσα πολιτική έγκρισης. Ορίστε πρώτα πολιτική ελεγκτή/συντάκτη στους Συνεργάτες.",
+  "citationReview.grant.selectReviewer": "Επιλέξτε επιλέξιμο μέλος της ομάδας",
+  "citationReview.grant.grant": "Παραχώρηση πρόσβασης ελέγχου",
+  "citationReview.grant.selectRevoke": "Επιλέξτε μέλος για ανάκληση",
+  "citationReview.grant.revoke": "Ανάκληση πρόσβασης ελέγχου",
+  "citationReview.grant.departed": "δεν είναι πλέον ενεργό",
+  "citationReview.grant.granted": "Παραχωρήθηκε πρόσβαση ελέγχου για αυτό το εύρημα.",
+  "citationReview.grant.revoked": "Ανακλήθηκε η πρόσβαση ελέγχου για αυτό το εύρημα.",
+  "citationReview.grant.linkHelp":
+    "Μοιραστείτε αυτόν τον σύνδεσμο της εφαρμογής με τον ελεγκτή που ορίστηκε, ώστε να ανοίξει ακριβώς αυτό το εύρημα:",
+  "citationReview.grant.link": "Περιορισμένος σύνδεσμος ελέγχου",
+  "citationReview.grant.copy": "Αντιγραφή",
+  "citationReview.grant.copied": "Αντιγράφηκε",
+  "citationReview.role.reviewer": "Ελεγκτής",
+  "citationReview.role.editor": "Συντάκτης",
+  "citationReview.role.viewer": "Θεατής",
+  "citationReview.share.sharedTitle":
+    "Ο ελεγκτής που ορίστηκε μπορεί να επιθεωρήσει, μόνο για ΑΥΤΟ το εύρημα:",
+  "citationReview.share.withheldTitle": "Ο ελεγκτής δεν βλέπει ποτέ:",
+  "citationReview.share.answerContent":
+    "το καταγεγραμμένο κείμενο της απάντησης και τις παραπομπές του",
+  "citationReview.share.selectedSourceMaterial":
+    "τις επιλεγμένες εγγραφές πηγής που παραπέμπει αυτό το εύρημα (όχι ολόκληρη την πηγή)",
+  "citationReview.share.datedFacts":
+    "τα χρονολογημένα γεγονότα πίσω από κάθε αξιολογημένο ισχυρισμό ακρίβειας",
+  "citationReview.share.recordAndStatus":
+    "την εγγραφή του ευρήματος, το hash του περιεχομένου της και την τρέχουσα κατάσταση",
+  "citationReview.share.notOtherFindings": "τα άλλα ευρήματά σας",
+  "citationReview.share.notFindingsList": "την πλήρη λίστα ευρημάτων σας",
+  "citationReview.share.notArtifactBytes": "ακατέργαστα byte εγγενών τεχνουργημάτων",
+  "citationReview.share.notFactManagement": "τη διαχείριση επιχειρηματικών γεγονότων",
+  "citationReview.share.notExports": "τις εξαγωγές",
+  "citationReview.reviewer.title": "Ελέγξτε αυτό το ανατεθειμένο εύρημα",
+  "citationReview.reviewer.unavailable":
+    "Αυτό το εύρημα δεν είναι διαθέσιμο σε εσάς. Η πρόσβαση ίσως ανακλήθηκε ή έληξε.",
+  "citationReview.reviewer.withheld":
+    "Τα στοιχεία για αυτό το εύρημα παρακρατούνται (διαγράφηκαν, ή μια παραπεμπόμενη πηγή ανακλήθηκε ή λείπει). Δεν μπορείτε να τα επιθεωρήσετε ή να τα εγκρίνετε.",
+  "citationReview.reviewer.inspectable": "Πλήρως επιθεωρήσιμο",
+  "citationReview.reviewer.notInspectable":
+    "Όχι πλήρως επιθεωρήσιμο — η έγκριση δεν είναι διαθέσιμη· μπορείτε ακόμη να καταγράψετε γνώμη ή διαφωνία.",
+  "citationReview.reviewer.decisionLabel": "Απόφαση",
+  "citationReview.reviewer.chooseDecision": "Επιλέξτε απόφαση",
+  "citationReview.reviewer.noteLabel": "Σημείωση ελέγχου (προαιρετική, απλό κείμενο)",
+  "citationReview.reviewer.notePlaceholder": "Προαιρετική σημείωση",
+  "citationReview.reviewer.submit": "Υποβολή απόφασης",
+  "citationReview.reviewer.staleRefreshed":
+    "Το εύρημα άλλαξε από τότε που το ανοίξατε, ή έχει ήδη καταγραφεί διαφορετική απόφαση ή σημείωση για αυτό. Η επιλογή σας καθαρίστηκε — επιθεωρήστε την τρέχουσα έκδοση και επιλέξτε ξανά.",
+  "citationReview.reviewer.reviewsError":
+    "Δεν ήταν δυνατή η φόρτωση των υπαρχόντων ελέγχων. Ανανεώστε για να δείτε την τρέχουσα κατάσταση.",
+  "citationReview.reviewer.recorded": "Καταγράψατε: {decision}",
+  "citationReview.reviewer.withdraw": "Απόσυρση της απόφασής μου",
+  "citationReview.reviewer.truncated": "Εμφανίζονται οι πρόσφατοι έλεγχοι από {total} συνολικά.",
+  "citationReview.reviewer.evidence": "Παραπεμπόμενα στοιχεία",
+  "citationReview.reviewer.noEvidence": "Αυτό το εύρημα δεν παραπέμπει σε ανιχνεύσιμα στοιχεία.",
+  "citationReview.reviewer.facts": "Χρονολογημένα γεγονότα",
+  "citationReview.reviewDecision.approved": "Έγκριση",
+  "citationReview.reviewDecision.rejected": "Απόρριψη",
+  "citationReview.reviewDecision.needs_changes": "Χρειάζεται αλλαγές",
+  "citationReview.guard.withheld":
+    "Τα στοιχεία παρακρατούνται, οπότε δεν μπορεί να καταγραφεί απόφαση.",
+  "citationReview.guard.uninspectable":
+    "Αυτό το εύρημα δεν είναι πλήρως επιθεωρήσιμο, οπότε δεν μπορεί να εγκριθεί.",
+  "citationReview.guard.choose": "Επιλέξτε απόφαση για υποβολή.",
+  "citationReview.evidence.answer": "Καταγεγραμμένη απάντηση",
+  "citationReview.evidence.available": "διαθέσιμο",
+  "citationReview.evidence.deleted": "διαγραμμένο",
+  "citationReview.evidence.truncated":
+    "Το περιεχόμενο της απάντησης υπερβαίνει το όριο επιθεώρησης και περικόπηκε.",
+  "citationReview.evidence.citations": "Παραπομπές",
+  "citationReview.evidence.source": "Πηγή",
+  "citationReview.evidence.unknownStatus": "άγνωστη κατάσταση",
+  "citationReview.evidence.label": "Ετικέτα",
+  "citationReview.evidence.url": "Διεύθυνση URL",
+  "citationReview.evidence.selectedRecords": "Επιλεγμένες εγγραφές",
+  "citationReview.evidence.validUntil": "ισχύει έως",
+  "citationReview.evidence.native": "Εγγενές τεχνούργημα",
+  "citationReview.evidence.notInspectable": "μη επιθεωρήσιμο (αδιαφανή προσωρινά byte)",
+  "citationReview.evidence.factUnavailable": "γεγονός μη διαθέσιμο (διαγράφηκε)",
+  "citationReview.link.invalid":
+    "Αυτός ο σύνδεσμος ελέγχου είναι ελλιπής ή λανθασμένος. Ζητήστε από τον ιδιοκτήτη του έργου έναν τρέχοντα σύνδεσμο ελέγχου.",
+  "citationReview.navFromVisibility": "Έλεγχος παραπομπών (ευρήματα δεύτερου ελέγχου) →",
+  "citationReview.record.passage": "Απόσπασμα",
+  "citationReview.record.suitability": "Καταλληλότητα",
+  "citationReview.record.citedUrl": "Παραπεμπόμενη διεύθυνση URL",
+  "citationReview.record.sourcePassage": "Απόσπασμα πηγής",
+  "citationReview.record.humanStatus": "καταγεγραμμένη κρίση",
+  "citationReview.record.resolution": "τρέχουσα διευθέτηση",
+  "citationReview.record.capturedOn": "καταγράφηκε",
+  "citationReview.record.factKind": "είδος γεγονότος",
+  "citationReview.resolution.not_assessed": "δεν αξιολογήθηκε",
+  "citationReview.resolution.unpinned": "δεν καρφιτσώθηκε ακριβές γεγονός",
+  "citationReview.resolution.capture_unresolved": "ο χρόνος καταγραφής δεν προσδιορίστηκε",
+  "citationReview.resolution.fact_missing": "το καρφιτσωμένο γεγονός διαγράφηκε",
+  "citationReview.resolution.wrong_kind": "καρφιτσωμένο γεγονός άλλου είδους",
+  "citationReview.resolution.out_of_period": "το γεγονός δεν ίσχυε κατά την καταγραφή",
+  "citationReview.resolution.ambiguous": "ασαφές (πολλά γεγονότα καλύπτουν την περίοδο)",
+  "citationReview.resolution.superseded_correction": "αντικαταστάθηκε από μεταγενέστερη διόρθωση",
+  "citationReview.resolution.resolved": "διευθετήθηκε έναντι του χρονολογημένου γεγονότος",
+  "citationReview.reviewer.passagesWithheld":
+    "Τα αντιγραμμένα αποσπάσματα πηγής παρακρατούνται σε αυτή την προβολή επειδή μια παραπεμπόμενη πηγή ανακλήθηκε ή λείπει· η αποθηκευμένη εγγραφή του ιδιοκτήτη παραμένει αμετάβλητη.",
+  "citationReview.reviewer.revokedOwnReceipt":
+    "Η δική σας καταγεγραμμένη απόφαση παραμένει διαθέσιμη προς απόσυρση από εσάς.",
+  "citationReview.reviewer.withdrawn": "Η απόφασή σας αποσύρθηκε.",
+  "citationReview.reviewer.withdrawFailed":
+    "Δεν ήταν δυνατή η απόσυρση της απόφασής σας. Ανανεώστε και δοκιμάστε ξανά.",
+};

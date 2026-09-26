@@ -27,6 +27,7 @@ import { huBillingScreen } from "./hu-billing-screen";
 import { huAuthScreen } from "./hu-auth-screen";
 import { huSharedUi } from "./hu-shared-ui";
 import { huCore } from "./hu-core";
+import { huCitationReview } from "./hu-citation-review";
 /** Hungarian authoring; never imported by the runtime catalog. */
 export const HU_STAGED_BATCHES = [
   {
@@ -267,6 +268,13 @@ export const HU_STAGED_BATCHES = [
     ],
     sourceRevision: "78911a7",
     sourceHash: "845b2b1ade4a0935ab924dcc4bdc27d72a7a120388740354bd69a697aa1c7ff2",
+  },
+  {
+    name: "citation review",
+    copy: huCitationReview,
+    namespaces: ["citationReview"],
+    sourceRevision: "P4 citation review candidate after bab861c8",
+    sourceHash: "d41949f7901f0d37b4debab152a406f238c34273ed422fe230df34ff41dcb151",
   },
 ] as const;
 export const HU_STAGED_CATALOG: Readonly<Record<string, string>> = Object.freeze(

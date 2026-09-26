@@ -27,6 +27,7 @@ import { csSetupScreen } from "./cs-setup-screen";
 import { csCore } from "./cs-core";
 import { csAuthScreen } from "./cs-auth-screen";
 import { csSharedUi } from "./cs-shared-ui";
+import { csCitationReview } from "./cs-citation-review";
 /** Czech authoring; never imported by the runtime catalog. */
 export const CS_STAGED_BATCHES = [
   {
@@ -267,6 +268,13 @@ export const CS_STAGED_BATCHES = [
     namespaces: ["sharedUi"],
     sourceRevision: "78cd575",
     sourceHash: "678278d00a51f6b4df582627cce0d38b176e65972d6ac578682f8e2e247d9de5",
+  },
+  {
+    name: "citation review",
+    copy: csCitationReview,
+    namespaces: ["citationReview"],
+    sourceRevision: "P4 citation review candidate after bab861c8",
+    sourceHash: "d41949f7901f0d37b4debab152a406f238c34273ed422fe230df34ff41dcb151",
   },
 ] as const;
 export const CS_STAGED_CATALOG: Readonly<Record<string, string>> = Object.freeze(
