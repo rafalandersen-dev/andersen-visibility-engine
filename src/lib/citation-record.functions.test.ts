@@ -110,8 +110,38 @@ describe("citation record endpoint authentication", () => {
     await call(saveCitationFindingFn, { ...scope, scope: panelScope, finding });
     expect(h.saveF).toHaveBeenLastCalledWith(
       { ownerId: owner, projectId: "p" },
-      { scope: panelScope, finding },
+      { scope: panelScope, finding, expectedVersion: null, expectedHeadId: null },
     );
+    // The inspected head ROW (version + immutable row id) travels with the edit (expected-head conflict guard).
+    const head = "60000000-0000-4000-8000-0000000000aa";
+    await call(saveCitationFindingFn, {
+      ...scope,
+      scope: panelScope,
+      finding,
+      expectedVersion: 2,
+      expectedHeadId: head,
+    });
+    expect(h.saveF).toHaveBeenLastCalledWith(
+      { ownerId: owner, projectId: "p" },
+      { scope: panelScope, finding, expectedVersion: 2, expectedHeadId: head },
+    );
+    expect(() =>
+      call(saveCitationFindingFn, { ...scope, scope: panelScope, finding, expectedVersion: -1 }),
+    ).toThrow();
+    // A version without its row id (or a row id without a version) is refused at the boundary: the numeric
+    // version alone is not an ABA-proof token.
+    expect(() =>
+      call(saveCitationFindingFn, { ...scope, scope: panelScope, finding, expectedVersion: 2 }),
+    ).toThrow();
+    expect(() =>
+      call(saveCitationFindingFn, {
+        ...scope,
+        scope: panelScope,
+        finding,
+        expectedVersion: 0,
+        expectedHeadId: head,
+      }),
+    ).toThrow();
     await call(saveCitationImprovementFn, { ...scope, scope: panelScope, improvement });
     expect(h.saveI).toHaveBeenLastCalledWith(
       { ownerId: owner, projectId: "p" },

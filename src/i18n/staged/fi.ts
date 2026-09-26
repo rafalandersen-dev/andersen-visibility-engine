@@ -28,6 +28,7 @@ import { fiCore } from "./fi-core";
 import { fiAuthScreen } from "./fi-auth-screen";
 import { fiSharedUi } from "./fi-shared-ui";
 import { fiCitationReview } from "./fi-citation-review";
+import { fiCitationAuthoring } from "./fi-citation-authoring";
 
 /** Finnish authoring; never imported by the runtime catalog. */
 export const FI_STAGED_BATCHES = [
@@ -277,6 +278,13 @@ export const FI_STAGED_BATCHES = [
     namespaces: ["citationReview"],
     sourceRevision: "P4 citation review candidate after bab861c8",
     sourceHash: "d41949f7901f0d37b4debab152a406f238c34273ed422fe230df34ff41dcb151",
+  },
+  {
+    name: "citation authoring",
+    copy: fiCitationAuthoring,
+    namespaces: ["citationAuthoring"],
+    sourceRevision: "citation owner authoring candidate after a392775c",
+    sourceHash: "3affd8936a8bce81ce411aaffbf2909c58d56d85e7ccc9e5c3efd6d11e650d4f",
   },
 ] as const;
 export const FI_STAGED_CATALOG: Readonly<Record<string, string>> = Object.freeze(

@@ -63,7 +63,32 @@ describe("citation business-fact endpoint authentication", () => {
   });
   it("binds saves/reads/accuracy to the authenticated owner and refuses a mismatch", async () => {
     await call(saveCitationBusinessFactFn, { ...scope, fact });
-    expect(h.save).toHaveBeenLastCalledWith({ ownerId: owner, projectId: "p" }, { fact });
+    expect(h.save).toHaveBeenLastCalledWith(
+      { ownerId: owner, projectId: "p" },
+      { fact, expectedVersion: null, expectedHeadId: null },
+    );
+    // A correction carries the inspected head ROW (version + immutable row id; expected-head conflict guard).
+    const head = "b1000000-0000-4000-8000-0000000000aa";
+    await call(saveCitationBusinessFactFn, {
+      ...scope,
+      fact,
+      expectedVersion: 1,
+      expectedHeadId: head,
+    });
+    expect(h.save).toHaveBeenLastCalledWith(
+      { ownerId: owner, projectId: "p" },
+      { fact, expectedVersion: 1, expectedHeadId: head },
+    );
+    expect(() =>
+      call(saveCitationBusinessFactFn, { ...scope, fact, expectedVersion: 1.5 }),
+    ).toThrow();
+    // Version without row id / row id without version: refused (not an ABA-proof token).
+    expect(() =>
+      call(saveCitationBusinessFactFn, { ...scope, fact, expectedVersion: 1 }),
+    ).toThrow();
+    expect(() =>
+      call(saveCitationBusinessFactFn, { ...scope, fact, expectedHeadId: head }),
+    ).toThrow();
     await call(readCitationBusinessFactsFn, scope);
     expect(h.read).toHaveBeenLastCalledWith({ ownerId: owner, projectId: "p" });
     await call(readCitationFindingAccuracyFn, { ...scope, findingId: finding });

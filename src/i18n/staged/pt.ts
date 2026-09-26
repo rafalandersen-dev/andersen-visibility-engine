@@ -28,6 +28,7 @@ import { ptCore } from "./pt-core";
 import { ptAuthScreen } from "./pt-auth-screen";
 import { ptSharedUi } from "./pt-shared-ui";
 import { ptCitationReview } from "./pt-citation-review";
+import { ptCitationAuthoring } from "./pt-citation-authoring";
 
 /** Fully authored European Portuguese; quality acceptance remains open. Never imported by the runtime catalog. */
 export const PT_STAGED_BATCHES = [
@@ -276,6 +277,13 @@ export const PT_STAGED_BATCHES = [
     namespaces: ["citationReview"],
     sourceRevision: "P4 citation review candidate after bab861c8",
     sourceHash: "d41949f7901f0d37b4debab152a406f238c34273ed422fe230df34ff41dcb151",
+  },
+  {
+    name: "citation authoring",
+    copy: ptCitationAuthoring,
+    namespaces: ["citationAuthoring"],
+    sourceRevision: "citation owner authoring candidate after a392775c",
+    sourceHash: "3affd8936a8bce81ce411aaffbf2909c58d56d85e7ccc9e5c3efd6d11e650d4f",
   },
 ] as const;
 export const PT_STAGED_CATALOG: Readonly<Record<string, string>> = Object.freeze(

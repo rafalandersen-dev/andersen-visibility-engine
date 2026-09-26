@@ -36,6 +36,7 @@ import { outreachIntegrityCopy } from "./outreach-integrity";
 import { logEvidenceCopy } from "./log-evidence";
 import { answerEvidenceCopy } from "./answer-evidence";
 import { citationReviewCopy } from "./citation-review";
+import { citationAuthoringCopy } from "./citation-authoring";
 import { en } from "./en";
 import { pl } from "./pl";
 import { sv } from "./sv";
@@ -61,6 +62,7 @@ const OVERRIDES: readonly Record<OnboardingLanguage, Dictionary>[] = [
   proofEvidence,
   answerEvidenceCopy,
   citationReviewCopy,
+  citationAuthoringCopy,
   logEvidenceCopy,
   outreachIntegrityCopy,
   gscIntegrity,

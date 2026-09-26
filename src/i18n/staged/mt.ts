@@ -40,6 +40,7 @@ import { mtWorkflowEditor } from "./mt-workflow-editor";
 import { mtWorkflowPlan } from "./mt-workflow-plan";
 import { mtWorkflowResults } from "./mt-workflow-results";
 import { mtCitationReview } from "./mt-citation-review";
+import { mtCitationAuthoring } from "./mt-citation-authoring";
 /** Maltese authoring in progress; never imported by the runtime catalog. */
 export const MT_STAGED_BATCHES = [
   {
@@ -293,6 +294,13 @@ export const MT_STAGED_BATCHES = [
     namespaces: ["citationReview"],
     sourceRevision: "P4 citation review candidate after bab861c8",
     sourceHash: "d41949f7901f0d37b4debab152a406f238c34273ed422fe230df34ff41dcb151",
+  },
+  {
+    name: "citation authoring",
+    copy: mtCitationAuthoring,
+    namespaces: ["citationAuthoring"],
+    sourceRevision: "citation owner authoring candidate after a392775c",
+    sourceHash: "3affd8936a8bce81ce411aaffbf2909c58d56d85e7ccc9e5c3efd6d11e650d4f",
   },
 ] as const;
 export const MT_STAGED_CATALOG: Readonly<Record<string, string>> = Object.freeze(
