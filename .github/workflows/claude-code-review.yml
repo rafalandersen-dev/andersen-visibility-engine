@@ -1,23 +1,40 @@
 name: Claude Code Review
 
+# Read-only, bounded PR review (repair candidate C, 27 September 2026). This repository is PUBLIC: every job log
+# line, including the runner's echo of each step's `env:` block, is public.
+#
+# Trust boundary (stated, not assumed): everything in this file runs as written on the PR's merge ref for
+# `pull_request` events. The action's default-branch validation only decides whether the ACTION step runs; it
+# does not protect the `run:` steps below. What bounds them: the job token is read-only, fork PRs receive no
+# secrets and no OIDC token, `persist-credentials: false`, no PR-checkout code is executed (all logic is inline
+# workflow code with no dependency), the Claude session has only the Read/Grep/Glob built-in tools (no Bash, no
+# web, no agents), `user` setting sources and strict MCP config, and no model-produced text ever reaches step
+# env, `with:`, the shell, the Step Summary or a comment. Whoever can push to this repository can still change
+# this file; that is the repository's write boundary (branch protection / review of `.github/workflows`
+# changes), not this workflow's.
+#
+# Data flow: immutable compare diff base_sha...head_sha (GitHub, read-only token, bound to the event SHAs) ->
+# trusted collector parses it hunk by hunk into a manifest (old/new paths, per-hunk old/new spans and
+# added/removed/context counts; unsupported entries such as binary, rename-only or mode-only are recorded, never
+# hidden) and copies both files into `.ci-review/` for the model -> Claude session reads them with Read/Grep/Glob
+# and returns structured output only (findings anchored to a changed file, a side and a line inside a hunk span;
+# removed lines are reported on the old side) -> fail-closed validator reads the SDK result solely from the
+# runner-local execution file, requires completion / zero denials / exact head / full file+hunk coverage /
+# every finding resolved against the manifest, and prints only fixed enum/count lines plus manifest-resolved
+# identities. Any p1/p2 finding blocks or requires manual review; any unsupported change entry forces manual
+# review; only p3 (advisory) can attest. Missing, malformed, null, oversized, stale, incomplete or unresolvable
+# input fails. Not enabled: `display_report`, `show_full_output`, plugins, comments.
+#
+# What "attested" does NOT prove: the counts the model reports (files/hunks inspected) are its own claim, bounded
+# by the manifest; zero denials proves no refusal occurred, not that reading happened. Independent review remains
+# the review of record.
+
 on:
   pull_request:
     types: [opened, synchronize, ready_for_review, reopened]
-    # Optional: Only run on specific file changes
-    # paths:
-    #   - "src/**/*.ts"
-    #   - "src/**/*.tsx"
-    #   - "src/**/*.js"
-    #   - "src/**/*.jsx"
 
 jobs:
   claude-review:
-    # Optional: Filter by PR author
-    # if: |
-    #   github.event.pull_request.user.login == 'external-contributor' ||
-    #   github.event.pull_request.user.login == 'new-developer' ||
-    #   github.event.pull_request.author_association == 'FIRST_TIME_CONTRIBUTOR'
-
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -30,15 +47,356 @@ jobs:
         uses: actions/checkout@v4
         with:
           fetch-depth: 1
+          persist-credentials: false
 
-      - name: Run Claude Code Review
+      # Defense in depth for the runner copy only (developer repository settings are untouched): in-repo Claude
+      # settings/hooks/agents/MCP config are removed from the checkout before any Claude process starts. The
+      # session is additionally started with `--setting-sources user --strict-mcp-config` (see claude_args).
+      - name: Remove in-repository Claude configuration from the runner checkout
+        run: rm -rf -- .claude .mcp.json
+
+      # Trusted, immutable identity source: the compare diff between the event's base and head commit SHAs
+      # (not a mutable "current PR" read). The collector consumes every hunk body and verifies the line counts
+      # against the hunk headers; any inconsistency, oversize, empty diff or invalid identity fails this step, so
+      # the model never runs and the validator fails closed. Diff content is parsed, never printed.
+      - name: Collect trusted PR manifest (immutable compare diff, hunk spans, unsupported entries)
+        env:
+          GH_TOKEN: ${{ github.token }}
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+          RUNNER_TEMP_DIR: ${{ runner.temp }}
+        run: |
+          gh api -H "Accept: application/vnd.github.diff" "repos/$GITHUB_REPOSITORY/compare/$BASE_SHA...$HEAD_SHA" > "$RUNNER_TEMP_DIR/pr.diff"
+          node - <<'CI_REVIEW_MANIFEST'
+          "use strict";
+          const fs = require("node:fs");
+          const path = require("node:path");
+          const MAX_DIFF_BYTES = 20 * 1024 * 1024;
+          const MAX_FILES = 10000;
+          const MAX_HUNKS = 100000;
+          const MAX_LINE = 1000000;
+          const FILE = /^[A-Za-z0-9_./-]{1,200}$/;
+          const SHA = /^[0-9a-f]{40}$/;
+          const say = (k, v) => process.stdout.write(k + ": " + v + "\n");
+          const stop = (v) => { say("manifest", v); process.exit(1); };
+          const env = process.env;
+          if (!env.RUNNER_TEMP_DIR) stop("runner_temp_missing");
+          const temp = path.resolve(env.RUNNER_TEMP_DIR);
+          const head = typeof env.HEAD_SHA === "string" ? env.HEAD_SHA : "";
+          const base = typeof env.BASE_SHA === "string" ? env.BASE_SHA : "";
+          if (!SHA.test(head) || !SHA.test(base) || head === base) stop("invalid_identity");
+          const diffPath = path.join(temp, "pr.diff");
+          let size = -1;
+          try { size = fs.statSync(diffPath).size; } catch { stop("diff_unreadable"); }
+          if (size > MAX_DIFF_BYTES) stop("too_large");
+          const lines = fs.readFileSync(diffPath, "utf8").split("\n");
+          if (lines.length && lines[lines.length - 1] === "") lines.pop();
+          const safe = (p) => FILE.test(p) && !p.split("/").includes("..");
+          // "--- a/x" | "+++ b/x" -> path; "/dev/null" -> null; anything else (quoted, unsafe) -> undefined.
+          const pathOf = (prefix, line) => {
+            const rest = line.slice(4);
+            if (rest === "/dev/null") return null;
+            if (!rest.startsWith(prefix)) return undefined;
+            const p = rest.slice(2);
+            return safe(p) ? p : undefined;
+          };
+          const files = [];
+          let current = null;
+          let hunk = null;
+          let hunkCount = 0;
+          let unsupportedCount = 0;
+          let state = "none";
+          const finishHunk = () => {
+            if (hunk && (hunk.oldLeft !== 0 || hunk.newLeft !== 0)) stop("malformed_diff");
+            hunk = null;
+          };
+          const finishFile = () => {
+            if (!current) return;
+            finishHunk();
+            const f = current;
+            if (f.unsupported === null) {
+              if (f.hunks.length === 0) f.unsupported = f.rename ? "rename_only" : f.mode ? "mode_only" : "no_hunks";
+              else if (f.oldPath === undefined || f.newPath === undefined) f.unsupported = "path";
+            }
+            if (f.oldPath === undefined) f.oldPath = null;
+            if (f.newPath === undefined) f.newPath = null;
+            if (f.unsupported !== null) { unsupportedCount += 1; f.kind = "unsupported"; }
+            else f.kind = f.oldPath === null ? "add" : f.newPath === null ? "delete" : f.rename ? "rename" : "modify";
+            for (const h of f.hunks) { delete h.oldLeft; delete h.newLeft; }
+            files.push({ kind: f.kind, oldPath: f.oldPath, newPath: f.newPath, hunks: f.hunks, unsupported: f.unsupported });
+            current = null;
+          };
+          for (const line of lines) {
+            if (line.startsWith("diff --git ")) {
+              finishFile();
+              if (files.length >= MAX_FILES) stop("too_many_files");
+              current = { oldPath: undefined, newPath: undefined, hunks: [], unsupported: null, rename: false, mode: false };
+              state = "header";
+              continue;
+            }
+            if (!current) { if (line === "") continue; stop("malformed_diff"); }
+            if (state === "header" && !line.startsWith("@@ ")) {
+              if (line.startsWith("--- ")) current.oldPath = pathOf("a/", line);
+              else if (line.startsWith("+++ ")) current.newPath = pathOf("b/", line);
+              else if (line.startsWith("rename from ") || line.startsWith("rename to ") || line.startsWith("similarity index ")) current.rename = true;
+              else if (line.startsWith("old mode ") || line.startsWith("new mode ")) current.mode = true;
+              else if (line.startsWith("Binary files ") || line.startsWith("GIT binary patch")) current.unsupported = "binary";
+              continue;
+            }
+            if (line.startsWith("@@ ")) {
+              finishHunk();
+              if (current.unsupported !== null || (current.oldPath === undefined && current.newPath === undefined)) stop("malformed_diff");
+              const m = /^@@ -(\d+)(?:,(\d+))? \+(\d+)(?:,(\d+))? @@/.exec(line);
+              if (!m) stop("malformed_diff");
+              const oldStart = Number(m[1]);
+              const oldCount = m[2] === undefined ? 1 : Number(m[2]);
+              const newStart = Number(m[3]);
+              const newCount = m[4] === undefined ? 1 : Number(m[4]);
+              if (oldStart + oldCount > MAX_LINE || newStart + newCount > MAX_LINE) stop("too_large");
+              if ((oldCount > 0 && oldStart < 1) || (newCount > 0 && newStart < 1)) stop("malformed_diff");
+              hunkCount += 1;
+              if (hunkCount > MAX_HUNKS) stop("too_many_hunks");
+              hunk = {
+                oldSpan: oldCount > 0 ? [oldStart, oldStart + oldCount - 1] : null,
+                newSpan: newCount > 0 ? [newStart, newStart + newCount - 1] : null,
+                added: 0, removed: 0, context: 0, oldLeft: oldCount, newLeft: newCount,
+              };
+              current.hunks.push(hunk);
+              state = "hunk";
+              continue;
+            }
+            if (state !== "hunk" || !hunk) stop("malformed_diff");
+            if (line.startsWith("\\")) continue;
+            const c = line[0];
+            if (c === "+") { if (hunk.newLeft <= 0) stop("malformed_diff"); hunk.newLeft -= 1; hunk.added += 1; }
+            else if (c === "-") { if (hunk.oldLeft <= 0) stop("malformed_diff"); hunk.oldLeft -= 1; hunk.removed += 1; }
+            else if (c === " " || line === "") {
+              if (line === "" && hunk.oldLeft === 0 && hunk.newLeft === 0) continue;
+              if (hunk.oldLeft <= 0 || hunk.newLeft <= 0) stop("malformed_diff");
+              hunk.oldLeft -= 1; hunk.newLeft -= 1; hunk.context += 1;
+            }
+            else stop("malformed_diff");
+          }
+          finishFile();
+          if (files.length === 0) stop("empty");
+          fs.writeFileSync(path.join(temp, "pr-manifest.json"), JSON.stringify({ head, base, files, hunkCount, unsupported: unsupportedCount }));
+          say("manifest", "written");
+          say("changed_files", files.length);
+          say("hunks", hunkCount);
+          say("unsupported_changes", unsupportedCount);
+          say("head", head);
+          say("base", base);
+          CI_REVIEW_MANIFEST
+          mkdir -p .ci-review
+          cp "$RUNNER_TEMP_DIR/pr.diff" .ci-review/pr.diff
+          cp "$RUNNER_TEMP_DIR/pr-manifest.json" .ci-review/manifest.json
+
+      - name: Run Claude Code Review (read-only, structured result only)
         id: claude-review
         uses: anthropics/claude-code-action@v1
         with:
           claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
-          plugin_marketplaces: 'https://github.com/anthropics/claude-code.git'
-          plugins: 'code-review@claude-code-plugins'
-          prompt: '/code-review:code-review ${{ github.repository }}/pull/${{ github.event.pull_request.number }}'
-          # See https://github.com/anthropics/claude-code-action/blob/main/docs/usage.md
-          # or https://code.claude.com/docs/en/cli-reference for available options
+          prompt: |
+            Review the change set of pull request #${{ github.event.pull_request.number }} of ${{ github.repository }} at exactly the head commit ${{ github.event.pull_request.head.sha }}.
 
+            The change set has already been collected for you. Read `.ci-review/pr.diff` (the immutable unified diff of base...head) and `.ci-review/manifest.json` (one entry per changed file with kind add/delete/modify/rename/unsupported, oldPath, newPath and the hunks with their old-side and new-side line spans). You may also Read, Grep and Glob the checked-out files for context. You have no other tools: do not try to run commands, create sub-agents, write files, post comments or fetch the web.
+
+            Rules:
+            1. If the manifest's head is not ${{ github.event.pull_request.head.sha }}, or either file is missing or unreadable, return outcome "incomplete" with reviewedHeadSha set to the head you observed (or the expected head if none), filesInspected 0, hunksInspected 0 and no findings.
+            2. Otherwise inspect EVERY entry and EVERY hunk of the diff, including removed lines and deleted files: removing an authorization check, a validation or a safety guard is a change that requires review exactly like an addition. Review for real defects: bugs, security, data integrity, permission/authorization, concurrency, and missing tests for changed behaviour. Ignore style, formatting, pre-existing issues outside the hunks, and anything a linter or type checker reports.
+            3. Anchor each finding to a manifest entry: for an added or context line use side "new" with the file's newPath and the new-side line number; for a removed line (including every line of a deleted file) use side "old" with the file's oldPath and the old-side line number. The line must lie inside one of that file's hunk spans on that side; anything else is rejected. Entries with kind "unsupported" (binary, rename-only, mode-only) cannot carry findings; they are routed to manual review automatically.
+            4. Severity: p1 = must not merge (exploitable security flaw, data loss or corruption, authorization bypass, crash on the main path); p2 = must be resolved before merge (clear functional defect, integrity or permission gap, missing test for a changed guarantee, removed guard without a replacement); p3 = advisory only, no change required. Confidence 0-100 is your certainty that the finding is real.
+            5. Return ONLY the structured output required by the schema: reviewedHeadSha, outcome "reviewed", filesInspected (must equal the number of manifest entries), hunksInspected (must equal the manifest's hunkCount), and findings. No prose anywhere.
+          # Parsed by the action's shell-quote based `parse-sdk-options.ts` (v1): `--allowed-tools` /
+          # `--disallowed-tools` become SDK allow/deny lists, `--max-turns` the SDK turn cap, `--setting-sources`
+          # the SDK settingSources (documented in the action source as the way to avoid in-repo configs), and the
+          # rest pass through to the CLI: `--tools` (documented CLI option: the list of available built-in tools)
+          # limits the session to Read/Grep/Glob so Bash, web and agent tools do not exist in it;
+          # `--strict-mcp-config` is a boolean flag and must be followed by a flag. `--json-schema` constrains the
+          # result; the action exposes it as an output that this workflow never references (referencing it would
+          # print it through the runner's env echo).
+          claude_args: >-
+            --tools "Read,Grep,Glob"
+            --allowed-tools "Read,Grep,Glob"
+            --disallowed-tools "Bash,Task,Agent,Edit,Write,MultiEdit,NotebookEdit,WebFetch,WebSearch,TodoWrite,Skill"
+            --max-turns 30
+            --setting-sources user
+            --strict-mcp-config
+            --json-schema '{"type":"object","additionalProperties":false,"required":["reviewedHeadSha","outcome","filesInspected","hunksInspected","findings"],"properties":{"reviewedHeadSha":{"type":"string","pattern":"^[0-9a-f]{40}$"},"outcome":{"type":"string","enum":["reviewed","incomplete"]},"filesInspected":{"type":"integer","minimum":0,"maximum":10000},"hunksInspected":{"type":"integer","minimum":0,"maximum":100000},"findings":{"type":"array","maxItems":20,"items":{"type":"object","additionalProperties":false,"required":["category","severity","file","side","line","confidence"],"properties":{"category":{"type":"string","enum":["bug","security","data_integrity","permission","concurrency","test_gap","other"]},"severity":{"type":"string","enum":["p1","p2","p3"]},"file":{"type":"string","pattern":"^[A-Za-z0-9_./-]{1,200}$"},"side":{"type":"string","enum":["new","old"]},"line":{"type":"integer","minimum":1,"maximum":1000000},"confidence":{"type":"integer","minimum":0,"maximum":100}}}}}}'
+
+      # Fail-closed attestation. Env carries trusted values only (step outcome, runner temp dir, expected head):
+      # the GitHub runner echoes every step's env before running it, so no action output or model content may
+      # appear here. The SDK result (including structured_output) is read solely from the runner-local execution
+      # file at its fixed path; findings are resolved against the trusted manifest and printed as entry INDICES
+      # plus the manifest's own paths for referenced indices. Model-chosen strings are never printed.
+      - name: Validate review result (fail-closed, enums only)
+        if: always()
+        env:
+          REVIEW_STEP_OUTCOME: ${{ steps.claude-review.outcome }}
+          RUNNER_TEMP_DIR: ${{ runner.temp }}
+          EXPECTED_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: |
+          node - <<'CI_REVIEW_VALIDATOR'
+          "use strict";
+          const fs = require("node:fs");
+          const path = require("node:path");
+          const MAX_STRUCTURED_CHARS = 20000;
+          const MAX_EXECUTION_BYTES = 64 * 1024 * 1024;
+          const MAX_MANIFEST_BYTES = 16 * 1024 * 1024;
+          const MAX_FILES = 10000;
+          const MAX_HUNKS = 100000;
+          const MAX_LINE = 1000000;
+          const MAX_FINDINGS = 20;
+          const BLOCK_CONFIDENCE = 50;
+          const CATEGORIES = new Set(["bug", "security", "data_integrity", "permission", "concurrency", "test_gap", "other"]);
+          const SEVERITIES = new Set(["p1", "p2", "p3"]);
+          const KINDS = new Set(["add", "delete", "modify", "rename", "unsupported"]);
+          const UNSUPPORTED = new Set(["binary", "rename_only", "mode_only", "no_hunks", "path"]);
+          const SHA = /^[0-9a-f]{40}$/;
+          const FILE = /^[A-Za-z0-9_./-]{1,200}$/;
+          const lines = [];
+          const out = (k, v) => lines.push(k + ": " + v);
+          let failures = 0;
+          const fail = (k, v) => { out(k, v); failures += 1; };
+          const isObj = (v) => v !== null && typeof v === "object" && !Array.isArray(v);
+          const isInt = (n, min, max) => Number.isInteger(n) && n >= min && n <= max;
+          const keysExactly = (o, keys) => isObj(o) && Object.keys(o).length === keys.length && keys.every((k) => Object.prototype.hasOwnProperty.call(o, k));
+          const safePath = (p) => typeof p === "string" && FILE.test(p) && !p.startsWith("/") && !p.split("/").includes("..");
+          const span = (s) => s === null || (Array.isArray(s) && s.length === 2 && isInt(s[0], 1, MAX_LINE) && isInt(s[1], s[0], MAX_LINE));
+          const inSpan = (s, n) => s !== null && n >= s[0] && n <= s[1];
+          const readJson = (file, maxBytes) => {
+            let size = -1;
+            try { size = fs.statSync(file).size; } catch { return { state: "missing" }; }
+            if (size > maxBytes) return { state: "too_large" };
+            try { return { state: "ok", value: JSON.parse(fs.readFileSync(file, "utf8")) }; } catch { return { state: "malformed" }; }
+          };
+          out("review-result", "v3");
+          const env = process.env;
+          const expected = typeof env.EXPECTED_HEAD_SHA === "string" && SHA.test(env.EXPECTED_HEAD_SHA) ? env.EXPECTED_HEAD_SHA : null;
+          if (!expected) fail("expected_head", "invalid"); else out("expected_head", expected);
+          const tempDir = typeof env.RUNNER_TEMP_DIR === "string" && env.RUNNER_TEMP_DIR ? path.resolve(env.RUNNER_TEMP_DIR) : "";
+          if (!tempDir) fail("runner_temp", "missing");
+          if (env.REVIEW_STEP_OUTCOME === "success") out("step", "success");
+          else fail("step", env.REVIEW_STEP_OUTCOME === "skipped" ? "skipped" : env.REVIEW_STEP_OUTCOME === "failure" ? "failure" : "other");
+          // 1. Trusted manifest, written by this workflow from the immutable compare diff before the model ran.
+          let manifest = null;
+          if (tempDir) {
+            const m = readJson(path.join(tempDir, "pr-manifest.json"), MAX_MANIFEST_BYTES);
+            const v = m.value;
+            if (m.state !== "ok") fail("manifest", m.state);
+            else if (!keysExactly(v, ["head", "base", "files", "hunkCount", "unsupported"]) || typeof v.head !== "string" || !SHA.test(v.head) || typeof v.base !== "string" || !SHA.test(v.base) || !Array.isArray(v.files) || v.files.length > MAX_FILES || !isInt(v.hunkCount, 0, MAX_HUNKS) || !isInt(v.unsupported, 0, MAX_FILES)) fail("manifest", "invalid");
+            else if (expected && v.head !== expected) fail("manifest", "stale_head");
+            else if (v.files.length === 0) fail("manifest", "empty");
+            else {
+              const files = [];
+              let hunkTotal = 0;
+              let unsupportedTotal = 0;
+              let valid = true;
+              for (const f of v.files) {
+                if (!keysExactly(f, ["kind", "oldPath", "newPath", "hunks", "unsupported"]) || !KINDS.has(f.kind) || !(f.oldPath === null || safePath(f.oldPath)) || !(f.newPath === null || safePath(f.newPath)) || !Array.isArray(f.hunks) || f.hunks.length > MAX_HUNKS || !(f.unsupported === null || UNSUPPORTED.has(f.unsupported)) || (f.unsupported === null) !== (f.kind !== "unsupported")) { valid = false; break; }
+                const hunks = [];
+                for (const h of f.hunks) {
+                  if (!keysExactly(h, ["oldSpan", "newSpan", "added", "removed", "context"]) || !span(h.oldSpan) || !span(h.newSpan) || !isInt(h.added, 0, MAX_LINE) || !isInt(h.removed, 0, MAX_LINE) || !isInt(h.context, 0, MAX_LINE)) { valid = false; break; }
+                  hunks.push({ oldSpan: h.oldSpan, newSpan: h.newSpan });
+                }
+                if (!valid) break;
+                hunkTotal += hunks.length;
+                if (f.unsupported !== null) unsupportedTotal += 1;
+                files.push({ kind: f.kind, oldPath: f.oldPath, newPath: f.newPath, hunks, unsupported: f.unsupported });
+              }
+              if (!valid || hunkTotal !== v.hunkCount || unsupportedTotal !== v.unsupported) fail("manifest", "invalid");
+              else {
+                manifest = { files, hunkCount: hunkTotal, unsupported: unsupportedTotal };
+                out("manifest", "ok");
+                out("changed_files", files.length);
+                out("hunks", hunkTotal);
+                out("unsupported_changes", unsupportedTotal);
+                files.forEach((f, i) => { if (f.unsupported !== null) out("unsupported_change", i + " " + f.unsupported); });
+              }
+            }
+          }
+          // 2. SDK completion, zero denials and the structured result, solely from the runner-local execution file.
+          let result = null;
+          if (tempDir) {
+            const e = readJson(path.join(tempDir, "claude-execution-output.json"), MAX_EXECUTION_BYTES);
+            if (e.state !== "ok") fail("execution_file", e.state);
+            else if (!Array.isArray(e.value)) fail("execution_file", "invalid_shape");
+            else {
+              let last = null;
+              for (const msg of e.value) if (isObj(msg) && msg.type === "result") last = msg;
+              if (!last) fail("sdk", "no_result");
+              else {
+                const denials = Array.isArray(last.permission_denials) ? last.permission_denials.length : -1;
+                out("permission_denials", denials);
+                out("num_turns", isInt(last.num_turns, 0, MAX_LINE) ? last.num_turns : -1);
+                if (last.subtype !== "success" || last.is_error !== false) fail("sdk", "failed");
+                else if (denials !== 0) fail("sdk", denials < 0 ? "invalid" : "refused_tools");
+                else { out("sdk", "completed"); result = last; }
+              }
+            }
+          }
+          let parsed = null;
+          if (result) {
+            if (!Object.prototype.hasOwnProperty.call(result, "structured_output")) fail("structured", "missing");
+            else {
+              let serialized = "";
+              try { serialized = JSON.stringify(result.structured_output) || ""; } catch { serialized = ""; }
+              if (!serialized) fail("structured", "malformed");
+              else if (serialized.length > MAX_STRUCTURED_CHARS) fail("structured", "too_large");
+              else if (!keysExactly(result.structured_output, ["reviewedHeadSha", "outcome", "filesInspected", "hunksInspected", "findings"])) fail("structured", "invalid_shape");
+              else { parsed = result.structured_output; out("structured", "ok"); }
+            }
+          }
+          // 3. Head, outcome, coverage, findings resolved against the manifest, gate.
+          let gate = "passed";
+          if (parsed) {
+            if (typeof parsed.reviewedHeadSha !== "string" || !SHA.test(parsed.reviewedHeadSha)) fail("head", "invalid");
+            else if (!expected || parsed.reviewedHeadSha !== expected) fail("head", "mismatch");
+            else out("head", "match");
+            if (parsed.outcome === "reviewed") out("outcome", "reviewed");
+            else if (parsed.outcome === "incomplete") fail("outcome", "incomplete");
+            else fail("outcome", "invalid");
+            if (!isInt(parsed.filesInspected, 0, MAX_FILES) || !isInt(parsed.hunksInspected, 0, MAX_HUNKS)) fail("coverage", "invalid");
+            else {
+              out("files_inspected", parsed.filesInspected);
+              out("hunks_inspected", parsed.hunksInspected);
+              if (manifest) {
+                if (parsed.filesInspected !== manifest.files.length) fail("coverage", parsed.filesInspected === 0 ? "none" : parsed.filesInspected > manifest.files.length ? "excess" : "partial");
+                else if (parsed.hunksInspected !== manifest.hunkCount) fail("coverage", "hunks_mismatch");
+                else out("coverage", "full");
+              }
+            }
+            if (!Array.isArray(parsed.findings) || parsed.findings.length > MAX_FINDINGS) fail("findings", "invalid");
+            else if (!manifest) fail("findings", "unresolvable");
+            else {
+              out("findings", parsed.findings.length);
+              const referenced = new Set();
+              let blocked = false;
+              let manual = false;
+              for (const f of parsed.findings) {
+                const shaped = keysExactly(f, ["category", "severity", "file", "side", "line", "confidence"])
+                  && CATEGORIES.has(f.category) && SEVERITIES.has(f.severity) && (f.side === "new" || f.side === "old")
+                  && typeof f.file === "string" && isInt(f.line, 1, MAX_LINE) && isInt(f.confidence, 0, 100);
+                if (!shaped) { fail("finding", "invalid"); continue; }
+                const index = manifest.files.findIndex((entry) => entry.unsupported === null && (f.side === "new" ? entry.newPath !== null && entry.newPath === f.file : entry.oldPath !== null && entry.oldPath === f.file));
+                if (index < 0) { fail("finding", "unlisted_file"); continue; }
+                if (!manifest.files[index].hunks.some((h) => inSpan(f.side === "new" ? h.newSpan : h.oldSpan, f.line))) { fail("finding", "outside_hunks"); continue; }
+                referenced.add(index);
+                out("finding", f.severity + " " + f.category + " file=" + index + " side=" + f.side + " line=" + f.line + " confidence=" + f.confidence);
+                if (f.severity === "p1" || f.severity === "p2") { if (f.confidence >= BLOCK_CONFIDENCE) blocked = true; else manual = true; }
+              }
+              for (const index of [...referenced].sort((a, b) => a - b)) {
+                const entry = manifest.files[index];
+                const label = entry.kind === "rename" ? entry.oldPath + " " + entry.newPath : entry.kind === "delete" ? entry.oldPath : entry.newPath;
+                out("changed_file", index + " " + entry.kind + " " + label);
+              }
+              gate = blocked ? "blocked" : manual ? "manual_review" : "passed";
+              if (gate === "passed" && manifest.unsupported > 0) gate = "manual_review";
+              out("gate", gate);
+            }
+          }
+          const verdict = failures > 0 ? "failed" : gate === "passed" ? "attested" : gate;
+          out("verdict", verdict);
+          process.stdout.write(lines.join("\n") + "\n");
+          process.exitCode = verdict === "attested" ? 0 : 1;
+          CI_REVIEW_VALIDATOR
