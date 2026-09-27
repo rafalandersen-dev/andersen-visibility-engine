@@ -308,6 +308,15 @@ jobs:
         uses: anthropics/claude-code-action@756cc22e19660d20e8cc9496b4f242475a7f7790 # v1 as of 2026-09-27
         with:
           claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          # J (live run 36316700989 on PR153): the action's default GitHub-token path mints an OIDC token and
+          # exchanges it at Anthropic for a GitHub App installation token; that exchange answered HTTP 401
+          # (unauthorized, not a workflow-validation error) before the CLI was installed, so the Claude OAuth
+          # credential was never exercised. This tool-free advisory path posts nothing and needs no App token:
+          # the documented `github_token` input makes the pinned action use the provided token and skip the
+          # OIDC exchange entirely (src/github/token.ts: a provided token is returned before any OIDC request;
+          # the post-step "Revoke app token" is skipped when github_token is set). The job's own read-only
+          # token (permissions above) is used as is — no new scope, secret, PAT or App.
+          github_token: ${{ github.token }}
           prompt: ${{ steps.collect.outputs.prompt }}
           # Parsed by the action's shell-quote based `parse-sdk-options.ts` (v1) and passed to the CLI by the
           # Agent SDK. `--tools=""` reaches the CLI as the bare token `--tools=` (verified locally: the session's

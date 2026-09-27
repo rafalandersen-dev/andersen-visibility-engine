@@ -94,7 +94,9 @@ still ends in `manual_review_required` with exit 1. ESLint, Prettier and `tsc --
 - Bot-authored PRs fail the action's actor checks → red.
 - Live items: provider authentication through the environment secret; `restoreConfigFromBase` with the
   default-branch checkout; check names and their association with the PR head.
-- `id-token: write` on the review job and the action's App-token exchange are kept as in the template.
+- `id-token: write` on the review job is kept as in the template; with the J change it is no longer used by
+  the action (no OIDC request is made when `github_token` is provided) and can be dropped in a later
+  reviewed reduction.
 - The pin freezes action and CLI versions; updating it means re-verifying the chain.
 - Mention automation (`claude.yml`) remains disabled until separately reviewed.
 - js-yaml and shell-quote are transitive lockfile dependencies used by the test only.
@@ -107,3 +109,29 @@ job name and verdict vocabulary, and removal of the proposed model-only merge au
 arguments, schema, negative verdicts and exit codes remain unchanged. The author was confirmed idle before
 integration. This is local evidence only; exact-head external review and the recorded first-live-run
 acceptance remain open. No repository settings or existing protection was changed.
+
+## J — first live run: GitHub App token exchange failed before the model ran (27 September 2026)
+
+Run 36316700989 on PR153 (`49bc2adf`, branch `codex/milo-ci-live-verification-20260927`): trusted checkout,
+config removal and collector succeeded; the action step failed; the validator reported `step: failure`,
+`execution_file: missing`, `verdict: failed`; the advisory job reported `review_result: failure`,
+`gate: manual_review_required`, `reason: review_failure`. Every fail-closed control behaved as designed.
+
+In-memory classification of the job log against the pinned action's fixed constants (`src/github/token.ts`),
+counts only: `Requesting OIDC token` 1, `OIDC token successfully obtained` 1, `Exchanging OIDC token for app
+token` 1, `App token exchange failed` 3 (retries), HTTP status `401`, message category "unauthorized" (no
+workflow-validation, environment, claim, installation, ref or event wording), `App token successfully
+obtained` 0, `Installing Claude Code` 0, `Running Claude Code via SDK` 0. So the failed stage is the
+Anthropic-side exchange of the GitHub OIDC token for a GitHub App installation token, before CLI install and
+before any Claude OAuth use. The owner Claude token was never exercised and is not implicated. Which OIDC
+claim the exchange rejected (`pull_request_target` event, environment-scoped subject, or App installation
+state) cannot be determined from the client side and is not claimed.
+
+Correction (branch `codex/milo-ci-oidc-repair-20260927` from `main` `c2881e98`): the documented `github_token`
+input is set to the job's own read-only token. Source-verified at the pinned revision: `setupGitHubToken`
+returns a provided token before any OIDC request; `checkWritePermissions` (actor collaborator level via the
+API), `checkHumanActor`, `configureGitAuth` (try/catch), `restoreConfigFromBase` (fetch of the base branch,
+no submodule recursion) and the octokit client all run with that token; agent mode adds no MCP server here;
+the post-step "Revoke app token" is skipped when `github_token` is set. Read scopes are unchanged; no secret,
+PAT, App or provider is added; `id-token: write` becomes unused. Live verification of this path is still
+required and is not claimed.
