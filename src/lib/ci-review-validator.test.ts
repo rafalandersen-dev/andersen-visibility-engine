@@ -385,6 +385,28 @@ const fixtures = {
     rmSync(join(repo, "link.txt"));
     symlinkSync("target.txt", join(repo, "link.txt"));
   }),
+  // H: a literal "Subproject commit <sha>" line is ordinary text inside regular files.
+  literalAdd644: realDiff({ "docs/notes.md": "intro\n" }, (repo) =>
+    write(repo, "docs/notes.md", `intro\nSubproject commit ${GITLINK_A}\n`),
+  ),
+  literalRemove644: realDiff(
+    { "docs/notes.md": `intro\nSubproject commit ${GITLINK_A}\n` },
+    (repo) => write(repo, "docs/notes.md", "intro\n"),
+  ),
+  literalNewFile644: realDiff({ "README.md": "x\n" }, (repo) =>
+    write(repo, "fixtures/patch.txt", `Subproject commit ${GITLINK_A}\n`),
+  ),
+  literalAdd755: realDiff({ "README.md": "x\n" }, (repo, git) => {
+    write(repo, "bin/tool.sh", "#!/bin/sh\necho one\n");
+    chmodSync(join(repo, "bin/tool.sh"), 0o755);
+    git("add", "-A");
+    git("commit", "-q", "-m", "add executable");
+    write(
+      repo,
+      "bin/tool.sh",
+      `#!/bin/sh\necho one\n# Subproject commit ${GITLINK_A}\nSubproject commit ${GITLINK_B}\n`,
+    );
+  }),
   binaryAdd: realDiff({ "README.md": "x\n" }, (repo) =>
     write(repo, "img.bin", Buffer.from([0, 1, 2, 3, 0, 255, 254, 0])),
   ),
@@ -458,13 +480,15 @@ describe("validator — attestation of a complete run", () => {
       `changed_file: 0 modify ${FILE_A}`,
       `changed_file: 1 add ${FILE_B}`,
       "gate: passed",
-      "verdict: attested",
+      "verdict: advisory_clean",
     ]);
+    // Advisory contract (I): a clean result is reported as `advisory_clean`, never as an approval word.
+    expect(r.out).not.toMatch(/attested|approved|authoriz/i);
   });
-  it("attests with zero findings and accepts an old-side finding on a removed line of a modified file", () => {
+  it("reports advisory_clean with zero findings and accepts an old-side finding on a removed line of a modified file", () => {
     const zero = runValidator({ structured: reviewed() });
     expect(zero.code).toBe(0);
-    expect(zero.lines).toContain("verdict: attested");
+    expect(zero.lines).toContain("verdict: advisory_clean");
     const old = runValidator({ structured: reviewed([finding({ side: "old", line: 175 })]) });
     expect(old.code).toBe(0);
     expect(old.lines).toContain("finding: p3 bug file=0 side=old line=175 confidence=85");
@@ -1031,6 +1055,74 @@ describe("manifest collector — real git diffs (B1/B2)", () => {
     expect(fixtures.execModify).toMatch(/^index [0-9a-f]+\.\.[0-9a-f]+ 100755$/m);
     expect(forged(exec).code).toBe(0);
   });
+  it("H: literal 'Subproject commit' text in regular 100644/100755 files is ordinary content; real 160000 entries stay gitlinks; the content heuristic applies only without mode metadata", () => {
+    const supported: [string, string, string][] = [
+      ["literalAdd644", "modify", "docs/notes.md"],
+      ["literalRemove644", "modify", "docs/notes.md"],
+      ["literalNewFile644", "add", "fixtures/patch.txt"],
+      ["literalAdd755", "modify", "bin/tool.sh"],
+    ];
+    for (const [name, kind, path] of supported) {
+      const diff = fixtures[name as keyof typeof fixtures];
+      expect(diff, name).toMatch(/^[+-]Subproject commit [0-9a-f]{40}$/m);
+      expect(diff, name).not.toContain("160000");
+      const r = runManifest(diff);
+      expect(r.code, name).toBe(0);
+      const m = r.manifest!;
+      hunkInvariants(m);
+      expect(m.files, name).toHaveLength(1);
+      expect(m.files[0], name).toMatchObject({ kind, unsupported: null });
+      expect(m.unsupported, name).toBe(0);
+      expect(r.lines, name).toContain("unsupported_changes: 0");
+      const side = name === "literalRemove644" ? "old" : "new";
+      const line =
+        name === "literalRemove644"
+          ? 2
+          : name === "literalNewFile644"
+            ? 1
+            : name === "literalAdd644"
+              ? 2
+              : 3;
+      const v = runValidator({
+        manifest: m,
+        structured: reviewed([finding({ file: path, side, line })], {
+          filesInspected: 1,
+          hunksInspected: m.hunkCount,
+        }),
+      });
+      expect(v.code, name).toBe(0);
+      expect(v.lines, name).toContain(
+        `finding: p3 bug file=0 side=${side} line=${line} confidence=85`,
+      );
+    }
+    expect(fixtures.literalAdd644).toMatch(/^index [0-9a-f]+\.\.[0-9a-f]+ 100644$/m);
+    expect(fixtures.literalAdd755).toMatch(/^index [0-9a-f]+\.\.[0-9a-f]+ 100755$/m);
+    expect(fixtures.literalNewFile644).toContain("new file mode 100644");
+    // Real gitlink controls are unchanged (mode 160000 is authoritative).
+    for (const name of ["gitlinkAdd", "gitlinkUpdate", "gitlinkDelete"] as const) {
+      const m = runManifest(fixtures[name]).manifest!;
+      expect(m.files[0].unsupported, name).toBe("gitlink");
+    }
+    // Content heuristic only where mode metadata is unavailable: the same real diffs with their mode-bearing
+    // header lines removed (a derived case; GitHub's compare diff carries the modes) fall back to gitlink,
+    // i.e. manual review, never attestation of an opaque pointer.
+    const stripModes = (d: string) =>
+      d
+        .split("\n")
+        .filter(
+          (l) =>
+            !/^(index [0-9a-f]+\.\.[0-9a-f]+ [0-7]{6}|new file mode [0-7]{6}|deleted file mode [0-7]{6})$/.test(
+              l,
+            ),
+        )
+        .join("\n");
+    const strippedGitlink = runManifest(stripModes(fixtures.gitlinkAdd)).manifest!;
+    expect(strippedGitlink.files[0].unsupported).toBe("gitlink");
+    const strippedLiteral = runManifest(stripModes(fixtures.literalAdd644)).manifest!;
+    expect(strippedLiteral.files[0].unsupported).toBe("gitlink");
+    const strippedPlain = runManifest(stripModes(fixtures.newFile)).manifest!;
+    expect(strippedPlain.files[0]).toMatchObject({ kind: "add", unsupported: null });
+  });
   it("new file, missing-trailing-newline markers and a combined multi-file commit parse correctly", () => {
     const added = runManifest(fixtures.newFile).manifest!;
     hunkInvariants(added);
@@ -1255,10 +1347,16 @@ describe("workflow transport boundary (A3) and configuration", () => {
     expect(steps[1].run!.trim()).toBe("rm -rf -- .claude .mcp.json");
     expect((steps[2] as { id?: string }).id).toBe("collect");
   });
-  it("G1: the authoritative check is a credential-free gate job that always runs after the review job", () => {
+  it("G1/I: the visible result is a credential-free advisory job that always runs after the review job", () => {
     expect(Object.keys(doc.jobs)).toEqual(["claude-review", "review-gate"]);
     const gate = doc.jobs["review-gate"];
-    expect(gate.name).toBe("Claude Review Gate");
+    expect(gate.name).toBe("Claude Review Result (advisory)");
+    // Advisory contract (I): no text in the workflow may present the model result as merge authorization.
+    expect(workflow).not.toContain("Authoritative merge check");
+    expect(workflow).not.toContain("must require");
+    expect(workflow).not.toContain("Claude Review Gate");
+    expect(workflow).toContain("ADVISORY ONLY");
+    expect(workflow).toContain("never merge authorization");
     expect(gate.needs).toEqual(["claude-review"]);
     expect(gate.if).toBe("always()");
     expect(gate.environment).toBeUndefined();
@@ -1302,11 +1400,12 @@ describe("workflow transport boundary (A3) and configuration", () => {
     const ok = runGate({ ...eligible, REVIEW_RESULT: "success" });
     expect(ok.code).toBe(0);
     expect(ok.lines).toEqual([
-      "review-gate: v1",
+      "review-gate: v2",
       "review_result: success",
       "scope: eligible",
-      "gate: passed",
+      "gate: advisory_clean",
     ]);
+    expect(ok.out).not.toMatch(/passed|attested|approved|authoriz/i);
     const cases: [string, Record<string, string>, string][] = [
       [
         "fork, review skipped",

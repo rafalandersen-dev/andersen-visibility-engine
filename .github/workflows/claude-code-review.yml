@@ -10,11 +10,16 @@ name: Claude Code Review
 #   workflow code with the read-only job token, and handed to the model as DATA inside the prompt.
 # - The review job runs only for same-repository pull requests into `main` (`branches:` filter and `if:`
 #   below), so fork content never triggers a job that holds the OAuth secret or an OIDC token, and no other
-#   target branch is in scope. A skipped job reports "success" to GitHub, so the review job is NOT the merge
-#   check: the credential-free job `review-gate` ("Claude Review Gate") always runs after it and passes only
-#   when the review job actually succeeded for an eligible pull request; fork scope and skipped, failed,
-#   cancelled or missing review results fail it with `gate: manual_review_required`. Branch protection must
-#   require "Claude Review Gate" (bootstrap step; live verification still required).
+#   target branch is in scope. A skipped job reports "success" to GitHub, so the review job is not the visible
+#   result: the credential-free job `review-gate` ("Claude Review Result (advisory)") always runs after it and
+#   reports `advisory_clean` only when the review job actually succeeded for an eligible pull request; fork
+#   scope and skipped, failed, cancelled or missing review results fail it with `gate: manual_review_required`.
+# - ADVISORY ONLY (security finding 4115159194): the model's structured result is self-reported; a
+#   prompt-injected diff can return matching counts and no findings, and the shape/count checks cannot prove
+#   inspection. A clean result is therefore an advisory signal, never merge authorization: this workflow does
+#   not approve, auto-merge or claim to enforce branch protection, and it must not be made the sole required
+#   merge gate. Independent exact-head correctness and security reviews, closure of their findings, honest
+#   manual-review handling and release verification remain required for every release.
 # - Bounded input: the only supported prompt transport of the pinned action is the `prompt` input, which the
 #   action carries in one environment string (128 KiB Linux limit). Diffs over 100 000 bytes therefore fail
 #   closed (`manifest: too_large`, `diff_bytes: N` printed) and need manual review; nothing is truncated.
@@ -38,7 +43,7 @@ name: Claude Code Review
 # file+hunk coverage, every finding anchored to a manifest entry/side/span; p1/p2 never green; unsupported
 # entries force manual review). Diffs above the bounded input size fail closed (manual review).
 #
-# What "attested" does NOT prove: the counts the model reports are its own claim, bounded by the manifest; zero
+# What `advisory_clean` does NOT prove: the counts the model reports are its own claim, bounded by the manifest; zero
 # denials proves no refusal occurred. Independent review remains the review of record.
 
 on:
@@ -142,9 +147,12 @@ jobs:
             if (hunk && (hunk.oldLeft !== 0 || hunk.newLeft !== 0)) stop("malformed_diff");
             hunk = null;
           };
-          // Entry-type metadata (G2): only regular files (modes 100644 / 100755) with an unchanged mode are
+          // Entry-type metadata (G2/H): only regular files (modes 100644 / 100755) with an unchanged mode are
           // reviewable code. Executable-bit changes even with text edits, gitlinks (160000, submodule pointers),
-          // symlinks (120000) and any other mode are unsupported and force manual review.
+          // symlinks (120000) and any other mode are unsupported and force manual review. Explicit regular-file
+          // mode metadata is authoritative: a literal "Subproject commit <sha>" line inside a 100644/100755 file
+          // is ordinary text. The content heuristic classifies an entry as a gitlink only when the diff carries
+          // no mode metadata at all (conservative: manual review rather than attesting an opaque pointer).
           const REGULAR_MODES = new Set(["100644", "100755"]);
           const finishFile = () => {
             if (!current) return;
@@ -153,7 +161,7 @@ jobs:
             if (f.unsupported === null) {
               const modes = [f.oldMode, f.newMode].filter((m) => m !== null);
               if (f.oldMode !== null && f.newMode !== null && f.oldMode !== f.newMode) f.unsupported = "mode_change";
-              else if (modes.includes("160000") || f.gitlink) f.unsupported = "gitlink";
+              else if (modes.includes("160000") || (modes.length === 0 && f.gitlink)) f.unsupported = "gitlink";
               else if (modes.includes("120000")) f.unsupported = "symlink";
               else if (modes.some((m) => !REGULAR_MODES.has(m))) f.unsupported = "mode_unsupported";
               else if (f.hunks.length === 0) f.unsupported = f.rename ? "rename_only" : "no_hunks";
@@ -315,7 +323,7 @@ jobs:
             --strict-mcp-config
             --json-schema '{"type":"object","additionalProperties":false,"required":["reviewedHeadSha","outcome","filesInspected","hunksInspected","findings"],"properties":{"reviewedHeadSha":{"type":"string","pattern":"^[0-9a-f]{40}$"},"outcome":{"type":"string","enum":["reviewed","incomplete"]},"filesInspected":{"type":"integer","minimum":0,"maximum":10000},"hunksInspected":{"type":"integer","minimum":0,"maximum":100000},"findings":{"type":"array","maxItems":20,"items":{"type":"object","additionalProperties":false,"required":["category","severity","file","side","line","confidence"],"properties":{"category":{"type":"string","enum":["bug","security","data_integrity","permission","concurrency","test_gap","other"]},"severity":{"type":"string","enum":["p1","p2","p3"]},"file":{"type":"string","pattern":"^[A-Za-z0-9_./-]{1,200}$"},"side":{"type":"string","enum":["new","old"]},"line":{"type":"integer","minimum":1,"maximum":1000000},"confidence":{"type":"integer","minimum":0,"maximum":100}}}}}}'
 
-      # Fail-closed attestation. Env carries trusted values only (step outcome, runner temp dir, expected head):
+      # Fail-closed advisory result. Env carries trusted values only (step outcome, runner temp dir, expected head):
       # the GitHub runner echoes every step's env before running it, so no action output or model content may
       # appear here. The SDK result (including structured_output) is read solely from the runner-local execution
       # file at its fixed path; findings are resolved against the trusted manifest and printed as entry INDICES
@@ -486,22 +494,26 @@ jobs:
               out("gate", gate);
             }
           }
-          const verdict = failures > 0 ? "failed" : gate === "passed" ? "attested" : gate;
+          // `advisory_clean` is a self-reported clean result that passed every structural check; it is advisory
+          // information for reviewers, never merge authorization.
+          const verdict = failures > 0 ? "failed" : gate === "passed" ? "advisory_clean" : gate;
           out("verdict", verdict);
           process.stdout.write(lines.join("\n") + "\n");
-          process.exitCode = verdict === "attested" ? 0 : 1;
+          process.exitCode = verdict === "advisory_clean" ? 0 : 1;
           CI_REVIEW_VALIDATOR
 
-  # Authoritative merge check "Claude Review Gate" (G1). Credential-free by construction: no environment, no
-  # secret, no OIDC (`permissions: {}` — the job token has no scopes), no checkout, no action, no PR content.
-  # `needs` + `if: always()` make it run for EVERY event of this workflow, including fork pull requests where
-  # the review job is deliberately skipped, and it passes only when the review job's result is `success` for an
-  # eligible (same-repository, base `main`) pull request. GitHub reports a skipped job as success, so branch
-  # protection must require this job's name, never `claude-review`. Requiring it is a repository settings step
-  # (bootstrap) and its live behaviour is unverified until the first run; these tests do not prove branch
-  # protection. Only event metadata enters the env; only fixed enums are printed.
+  # Visible advisory result "Claude Review Result (advisory)" (G1/I). Credential-free by construction: no
+  # environment, no secret, no OIDC (`permissions: {}` — the job token has no scopes), no checkout, no action,
+  # no PR content. `needs` + `if: always()` make it run for EVERY event of this workflow, including fork pull
+  # requests where the review job is deliberately skipped, and it reports `advisory_clean` only when the review
+  # job's result is `success` for an eligible (same-repository, base `main`) pull request; every other case is
+  # `manual_review_required`. It is the honest visible status of the automated review, NOT merge authorization:
+  # GitHub reports the skipped review job as success, and a clean model result is self-reported (see the
+  # ADVISORY ONLY note above). This workflow does not approve or merge anything and does not enforce or verify
+  # branch protection; release decisions rest on independent exact-head reviews. Only event metadata enters
+  # the env; only fixed enums are printed.
   review-gate:
-    name: Claude Review Gate
+    name: Claude Review Result (advisory)
     needs: [claude-review]
     if: always()
     runs-on: ubuntu-latest
@@ -525,10 +537,10 @@ jobs:
           const sameRepo = headRepo !== "" && repository !== "" && headRepo === repository;
           const baseMain = env.BASE_REF === "main";
           const scope = headRepo === "" || repository === "" ? "unknown" : !sameRepo ? "fork" : !baseMain ? "base_not_main" : "eligible";
-          say("review-gate", "v1");
+          say("review-gate", "v2");
           say("review_result", result);
           say("scope", scope);
           const reason = scope !== "eligible" ? "scope_" + scope : result !== "success" ? "review_" + result : null;
-          if (reason === null) { say("gate", "passed"); process.exitCode = 0; }
+          if (reason === null) { say("gate", "advisory_clean"); process.exitCode = 0; }
           else { say("gate", "manual_review_required"); say("reason", reason); process.exitCode = 1; }
           CI_REVIEW_GATE
