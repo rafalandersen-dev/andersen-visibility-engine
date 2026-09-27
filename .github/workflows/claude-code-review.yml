@@ -423,6 +423,45 @@ jobs:
               }
             }
           }
+          // L: bounded classification of an SDK-reported error result into ONE closed enum. This is UNTRUSTED
+          // corroboration only: the scanned text is model/provider output and may contain arbitrary or injected
+          // category words. It is never proof of a cause and never authority to retry, replace a credential,
+          // change budgets or permissions, or approve anything. Only string fields are scanned, within fixed size
+          // limits; unmatched, ambiguous or conflicting text is "other"; nothing from the input is ever printed.
+          const SDK_ERROR_PATTERNS = [
+            ["auth", /\b(authenticat\w*|unauthori[sz]ed|invalid api key|invalid x-api-key|oauth|token (is )?(invalid|expired|revoked)|not logged in|login required|401)\b/i],
+            ["permission", /\b(forbidden|permission denied|not permitted|access denied|403)\b/i],
+            ["rate_limit", /\b(rate[ _-]?limit\w*|too many requests|429)\b/i],
+            ["overloaded", /\b(overloaded\w*|service unavailable|529|503)\b/i],
+            ["billing", /\b(billing|credit balance|insufficient credits?|payment required|quota exceeded|usage limit|spending limit|402)\b/i],
+            ["network", /\b(econnreset|econnrefused|enotfound|etimedout|epipe|network error|fetch failed|socket hang up|timed out|timeout|dns)\b/i],
+            ["invalid_request", /\b(invalid request|bad request|invalid_request_error|prompt is too long|context (length|window)|maximum context|400)\b/i],
+          ];
+          const MAX_SDK_TEXT_CHARS = 4000;
+          const MAX_SDK_ERRORS = 20;
+          const MAX_SDK_SCAN_CHARS = 20000;
+          // L2: limits are checked BEFORE classification and any exceeded limit is "other". A sliced subset is
+          // never classified: an unobserved suffix could contradict the scanned prefix.
+          const classifySdkError = (r) => {
+            const parts = [];
+            if (typeof r.result === "string") {
+              if (r.result.length > MAX_SDK_TEXT_CHARS) return "other";
+              parts.push(r.result);
+            }
+            if (Array.isArray(r.errors)) {
+              if (r.errors.length > MAX_SDK_ERRORS) return "other";
+              for (const e of r.errors) {
+                if (typeof e !== "string") continue;
+                if (e.length > MAX_SDK_TEXT_CHARS) return "other";
+                parts.push(e);
+              }
+            }
+            if (parts.reduce((n, p) => n + p.length, 0) > MAX_SDK_SCAN_CHARS) return "other";
+            const text = parts.join("\n");
+            if (text.trim() === "") return "other";
+            const hits = SDK_ERROR_PATTERNS.filter(([, re]) => re.test(text)).map(([name]) => name);
+            return hits.length === 1 ? hits[0] : "other";
+          };
           // 2. SDK completion, zero denials and the structured result, solely from the runner-local execution file.
           let result = null;
           if (tempDir) {
@@ -440,6 +479,8 @@ jobs:
                 if (last.subtype !== "success" || last.is_error !== false) fail("sdk", "failed");
                 else if (denials !== 0) fail("sdk", denials < 0 ? "invalid" : "refused_tools");
                 else { out("sdk", "completed"); result = last; }
+                // "none" only when the SDK reported no error; the category never changes any status above.
+                out("sdk_error_category", last.subtype !== "success" || last.is_error !== false ? classifySdkError(last) : "none");
               }
             }
           }
