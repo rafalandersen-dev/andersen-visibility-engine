@@ -1,126 +1,114 @@
-# Claude Code Review workflow repair — design and evidence (final reconciliation F, 27 September 2026)
+# Claude Code Review workflow repair — design and evidence (candidate G, 27 September 2026)
 
-Isolated infrastructure change. Branch `codex/milo-ci-review-repair-20260927` (PR152), candidate C committed
-as `c1141d9b`; D, E and F are the uncommitted delta on top of it. Files:
-`.github/workflows/claude-code-review.yml`, `.github/workflows/claude.yml` (F: containment only),
+Isolated infrastructure change. Branch `codex/milo-ci-review-repair-20260927` (PR152); pushed HEAD `2b2d2524`
+(D+E+F); G is the uncommitted delta on top of it. Files touched by G: `.github/workflows/claude-code-review.yml`,
 `src/lib/ci-review-validator.test.ts`, this note. No application, locale or SQL change. Repository is PUBLIC.
 
 ## Status in one paragraph
 
-Code boundaries are addressed (trusted-base trigger limited to PRs into `main`, no PR checkout, tool-free
-model, pinned action revision, fail-closed validator, fixed-enum output). The credential relocation and the
-removal of the repository-level secret copy are REQUIRED and NOT yet performed; until they are, P1
-4113585903 stays open and the repaired job must not be merged or enabled. Exact-head external reviews of
-PR152 remain required. PR151 has a known CI outcome of `manifest: too_large` → manual review required; it is
-NOT a completed bounded review. Live status association of `pull_request_target` runs is unverified. The
-sibling mention workflow is temporarily fail-closed (F) pending its own review. The whole goal is not done.
+Code boundaries addressed (trusted-base trigger limited to PRs into `main`, no PR checkout, tool-free model,
+pinned action revision, fail-closed validator, fixed-enum output). Owner credential prerequisite COMPLETED and
+verified by metadata: `claude-review` environment with a `main`-only deployment branch policy holds the
+secret, the repository-level copy is removed (GitHub reply 4115078300); live provider authentication through it
+is still unverified. External review 5330047655 on `2b2d2524` found two defects, fixed here: G1 — the fork
+skip of the review job counted as a passing check; G2 — mode/gitlink metadata could be falsely attested.
+Exact-head review of the G delta, the branch-protection bootstrap (require "Claude Review Gate") and the
+first live run remain. PR151 keeps its known `too_large` → manual-review outcome. The whole goal is not done.
 
 ## History
 
-- Run 36269228557 on PR151: plugin template, no allowlist, 32 denials, nothing posted, green.
-- A → B: null attested; model filename printed; model JSON in step env; only p1 ≥ 80 blocked.
-- B → C: whole-span mislabelled; deletions outside the contract; hand-written fixture; mutable PR read.
-- C → D (4113585903 / 4113585908): PR merge-ref workflow held the credential; unrestricted reads.
-- D → E: credential isolation is an owner prerequisite; 100 KB cap excludes PR151; action pinned;
-  prompt-file transport investigated and rejected (action.yml overwrites `INPUT_PROMPT_FILE`, agent mode
-  rewrites the prompt directory, run.ts reads that fixed path).
-- E → F: prerequisite order corrected (repository copy removed BEFORE P1 is called closed and BEFORE the
-  repaired job is merged/enabled); sibling `claude.yml` credential job fail-closed; the categorical model
-  context-window claim withdrawn (byte transport limit alone is the proof).
+- A → B → C → D → E → F: see the F edition of this note (null shapes, output disclosure, deletion coverage,
+  trusted-base trigger, tool-free model, transport limit, credential prerequisite, sibling containment).
+- G (4115099604 / 4115099605): credential-free authoritative gate job; entry-type classification for
+  executable-bit changes with edits, gitlinks, symlinks and other non-regular modes.
 
-## Design (unchanged from E; summary)
+## G1 — authoritative gate job "Claude Review Gate"
 
-1. `on: pull_request_target` with `branches: [main]`; job `if` requires a same-repository head and
-   `base.ref == 'main'`; `environment: claude-review`; ref-less default-branch checkout with
-   `persist-credentials: false`; `.claude`/`.mcp.json` removed from the runner copy.
-2. Trusted collector: immutable compare diff `base.sha...head.sha` (read-only token), hunk consumption with
-   old/new spans and counts, unsupported entries recorded, prompt = fixed instructions + manifest + diff as
-   delimited untrusted data, delivered through a random-delimiter `GITHUB_OUTPUT` to the action's `prompt`
-   input. Caps: diff ≤ 100 000 bytes, prompt ≤ 120 000 bytes (the only supported transport is one
-   environment string; Linux limit 128 KiB). Oversize → `diff_bytes: N`, `manifest: too_large`, exit 1.
-3. Action pinned to `anthropics/claude-code-action@756cc22e19660d20e8cc9496b4f242475a7f7790` (the commit `v1`
-   resolved to on 27 September 2026). Preprocessing chain source-verified at that revision (context mapping,
-   token, actor checks, agent-mode prepare with prompt-dir rewrite and no MCP servers without `mcp__github_*`
-   allow entries, CLI 2.1.283 install, config restore from the base branch, `preparePrompt`, shell-quote
-   `claude_args` parser, Agent SDK argv).
-4. Tool-free session: `--tools=""` (reaches the CLI as `--tools=`; local init shows only the synthetic
-   StructuredOutput tool, no MCP), `--disallowed-tools` incl. Bash/Read/Grep/Glob, `--max-turns 10`,
-   `--setting-sources user`, `--strict-mcp-config`, `--json-schema`.
-5. Validator (`review-result: v3`): SDK result read from the runner-local execution file only; completion,
-   zero denials, exact head, full file+hunk coverage, side-aware anchoring to manifest spans, fixed
-   vocabulary; p1/p2 → blocked / manual review; unsupported → manual review; all else fail closed.
+Problem: GitHub reports a skipped job as a successful check and does not block merges on it. The review job is
+skipped by design for fork PRs (and any ineligible scope), so a fork PR could pass a required check named
+after the review job.
 
-## Credential isolation — REQUIRED owner prerequisite, not performed (P1 4113585903 open)
+Design: a second job `review-gate` (check name "Claude Review Gate") with `needs: [claude-review]` and
+`if: always()`, so it runs for every event of this workflow, including fork PRs. It is credential-free by
+construction: no `environment`, no `secrets.` reference, `permissions: {}` (the job token has no scopes, no
+OIDC), no checkout, no `uses:` step, no PR content; its env holds only event metadata (`needs.claude-review.result`,
+head repository name, base ref, repository). An inline script prints fixed enums (`review-gate: v1`,
+`review_result`, `scope`, `gate`, `reason`) and exits 0 only when the scope is eligible (same repository, base
+`main`) AND the review job result is exactly `success`. Fork/unknown scope and `skipped`, `failure`,
+`cancelled` or missing/forged results exit 1 with `gate: manual_review_required` and a reason enum. The review
+job (which GitHub would report as skipped-success) deliberately has no display name so that branch protection
+is configured against "Claude Review Gate". PRs into branches other than `main` do not trigger the workflow at
+all (`branches:` filter); a required "Claude Review Gate" then stays missing/pending, which also blocks merge.
 
-Measured read-only: repository Actions secret `CLAUDE_CODE_OAUTH_TOKEN` exists; environments `Preview`,
-`Production` exist without branch policies; `claude-review` does not exist.
+Bootstrap (owner, repository settings, not performed here): branch protection or ruleset on `main` → require
+status check "Claude Review Gate" (and NOT `claude-review`). Live verification of the check name, its
+association with the PR head and its blocking behaviour is a first-live-run acceptance criterion; the tests
+below exercise the YAML wiring and the script semantics only and do not prove hosted branch protection.
 
-Order (corrected in F): prepare protection and the same-token entry first; remove the repository-level copy
-BEFORE P1 is called closed and BEFORE PR152 is merged or the repaired job enabled. An interval in which the old
-workflows cannot authenticate is honest fail-closed maintenance, not a reason to keep the insecure copy.
-Verification is by GitHub metadata (names and policies), never by a provider run.
+## G2 — entry-type metadata classification
 
-Owner UI steps (owner only; the existing token entered directly in GitHub; no token in files or chat; no
-rotation; no new provider):
+Problem: the collector marked mode metadata unsupported only when an entry had no hunks, so an executable-bit
+change combined with a text edit lost its mode change, and `new file mode 160000` / `index … 160000` gitlinks
+(submodule pointers) or `120000` symlinks were treated as ordinary text hunks — an opaque "Subproject commit"
+line could be attested as inspected code.
 
-1. Settings → Environments → New environment → name `claude-review`. Deployment branches and tags → "Selected
-   branches and tags" → Add deployment branch or tag rule → `main`. Leave "Required reviewers" and "Wait timer"
-   off.
-2. Same environment → Environment secrets → Add secret → name `CLAUDE_CODE_OAUTH_TOKEN`, value = the existing
-   token.
-3. Settings → Secrets and variables → Actions → Repository secrets → delete `CLAUDE_CODE_OAUTH_TOKEN`.
-4. Read-only acceptance (names/policies only): `GET /repos/{o}/{r}/environments/claude-review` shows
-   `deployment_branch_policy.custom_branch_policies: true`; `GET …/environments/claude-review/deployment-branch-policies`
-   lists exactly `main`; `GET …/environments/claude-review/secrets` lists `CLAUDE_CODE_OAUTH_TOKEN`;
-   `GET /repos/{o}/{r}/actions/secrets` no longer lists it. Only when all four hold is P1 closable.
-5. Then the independent exact-head review of PR152 and the merge decision (Codex). After merge, the first
-   same-repository PR into `main` is the live acceptance run (status association, action behaviour with the
-   default-branch checkout, validator lines).
-
-## Sibling workflow `claude.yml` — temporary security containment (F)
-
-`claude.yml` is the official tag-mode mention workflow: it runs the same OAuth credential in an unrestricted
-session (full tool set, `additional_permissions: actions: read`) on comment/issue/review events. After the
-secret moves into the environment, adding `environment: claude-review` to that job would hand the relocated
-credential to an unrestricted model again through another path. F therefore fail-closes its job: the
-original trigger condition is preserved as a comment and the job condition is replaced by `if: false`.
-Events still fire, the job is skipped, no step runs, no credential is read. This is a temporary containment
-of comment automation pending its own review, not a redesign; the authorized Claude desktop session remains
-available. Regression: the test suite parses `claude.yml` and asserts the single job's condition is exactly
-`false`, that no `environment` is declared there, and that the file otherwise still carries the original
-trigger events and credential reference (nothing else changed). Restoring the automation is a separate,
-reviewed change.
-
-## PR151 — known CI outcome
-
-Immutable compare diff `1134899e...b214a39c`: 819 617 bytes, 95 files, 147 hunks (measured read-only; file
-deleted after). The committed collector: `diff_bytes: 819617`, `manifest: too_large`, exit 1 → the workflow
-outcome for PR151 is "manual review required", not a completed review. With the byte caps raised in a
-throwaway copy the collector handled all 95 files / 147 hunks with 0 span-invariant violations and the prompt
-would be 845 052 bytes — far beyond the single-environment-string transport, which alone proves the
-blocker. No claim is made about any model's context window. No truncation, chunking, waiver or history
-rewrite; PR151's review of record is the independent reviews already performed, a release decision for Codex.
-
-## What "attested" proves and does not prove
-
-Unchanged: SDK completed with zero refusals; schema-valid result for the exact head; reported file and hunk
-counts equal the manifest's; every finding anchored to a changed entry, side and span; no p1/p2; no
-unsupported change; input within the caps. It does not prove the model read every hunk or judged a removal
-correctly.
+Design (smallest explicit classification, no parser framework): the collector records `old mode`, `new mode`,
+`new file mode`, `deleted file mode` and the mode suffix of `index a..b <mode>`; hunk lines matching
+`[+-]Subproject commit <sha>` set a gitlink flag. Classification order at entry end: `mode_change` when old and
+new modes are both known and differ (with or without hunks); `gitlink` when any mode is `160000` or the gitlink
+content flag is set; `symlink` when any mode is `120000`; `mode_unsupported` for any other non-regular mode;
+then the existing `rename_only` / `no_hunks` / `path` rules. Only regular files (`100644`, `100755`) with an
+unchanged mode are supported (`add`/`delete`/`modify`/`rename`). The validator's allowlist of unsupported
+reasons is `binary, rename_only, mode_change, gitlink, symlink, mode_unsupported, no_hunks, path`; any
+unsupported entry forces `manual_review` even with a forged zero-finding, full-coverage result, and findings
+cannot reference unsupported entries. Hunk, old/new-span, path, head and count invariants are unchanged.
 
 ## Local evidence (isolated worktree)
 
-`src/lib/ci-review-validator.test.ts`: the E suite plus the `claude.yml` containment regression. ESLint,
-Prettier and `tsc --noEmit` clean. The collector was exercised on the real PR151 diff (E) without a provider
-call.
+`src/lib/ci-review-validator.test.ts` — 77 tests (F: 74; G: +3; the `mode_only` expectation became
+`mode_change`). Real-git fixtures added: chmod + text edit (`old mode 100644` / `new mode 100755` with a hunk)
+→ `mode_change`; gitlink add (`git update-index --cacheinfo 160000,…`, `new file mode 160000`,
+`+Subproject commit …`), gitlink update (`index … 160000`), gitlink delete (`deleted file mode 160000`) →
+`gitlink`; symlink add (`new file mode 120000`) → `symlink`; regular file → symlink type change, which git
+renders as a supported `delete` plus an unsupported `symlink` entry → manual review; positive control: editing
+an already-executable regular file (`index … 100755`, mode unchanged) stays a supported `modify` and attests.
+For every unsupported case a forged zero-finding result yields `verdict: manual_review`, and a finding on the
+entry's path is `unlisted_file`. Gate: YAML wiring assertions (job order, name, `needs`, `if: always()`, no
+environment, `permissions: {}`, env keys, single run step, no `uses`, no `secrets.`/`id-token`/`checkout`/
+`head.sha` in the job) and script cases run as a child process: eligible+success → passed; fork+skipped,
+fork+success, base not main, head repo unknown → `scope_*`; same repo + skipped/failure/cancelled/missing/
+forged (`"SUCCESS "`) → `review_*`; the fork repository name is never printed; all lines match the fixed
+line pattern. ESLint, Prettier and `tsc --noEmit` clean.
+
+## What "attested" and "Claude Review Gate: passed" prove and do not prove
+
+Unchanged for the validator: SDK completed with zero refusals; schema-valid result for the exact head; counts
+equal the manifest's; every finding anchored; no p1/p2; no unsupported entry; input within the caps. The gate
+additionally proves only that the review job reported `success` for an eligible PR. Neither proves the model
+read every hunk or judged a removal correctly. Independent review remains the review of record.
 
 ## Known limits
 
-- Bounded input (100 KB diff / 120 KB prompt); larger PRs are red with `manifest: too_large`.
+- Bounded input (100 KB diff / 120 KB prompt); larger PRs, including PR151, are red with `manifest: too_large`.
 - The prompt (instructions + the PR's public diff) is printed in the public job log.
-- Bot-authored PRs fail the action's actor checks → red (fail closed).
-- `restoreConfigFromBase` and status association are first-live-run acceptance criteria.
-- `id-token: write` and the action's App-token exchange are kept as in the template.
+- Bot-authored PRs fail the action's actor checks → red.
+- Live items: provider authentication through the environment secret; `restoreConfigFromBase` with the
+  default-branch checkout; check names and their association with the PR head; branch-protection behaviour of
+  "Claude Review Gate".
+- `id-token: write` on the review job and the action's App-token exchange are kept as in the template.
 - The pin freezes action and CLI versions; updating it means re-verifying the chain.
-- Mention automation (`claude.yml`) is disabled until separately reviewed.
+- Mention automation (`claude.yml`) remains disabled until separately reviewed.
 - js-yaml and shell-quote are transitive lockfile dependencies used by the test only.
+
+## Independent G verification (Codex, 27 September 2026)
+
+Reviewed only the delta from `2b2d2524`: collector metadata classification, unsupported-result handling,
+credential-free final gate, actual YAML dependencies and real-git fixtures. Independently ran 77/77 tests,
+TypeScript, ESLint and formatting checks successfully; `git diff --check` passed. Claude completed the
+packet before integration. No provider run or hosted gate behaviour is claimed.
+
+Read-only repository settings inspection: active ruleset `main-baseline-protection` (21937885) currently
+contains deletion and non-fast-forward protections, not a required status check. This supplements the
+legacy branch-protection endpoint's 404; neither is permission to bypass review. Requiring the new gate
+and defining the honest manual-review release path remain explicit bootstrap decisions, with existing
+protections preserved. No repository settings were changed in G.

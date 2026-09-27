@@ -8,9 +8,13 @@ name: Claude Code Review
 #   ref, from the repository's DEFAULT branch, never from the pull request. Nothing from the PR is checked out or
 #   executed; the only PR-derived input is the immutable compare diff base_sha...head_sha, fetched by trusted
 #   workflow code with the read-only job token, and handed to the model as DATA inside the prompt.
-# - The job runs only for same-repository pull requests into `main` (`branches:` filter and `if:` below), so
-#   fork content never triggers a job that holds the OAuth secret or an OIDC token, and no other target branch
-#   is in scope. Fork PRs get no bounded review (the job is skipped, not green).
+# - The review job runs only for same-repository pull requests into `main` (`branches:` filter and `if:`
+#   below), so fork content never triggers a job that holds the OAuth secret or an OIDC token, and no other
+#   target branch is in scope. A skipped job reports "success" to GitHub, so the review job is NOT the merge
+#   check: the credential-free job `review-gate` ("Claude Review Gate") always runs after it and passes only
+#   when the review job actually succeeded for an eligible pull request; fork scope and skipped, failed,
+#   cancelled or missing review results fail it with `gate: manual_review_required`. Branch protection must
+#   require "Claude Review Gate" (bootstrap step; live verification still required).
 # - Bounded input: the only supported prompt transport of the pinned action is the `prompt` input, which the
 #   action carries in one environment string (128 KiB Linux limit). Diffs over 100 000 bytes therefore fail
 #   closed (`manifest: too_large`, `diff_bytes: N` printed) and need manual review; nothing is truncated.
@@ -20,11 +24,13 @@ name: Claude Code Review
 #   environment, the network or the checkout; its only output channel is the fixed-schema structured result.
 # - No model-produced text reaches step env, `with:`, the shell, the Step Summary or a comment. The validator
 #   reads the SDK result from the runner-local execution file and prints a fixed vocabulary only.
-# - Credential exposure to PR-defined jobs: the OAuth secret is referenced only here, from a default-branch
-#   workflow. The job declares `environment: claude-review`; once the owner moves CLAUDE_CODE_OAUTH_TOKEN into
-#   that environment with a deployment branch policy limited to `main`, no workflow running on a PR ref can read
-#   it at all. Until then the secret remains a repository secret reachable by any repository writer's workflow
-#   (GitHub's repository write boundary), which this file cannot change on its own.
+# - Credential boundary: the OAuth secret is referenced only here, from a default-branch workflow, through the
+#   `claude-review` environment whose deployment branch policy admits `main` only; the repository-level copy
+#   has been removed (owner action, verified by metadata on 27 September 2026). No workflow running on a PR
+#   ref can read it. Live provider authentication through the environment secret is still unverified.
+# - Unrepresentable entries: executable-bit changes (with or without text edits), gitlinks (submodule
+#   pointers), symlinks and other non-regular modes, binary content, rename-only and hunk-less entries are
+#   recorded as `unsupported` and force manual review; they are never presented as inspected code.
 #
 # Data flow: trusted collector (compare diff -> manifest of old/new paths, per-hunk old/new spans, counts,
 # unsupported entries) -> prompt = fixed instructions + manifest + diff, ALL marked as untrusted data -> tool-free
@@ -47,8 +53,7 @@ jobs:
     # content, and no other target branch is in scope.
     if: github.event.pull_request.head.repo.full_name == github.repository && github.event.pull_request.base.ref == 'main'
     runs-on: ubuntu-latest
-    # Environment for the credential relocation described above. It is auto-created without rules on first use;
-    # the protective branch policy and the secret move are owner actions outside this file.
+    # The credential lives only in this environment (main-only deployment branch policy; owner-managed).
     environment: claude-review
     permissions:
       contents: read
@@ -137,12 +142,21 @@ jobs:
             if (hunk && (hunk.oldLeft !== 0 || hunk.newLeft !== 0)) stop("malformed_diff");
             hunk = null;
           };
+          // Entry-type metadata (G2): only regular files (modes 100644 / 100755) with an unchanged mode are
+          // reviewable code. Executable-bit changes even with text edits, gitlinks (160000, submodule pointers),
+          // symlinks (120000) and any other mode are unsupported and force manual review.
+          const REGULAR_MODES = new Set(["100644", "100755"]);
           const finishFile = () => {
             if (!current) return;
             finishHunk();
             const f = current;
             if (f.unsupported === null) {
-              if (f.hunks.length === 0) f.unsupported = f.rename ? "rename_only" : f.mode ? "mode_only" : "no_hunks";
+              const modes = [f.oldMode, f.newMode].filter((m) => m !== null);
+              if (f.oldMode !== null && f.newMode !== null && f.oldMode !== f.newMode) f.unsupported = "mode_change";
+              else if (modes.includes("160000") || f.gitlink) f.unsupported = "gitlink";
+              else if (modes.includes("120000")) f.unsupported = "symlink";
+              else if (modes.some((m) => !REGULAR_MODES.has(m))) f.unsupported = "mode_unsupported";
+              else if (f.hunks.length === 0) f.unsupported = f.rename ? "rename_only" : "no_hunks";
               else if (f.oldPath === undefined || f.newPath === undefined) f.unsupported = "path";
             }
             if (f.oldPath === undefined) f.oldPath = null;
@@ -157,16 +171,21 @@ jobs:
             if (line.startsWith("diff --git ")) {
               finishFile();
               if (files.length >= MAX_FILES) stop("too_many_files");
-              current = { oldPath: undefined, newPath: undefined, hunks: [], unsupported: null, rename: false, mode: false };
+              current = { oldPath: undefined, newPath: undefined, hunks: [], unsupported: null, rename: false, oldMode: null, newMode: null, gitlink: false };
               state = "header";
               continue;
             }
             if (!current) { if (line === "") continue; stop("malformed_diff"); }
             if (state === "header" && !line.startsWith("@@ ")) {
+              let m;
               if (line.startsWith("--- ")) current.oldPath = pathOf("a/", line);
               else if (line.startsWith("+++ ")) current.newPath = pathOf("b/", line);
               else if (line.startsWith("rename from ") || line.startsWith("rename to ") || line.startsWith("similarity index ")) current.rename = true;
-              else if (line.startsWith("old mode ") || line.startsWith("new mode ")) current.mode = true;
+              else if ((m = /^old mode ([0-7]{6})$/.exec(line))) current.oldMode = m[1];
+              else if ((m = /^new mode ([0-7]{6})$/.exec(line))) current.newMode = m[1];
+              else if ((m = /^new file mode ([0-7]{6})$/.exec(line))) current.newMode = m[1];
+              else if ((m = /^deleted file mode ([0-7]{6})$/.exec(line))) current.oldMode = m[1];
+              else if ((m = /^index [0-9a-f]+\.\.[0-9a-f]+ ([0-7]{6})$/.exec(line))) { current.oldMode = m[1]; current.newMode = m[1]; }
               else if (line.startsWith("Binary files ") || line.startsWith("GIT binary patch")) current.unsupported = "binary";
               continue;
             }
@@ -194,6 +213,7 @@ jobs:
             }
             if (state !== "hunk" || !hunk) stop("malformed_diff");
             if (line.startsWith("\\")) continue;
+            if (/^[+-]Subproject commit [0-9a-f]{40}$/.test(line)) current.gitlink = true;
             const c = line[0];
             if (c === "+") { if (hunk.newLeft <= 0) stop("malformed_diff"); hunk.newLeft -= 1; hunk.added += 1; }
             else if (c === "-") { if (hunk.oldLeft <= 0) stop("malformed_diff"); hunk.oldLeft -= 1; hunk.removed += 1; }
@@ -322,7 +342,7 @@ jobs:
           const CATEGORIES = new Set(["bug", "security", "data_integrity", "permission", "concurrency", "test_gap", "other"]);
           const SEVERITIES = new Set(["p1", "p2", "p3"]);
           const KINDS = new Set(["add", "delete", "modify", "rename", "unsupported"]);
-          const UNSUPPORTED = new Set(["binary", "rename_only", "mode_only", "no_hunks", "path"]);
+          const UNSUPPORTED = new Set(["binary", "rename_only", "mode_change", "gitlink", "symlink", "mode_unsupported", "no_hunks", "path"]);
           const SHA = /^[0-9a-f]{40}$/;
           const FILE = /^[A-Za-z0-9_./-]{1,200}$/;
           const lines = [];
@@ -471,3 +491,44 @@ jobs:
           process.stdout.write(lines.join("\n") + "\n");
           process.exitCode = verdict === "attested" ? 0 : 1;
           CI_REVIEW_VALIDATOR
+
+  # Authoritative merge check "Claude Review Gate" (G1). Credential-free by construction: no environment, no
+  # secret, no OIDC (`permissions: {}` — the job token has no scopes), no checkout, no action, no PR content.
+  # `needs` + `if: always()` make it run for EVERY event of this workflow, including fork pull requests where
+  # the review job is deliberately skipped, and it passes only when the review job's result is `success` for an
+  # eligible (same-repository, base `main`) pull request. GitHub reports a skipped job as success, so branch
+  # protection must require this job's name, never `claude-review`. Requiring it is a repository settings step
+  # (bootstrap) and its live behaviour is unverified until the first run; these tests do not prove branch
+  # protection. Only event metadata enters the env; only fixed enums are printed.
+  review-gate:
+    name: Claude Review Gate
+    needs: [claude-review]
+    if: always()
+    runs-on: ubuntu-latest
+    permissions: {}
+    env:
+      REVIEW_RESULT: ${{ needs.claude-review.result }}
+      HEAD_REPO: ${{ github.event.pull_request.head.repo.full_name }}
+      BASE_REF: ${{ github.event.pull_request.base.ref }}
+      REPOSITORY: ${{ github.repository }}
+    steps:
+      - name: Require an eligible, successful review
+        run: |
+          node - <<'CI_REVIEW_GATE'
+          "use strict";
+          const env = process.env;
+          const say = (k, v) => process.stdout.write(k + ": " + v + "\n");
+          const RESULTS = new Set(["success", "failure", "cancelled", "skipped"]);
+          const result = typeof env.REVIEW_RESULT === "string" && RESULTS.has(env.REVIEW_RESULT) ? env.REVIEW_RESULT : "missing";
+          const headRepo = typeof env.HEAD_REPO === "string" ? env.HEAD_REPO : "";
+          const repository = typeof env.REPOSITORY === "string" ? env.REPOSITORY : "";
+          const sameRepo = headRepo !== "" && repository !== "" && headRepo === repository;
+          const baseMain = env.BASE_REF === "main";
+          const scope = headRepo === "" || repository === "" ? "unknown" : !sameRepo ? "fork" : !baseMain ? "base_not_main" : "eligible";
+          say("review-gate", "v1");
+          say("review_result", result);
+          say("scope", scope);
+          const reason = scope !== "eligible" ? "scope_" + scope : result !== "success" ? "review_" + result : null;
+          if (reason === null) { say("gate", "passed"); process.exitCode = 0; }
+          else { say("gate", "manual_review_required"); say("reason", reason); process.exitCode = 1; }
+          CI_REVIEW_GATE
