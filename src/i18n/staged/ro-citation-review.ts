@@ -6,7 +6,7 @@ export const roCitationReview: Readonly<Record<string, string>> = {
     "Gestionați a doua revizuire independentă a constatărilor de citare pentru acest proiect.",
   "citationReview.loading": "Se încarcă…",
   "citationReview.owner.intro":
-    "Constatările dvs. pentru acest proiect. Stările sunt valorile curente, în timp real — o atestare a proprietarului nu este niciodată o dovadă independentă sau cauzală. Redactarea constatărilor, legarea de panou și analiza rapoartelor native nu fac parte din această vizualizare.",
+    "Constatările dvs. pentru acest proiect. Stările sunt valorile curente, în timp real — o atestare a proprietarului nu este niciodată o dovadă independentă sau cauzală. Redactarea constatărilor, sarcinile din Plan, ciornele Studio, legarea îmbunătățirilor și inspecția proprietarului sunt disponibile mai sus; dovada independentă la destinație și analiza rapoartelor native rămân deschise.",
   "citationReview.owner.empty": "Încă nu există constatări de citare pentru acest proiect.",
   "citationReview.owner.version": "v{version}",
   "citationReview.owner.openFinding": "Deschide constatarea: {family}",

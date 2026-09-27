@@ -6,7 +6,7 @@ export const mtCitationReview: Readonly<Record<string, string>> = {
     "Immaniġġja t-tieni reviżjoni indipendenti tas-sejbiet taċ-ċitazzjonijiet għal dan il-proġett.",
   "citationReview.loading": "Qed jillowdja…",
   "citationReview.owner.intro":
-    "Is-sejbiet tiegħek għal dan il-proġett. L-istatus huma l-valuri attwali, ħajjin — attestazzjoni tas-sid qatt mhi prova indipendenti jew kawżali. Il-kitba tas-sejbiet, ir-rabta mal-pannell u l-analiżi tar-rapporti nattivi mhumiex parti minn din il-veduta.",
+    "Is-sejbiet tiegħek għal dan il-proġett. L-istatus huma l-valuri attwali, ħajjin — attestazzjoni tas-sid qatt mhi prova indipendenti jew kawżali. Il-kitba tas-sejbiet, il-kompiti tal-Plan, l-abbozzi tal-Studio, ir-rabta tat-titjib u l-ispezzjoni tas-sid huma disponibbli hawn fuq; il-prova indipendenti fid-destinazzjoni u l-analiżi tar-rapporti nattivi jibqgħu miftuħa.",
   "citationReview.owner.empty": "Għad m'hemmx sejbiet taċ-ċitazzjonijiet għal dan il-proġett.",
   "citationReview.owner.version": "v{version}",
   "citationReview.owner.openFinding": "Iftaħ is-sejba: {family}",

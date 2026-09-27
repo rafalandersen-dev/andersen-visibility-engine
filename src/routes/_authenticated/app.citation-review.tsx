@@ -6,6 +6,7 @@ import { CitationReviewPanel } from "@/components/CitationReviewPanel";
 import { CitationPanelProtocolPanel } from "@/components/CitationPanelProtocolPanel";
 import { CitationBusinessFactsPanel } from "@/components/CitationBusinessFactsPanel";
 import { CitationFindingAuthor } from "@/components/CitationFindingAuthor";
+import { CitationForwardPanel } from "@/components/CitationForwardPanel";
 import { useAuth } from "@/lib/auth";
 import { useStore } from "@/lib/store";
 import { useT } from "@/i18n";
@@ -92,6 +93,16 @@ function CitationReviewRoute() {
           />
           <CitationBusinessFactsPanel projectId={activeProject.id} ownerId={user.id} />
           <CitationFindingAuthor projectId={activeProject.id} ownerId={user.id} />
+          {/* Forward workflow (27 September 2026): finding version → Plan task → manual Studio draft → the
+              existing approval/publication → improvement binding → owner inspection. Navigation goes to the
+              existing Studio and Plan routes; nothing here publishes or approves. */}
+          <CitationForwardPanel
+            projectId={activeProject.id}
+            ownerId={user.id}
+            language={activeProject.primaryLanguage}
+            onOpenStudio={(assetId) => navigate({ to: "/app/editor", search: { id: assetId } })}
+            onOpenPlan={() => navigate({ to: "/app/plan" })}
+          />
         </div>
       ) : null}
       <CitationReviewPanel projectId={activeProject.id} />

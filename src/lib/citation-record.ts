@@ -119,8 +119,21 @@ export const citationImprovementStageSchema = z
     improvement: boundedImprovement,
     /** Optional; a bound improvement carries this, an unbound draft omits it (or sends null). */
     binding: citationPublicationBindingSchema.nullish(),
+    /** The head ROW of the logical improvement id the owner inspected before this save (0/null + null for a
+     * brand-new improvement id): the same expected-head contract as findings — the candidate RPC
+     * `save_ai_citation_improvement_v3` (20260927190000, unapplied until reviewed) refuses a new version minted
+     * on top of a head the caller never saw (`citation_improvement_version_conflict`) while an identical retry
+     * stays idempotent. Both halves are required together (`inspectedHeadRefinement`). */
+    expectedVersion: z.number().int().min(0).max(10000).nullable().optional(),
+    expectedHeadId: uuid.nullable().optional(),
+    /** The exact finding ROW ids the owner reviewed (Codex N1/R1). The candidate v3 save refuses a NEWLY minted
+     * version whose resolved rows differ from these (`citation_improvement_finding_stale`), so a finding version
+     * saved by another tab between review and save is never pinned silently. Null/absent = legacy caller. */
+    expectedFindingRowIds: z.array(uuid).max(20).nullable().optional(),
   })
   .strict();
+export const citationImprovementStageInputSchema =
+  citationImprovementStageSchema.superRefine(inspectedHeadRefinement);
 /** Server-attributed finding view (metadata only in the list). `actorId`/`reviewerId`, `version`,
  * `supersedesId`, `predecessorDeleted`, `createdAt`, `sourceAvailable` and `accuracyStatus` are
  * set/derived by the server and validated back here, never imported. `sourceAvailable` is false once a

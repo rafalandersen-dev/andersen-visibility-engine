@@ -29,6 +29,7 @@ import { esTechnical } from "./es-technical";
 import { esWorkflow } from "./es-workflow";
 import { esCitationReview } from "./es-citation-review";
 import { esCitationAuthoring } from "./es-citation-authoring";
+import { esCitationForward } from "./es-citation-forward";
 
 /** Spanish authoring coverage: 3768 messages / 28 batches.
  * All 3,768 English keys reconciled against 5a9416d.
@@ -280,7 +281,7 @@ export const ES_STAGED_BATCHES = [
     copy: esCitationReview,
     namespaces: ["citationReview"],
     sourceRevision: "P4 citation review candidate after bab861c8",
-    sourceHash: "d41949f7901f0d37b4debab152a406f238c34273ed422fe230df34ff41dcb151",
+    sourceHash: "6320ed498d4ce0af5c43d77d46109f8e85cffeebb25d64f16d815eb2332beae4",
   },
   {
     name: "citation authoring",
@@ -288,6 +289,13 @@ export const ES_STAGED_BATCHES = [
     namespaces: ["citationAuthoring"],
     sourceRevision: "citation owner authoring candidate after a392775c",
     sourceHash: "ffb6a332b8756b5467c8e06e740b9829d118f7c6112240a88046298922055c2a",
+  },
+  {
+    name: "citation forward",
+    copy: esCitationForward,
+    namespaces: ["citationForward"],
+    sourceRevision: "citation forward workflow candidate after 64db7a4b (Codex N1 corrections)",
+    sourceHash: "bf88b05724ecad2cb8a384e78f3ce0f2bc57616cd5f8a0016e53611e2c4a96c6",
   },
 ] as const;
 

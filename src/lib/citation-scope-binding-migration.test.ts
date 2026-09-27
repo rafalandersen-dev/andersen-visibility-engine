@@ -222,6 +222,14 @@ describe("legacy rows inserted BEFORE the candidate is applied", () => {
         "utf8",
       ),
     );
+    // Candidate improvement expected-head guard (v3 wrapper the server calls; unapplied until reviewed) —
+    // applied in production order, on top of the released scope-binding candidate.
+    await db.exec(
+      readFileSync(
+        "supabase/migrations/20260927190000_citation_improvement_head_guard.sql",
+        "utf8",
+      ),
+    );
     const listed = await readCitationFindings(scope, rpc);
     expect(listed.findings.map((f) => [f.id, f.scopeEnforcedAt])).toEqual([[legacyId, null]]);
     expect(scopeBinding(listed.findings[0].scopeEnforcedAt)).toBe("legacy");

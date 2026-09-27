@@ -6,7 +6,7 @@ export const hrCitationReview: Readonly<Record<string, string>> = {
     "Upravljajte neovisnim drugim pregledom nalaza o citatima za ovaj projekt.",
   "citationReview.loading": "Učitavanje…",
   "citationReview.owner.intro":
-    "Vaši nalazi za ovaj projekt. Statusi su trenutačne, žive vrijednosti — potvrda vlasnika nikada nije neovisan ni uzročni dokaz. Izrada nalaza, povezivanje s panelom i raščlamba nativnih izvješća nisu dio ovog prikaza.",
+    "Vaši nalazi za ovaj projekt. Statusi su trenutačne, žive vrijednosti — potvrda vlasnika nikada nije neovisan ni uzročni dokaz. Izrada nalaza, zadaci u Planu, Studio skice, povezivanje poboljšanja i vlasnikov pregled dostupni su iznad; neovisan dokaz na odredištu i raščlamba nativnih izvješća ostaju otvoreni.",
   "citationReview.owner.empty": "Za ovaj projekt još nema nalaza o citatima.",
   "citationReview.owner.version": "v{version}",
   "citationReview.owner.openFinding": "Otvori nalaz: {family}",

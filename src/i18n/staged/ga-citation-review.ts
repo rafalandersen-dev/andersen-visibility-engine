@@ -6,7 +6,7 @@ export const gaCitationReview: Readonly<Record<string, string>> = {
     "Bainistigh an dara hathbhreithniú neamhspleách ar thorthaí luanna don tionscadal seo.",
   "citationReview.loading": "Á lódáil…",
   "citationReview.owner.intro":
-    "Do thorthaí don tionscadal seo. Is iad na stádais na luachanna reatha beo — ní cruthúnas neamhspleách ná cúisíoch riamh é dearbhú úinéara. Ní cuid den amharc seo iad údarú torthaí, ceangal painéil ná parsáil tuarascálacha dúchasacha.",
+    "Do thorthaí don tionscadal seo. Is iad na stádais na luachanna reatha beo — ní cruthúnas neamhspleách ná cúisíoch riamh é dearbhú úinéara. Tá údarú torthaí, tascanna Plean, dréachtaí Studio, ceangal feabhsuithe agus cigireacht úinéara ar fáil thuas; tá cruthúnas neamhspleách ag an gceann scríbe agus parsáil tuarascálacha dúchasacha fós oscailte.",
   "citationReview.owner.empty": "Níl aon torthaí luanna don tionscadal seo fós.",
   "citationReview.owner.version": "l{version}",
   "citationReview.owner.openFinding": "Oscail toradh: {family}",

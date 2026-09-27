@@ -159,8 +159,30 @@ const saveF = async (f: unknown, s = scope, sc = panelScope) =>
     },
     rpc,
   );
-const saveI = (i: unknown, b: unknown = null, s = scope, sc = panelScope) =>
-  saveCitationImprovement(s, { scope: sc, improvement: i, binding: b }, rpc);
+// Improvement saves likewise pass the CURRENT head ROW of the logical improvement id (candidate v3 guard,
+// 20260927190000), exactly as the forward panel does, so the P3 binding semantics under test are unchanged.
+const saveI = async (i: unknown, b: unknown = null, s = scope, sc = panelScope) =>
+  saveCitationImprovement(
+    s,
+    {
+      scope: sc,
+      improvement: i,
+      binding: b,
+      ...headToken(
+        (
+          await db.query<{ v: number; id: string | null }>(
+            ...headVersionQuery(
+              "ai_citation_improvements",
+              s.ownerId,
+              s.projectId,
+              (i as { improvementId: string }).improvementId,
+            ),
+          )
+        ).rows[0],
+      ),
+    },
+    rpc,
+  );
 const findingCount = async () =>
   Number(
     (await db.query<{ n: number }>("SELECT count(*)::int n FROM ai_citation_findings")).rows[0].n,
@@ -285,6 +307,8 @@ beforeAll(async () => {
     "20260920190000_citation_protocol.sql",
     "20260920200000_citation_findings_improvements.sql",
     "20260926190000_citation_scope_binding_versions.sql",
+    // Candidate improvement expected-head guard (v3 wrapper the server now calls; unapplied until reviewed).
+    "20260927190000_citation_improvement_head_guard.sql",
   ])
     await db.exec(readFileSync("supabase/migrations/" + name, "utf8"));
 }, 30000);

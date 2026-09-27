@@ -6,7 +6,7 @@ export const ptCitationReview: Readonly<Record<string, string>> = {
     "Gira a segunda revisão independente das constatações de citação deste projeto.",
   "citationReview.loading": "A carregar…",
   "citationReview.owner.intro":
-    "As suas constatações para este projeto. Os estados são os valores atuais, em direto — uma atestação do proprietário nunca é prova independente nem causal. A redação de constatações, a ligação a painéis e a análise de relatórios nativos não fazem parte desta vista.",
+    "As suas constatações para este projeto. Os estados são os valores atuais, em direto — uma atestação do proprietário nunca é prova independente nem causal. A redação de constatações, as tarefas do Plan, os rascunhos do Studio, a ligação de melhorias e a inspeção do proprietário estão disponíveis acima; a prova independente no destino e a análise de relatórios nativos continuam em aberto.",
   "citationReview.owner.empty": "Ainda não há constatações de citação para este projeto.",
   "citationReview.owner.version": "v{version}",
   "citationReview.owner.openFinding": "Abrir constatação: {family}",

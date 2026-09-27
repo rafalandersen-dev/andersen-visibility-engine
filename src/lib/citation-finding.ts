@@ -10,6 +10,16 @@ import { z } from "zod";
 const text = (max: number) => z.string().trim().min(1).max(max);
 const instant = z.string().datetime({ offset: true });
 const uuid = z.string().uuid();
+/**
+ * Plan task identity as ACTUALLY minted by the current callers (27 September 2026 repair): the client store
+ * mints 8-character base-36 ids (`uid()` in store.ts) for Plan opportunities, connector batches mint UUIDs
+ * (`crypto.randomUUID()` in mcp-opportunity-batch.ts) and sample rows carry seed ids. The applied SQL compares
+ * `publication_evidence.snapshot.actionId` with `taskId` as TEXT, so the bounded workspace-id shape already used
+ * for project ids (`/^[A-Za-z0-9_-]{1,64}$/`) is the honest contract; a UUID still matches it. Existing
+ * identities are never rewritten and no UUID alias is fabricated for a short id.
+ */
+export const TASK_ID_PATTERN = /^[A-Za-z0-9_-]{1,64}$/;
+export const taskIdSchema = z.string().regex(TASK_ID_PATTERN);
 export const GAP_FAMILIES = ["citation_source", "recommendation_accuracy"] as const;
 export const SUPPORT_STATES = [
   "supports",
@@ -215,7 +225,7 @@ export const findingSchema = z
     decision: z.enum(["accepted", "dismissed", "needs_second_review"]),
     review: reviewer,
     secondReview: reviewer.nullable(),
-    linkedTaskId: uuid.nullable(),
+    linkedTaskId: taskIdSchema.nullable(),
   })
   .strict()
   .superRefine((f, ctx) => {
@@ -268,7 +278,7 @@ export const improvementSchema = z
   .object({
     improvementId: uuid,
     findingIds: z.array(uuid).min(1).max(20),
-    taskId: uuid,
+    taskId: taskIdSchema,
     /** The approved change and its version-bound approval under existing permissions. */
     change: z
       .object({

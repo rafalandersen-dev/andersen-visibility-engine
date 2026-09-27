@@ -6,7 +6,7 @@ export const fiCitationReview: Readonly<Record<string, string>> = {
     "Hallitse tämän projektin viittaushavaintojen riippumatonta toista tarkistusta.",
   "citationReview.loading": "Ladataan…",
   "citationReview.owner.intro":
-    "Havaintosi tässä projektissa. Tilat ovat nykyisiä, reaaliaikaisia arvoja — omistajan vahvistus ei koskaan ole riippumaton tai syy-yhteyden osoittava todiste. Havaintojen laatiminen, paneelisidonta ja natiivien raporttien jäsentäminen eivät kuulu tähän näkymään.",
+    "Havaintosi tässä projektissa. Tilat ovat nykyisiä, reaaliaikaisia arvoja — omistajan vahvistus ei koskaan ole riippumaton tai syy-yhteyden osoittava todiste. Havaintojen laatiminen, Plan-tehtävät, Studio-luonnokset, parannusten sidonta ja omistajan tarkastus ovat käytettävissä yllä; riippumaton todiste kohteessa ja natiivien raporttien jäsentäminen ovat yhä avoinna.",
   "citationReview.owner.empty": "Tässä projektissa ei ole vielä viittaushavaintoja.",
   "citationReview.owner.version": "v{version}",
   "citationReview.owner.openFinding": "Avaa havainto: {family}",

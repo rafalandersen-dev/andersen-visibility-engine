@@ -145,8 +145,51 @@ describe("citation record endpoint authentication", () => {
     await call(saveCitationImprovementFn, { ...scope, scope: panelScope, improvement });
     expect(h.saveI).toHaveBeenLastCalledWith(
       { ownerId: owner, projectId: "p" },
-      { scope: panelScope, improvement },
+      {
+        scope: panelScope,
+        improvement,
+        expectedVersion: null,
+        expectedHeadId: null,
+        expectedFindingRowIds: null,
+      },
     );
+    // Improvement edits carry the inspected head ROW too (candidate v3 guard), with the same pairing rule and a
+    // store-minted (non-UUID) Plan task id accepted by the repaired taskId contract.
+    await call(saveCitationImprovementFn, {
+      ...scope,
+      scope: panelScope,
+      improvement: { ...improvement, taskId: "k3j9x2ab" },
+      binding: null,
+      expectedVersion: 3,
+      expectedHeadId: head,
+      expectedFindingRowIds: [head],
+    });
+    expect(h.saveI).toHaveBeenLastCalledWith(
+      { ownerId: owner, projectId: "p" },
+      {
+        scope: panelScope,
+        improvement: { ...improvement, taskId: "k3j9x2ab" },
+        binding: null,
+        expectedVersion: 3,
+        expectedHeadId: head,
+        expectedFindingRowIds: [head],
+      },
+    );
+    expect(() =>
+      call(saveCitationImprovementFn, {
+        ...scope,
+        scope: panelScope,
+        improvement,
+        expectedVersion: 3,
+      }),
+    ).toThrow();
+    expect(() =>
+      call(saveCitationImprovementFn, {
+        ...scope,
+        scope: panelScope,
+        improvement: { ...improvement, taskId: "not a task id" },
+      }),
+    ).toThrow();
     const foreign = { ...scope, expectedOwnerId: other };
     for (const [fn, data] of [
       [readCitationFindingsFn, foreign],

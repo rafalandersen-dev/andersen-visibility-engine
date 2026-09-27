@@ -6,7 +6,7 @@ export const esCitationReview: Readonly<Record<string, string>> = {
     "Gestiona la segunda revisión independiente de los hallazgos de citas de este proyecto.",
   "citationReview.loading": "Cargando…",
   "citationReview.owner.intro":
-    "Tus hallazgos para este proyecto. Los estados son los valores actuales en vivo — una certificación del propietario nunca es una prueba independiente ni causal. La redacción de hallazgos, la vinculación con paneles y el análisis de informes nativos no forman parte de esta vista.",
+    "Tus hallazgos para este proyecto. Los estados son los valores actuales en vivo — una certificación del propietario nunca es una prueba independiente ni causal. La redacción de hallazgos, las tareas del Plan, los borradores de Studio, la vinculación de mejoras y la inspección del propietario están disponibles arriba; la prueba independiente en el destino y el análisis de informes nativos siguen pendientes.",
   "citationReview.owner.empty": "Todavía no hay hallazgos de citas para este proyecto.",
   "citationReview.owner.version": "v{version}",
   "citationReview.owner.openFinding": "Abrir hallazgo: {family}",

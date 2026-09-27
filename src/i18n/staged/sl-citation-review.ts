@@ -6,7 +6,7 @@ export const slCitationReview: Readonly<Record<string, string>> = {
     "Upravljajte neodvisni drugi pregled ugotovitev o navedbah za ta projekt.",
   "citationReview.loading": "Nalaganje…",
   "citationReview.owner.intro":
-    "Vaše ugotovitve za ta projekt. Stanja so trenutne, žive vrednosti — potrdilo lastnika nikoli ni neodvisen ali vzročni dokaz. Ustvarjanje ugotovitev, povezovanje s ploščo in razčlenjevanje domorodnih poročil niso del tega pogleda.",
+    "Vaše ugotovitve za ta projekt. Stanja so trenutne, žive vrednosti — potrdilo lastnika nikoli ni neodvisen ali vzročni dokaz. Ustvarjanje ugotovitev, naloge v Planu, osnutki v Studiu, povezovanje izboljšav in lastnikov pregled so na voljo zgoraj; neodvisen dokaz na cilju in razčlenjevanje domorodnih poročil ostajajo odprti.",
   "citationReview.owner.empty": "Za ta projekt še ni ugotovitev o navedbah.",
   "citationReview.owner.version": "r{version}",
   "citationReview.owner.openFinding": "Odpri ugotovitev: {family}",
