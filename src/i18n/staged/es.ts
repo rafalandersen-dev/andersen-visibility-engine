@@ -295,7 +295,7 @@ export const ES_STAGED_BATCHES = [
     copy: esCitationForward,
     namespaces: ["citationForward"],
     sourceRevision: "citation forward workflow candidate after 64db7a4b (Codex N1 corrections)",
-    sourceHash: "bf88b05724ecad2cb8a384e78f3ce0f2bc57616cd5f8a0016e53611e2c4a96c6",
+    sourceHash: "692652100abfecf97689fd04a6f508d7d66db62417cfd2cfc3dc6f2adf8fcb70",
   },
 ] as const;
 

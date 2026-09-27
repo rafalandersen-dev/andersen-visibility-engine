@@ -169,4 +169,6 @@ export const fiCitationForward: Readonly<Record<string, string>> = {
   "citationForward.issue.approval_unknown": "Valitun yrityksen hyväksyntätilaa ei voitu ladata.",
   "citationForward.issue.approval_unavailable":
     "Valitun yrityksen versio ei ole tällä hetkellä hyväksytty.",
+  "citationForward.task.duplicate":
+    "Tähän havaintoversioon on jo kiinnitetty Plan-tehtävä (listattu alla); toista tehtävää ei luotu. Käytä sitä tai liitä versio nimenomaisesti toiseen tehtävään.",
 };

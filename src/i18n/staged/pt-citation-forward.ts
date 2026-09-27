@@ -175,4 +175,6 @@ export const ptCitationForward: Readonly<Record<string, string>> = {
     "Não foi possível carregar o estado de aprovação da tentativa escolhida.",
   "citationForward.issue.approval_unavailable":
     "A versão da tentativa escolhida não está aprovada atualmente.",
+  "citationForward.task.duplicate":
+    "Já existe uma tarefa do Plan fixada a esta versão da constatação (listada abaixo); não foi criada uma segunda tarefa. Use-a ou anexe explicitamente a versão a outra tarefa.",
 };

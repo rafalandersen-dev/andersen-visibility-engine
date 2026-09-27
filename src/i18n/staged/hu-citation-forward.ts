@@ -175,4 +175,6 @@ export const huCitationForward: Readonly<Record<string, string>> = {
     "A kiválasztott kísérlet jóváhagyási állapotát nem sikerült betölteni.",
   "citationForward.issue.approval_unavailable":
     "A kiválasztott kísérlet verziója jelenleg nincs jóváhagyva.",
+  "citationForward.task.duplicate":
+    "Ehhez a megállapítás-verzióhoz már rögzítve van egy Plan-feladat (lent felsorolva); második feladat nem jött létre. Használja azt, vagy csatolja a verziót kifejezetten egy másik feladathoz.",
 };

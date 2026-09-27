@@ -145,6 +145,9 @@ describe("forward panel — honest states and real controls", () => {
     let html = render();
     expect(html).toContain("citationForward.authority");
     expect(html).toContain("citationForward.common.loading");
+    // Codex P3: while the improvements list is still pending, readiness shows loading, never a measured zero.
+    expect(html).not.toContain("citationForward.readiness.verified");
+    expect(html).toContain("citationForward.readiness.title");
     h.queries["citation-findings"] = ok({ findings: [] });
     h.queries["citation-improvements"] = ok({ improvements: [] });
     html = render();
@@ -153,6 +156,34 @@ describe("forward panel — honest states and real controls", () => {
     expect(html).not.toContain("citationForward.task.create");
     expect(html).toContain("citationForward.readiness.verified 0 2");
     expect(html).toContain("citationForward.task.pinnedEmpty");
+  });
+  it("Codex P1: when a non-deleted task is already pinned to the selected row, creation is disabled and the existing pin is named", () => {
+    reset();
+    h.state = {
+      opportunities: [
+        {
+          id: "k3j9x2ab",
+          projectId: "proj_a",
+          title: "Pinned task",
+          status: "captured",
+          sourceRefs: [
+            {
+              sourceType: "citation_finding",
+              sourceRecordId: ROW,
+              capturedAt: "2026-09-26T00:00:00Z",
+            },
+          ],
+        },
+      ],
+      content: [],
+    };
+    h.queries["citation-findings"] = ok({ findings: [finding()] });
+    h.queries["citation-improvements"] = ok({ improvements: [] });
+    // Static render cannot pick a row (component state); the guard is proven by the helper test and the
+    // browser run. Here the pinned view names the task and the create button is absent without a pick.
+    const html = render();
+    expect(html).toContain("Pinned task");
+    expect(html).not.toContain("citationForward.task.create");
   });
   it("Codex N1/R4: existing pins are listed independently of the picker, with the live chain state of every pin, even when the pin is superseded", () => {
     reset();

@@ -170,4 +170,6 @@ export const csCitationForward: Readonly<Record<string, string>> = {
     "Tato verze není aktuálně schválena; pokus nelze navázat.",
   "citationForward.issue.approval_unknown": "Stav schválení zvoleného pokusu se nepodařilo načíst.",
   "citationForward.issue.approval_unavailable": "Verze zvoleného pokusu není aktuálně schválena.",
+  "citationForward.task.duplicate":
+    "K této verzi zjištění je již připnut úkol v Plánu (uveden níže); druhý úkol nebyl vytvořen. Použijte jej, nebo verzi výslovně připojte k jinému úkolu.",
 };

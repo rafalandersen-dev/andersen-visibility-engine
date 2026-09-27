@@ -133,6 +133,7 @@ const keys = [
   "improvement.approvalNone",
   "issue.approval_unknown",
   "issue.approval_unavailable",
+  "task.duplicate",
 ];
 const values: Record<string, string[]> = {
   en: [
@@ -265,6 +266,7 @@ const values: Record<string, string[]> = {
     "This version is not currently approved; the attempt cannot be bound.",
     "The approval state of the chosen attempt could not be loaded.",
     "The chosen attempt's version is not currently approved.",
+    "A Plan task is already pinned to this finding version (listed below); no second task was created. Use it, or attach the version to another task explicitly.",
   ],
   pl: [
     "Ładowanie…",
@@ -396,6 +398,7 @@ const values: Record<string, string[]> = {
     "Ta wersja nie jest obecnie zatwierdzona; próby nie można powiązać.",
     "Nie udało się wczytać stanu zatwierdzenia wybranej próby.",
     "Wersja wybranej próby nie jest obecnie zatwierdzona.",
+    "Zadanie w Planie jest już przypięte do tej wersji ustalenia (widoczne poniżej); drugie zadanie nie zostało utworzone. Użyj go lub jawnie dołącz wersję do innego zadania.",
   ],
   sv: [
     "Läser in…",
@@ -527,6 +530,7 @@ const values: Record<string, string[]> = {
     "Den här versionen är inte godkänd just nu; försöket kan inte kopplas.",
     "Godkännandestatus för det valda försöket kunde inte läsas in.",
     "Det valda försökets version är inte godkänd just nu.",
+    "En planuppgift är redan fäst vid den här fyndversionen (listad nedan); ingen andra uppgift skapades. Använd den, eller bifoga versionen uttryckligen till en annan uppgift.",
   ],
   da: [
     "Indlæser…",
@@ -658,6 +662,7 @@ const values: Record<string, string[]> = {
     "Denne version er ikke godkendt i øjeblikket; forsøget kan ikke bindes.",
     "Godkendelsesstatus for det valgte forsøg kunne ikke indlæses.",
     "Det valgte forsøgs version er ikke godkendt i øjeblikket.",
+    "En Plan-opgave er allerede fastgjort til denne fundversion (vist nedenfor); der blev ikke oprettet en anden opgave. Brug den, eller vedhæft versionen udtrykkeligt til en anden opgave.",
   ],
 };
 export const citationForwardCopy: Record<string, Record<string, string>> = Object.fromEntries(

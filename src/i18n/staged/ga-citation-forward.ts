@@ -176,4 +176,6 @@ export const gaCitationForward: Readonly<Record<string, string>> = {
     "Níorbh fhéidir staid formheasa na hiarrachta a roghnaíodh a lódáil.",
   "citationForward.issue.approval_unavailable":
     "Níl leagan na hiarrachta a roghnaíodh formheasta faoi láthair.",
+  "citationForward.task.duplicate":
+    "Tá tasc Plean pionnáilte cheana leis an leagan toraidh seo (liostaithe thíos); níor cruthaíodh dara tasc. Úsáid é, nó ceangail an leagan go sainráite le tasc eile.",
 };

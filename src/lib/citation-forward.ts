@@ -29,6 +29,7 @@ import { citationPublicationBindingSchema } from "./citation-record";
 import type { evidenceRowSchema } from "./publication-evidence";
 import type { ApprovalProvenance } from "./citation-approval.server";
 import { slugifyForPublish } from "./markdown";
+import { assetTypeForContentType } from "./asset-type-for-content";
 import type { ContentAsset, Language, Opportunity, OpportunitySourceRef, Priority } from "./types";
 
 export type EvidenceRow = z.infer<typeof evidenceRowSchema>;
@@ -146,7 +147,10 @@ export function opportunityFromFinding(input: {
   };
 }
 /** A linked MANUAL draft (no generation, no AI spend) for an existing task. It carries the task identity the
- * publication snapshot will record as `actionId`, so a later published attempt can be bound to this task. */
+ * publication snapshot will record as `actionId`, so a later published attempt can be bound to this task. The
+ * asset type follows the task's content type through the established Plan → Studio mapping (a finding-created
+ * task is a Service Page, an attached Blog Article stays an article, so the WordPress post/page decision
+ * downstream is the task's, not a hard-coded page). */
 export function manualDraftForTask(o: Opportunity, id: string, now: string): ContentAsset {
   return {
     id,
@@ -168,7 +172,7 @@ export function manualDraftForTask(o: Opportunity, id: string, now: string): Con
     status: "Draft",
     updatedAt: now,
     createdAt: now,
-    assetType: "servicePage",
+    assetType: assetTypeForContentType(o.contentType),
     sourceOpportunityId: o.id,
     sourceOpportunityTitle: o.title,
     sourceType: "manual",
@@ -676,10 +680,14 @@ export function improvementHead(
 // ---------------------------------------------------------------------------------------------------------
 export type CreateTaskOutcome =
   | { outcome: "created"; task: Opportunity }
+  | { outcome: "duplicate"; tasks: Opportunity[] }
   | { outcome: "read_failed" | "not_eligible" | "identity_mismatch" | "stale" };
 /** Create a Plan task from an exact finding row ONLY after the authenticated detail read succeeded, returned the
  * very row that was selected, and that row is still eligible — and only while the caller is still mounted under
- * the identity it started for. A rejected/changed read, a dismissed head or a lost identity creates nothing. */
+ * the identity it started for. A rejected/changed read, a dismissed head or a lost identity creates nothing.
+ * `existing` is consulted AFTER the read, immediately before the mutation: a non-deleted task of this project
+ * already pinned to the exact row (created or attached meanwhile, archived included) means nothing is created and
+ * those tasks are returned instead — a second click or a race never duplicates work or rebinds anything. */
 export async function createTaskFromFinding(input: {
   projectId: string;
   row: CitationFindingSummary;
@@ -693,6 +701,8 @@ export async function createTaskFromFinding(input: {
     } & ({ recordValid: true; record: Finding } | { recordValid: false; record: unknown })
   >;
   isCurrent: () => boolean;
+  /** Live, project-scoped, non-deleted tasks pinned to the exact row (evaluated at mutation time). */
+  existing: () => readonly Opportunity[];
   add: (o: Omit<Opportunity, "id" | "status">) => Opportunity;
   now?: () => string;
 }): Promise<CreateTaskOutcome> {
@@ -710,6 +720,8 @@ export async function createTaskFromFinding(input: {
   )
     return { outcome: "identity_mismatch" };
   if (detail.decision === "dismissed" || !detail.recordValid) return { outcome: "not_eligible" };
+  const already = input.existing();
+  if (already.length > 0) return { outcome: "duplicate", tasks: [...already] };
   const task = input.add(
     opportunityFromFinding({
       projectId: input.projectId,

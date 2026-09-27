@@ -176,4 +176,6 @@ export const skCitationForward: Readonly<Record<string, string>> = {
     "Stav schválenia zvoleného pokusu sa nepodarilo načítať.",
   "citationForward.issue.approval_unavailable":
     "Verzia zvoleného pokusu nie je aktuálne schválená.",
+  "citationForward.task.duplicate":
+    "K tejto verzii zistenia je už pripnutá úloha v Pláne (uvedená nižšie); druhá úloha nebola vytvorená. Použite ju alebo verziu výslovne pripojte k inej úlohe.",
 };

@@ -168,4 +168,6 @@ export const etCitationForward: Readonly<Record<string, string>> = {
     "See versioon ei ole praegu kinnitatud; katset ei saa siduda.",
   "citationForward.issue.approval_unknown": "Valitud katse kinnituse olekut ei õnnestunud laadida.",
   "citationForward.issue.approval_unavailable": "Valitud katse versioon ei ole praegu kinnitatud.",
+  "citationForward.task.duplicate":
+    "Sellele leiuversioonile on juba kinnitatud Plan-ülesanne (loetletud allpool); teist ülesannet ei loodud. Kasuta seda või lisa versioon selgesõnaliselt teisele ülesandele.",
 };

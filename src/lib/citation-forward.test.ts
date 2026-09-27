@@ -27,6 +27,8 @@ import {
   upsertContent,
 } from "./store";
 import { pipelineStage } from "./pipeline";
+import { wpPostTypeFor } from "./publish-targets";
+import type { Project } from "./types";
 import {
   improvementSchema,
   taskIdSchema,
@@ -34,6 +36,7 @@ import {
   type Improvement,
 } from "./citation-finding";
 import type { CitationFindingSummary, CitationImprovementSummary } from "./citation-record";
+import type { Opportunity } from "./types";
 import {
   buildImprovementPayload,
   bindingFromAttempt,
@@ -882,6 +885,7 @@ describe("Codex N1 corrections", () => {
       row: row(),
       language: "English" as const,
       add: addOpportunity,
+      existing: () => tasksForFinding(getState().opportunities, ROW_V1),
     };
     // Scope lost while the read was in flight → nothing is added even though the read resolves fine.
     const d1 = deferred<ReturnType<typeof findingDetail>>();
@@ -993,5 +997,132 @@ describe("Codex N1 corrections", () => {
     deleteOpportunityRecoverably(task.id);
     expect(pinnedTasks(getState().opportunities).map((o) => o.id)).toEqual([task.id]);
     expect(taskStatus(getState().opportunities, task.id).status).toBe("deleted");
+  });
+});
+
+describe("Codex P corrections (PR156 review)", () => {
+  it("P1: a second creation for the same exact row is refused after the read — sequential clicks, a task attached while the read was pending, an archived existing task; a deleted one does not block", async () => {
+    const base = {
+      projectId: PROJECT,
+      row: row(),
+      language: "English" as const,
+      add: addOpportunity,
+      existing: () =>
+        tasksForFinding(
+          getState().opportunities.filter((o) => o.projectId === PROJECT),
+          ROW_V1,
+        ),
+    };
+    const read = async () => findingDetail();
+    const first = await createTaskFromFinding({ ...base, read, isCurrent: () => true });
+    expect(first.outcome).toBe("created");
+    // Sequential second click: nothing added, the existing task is reported.
+    const second = await createTaskFromFinding({ ...base, read, isCurrent: () => true });
+    expect(second).toMatchObject({ outcome: "duplicate" });
+    if (second.outcome === "duplicate")
+      expect(second.tasks.map((t) => t.id)).toEqual([(first as { task: { id: string } }).task.id]);
+    expect(getState().opportunities).toHaveLength(1);
+    // A task attached to the row while a creation read is pending: the check runs at mutation time.
+    setState((st) => ({ ...st, opportunities: [] }));
+    const d = deferred<ReturnType<typeof findingDetail>>();
+    const pending = createTaskFromFinding({
+      ...base,
+      read: () => d.promise,
+      isCurrent: () => true,
+    });
+    const other = addOpportunity({
+      projectId: PROJECT,
+      title: "Attached meanwhile",
+      language: "English",
+      contentType: "Blog Article",
+      searchIntent: "Informational",
+      targetAudience: "x",
+      businessValue: "y",
+      recommendedCta: "",
+      priority: "Low",
+    });
+    updateOpportunity(other.id, {
+      sourceRefs: [findingSourceRef({ id: ROW_V1 }, "2026-09-28T00:00:00Z")],
+    });
+    d.resolve(findingDetail());
+    expect(await pending).toMatchObject({ outcome: "duplicate" });
+    expect(getState().opportunities).toHaveLength(1);
+    // Archived pinned task still counts as existing (shown honestly, never rebound); a DELETED one does not.
+    updateOpportunity(other.id, { status: "archived" });
+    expect((await createTaskFromFinding({ ...base, read, isCurrent: () => true })).outcome).toBe(
+      "duplicate",
+    );
+    deleteOpportunityRecoverably(other.id);
+    expect((await createTaskFromFinding({ ...base, read, isCurrent: () => true })).outcome).toBe(
+      "created",
+    );
+    expect(getState().opportunities.filter((o) => !o.deletedAt)).toHaveLength(1);
+    // Another project's pin never blocks this project (project-scoped check).
+    setState((st) => ({ ...st, opportunities: [] }));
+    const foreign = addOpportunity({
+      ...opportunityFromFinding({
+        projectId: "proj_b",
+        row: row(),
+        record: null,
+        language: "English",
+        capturedAt: "2026-09-28T00:00:00Z",
+      }),
+    });
+    expect(findingRowIdsOf(foreign)).toEqual([ROW_V1]);
+    expect((await createTaskFromFinding({ ...base, read, isCurrent: () => true })).outcome).toBe(
+      "created",
+    );
+  });
+  it("P2: the manual draft's asset type follows the task's content type through the established mapping, so the WordPress post/page decision is the task's", () => {
+    const project = {
+      id: PROJECT,
+      connectorType: "wordpress",
+      wordpress: { defaultPostType: "post" },
+    } as unknown as Project;
+    const expectations: Array<[string, string, "post" | "page"]> = [
+      ["Service Page", "servicePage", "page"],
+      ["Landing Page", "landingPage", "page"],
+      ["Location Page", "landingPage", "page"],
+      ["Blog Article", "article", "post"],
+      ["Guide", "article", "post"],
+      ["FAQ Page", "faq", "post"],
+      ["Comparison", "comparison", "post"],
+    ];
+    for (const [contentType, assetType, postType] of expectations) {
+      const task = addOpportunity({
+        projectId: PROJECT,
+        title: `${contentType} task`,
+        language: "Swedish",
+        contentType: contentType as Opportunity["contentType"],
+        searchIntent: "Informational",
+        targetAudience: "x",
+        businessValue: "y",
+        recommendedCta: "",
+        priority: "Low",
+      });
+      const asset = manualDraftForTask(task, uid(), "2026-09-28T00:00:00Z");
+      expect(asset.assetType, contentType).toBe(assetType);
+      expect(wpPostTypeFor(asset, project), contentType).toBe(postType);
+      expect(asset).toMatchObject({
+        opportunityId: task.id,
+        sourceOpportunityId: task.id,
+        sourceType: "manual",
+        language: "Swedish",
+        status: "Draft",
+      });
+    }
+    // A finding-created task keeps the explicit Service Page default.
+    const created = addOpportunity(
+      opportunityFromFinding({
+        projectId: PROJECT,
+        row: row(),
+        record: null,
+        language: "English",
+        capturedAt: "2026-09-28T00:00:00Z",
+      }),
+    );
+    expect(manualDraftForTask(created, uid(), "2026-09-28T00:00:00Z").assetType).toBe(
+      "servicePage",
+    );
   });
 });

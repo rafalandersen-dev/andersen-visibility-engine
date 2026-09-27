@@ -176,4 +176,6 @@ export const frCitationForward: Readonly<Record<string, string>> = {
     "L'état d'approbation de la tentative choisie n'a pas pu être chargé.",
   "citationForward.issue.approval_unavailable":
     "La version de la tentative choisie n'est pas approuvée actuellement.",
+  "citationForward.task.duplicate":
+    "Une tâche du Plan est déjà épinglée à cette version de constat (listée ci-dessous) ; aucune seconde tâche n'a été créée. Utilisez-la, ou rattachez explicitement la version à une autre tâche.",
 };

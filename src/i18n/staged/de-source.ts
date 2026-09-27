@@ -37,5 +37,5 @@ export const DE_AUTHORING_SOURCE_HASHES: Readonly<Record<string, string>> = {
   "citation authoring": "ffb6a332b8756b5467c8e06e740b9829d118f7c6112240a88046298922055c2a",
   // Forward workflow candidate after 64db7a4b with the Codex N1 corrections (2026-09-27/28); English source in
   // src/i18n/citation-forward.ts.
-  "citation forward": "bf88b05724ecad2cb8a384e78f3ce0f2bc57616cd5f8a0016e53611e2c4a96c6",
+  "citation forward": "692652100abfecf97689fd04a6f508d7d66db62417cfd2cfc3dc6f2adf8fcb70",
 };

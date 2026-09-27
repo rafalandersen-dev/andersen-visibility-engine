@@ -173,4 +173,6 @@ export const slCitationForward: Readonly<Record<string, string>> = {
   "citationForward.issue.approval_unknown":
     "Stanja odobritve izbranega poskusa ni bilo mogoče naložiti.",
   "citationForward.issue.approval_unavailable": "Različica izbranega poskusa trenutno ni odobrena.",
+  "citationForward.task.duplicate":
+    "Na to različico ugotovitve je že pripeta naloga v Planu (navedena spodaj); druga naloga ni bila ustvarjena. Uporabite jo ali različico izrecno pripnite drugi nalogi.",
 };

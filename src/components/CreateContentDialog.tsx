@@ -1,4 +1,5 @@
 import { useNavigate } from "@tanstack/react-router";
+import { assetTypeForContentType } from "@/lib/asset-type-for-content";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import {
@@ -45,16 +46,7 @@ export function defaultAssetTypeFor(
   contentType: ContentType | string | undefined,
   lastChoice: AssetType | null,
 ): AssetType {
-  const map: Record<string, AssetType> = {
-    "Blog Article": "article",
-    Guide: "article",
-    "Landing Page": "landingPage",
-    "Location Page": "landingPage",
-    "Service Page": "servicePage",
-    "FAQ Page": "faq",
-    Comparison: "comparison",
-  };
-  return (contentType && map[contentType]) || lastChoice || "article";
+  return assetTypeForContentType(contentType, lastChoice);
 }
 
 let lastChosenType: AssetType | null = null;

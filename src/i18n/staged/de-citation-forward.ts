@@ -182,4 +182,6 @@ export const deCitationForward: Readonly<Record<string, string>> = {
     "Der Freigabestatus des gewählten Versuchs konnte nicht geladen werden.",
   "citationForward.issue.approval_unavailable":
     "Die Version des gewählten Versuchs ist derzeit nicht freigegeben.",
+  "citationForward.task.duplicate":
+    "An diese Befundversion ist bereits eine Plan-Aufgabe angeheftet (unten aufgeführt); es wurde keine zweite Aufgabe erstellt. Verwenden Sie sie oder hängen Sie die Version ausdrücklich an eine andere Aufgabe an.",
 };

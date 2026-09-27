@@ -179,4 +179,6 @@ export const itCitationForward: Readonly<Record<string, string>> = {
     "Impossibile caricare lo stato di approvazione del tentativo scelto.",
   "citationForward.issue.approval_unavailable":
     "La versione del tentativo scelto non è attualmente approvata.",
+  "citationForward.task.duplicate":
+    "Un'attività del Plan è già fissata a questa versione del rilievo (elencata sotto); non è stata creata una seconda attività. Usala, oppure allega esplicitamente la versione a un'altra attività.",
 };

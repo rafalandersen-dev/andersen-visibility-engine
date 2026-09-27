@@ -33,11 +33,33 @@ or receipt architecture.
 | N1/R6 | publication evidence read page 0 only | `collectPublishedAttempts` pages through the released 20 × 50 contract; failing page fails the read; partial state shown |
 | N2/S3 | approver defaulted to the owner with raw UUID entry | `read_publication_approval_provenance_v1` (candidate) + `readPublicationApprovalProvenanceFn`; approver shown as "me (owner)" or the delegate's roster email; unapproved/revoked blocks the payload |
 | N3 | finding-version picker overflowed at 390 px | picker label/select constrained to the container; task-attach select capped |
+| P1 (PR156 review 5332608635) | a second click created a second task pinned to the same exact row | `createTaskFromFinding` re-checks the live, project-scoped, non-deleted tasks pinned to the row after the read and right before the mutation (`duplicate` outcome, archived counts, deleted does not); the button is disabled and explained while a pin exists |
+| P2 | the manual draft was always a `servicePage` asset | asset type derives from the task's content type through the established Plan → Studio mapping (moved verbatim to `src/lib/asset-type-for-content.ts`; the dialog delegates to it), so the WordPress post/page decision follows the task |
+| P3 | readiness showed a measured "0 of 2" while the list was still pending | a pending list or pending needed details render the loading copy; counts appear only for a LOADED (possibly empty) list |
 
 Also in this candidate: repaired `taskId` contract (store `uid()` 8-char base36 and connector ids, no fabricated
 UUID aliases); v3 improvement expected-head guard mirroring the released finding guard; the four active
 locales' stale owner intro replaced; server allowlist widened to the fixed improvement outcome tokens so the
 owner sees the exact refusal (no raw database text); a manual-draft path with no generation call.
+
+## P delta (after the exact-head review of `5e366062`)
+
+Modified: `src/lib/citation-forward.ts`, `src/components/CitationForwardPanel.tsx`,
+`src/components/CreateContentDialog.tsx` (delegates its mapping), `src/i18n/citation-forward.ts` (+1 key
+`task.duplicate`, 130 keys), 20 staged `xx-citation-forward.ts` (+1 key), 19 staged registrations + `de-source.ts`
+(forward hash `692652100abfecf97689fd04a6f508d7d66db62417cfd2cfc3dc6f2adf8fcb70`), 15 staged counts
+(4333 → 4334), `src/lib/citation-forward.test.ts`, `src/components/CitationForwardPanel.test.ts`. New:
+`src/lib/asset-type-for-content.ts`. The candidate migration is byte-identical (sha256 `a86b4b62…`), so the
+prepared O guard artifact is unchanged. The earlier exact-head security summary applies to `5e366062`, not to
+this modified tree.
+
+Checks on the P tree: tsc clean; focused + i18n vitest 34 files / 822 tests; `src/lib` + `src/components`
+375 files / 6200 tests; build passes; `git diff --check` clean; ESLint clean except one pre-existing
+react-refresh warning on `CreateContentDialog.tsx` (its non-component export predates this change).
+
+Browser (real panel, harness): mock latency 4000 ms then owner mount → the readiness box shows the loading copy
+and no "0 of 2" until the list loads, then "0 of 2"; latency reset, finding v1 picked, Create clicked twice →
+one `getCitationFindingFn` read, one pinned task, the button disabled with the duplicate explanation.
 
 ## Changed files
 

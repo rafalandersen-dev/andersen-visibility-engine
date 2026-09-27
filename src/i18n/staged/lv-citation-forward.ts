@@ -176,4 +176,6 @@ export const lvCitationForward: Readonly<Record<string, string>> = {
     "Neizdevās ielādēt izvēlētā mēģinājuma apstiprinājuma stāvokli.",
   "citationForward.issue.approval_unavailable":
     "Izvēlētā mēģinājuma versija pašlaik nav apstiprināta.",
+  "citationForward.task.duplicate":
+    "Pie šīs konstatējuma versijas jau ir piesprausts Plan uzdevums (uzskaitīts zemāk); otrs uzdevums netika izveidots. Izmantojiet to vai tieši pievienojiet versiju citam uzdevumam.",
 };

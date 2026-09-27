@@ -29,3 +29,14 @@ N3 terminal report inspected; same author session idle. Independently reran fina
 Codex changes are coordination/integration evidence only; application implementation remains Claude authored.
 
 Exact staging inventory:70 tracked modified source/test files +29 new source/test/migration files +2 evidence documents =101 files. Author result mistakenly called the29 new implementation paths30; no implementation file is missing. No .coordination artifacts or unrelated files staged.
+
+
+## P corrections — independent verification (27 September 23:25 UTC)
+
+Reviewed the coherent delta after Claude completed CITATION-FORWARD-P on base 5e366062. The live store is re-read after the finding read and immediately before task creation, with project scoping and deleted-task filtering. Existing archived tasks remain visible and prevent another creation. The manual draft now shares the unchanged Plan-to-Studio content-type mapping with CreateContentDialog. Initial improvement-list pending now participates in readiness loading. No additional blocking issue found in this delta.
+
+Independent checks: 33 files / 806 tests passed for citation-forward, CitationForwardPanel, CreateContentDialog and all src/i18n; TypeScript and production build passed; whitespace check clean. These include the actual store sequential/async-attachment duplicate cases and content-type mapping through wpPostTypeFor. Claude separately reports 6200 broader library/component tests; that count is author evidence, not a second Codex run.
+
+Actual Chrome local-harness verification: with 4000 ms latency and a fresh owner mount, readiness displayed Loading without measured counts; after an empty list loaded it displayed 0 of 2. Created task d9zj687y for the selected exact finding version: one pinned task remained and Create was disabled. Selecting another version enabled Create; returning to the original version disabled it again, with the existing-task explanation visible. No provider, production or publication action occurred. Helper tests exercise the pending-attachment race; this browser run does not claim that race or a full Studio route was rendered.
+
+New migration source remains a86b4b626c2144db95c23c366079228842f31e5fe57e21712840ce636cc75784 and UNAPPLIED. Prepared O guard remains f215dc2de4d7884ad849c94ab662acae53a19e965acb9ade65d53336eb0c0c43. Independently verified both embedded source occurrences and journal payload are byte-identical, with transaction boundaries intact. Fresh database preflight and reviewed release gates still precede applying it. Exact-head external code/security reviews of the corrected commit remain required; old-head results do not cover this change.

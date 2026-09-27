@@ -178,4 +178,6 @@ export const nlCitationForward: Readonly<Record<string, string>> = {
     "De goedkeuringsstatus van de gekozen poging kon niet worden geladen.",
   "citationForward.issue.approval_unavailable":
     "De versie van de gekozen poging is momenteel niet goedgekeurd.",
+  "citationForward.task.duplicate":
+    "Er is al een Plan-taak vastgezet op deze bevindingsversie (hieronder vermeld); er is geen tweede taak gemaakt. Gebruik die, of voeg de versie uitdrukkelijk aan een andere taak toe.",
 };

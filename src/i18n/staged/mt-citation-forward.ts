@@ -176,4 +176,6 @@ export const mtCitationForward: Readonly<Record<string, string>> = {
     "L-istat tal-approvazzjoni tat-tentattiv magħżul ma setax jitgħabba.",
   "citationForward.issue.approval_unavailable":
     "Il-verżjoni tat-tentattiv magħżul bħalissa mhix approvata.",
+  "citationForward.task.duplicate":
+    "Kompitu tal-Plan diġà mwaħħal ma' din il-verżjoni tas-sejba (elenkat hawn taħt); ma nħoloqx it-tieni kompitu. Użah, jew ehmeż il-verżjoni espliċitament ma' kompitu ieħor.",
 };

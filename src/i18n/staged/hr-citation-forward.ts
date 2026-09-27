@@ -174,4 +174,6 @@ export const hrCitationForward: Readonly<Record<string, string>> = {
     "Stanje odobrenja odabranog pokušaja nije moguće učitati.",
   "citationForward.issue.approval_unavailable":
     "Verzija odabranog pokušaja trenutačno nije odobrena.",
+  "citationForward.task.duplicate":
+    "Zadatak u Planu već je prikvačen uz ovu verziju nalaza (naveden ispod); drugi zadatak nije stvoren. Upotrijebite ga ili izričito priložite verziju drugom zadatku.",
 };

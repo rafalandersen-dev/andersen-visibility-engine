@@ -178,4 +178,6 @@ export const roCitationForward: Readonly<Record<string, string>> = {
     "Starea de aprobare a încercării alese nu a putut fi încărcată.",
   "citationForward.issue.approval_unavailable":
     "Versiunea încercării alese nu este aprobată în prezent.",
+  "citationForward.task.duplicate":
+    "O sarcină din Plan este deja fixată la această versiune a constatării (listată mai jos); nu a fost creată o a doua sarcină. Folosiți-o sau atașați explicit versiunea la altă sarcină.",
 };

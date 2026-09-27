@@ -172,4 +172,6 @@ export const ltCitationForward: Readonly<Record<string, string>> = {
     "Nepavyko įkelti pasirinkto bandymo patvirtinimo būsenos.",
   "citationForward.issue.approval_unavailable":
     "Pasirinkto bandymo versija šiuo metu nepatvirtinta.",
+  "citationForward.task.duplicate":
+    "Prie šios išvados versijos jau prisegta Plan užduotis (nurodyta žemiau); antra užduotis nesukurta. Naudokite ją arba aiškiai pridėkite versiją prie kitos užduoties.",
 };

@@ -17,7 +17,14 @@ import {
   removeCitationImprovementFn,
   saveCitationImprovementFn,
 } from "@/lib/citation-record.functions";
-import { addOpportunity, uid, updateOpportunity, upsertContent, useStore } from "@/lib/store";
+import {
+  addOpportunity,
+  getState,
+  uid,
+  updateOpportunity,
+  upsertContent,
+  useStore,
+} from "@/lib/store";
 import { authoringIdentity, headRows } from "@/lib/citation-authoring";
 import {
   buildImprovementPayload,
@@ -38,6 +45,7 @@ import {
   pinnedTasks,
   publishedAttemptsForTask,
   retestReadiness,
+  tasksForFinding,
   taskStatus,
   type AttestedDetail,
   type CitationImprovementDetail,
@@ -67,6 +75,7 @@ const chip =
   "inline-flex items-center rounded-full border border-border px-2 py-0.5 text-[11px] text-muted-foreground";
 const TASK_NOTES = {
   created: "citationForward.task.created",
+  duplicate: "citationForward.task.duplicate",
   read_failed: "citationForward.task.readFailed",
   not_eligible: "citationForward.task.notEligible",
   identity_mismatch: "citationForward.task.notEligible",
@@ -206,6 +215,9 @@ export function CitationForwardPanel({
   const [creating, setCreating] = useState(false);
   const selectedRow = heads.find((r) => r.id === pick) ?? null;
   const link = selectedRow ? findingLink(selectedRow.id, rows) : null;
+  // Non-deleted tasks of THIS project already pinned to the selected exact row (archived included): creation
+  // is offered only when there is none; the live store is re-checked again right before the mutation.
+  const alreadyPinned = selectedRow ? tasksForFinding(opportunities, selectedRow.id) : [];
 
   useEffect(() => {
     dispatch({ type: "scopeChanged", identity });
@@ -236,6 +248,11 @@ export function CitationForwardPanel({
       language,
       read: () => getCitationFindingFn({ data: { ...scope, id: row.id } }),
       isCurrent: () => stillCurrent(startedFor),
+      existing: () =>
+        tasksForFinding(
+          getState().opportunities.filter((o) => o.projectId === projectId),
+          row.id,
+        ),
       add: addOpportunity,
     });
     if (!stillCurrent(startedFor)) return;
@@ -383,7 +400,12 @@ export function CitationForwardPanel({
             </label>
             {selectedRow ? (
               <>
-                <Button size="sm" disabled={creating} onClick={() => void createTask()}>
+                <Button
+                  size="sm"
+                  disabled={creating || alreadyPinned.length > 0}
+                  title={alreadyPinned.length > 0 ? t("citationForward.task.duplicate") : undefined}
+                  onClick={() => void createTask()}
+                >
                   {t("citationForward.task.create")}
                 </Button>
                 <select
@@ -421,6 +443,13 @@ export function CitationForwardPanel({
                   head: link.headVersion,
                 })
               : null}
+          </p>
+        ) : null}
+        {selectedRow &&
+        alreadyPinned.length > 0 &&
+        taskNote !== "citationForward.task.duplicate" ? (
+          <p className="text-xs text-muted-foreground" data-already-pinned={alreadyPinned.length}>
+            {t("citationForward.task.duplicate")}
           </p>
         ) : null}
         {taskNote ? (
@@ -944,10 +973,12 @@ function ImprovementList({
       setBusy(false);
     }
   }
+  // Codex P3: a pending list read or a pending detail read is never shown as a measured zero; only a LOADED
+  // (possibly empty) list with its needed details yields counts.
   const readinessState: "unavailable" | "loading" | "ready" =
     isError || attested.isError
       ? "unavailable"
-      : attestedIds.length > 0 && attested.data === undefined
+      : isPending || (attestedIds.length > 0 && attested.data === undefined)
         ? "loading"
         : "ready";
   const readiness = retestReadiness(list, attested.data ?? new Map());

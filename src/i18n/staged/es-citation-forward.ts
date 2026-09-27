@@ -175,4 +175,6 @@ export const esCitationForward: Readonly<Record<string, string>> = {
     "No se pudo cargar el estado de aprobación del intento elegido.",
   "citationForward.issue.approval_unavailable":
     "La versión del intento elegido no está aprobada actualmente.",
+  "citationForward.task.duplicate":
+    "Ya hay una tarea del Plan anclada a esta versión del hallazgo (listada abajo); no se creó una segunda tarea. Úsala o adjunta la versión explícitamente a otra tarea.",
 };
