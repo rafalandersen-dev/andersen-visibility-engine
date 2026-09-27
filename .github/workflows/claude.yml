@@ -12,11 +12,18 @@ on:
 
 jobs:
   claude:
-    if: |
-      (github.event_name == 'issue_comment' && contains(github.event.comment.body, '@claude')) ||
-      (github.event_name == 'pull_request_review_comment' && contains(github.event.comment.body, '@claude')) ||
-      (github.event_name == 'pull_request_review' && contains(github.event.review.body, '@claude')) ||
-      (github.event_name == 'issues' && (contains(github.event.issue.body, '@claude') || contains(github.event.issue.title, '@claude')))
+    # TEMPORARY SECURITY CONTAINMENT (27 September 2026): this job runs the shared Claude OAuth credential in an
+    # unrestricted tag-mode session. It is fail-closed (`if: false` — the job is skipped, no step runs, no
+    # credential is read) until it has its own review; giving it the relocated `claude-review` environment
+    # credential as-is would re-expose that credential to an unrestricted model. The original trigger condition
+    # is kept below for the reviewed re-enablement. The authorized Claude desktop session remains available.
+    #
+    # if: |
+    #   (github.event_name == 'issue_comment' && contains(github.event.comment.body, '@claude')) ||
+    #   (github.event_name == 'pull_request_review_comment' && contains(github.event.comment.body, '@claude')) ||
+    #   (github.event_name == 'pull_request_review' && contains(github.event.review.body, '@claude')) ||
+    #   (github.event_name == 'issues' && (contains(github.event.issue.body, '@claude') || contains(github.event.issue.title, '@claude')))
+    if: false
     runs-on: ubuntu-latest
     permissions:
       contents: read
