@@ -51,10 +51,47 @@ const boundedImprovement = improvementSchema.superRefine((i, ctx) => {
       message: `Improvement record exceeds the storage budget of ${MAX_CITATION_IMPROVEMENT_BYTES} bytes`,
     });
 });
-/** Stage input for a finding: the accepted finding record plus its declared scope, bounded before RPC. */
+/** Stage input for a finding: the accepted finding record plus its declared scope, bounded before RPC.
+ * `expectedVersion` + `expectedHeadId` name the head ROW the owner inspected before editing (0/null + null for a
+ * brand-new finding id): the server refuses to mint a new version on top of a head the caller never saw
+ * (`citation_finding_version_conflict`), while an identical retry stays idempotent. The immutable head row id
+ * travels with the version because a deleted head can be recreated under the same number (ABA); a numeric
+ * version alone is not a concurrency token. Both halves are required together (fail closed at this boundary). */
 export const citationFindingStageSchema = z
-  .object({ scope: citationPanelScopeSchema, finding: boundedFinding })
+  .object({
+    scope: citationPanelScopeSchema,
+    finding: boundedFinding,
+    expectedVersion: z.number().int().min(0).max(10000).nullable().optional(),
+    expectedHeadId: uuid.nullable().optional(),
+  })
   .strict();
+/** The (version, head row id) pairing rule, applied by the server parse AND the server-function input
+ * validator (which merges `.shape` into its own object, so the rule cannot live on the object schema). */
+export function inspectedHeadRefinement(
+  v: { expectedVersion?: number | null; expectedHeadId?: string | null },
+  ctx: z.RefinementCtx,
+) {
+  const version = v.expectedVersion ?? 0;
+  if (version > 0 !== (typeof v.expectedHeadId === "string"))
+    ctx.addIssue({
+      code: "custom",
+      path: ["expectedHeadId"],
+      message:
+        "An inspected head is named by BOTH its version and its immutable row id, or by neither",
+    });
+}
+export const citationFindingStageInputSchema =
+  citationFindingStageSchema.superRefine(inspectedHeadRefinement);
+/** Server-derived scope-binding provenance of a stored finding/improvement row: `enforced` when the row was
+ * inserted under the additive panel-binding trigger (its declared panel version was a stored, LOCKED,
+ * owner-approved panel with the same client at write time — `scopeEnforcedAt` is the stamp), `legacy` when it
+ * predates enforcement (owner-declared scope, never retroactively verified; an idempotent re-save returns the
+ * legacy row unchanged). This is a persisted server fact, not an inference from the panel list. */
+export const CITATION_SCOPE_BINDINGS = ["enforced", "legacy"] as const;
+export type CitationScopeBinding = (typeof CITATION_SCOPE_BINDINGS)[number];
+export function scopeBinding(scopeEnforcedAt: string | null | undefined): CitationScopeBinding {
+  return typeof scopeEnforcedAt === "string" && scopeEnforcedAt.length > 0 ? "enforced" : "legacy";
+}
 /** A STRUCTURED publication/approval binding (never free receipt text): the exact publication attempt,
  * its asset and the reviewed version_hash, optionally an owner inspection of the published URL. The
  * server resolves every field against the released publication_evidence / publication_approvals records
@@ -128,6 +165,8 @@ export const citationFindingSummarySchema = z
     sourceAvailable: z.boolean(),
     accuracyStatus: z.enum(CITATION_FINDING_ACCURACY_STATUSES),
     reviewStatus: z.enum(CITATION_FINDING_REVIEW_STATUSES),
+    /** Persisted enforcement stamp (see `scopeBinding`); null = legacy owner-declared scope. */
+    scopeEnforcedAt: z.string().nullable(),
   })
   .strict();
 export type CitationFindingSummary = z.infer<typeof citationFindingSummarySchema>;
@@ -230,6 +269,8 @@ export const citationImprovementSummarySchema = z
     createdAt: z.string(),
     verificationStatus: z.enum(CITATION_VERIFICATION_STATUSES),
     evidenceStatus: z.enum(CITATION_EVIDENCE_STATUSES),
+    /** Persisted enforcement stamp (see `scopeBinding`); null = legacy owner-declared scope. */
+    scopeEnforcedAt: z.string().nullable(),
   })
   .strict();
 export type CitationImprovementSummary = z.infer<typeof citationImprovementSummarySchema>;

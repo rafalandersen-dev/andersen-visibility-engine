@@ -123,7 +123,7 @@ export async function getCitationFindingForReview(
   const input = citationFindingReviewTargetSchema.parse(raw);
   const result = citationFindingForReviewSchema.parse(
     await call(
-      "read_ai_citation_finding_for_review",
+      "read_ai_citation_finding_for_review_v2",
       { p_actor: a, p_owner: input.ownerId, p_project: input.projectId, p_id: input.findingRowId },
       rpc,
     ),

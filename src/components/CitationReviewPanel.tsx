@@ -17,6 +17,7 @@ import { readProjectTeamRosterFn, readOwnerTeamPolicyFn } from "@/lib/project-te
 import type { CitationFindingForReview } from "@/lib/citation-finding-review";
 import type { Finding } from "@/lib/citation-finding";
 import type { CitationAccuracyResolution } from "@/lib/citation-business-fact";
+import { scopeBinding } from "@/lib/citation-record";
 import {
   absoluteReviewerLink,
   accuracyEntryDisplay,
@@ -273,6 +274,10 @@ function OwnerReview({ projectId, ownerId }: { projectId: string; ownerId: strin
                   <span className={chip}>{t(`citationReview.decision.${f.decision}`)}</span>
                   <span className={chip}>{t(`citationReview.reviewStatus.${f.reviewStatus}`)}</span>
                   <span className={chip}>{t(`citationReview.accuracy.${f.accuracyStatus}`)}</span>
+                  {/* Server-derived scope-binding provenance (persisted stamp), never inferred from panels. */}
+                  <span className={chip}>
+                    {t(`citationAuthoring.binding.${scopeBinding(f.scopeEnforcedAt)}`)}
+                  </span>
                   {!f.sourceAvailable ? (
                     <span className={chip}>{t("citationReview.chip.sourceUnavailable")}</span>
                   ) : null}
@@ -333,6 +338,8 @@ function OwnerFindingDetail({
               {" · "}
               {t("citationReview.owner.recorded", { date: d.createdAt.slice(0, 10) })}
               {d.evidenceErased ? " · " + t("citationReview.detail.evidenceErased") : ""}
+              {" · "}
+              {t(`citationAuthoring.binding.${scopeBinding(d.scopeEnforcedAt)}`)}
             </p>
           </header>
           {d.recordValid ? (
@@ -732,6 +739,8 @@ function ReviewerFinding({
           {v.inspectionComplete
             ? t("citationReview.reviewer.inspectable")
             : t("citationReview.reviewer.notInspectable")}
+          {" · "}
+          {t(`citationAuthoring.binding.${scopeBinding(v.scopeEnforcedAt)}`)}
         </p>
       </header>
 

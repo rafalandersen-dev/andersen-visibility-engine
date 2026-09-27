@@ -11,6 +11,7 @@ import {
 } from "./citation-record.server";
 import { importAnswerEvidence, saveEvidencePrompt } from "./answer-evidence.server";
 import { isVerifiedImprovement, verifiedImprovementCount } from "./citation-finding";
+import { headToken, headVersionQuery, lockedPanelInsert } from "./citation-panel-fixture";
 import type { KnowledgeRpc } from "./project-knowledge.server";
 let db: PGlite;
 const user = "00000000-0000-4000-8000-000000000001",
@@ -137,8 +138,27 @@ const binding = (
           observedUrl: opts.inspection.observedUrl ?? LIVE,
         },
 });
-const saveF = (f: unknown, s = scope, sc = panelScope) =>
-  saveCitationFinding(s, { scope: sc, finding: f }, rpc);
+// Saves pass the CURRENT head ROW of the logical finding id (version + immutable id, what the owner inspected),
+// exactly as the authoring UI does, so the additive expected-head guard (20260926190000) admits genuine
+// corrections here and the P3 semantics under test are unchanged.
+const headOf = async (s: { ownerId: string; projectId: string }, findingId: string) =>
+  headToken(
+    (
+      await db.query<{ v: number; id: string | null }>(
+        ...headVersionQuery("ai_citation_findings", s.ownerId, s.projectId, findingId),
+      )
+    ).rows[0],
+  );
+const saveF = async (f: unknown, s = scope, sc = panelScope) =>
+  saveCitationFinding(
+    s,
+    {
+      scope: sc,
+      finding: f,
+      ...(await headOf(s, (f as { findingId: string }).findingId)),
+    },
+    rpc,
+  );
 const saveI = (i: unknown, b: unknown = null, s = scope, sc = panelScope) =>
   saveCitationImprovement(s, { scope: sc, improvement: i, binding: b }, rpc);
 const findingCount = async () =>
@@ -259,7 +279,12 @@ beforeAll(async () => {
     // downgrade bans via auth.users — so scheduled_publishes is never reached.)
     "20260911020000_project_team_reads.sql",
     "20260911060000_project_team_approval_policy.sql",
+    // Released P2 panel storage (citation_panels) + P3, then the additive owner-authoring candidate
+    // (20260926190000): every finding/improvement insert must now reference a stored LOCKED panel version
+    // with the same client (seeded per test below), and the v2 save/read wrappers the server uses exist.
+    "20260920190000_citation_protocol.sql",
     "20260920200000_citation_findings_improvements.sql",
+    "20260926190000_citation_scope_binding_versions.sql",
   ])
     await db.exec(readFileSync("supabase/migrations/" + name, "utf8"));
 }, 30000);
@@ -279,6 +304,22 @@ beforeEach(async () => {
     "INSERT INTO workspace_entities(user_id,collection,entity_id,data) VALUES($1,'content',$2,jsonb_build_object('projectId','p'))",
     [user, ASSET],
   );
+  // The declared scope must be a stored LOCKED panel version of the same owner/project/client (additive
+  // scope-binding trigger); seed it for every project a test saves under.
+  for (const [userId, projectId] of [
+    [user, "p"],
+    [user, "q"],
+    [other, "p"],
+  ] as const)
+    await db.query(
+      ...lockedPanelInsert({
+        userId,
+        projectId,
+        panelId: panelScope.panelId,
+        version: panelScope.panelVersion,
+        client: panelScope.client,
+      }),
+    );
   await saveEvidencePrompt(scope, PROMPT, 0, promptData, rpc);
   ANSWER = await importReal(ACC_CAP, "Acme Massage in Malmö is a good option to book.");
   BASELINE = await importReal("2024-04-01T00:00:00Z", "Acme Massage in Malmö is worth comparing.");
@@ -337,8 +378,19 @@ describe("citation findings storage with server-derived, forgery-resistant prove
   });
   it("accepts a multilingual client name at the aligned byte bound (200 CJK units = 600 bytes)", async () => {
     const cjk = "文".repeat(200);
+    // The declared client must equal a stored LOCKED panel's client (scope-binding trigger): seed one.
+    const cjkPanel = "40000000-0000-4000-8000-0000000000c1";
+    await db.query(
+      ...lockedPanelInsert({
+        userId: user,
+        projectId: "p",
+        panelId: cjkPanel,
+        client: { name: cjk, market: "US" },
+      }),
+    );
     const saved = await saveF(finding("60000000-0000-4000-8000-000000000005"), scope, {
       ...panelScope,
+      panelId: cjkPanel,
       client: { name: cjk, market: "US" },
     });
     expect(saved.client.name).toBe(cjk);
@@ -837,6 +889,16 @@ describe("embedded reviewer identity is matched case-insensitively (semantic UUI
     await db.query(
       "INSERT INTO workspace_entities(user_id,collection,entity_id) VALUES($1,'projects','p') ON CONFLICT DO NOTHING",
       [letteredOwner],
+    );
+    // The lettered owner's saves declare panelScope: seed the stored LOCKED panel under that owner too.
+    await db.query(
+      ...lockedPanelInsert({
+        userId: letteredOwner,
+        projectId: "p",
+        panelId: panelScope.panelId,
+        version: panelScope.panelVersion,
+        client: panelScope.client,
+      }),
     );
   });
   it("accepts UPPERCASE embedded reviewers (top review AND secondReview) that are the owner's own UUID", async () => {

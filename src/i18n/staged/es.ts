@@ -28,6 +28,7 @@ import { esSharedUi } from "./es-shared-ui";
 import { esTechnical } from "./es-technical";
 import { esWorkflow } from "./es-workflow";
 import { esCitationReview } from "./es-citation-review";
+import { esCitationAuthoring } from "./es-citation-authoring";
 
 /** Spanish authoring coverage: 3768 messages / 28 batches.
  * All 3,768 English keys reconciled against 5a9416d.
@@ -280,6 +281,13 @@ export const ES_STAGED_BATCHES = [
     namespaces: ["citationReview"],
     sourceRevision: "P4 citation review candidate after bab861c8",
     sourceHash: "d41949f7901f0d37b4debab152a406f238c34273ed422fe230df34ff41dcb151",
+  },
+  {
+    name: "citation authoring",
+    copy: esCitationAuthoring,
+    namespaces: ["citationAuthoring"],
+    sourceRevision: "citation owner authoring candidate after a392775c",
+    sourceHash: "ffb6a332b8756b5467c8e06e740b9829d118f7c6112240a88046298922055c2a",
   },
 ] as const;
 

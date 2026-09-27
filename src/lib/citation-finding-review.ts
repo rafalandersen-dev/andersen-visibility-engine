@@ -233,6 +233,10 @@ export const citationFindingForReviewSchema = z
     reviews: z.array(citationFindingReviewEntrySchema).max(100),
     reviewTotal: z.number().int().min(0),
     reviewsTruncated: z.boolean(),
+    // Server-derived scope-binding provenance (additive 20260926190000): the persisted stamp set when this
+    // row was inserted under the locked-panel enforcement trigger, or null for a legacy owner-declared scope.
+    // Exposed to the reviewer exactly as to the owner so both surfaces state the same fact.
+    scopeEnforcedAt: z.string().nullable(),
   })
   .strict();
 export type CitationFindingForReview = z.infer<typeof citationFindingForReviewSchema>;

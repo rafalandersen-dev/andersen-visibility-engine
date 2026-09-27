@@ -40,6 +40,7 @@ import { gaWorkflowEditor } from "./ga-workflow-editor";
 import { gaWorkflowPlan } from "./ga-workflow-plan";
 import { gaWorkflowResults } from "./ga-workflow-results";
 import { gaCitationReview } from "./ga-citation-review";
+import { gaCitationAuthoring } from "./ga-citation-authoring";
 /** Irish authoring in progress; never imported by the runtime catalog. */
 export const GA_STAGED_BATCHES = [
   {
@@ -293,6 +294,13 @@ export const GA_STAGED_BATCHES = [
     namespaces: ["citationReview"],
     sourceRevision: "P4 citation review candidate after bab861c8",
     sourceHash: "d41949f7901f0d37b4debab152a406f238c34273ed422fe230df34ff41dcb151",
+  },
+  {
+    name: "citation authoring",
+    copy: gaCitationAuthoring,
+    namespaces: ["citationAuthoring"],
+    sourceRevision: "citation owner authoring candidate after a392775c",
+    sourceHash: "ffb6a332b8756b5467c8e06e740b9829d118f7c6112240a88046298922055c2a",
   },
 ] as const;
 export const GA_STAGED_CATALOG: Readonly<Record<string, string>> = Object.freeze(

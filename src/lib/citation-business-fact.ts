@@ -56,7 +56,35 @@ const boundedBusinessFact = businessFactSchema.superRefine((f, ctx) => {
 /** Stage input for a fact: the accepted business-fact record, bounded before the RPC. `confirmedBy` must
  * be the authenticated owner and `confirmedAt` is re-stamped server-side regardless of the submitted
  * value; the declared `validFrom`/`validUntil` are validated finite and ordered by the server. */
-export const citationBusinessFactStageSchema = z.object({ fact: boundedBusinessFact }).strict();
+export const citationBusinessFactStageSchema = z
+  .object({
+    fact: boundedBusinessFact,
+    /** The head ROW of this `factId` the owner inspected before correcting (0/null + null = new fact): its
+     * version AND its immutable row id, because a deleted head can be recreated under the same number (ABA). A
+     * correction on top of a head the caller never saw is refused (`citation_business_fact_version_conflict`);
+     * an identical retry stays idempotent. Both halves are required together (fail closed at this boundary). */
+    expectedVersion: z.number().int().min(0).max(10000).nullable().optional(),
+    expectedHeadId: uuid.nullable().optional(),
+  })
+  .strict();
+/** The (version, head row id) pairing rule, applied by the server parse AND the server-function input
+ * validator (which merges `.shape` into its own object, so the rule cannot live on the object schema). */
+export function inspectedFactHeadRefinement(
+  v: { expectedVersion?: number | null; expectedHeadId?: string | null },
+  ctx: z.RefinementCtx,
+) {
+  const version = v.expectedVersion ?? 0;
+  if (version > 0 !== (typeof v.expectedHeadId === "string"))
+    ctx.addIssue({
+      code: "custom",
+      path: ["expectedHeadId"],
+      message:
+        "An inspected head is named by BOTH its version and its immutable row id, or by neither",
+    });
+}
+export const citationBusinessFactStageInputSchema = citationBusinessFactStageSchema.superRefine(
+  inspectedFactHeadRefinement,
+);
 /** Server-attributed fact view: row identity + version chain metadata plus the stored record (with the
  * server-authoritative confirmedBy/confirmedAt), returned in full so facts can be exported. */
 export const citationBusinessFactSummarySchema = z

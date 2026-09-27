@@ -2,18 +2,29 @@ import { createServerFn } from "@tanstack/react-start";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { z } from "zod";
 import { evidenceProjectId } from "./answer-evidence";
-import { citationBusinessFactStageSchema } from "./citation-business-fact";
+import {
+  citationBusinessFactStageSchema,
+  inspectedFactHeadRefinement,
+} from "./citation-business-fact";
 const scope = z.object({ projectId: evidenceProjectId, expectedOwnerId: z.string().uuid() });
 export const saveCitationBusinessFactFn = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((v: unknown) =>
-    scope.extend(citationBusinessFactStageSchema.shape).strict().parse(v),
+    scope
+      .extend(citationBusinessFactStageSchema.shape)
+      .strict()
+      .superRefine(inspectedFactHeadRefinement)
+      .parse(v),
   )
   .handler(async ({ data, context }) => {
     if (context.userId !== data.expectedOwnerId) throw Error("evidence_owner_changed");
     return (await import("./citation-business-fact.server")).saveCitationBusinessFact(
       { ownerId: context.userId, projectId: data.projectId },
-      { fact: data.fact },
+      {
+        fact: data.fact,
+        expectedVersion: data.expectedVersion ?? null,
+        expectedHeadId: data.expectedHeadId ?? null,
+      },
     );
   });
 export const readCitationBusinessFactsFn = createServerFn({ method: "POST" })
