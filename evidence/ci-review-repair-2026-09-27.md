@@ -135,3 +135,33 @@ no submodule recursion) and the octokit client all run with that token; agent mo
 the post-step "Revoke app token" is skipped when `github_token` is set. Read scopes are unchanged; no secret,
 PAT, App or provider is added; `id-token: write` becomes unused. Live verification of this path is still
 required and is not claimed.
+
+## K/L — corrected live SDK-stage evidence and the bounded error category (27 September 2026)
+
+Run 36340652243 (PR153 head `a898ad4b`, after the J fix): provided-token path used, no OIDC request, actor
+checks passed, CLI installed, SDK started and emitted the init message; the single `result` message had
+`subtype: success`, `is_error: true`, `num_turns: 1`, no structured output; the pinned run-claude-sdk.ts then
+failed on the missing structured output (`is_error` makes the run a failure and the schema check throws
+before any later error-detail handling; the result text is intentionally not logged). Validator: `sdk:
+failed`, `verdict: failed`; advisory job: `manual_review_required` / `review_failure`. All gates held.
+
+Two corrections to the K reading: (1) a local reproduction with the same flags and a blocked network shows the
+same signature, but that does not uniquely prove a provider-side cause — the established fact is an
+SDK-reported failed first turn with root cause unknown; (2) `total_cost_usd: 0` and the absent `modelUsage`
+block are SDK-reported values, not proof that no billable tokens or provider charges occurred.
+
+L adds one line to the validator's fixed vocabulary: `sdk_error_category: auth | permission | rate_limit |
+overloaded | billing | network | invalid_request | other | none`. It is computed only from string fields of the
+runner-local SDK result (`result`, string entries of `errors`), with bounded literal-alternation patterns;
+exactly one matching category is reported, anything unmatched, ambiguous or conflicting is `other`, and
+`none` appears only when the SDK reported no error. L2: the limits (4 000 chars per string field, 20 error
+entries, 20 000 chars in total) are checked BEFORE classification and any exceeded limit is `other` — a
+truncated record is never classified, because an unobserved suffix could contradict the scanned prefix
+(the three independently reproduced boundary cases now return `other`; exact-boundary records are still
+classified). Non-string fields are ignored without coercion and do not count toward the limits. `auth`
+alone is untrusted text: not proof of a credential problem and not grounds to repeat the owner token
+request; it can only guide a bounded corroborating check, and owner action follows solely from a concrete,
+verified need. No text, hash, URL, token or property name from the input is ever printed. The
+category is untrusted corroboration: the scanned text is model/provider output and may contain arbitrary or
+injected category words; it is never proof of a cause and never authority to retry, replace a credential,
+change budgets or permissions, or approve a release. It changes no status, count, gate or exit code.
