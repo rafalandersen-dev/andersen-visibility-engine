@@ -1325,11 +1325,17 @@ describe("workflow transport boundary (A3) and configuration", () => {
     expect(Object.keys(action.with!).sort()).toEqual([
       "claude_args",
       "claude_code_oauth_token",
+      "github_token",
       "prompt",
     ]);
     expect(action.with!.prompt).toBe("${{ steps.collect.outputs.prompt }}");
+    // J: the documented github_token input carries the job's own read-only token and nothing else — no
+    // secret, PAT or App token — so the pinned action skips the OIDC/App-token exchange that failed live.
+    expect(action.with!.github_token).toBe("${{ github.token }}");
+    expect(action.with!.claude_code_oauth_token).toBe("${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}");
+    expect((workflow.match(/secrets\./g) ?? []).length).toBe(1);
     expect(workflow).not.toMatch(
-      /^\s*(display_report|show_full_output|plugins|plugin_marketplaces|github_token|additional_permissions):/m,
+      /^\s*(display_report|show_full_output|plugins|plugin_marketplaces|additional_permissions|allowed_non_write_users|allowed_bots):/m,
     );
     expect(job.permissions).toEqual({
       contents: "read",
