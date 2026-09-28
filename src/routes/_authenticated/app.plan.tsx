@@ -45,6 +45,7 @@ import { AppShell } from "@/components/AppShell";
 import { Button } from "@/components/ui/button";
 import { CreateContentDialog } from "@/components/CreateContentDialog";
 import { DiscoverySelectionToggle } from "@/components/DiscoverySelectionToggle";
+import { deriveDiscoverySelection } from "@/lib/discovery-selection";
 import { SampleBadge } from "@/components/SampleBadge";
 import {
   acceptDiscoverySuggestions,
@@ -926,6 +927,10 @@ export function DiscoverView({
 
   const visible = suggestions.filter((item) => item.status !== "dismissed");
   const suggested = visible.filter((item) => item.status === "suggested");
+  // Pressed state follows the CURRENT status, not the local set alone: a row the store has already
+  // accepted (save pending or rejected) is never presented as selected (review 4123370116).
+  const selection = deriveDiscoverySelection(visible, selected);
+  const selectionRows = new Map(selection.rows.map((row) => [row.id, row]));
 
   function toggle(id: string) {
     setSelected((current) => {
@@ -951,7 +956,7 @@ export function DiscoverView({
   }
 
   async function acceptSelected() {
-    const created = acceptDiscoverySuggestions([...selected]);
+    const created = acceptDiscoverySuggestions(selection.selectedIds);
     await saveWorkspaceNow();
     setSelected(new Set());
     if (created.length === 0) {
@@ -1115,9 +1120,9 @@ export function DiscoverView({
               {t("planScreen.discovery.awaiting", { count: suggested.length })}
             </span>
           </div>
-          <Button onClick={acceptSelected} disabled={selected.size === 0}>
+          <Button onClick={acceptSelected} disabled={selection.selectedIds.length === 0}>
             <CheckCircle size={17} />{" "}
-            {t("planScreen.discovery.addSelected", { count: selected.size })}
+            {t("planScreen.discovery.addSelected", { count: selection.selectedIds.length })}
           </Button>
         </div>
 
@@ -1142,7 +1147,8 @@ export function DiscoverView({
                 <span>{t("planScreen.column.state")}</span>
               </div>
               {visible.map((item) => {
-                const checked = selected.has(item.id);
+                const row = selectionRows.get(item.id);
+                const checked = row?.checked ?? false;
                 return (
                   <div
                     key={item.id}
@@ -1150,7 +1156,7 @@ export function DiscoverView({
                   >
                     <DiscoverySelectionToggle
                       checked={checked}
-                      disabled={item.status !== "suggested"}
+                      disabled={row?.disabled ?? true}
                       label={t("planScreen.discovery.select", { title: item.title })}
                       onToggle={() => toggle(item.id)}
                     />
