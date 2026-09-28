@@ -12,6 +12,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import { useT } from "@/i18n";
 import { evaluateContentQuality, improveContentDraft } from "@/lib/mock-ai";
+import { producerErrorMessage } from "@/lib/producer-session";
 import { QUALITY_CATEGORY_ORDER, draftWordCount } from "@/lib/quality";
 import { classifyCategoryExplanation } from "@/lib/quality-explanation";
 import type { ContentAsset, QualityStatus, PublishingRecommendation } from "@/lib/types";
@@ -60,7 +61,9 @@ export function MiloScorePanel({
     try {
       await evaluateContentQuality(asset.id);
     } catch (e) {
-      toast.error(e instanceof Error ? e.message : t("quality.error"));
+      toast.error(
+        producerErrorMessage(e, t) ?? (e instanceof Error ? e.message : t("quality.error")),
+      );
     } finally {
       setBusy(null);
     }
@@ -74,7 +77,9 @@ export function MiloScorePanel({
       await improveContentDraft(asset.id);
       toast.success(t("quality.improved"));
     } catch (e) {
-      toast.error(e instanceof Error ? e.message : t("quality.error"));
+      toast.error(
+        producerErrorMessage(e, t) ?? (e instanceof Error ? e.message : t("quality.error")),
+      );
     } finally {
       setBusy(null);
     }

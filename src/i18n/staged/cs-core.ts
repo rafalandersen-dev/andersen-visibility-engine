@@ -162,6 +162,30 @@ export const csCore: Readonly<Record<string, string>> = {
   "shell.account": "Účet",
   "shell.manageSubscription": "Spravovat nebo zrušit předplatné",
   "shell.signOut": "Odhlásit se",
+  "shell.workspaceSave.saved": "Pracovní prostor je uložen.",
+  "shell.workspaceSave.unsaved": "Neuložené změny v pracovním prostoru…",
+  "shell.workspaceSave.saving": "Ukládání pracovního prostoru…",
+  "shell.workspaceSave.saveNow": "Uložit nyní",
+  "shell.workspaceSave.conflict":
+    "Tento pracovní prostor byl změněn v jiné relaci. Vaše místní úpravy jsou stále zde a nejsou potvrzeny jako uložené.",
+  "shell.signOutDialog.title": "Změny v pracovním prostoru nejsou potvrzeny jako uložené",
+  "shell.signOutDialog.body":
+    "Pokud se nyní odhlásíte, některé změny mohou na serveru chybět. Můžete zůstat a zkusit uložení znovu, nebo se přesto odhlásit.",
+  "shell.signOutDialog.saving": "Ukládání pracovního prostoru před odhlášením…",
+  "shell.signOutDialog.signingOut": "Odhlašování…",
+  "shell.signOutDialog.stay": "Zůstat přihlášen",
+  "shell.signOutDialog.leave": "Přesto se odhlásit",
+  "shell.signOutDialog.errorTitle": "Odhlášení nebylo dokončeno",
+  "shell.signOutDialog.errorBody":
+    "Stále jste přihlášeni. Můžete to zkusit znovu nebo zůstat přihlášeni.",
+  "shell.producer.notReady":
+    "Pracovní prostor ještě není připraven. Zkuste to znovu po jeho načtení.",
+  "shell.producer.staleSession": "Relace pracovního prostoru se změnila. Výsledek nebyl použit.",
+  "shell.producer.sourceChanged": "Obsah se během běhu změnil. Spusťte to znovu.",
+  "shell.producer.signingOut": "Probíhá odhlašování. Tato akce nebyla spuštěna.",
+  "shell.signOutDialog.pendingTitle": "Práce stále probíhá",
+  "shell.signOutDialog.pendingBody":
+    "{count} výsledek/výsledky této relace se stále generují a nejsou uloženy na serveru. Pokud se nyní odhlásíte, mohou být ztraceny. Můžete zůstat a počkat, nebo se přesto odhlásit.",
   "shell.footerBuiltBy": "Milo Growth — vytvořila společnost Andersen Innovations",
   "shell.language": "Jazyk rozhraní",
   "shell.languageProjectDefault": "Výchozí jazyk projektu",

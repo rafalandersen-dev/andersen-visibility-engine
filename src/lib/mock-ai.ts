@@ -117,6 +117,13 @@ import {
   generateOutreachDraftFn,
 } from "./ai.functions";
 import { resolveBacklinkCompetitors } from "./backlinks";
+import {
+  ProducerSessionError,
+  producerSourceChanged,
+  rethrowSessionError,
+  runOwnedProducer,
+  type ProducerSession,
+} from "./producer-session";
 import { publishContentFn, publishLiveFn } from "./publish.functions";
 import {
   testWordPressConnectionFn,
@@ -144,23 +151,17 @@ function requireProject(projectId: string) {
   return { project, services };
 }
 
-// ---- Concurrency guard: prevent duplicate clicks per (project, action) ----
-const inflight = new Set<string>();
-async function once<T>(key: string, fn: () => Promise<T>): Promise<T> {
-  if (inflight.has(key)) throw new Error("Already generating — please wait.");
-  inflight.add(key);
-  try {
-    return await fn();
-  } finally {
-    inflight.delete(key);
-  }
-}
+// ---- Concurrency + ownership guard (AY) ----
+// Every asynchronous producer runs under `runOwnedProducer`: duplicate clicks are refused per
+// (session, operation), the hydrated user+epoch is captured BEFORE the first asynchronous step and
+// `session.check()` fences every later paid/external step and every store mutation, so a late
+// result can never be written into a signed-out or replacement session. See producer-session.ts.
 
 // ============================================================
 // Opportunities
 // ============================================================
 export async function generateSeoOpportunities(projectId: string) {
-  return once(`opps:${projectId}`, async () => {
+  return runOwnedProducer(`opps:${projectId}`, "unretained", async (session) => {
     const { project, services } = requireProject(projectId);
     const existingTitles = getState()
       .opportunities.filter((o) => o.projectId === projectId)
@@ -169,6 +170,7 @@ export async function generateSeoOpportunities(projectId: string) {
     const { opportunities } = await generateOpportunitiesFn({
       data: { project, services, existingTitles },
     });
+    session.check(); // a late response never writes into another session
     console.info("[ai.client] opportunities received", {
       projectId,
       count: opportunities.length,
@@ -208,7 +210,7 @@ export async function generateSeoOpportunities(projectId: string) {
 // Calendar
 // ============================================================
 export async function generateContentCalendar(projectId: string) {
-  return once(`cal:${projectId}`, async () => {
+  return runOwnedProducer(`cal:${projectId}`, "unretained", async (session) => {
     const { project } = requireProject(projectId);
     const opps = getState().opportunities.filter(
       (o) => o.projectId === projectId && o.status !== "Discarded",
@@ -220,6 +222,7 @@ export async function generateContentCalendar(projectId: string) {
     const { calendarItems } = await generateCalendarFn({
       data: { project, opportunities: opps },
     });
+    session.check(); // a late response never writes into another session
     console.info("[ai.client] calendar received", {
       projectId,
       count: calendarItems.length,
@@ -273,7 +276,7 @@ type AssetResult = {
 };
 
 async function generateAsset(opportunityId: string, kind: "landing" | "article") {
-  return once(`asset:${opportunityId}:${kind}`, async () => {
+  return runOwnedProducer(`asset:${opportunityId}:${kind}`, "retained", async (session) => {
     const s = getState();
     const opp = s.opportunities.find((o) => o.id === opportunityId);
     if (!opp) throw new Error("Opportunity not found.");
@@ -281,15 +284,19 @@ async function generateAsset(opportunityId: string, kind: "landing" | "article")
     // only to pages that exist — invented paths like "/services" were the root
     // cause of blocked/dead internal links. Non-fatal: no sitemap → the prompt
     // forbids inventing paths instead.
-    await refreshSitemapInventory(opp.projectId).catch(() => null);
+    await refreshSitemapInventory(opp.projectId).catch(rethrowSessionError);
+    session.check(); // before the paid step
     const { project, services } = requireProject(opp.projectId);
 
     const result = (await generateContentAssetFn({
       data: { project, services, opportunity: opp, kind },
     })) as AssetResult;
 
+    session.check();
     // P1-4: this generation path resolves invented links too.
     const resolvedBody = await resolveGeneratedLinks(result.markdown, project);
+    session.check(); // immediately before the mutation
+    if (!getState().opportunities.some((o) => o.id === opp.id)) throw producerSourceChanged();
     const existing = getState().content.find((a) => a.id === result.resultId);
     if (existing) return existing; // Recovery may have finished while this response was delayed.
     const asset: ContentAsset = {
@@ -341,7 +348,7 @@ export async function generateArticleDraft(opportunityId: string) {
 // Editor regenerations
 // ============================================================
 export async function generateMetadata(contentAssetId: string) {
-  return once(`meta:${contentAssetId}`, async () => {
+  return runOwnedProducer(`meta:${contentAssetId}`, "unretained", async (session) => {
     const a = getState().content.find((c) => c.id === contentAssetId);
     if (!a) throw new Error("Content not found.");
     const project = getState().projects.find((p) => p.id === a.projectId);
@@ -355,8 +362,12 @@ export async function generateMetadata(contentAssetId: string) {
         businessName: project?.businessName || project?.name || "the business",
       },
     })) as { metaTitle: string; metaDescription: string };
+    session.check();
+    const current = getState().content.find((c) => c.id === contentAssetId);
+    if (!current) throw producerSourceChanged(); // deleted meanwhile: never resurrect it
+    // Only the owned fields, applied to the CURRENT asset (concurrent edits are kept).
     upsertContent({
-      ...a,
+      ...current,
       metaTitle: result.metaTitle,
       metaDescription: result.metaDescription,
       updatedAt: new Date().toISOString(),
@@ -366,7 +377,7 @@ export async function generateMetadata(contentAssetId: string) {
 }
 
 export async function generateFaq(contentAssetId: string) {
-  return once(`faq:${contentAssetId}`, async () => {
+  return runOwnedProducer(`faq:${contentAssetId}`, "unretained", async (session) => {
     const a = getState().content.find((c) => c.id === contentAssetId);
     if (!a) throw new Error("Content not found.");
     const project = getState().projects.find((p) => p.id === a.projectId);
@@ -379,13 +390,16 @@ export async function generateFaq(contentAssetId: string) {
         businessName: project?.businessName || project?.name || "the business",
       },
     })) as { q: string; a: string }[];
-    upsertContent({ ...a, faq: result, updatedAt: new Date().toISOString() });
+    session.check();
+    const current = getState().content.find((c) => c.id === contentAssetId);
+    if (!current) throw producerSourceChanged();
+    upsertContent({ ...current, faq: result, updatedAt: new Date().toISOString() });
     await saveWorkspaceNow();
   });
 }
 
 export async function generateCta(contentAssetId: string) {
-  return once(`cta:${contentAssetId}`, async () => {
+  return runOwnedProducer(`cta:${contentAssetId}`, "unretained", async (session) => {
     const a = getState().content.find((c) => c.id === contentAssetId);
     if (!a) throw new Error("Content not found.");
     const project = getState().projects.find((p) => p.id === a.projectId);
@@ -401,7 +415,10 @@ export async function generateCta(contentAssetId: string) {
         intent: opp?.searchIntent ?? "Commercial",
       },
     })) as string;
-    upsertContent({ ...a, cta, updatedAt: new Date().toISOString() });
+    session.check();
+    const current = getState().content.find((c) => c.id === contentAssetId);
+    if (!current) throw producerSourceChanged();
+    upsertContent({ ...current, cta, updatedAt: new Date().toISOString() });
     await saveWorkspaceNow();
   });
 }
@@ -415,13 +432,31 @@ function languageLabel(lang: Language | undefined, fallback: Language): Language
   return lang ?? fallback;
 }
 
+/** Exactly what the quality evaluator judges: the canonical assembled body plus every other input
+ * it receives. A score is only current for an asset whose inputs still match (AZ). */
+function qualityEvaluationInput(a: ContentAsset, project: Project) {
+  return {
+    canonical: assembleContentAsset(a, project).markdown,
+    title: a.title,
+    assetType: a.assetType ?? "article",
+    destinationType: a.publishDestinationType ?? "",
+    metaTitle: a.metaTitle ?? "",
+    metaDescription: a.metaDescription ?? "",
+    contentLanguage: languageLabel(
+      a.language,
+      contentLangToProjectLanguage(project.primaryContentLanguage ?? "en"),
+    ),
+    explanationLanguage: contentLangToProjectLanguage(project.appLanguage ?? "en"),
+  };
+}
+
 /**
  * Evaluate a content asset and store its Milo Score. Empty/too-short drafts get
  * a conservative low score without an AI call. Failures throw a friendly error
  * and leave any existing score intact (the caller keeps the editor alive).
  */
 export async function evaluateContentQuality(contentAssetId: string) {
-  return once(`quality:${contentAssetId}`, async () => {
+  return runOwnedProducer(`quality:${contentAssetId}`, "unretained", async (session) => {
     const a = getState().content.find((c) => c.id === contentAssetId);
     if (!a) throw new Error("Content not found.");
     const { project, services } = requireProject(a.projectId);
@@ -448,6 +483,7 @@ export async function evaluateContentQuality(contentAssetId: string) {
       contentLangToProjectLanguage(project.primaryContentLanguage ?? "en"),
     );
     const explanationLanguage = contentLangToProjectLanguage(project.appLanguage ?? "en");
+    const evaluatedInput = qualityEvaluationInput(a, project);
 
     // P0.2 — the evaluator receives ONLY the canonical evaluated asset
     // (CANONICAL_EVALUATED_FIELDS in quality.ts): title + markdown body + meta.
@@ -469,9 +505,26 @@ export async function evaluateContentQuality(contentAssetId: string) {
       },
     });
 
-    // Only the score is persisted; the server's outcome (model | skipped) is provenance, not asset data.
+    // Only the score is persisted; the server outcome is provenance, not asset data.
     const score = evaluation.score;
-    upsertContent({ ...a, qualityScore: score, qualityScoreStale: false, updatedAt: evaluatedAt });
+    session.check();
+    const current = getState().content.find((c) => c.id === contentAssetId);
+    const currentProject = current && getState().projects.find((p) => p.id === current.projectId);
+    // The score describes exactly what the evaluator received (canonical assembled body, title,
+    // meta, type, destination, languages); if any of those differ NOW, the score is rejected.
+    if (
+      !current ||
+      !currentProject ||
+      JSON.stringify(qualityEvaluationInput(current, currentProject)) !==
+        JSON.stringify(evaluatedInput)
+    )
+      throw producerSourceChanged();
+    upsertContent({
+      ...current,
+      qualityScore: score,
+      qualityScoreStale: false,
+      updatedAt: evaluatedAt,
+    });
     await saveWorkspaceNow();
     console.info("[ai.client] milo score evaluated", {
       assetId: contentAssetId,
@@ -490,7 +543,7 @@ export async function evaluateContentQuality(contentAssetId: string) {
  * overwritten by reachability.
  */
 export async function validateAssetSources(assetId: string, force = false) {
-  return once(`validate-sources:${assetId}`, async () => {
+  return runOwnedProducer(`validate-sources:${assetId}`, "unretained", async (session) => {
     const a = getState().content.find((c) => c.id === assetId);
     if (!a) throw new Error("Content not found.");
     const sources = a.sources ?? [];
@@ -498,14 +551,27 @@ export async function validateAssetSources(assetId: string, force = false) {
     const toCheck = selectSourcesToValidate(sources, Date.now(), force);
     if (!toCheck.length) return sources;
     const results = await validateSourceUrlsFn({ data: { urls: toCheck.map((s) => s.url) } });
+    session.check();
+    const current = getState().content.find((c) => c.id === assetId);
+    if (!current) throw producerSourceChanged();
     const byUrl = new Map(results.map((r) => [normalizeSourceUrl(r.url), r]));
+    const sentByUrl = new Map(toCheck.map((s) => [normalizeSourceUrl(s.url), s]));
     const checkedAt = new Date().toISOString();
-    const next = sources.map((s) => {
-      const r = byUrl.get(normalizeSourceUrl(s.url));
+    // Reachability results are merged onto the CURRENT sources by URL, and only onto a source
+    // that is still the one that was sent: a human "unsupported" verdict (reachability cannot
+    // establish claim support), a changed status or a changed claim are preserved; additions,
+    // deletions and unrelated edits made meanwhile are kept as they are.
+    const next = (current.sources ?? []).map((s) => {
+      const key = normalizeSourceUrl(s.url);
+      const r = byUrl.get(key);
+      const sent = sentByUrl.get(key);
+      if (!r || !sent) return s;
+      if (s.status === "unsupported") return s;
+      if (s.status !== sent.status || (s.claim ?? "") !== (sent.claim ?? "")) return s;
       // Never count an unreachable source as verified; keep an explicit note.
-      return r ? { ...s, status: r.status, checkNote: r.note, checkedAt } : s;
+      return { ...s, status: r.status, checkNote: r.note, checkedAt };
     });
-    upsertContent({ ...a, sources: next, updatedAt: checkedAt });
+    upsertContent({ ...current, sources: next, updatedAt: checkedAt });
     await saveWorkspaceNow();
     console.info("[ai.client] sources validated", { assetId, checked: toCheck.length });
     return next;
@@ -549,7 +615,7 @@ const sitemapRetryAfter = new Map<string, number>();
 const SITEMAP_FAILURE_COOLDOWN_MS = 15 * 60_000;
 
 export async function refreshSitemapInventory(projectId: string, force = false) {
-  return once(`sitemap:${projectId}`, async () => {
+  return runOwnedProducer(`sitemap:${projectId}`, "unretained", async (session) => {
     const project = getState().projects.find((p) => p.id === projectId);
     if (!project) throw new Error("Project not found.");
     if (!force && isSitemapInventoryFresh(project.sitemapInventory, Date.now())) {
@@ -561,6 +627,7 @@ export async function refreshSitemapInventory(projectId: string, force = false) 
     const siteUrl = (project.websiteUrl || "").trim();
     if (!siteUrl) throw new Error("Add your website URL in Project Setup first.");
     const inv = await fetchSitemapInventoryFn({ data: { siteUrl } });
+    session.check();
     if (inv) {
       sitemapRetryAfter.delete(projectId);
       updateProject(projectId, { sitemapInventory: inv });
@@ -624,11 +691,12 @@ export async function createBlankDraftForOpportunity(opportunityId: string, asse
 }
 
 export async function improveContentDraft(contentAssetId: string) {
-  return once(`improve:${contentAssetId}`, async () => {
+  return runOwnedProducer(`improve:${contentAssetId}`, "unretained", async (session) => {
     const a = getState().content.find((c) => c.id === contentAssetId);
     if (!a) throw new Error("Content not found.");
     // Page-map-first here too, so Improve never introduces an invented path.
-    await refreshSitemapInventory(a.projectId).catch(() => null);
+    await refreshSitemapInventory(a.projectId).catch(rethrowSessionError);
+    session.check(); // before the paid step
     const { project, services } = requireProject(a.projectId);
 
     const suggestions = [
@@ -653,20 +721,25 @@ export async function improveContentDraft(contentAssetId: string) {
       },
     });
 
+    session.check();
     if (!markdown || !markdown.trim())
       throw new Error("AI returned empty content. Please try again.");
     const resolvedMarkdown = await resolveGeneratedLinks(markdown, project);
+    session.check();
+    const current = getState().content.find((c) => c.id === contentAssetId);
+    // The improved body derives from the body that was sent; a body edited meanwhile is not replaced.
+    if (!current || current.markdown !== a.markdown) throw producerSourceChanged();
     // Keep title/metadata/publish status; only the body changes. Score becomes stale.
     upsertContent({
-      ...a,
+      ...current,
       markdown: resolvedMarkdown,
       // Article Studio 3.0 / P1.2A — this is the in-place BODY regeneration path.
       // reconcile preserves an approved / user-edited / non-empty hook across the
       // regeneration; only an empty hook slot could take a fresh proposal, and this
       // path produces none (the improve fn regenerates the body only, and is given
       // the hook-free body, so it cannot reintroduce the hook).
-      hook: reconcileHookOnRegeneration(a.hook, undefined, a.hook?.id ?? uid()),
-      qualityScoreStale: a.qualityScore ? true : a.qualityScoreStale,
+      hook: reconcileHookOnRegeneration(current.hook, undefined, current.hook?.id ?? uid()),
+      qualityScoreStale: current.qualityScore ? true : current.qualityScoreStale,
       updatedAt: new Date().toISOString(),
     });
     await saveWorkspaceNow();
@@ -703,7 +776,7 @@ function opportunityFromFinding(finding: AuditFinding, project: Project): Opport
 }
 
 export async function runSiteAudit(projectId: string, websiteUrl?: string) {
-  return once(`audit:${projectId}`, async () => {
+  return runOwnedProducer(`audit:${projectId}`, "unretained", async (session) => {
     const { project, services } = requireProject(projectId);
     const url = (websiteUrl ?? project.websiteUrl ?? "").trim();
 
@@ -711,6 +784,7 @@ export async function runSiteAudit(projectId: string, websiteUrl?: string) {
     if (!res || !Array.isArray(res.findings) || res.findings.length === 0) {
       throw new Error("AI returned no audit findings. Please try again.");
     }
+    session.check(); // a late response never writes into another session
     console.info("[ai.client] audit received", {
       projectId,
       findings: res.findings.length,
@@ -766,7 +840,7 @@ export async function createOpportunityFromFinding(projectId: string, findingId:
 
 /** Bulk: create opportunities from the top 3–5 High/Medium findings not yet converted. */
 export async function createOpportunitiesFromTopFixes(projectId: string) {
-  return once(`audit-bulk:${projectId}`, async () => {
+  return runOwnedProducer(`audit-bulk:${projectId}`, "unretained", async (session) => {
     const s = getState();
     const audit = s.audits.find((a) => a.projectId === projectId);
     if (!audit) throw new Error("Run a site audit first.");
@@ -816,7 +890,7 @@ function opportunityFromGap(gap: CompetitorGap, project: Project): Opportunity {
 }
 
 export async function runCompetitorGap(projectId: string, competitorUrls: string[]) {
-  return once(`competitors:${projectId}`, async () => {
+  return runOwnedProducer(`competitors:${projectId}`, "unretained", async (session) => {
     const { project, services } = requireProject(projectId);
     const urls = competitorUrls
       .map((u) => u.trim())
@@ -833,6 +907,7 @@ export async function runCompetitorGap(projectId: string, competitorUrls: string
     if (!res || !Array.isArray(res.gaps) || res.gaps.length === 0) {
       throw new Error("AI returned no competitor gaps. Please try again.");
     }
+    session.check(); // a late response never writes into another session
     console.info("[ai.client] competitor-gap received", { projectId, gaps: res.gaps.length });
 
     const analysis: CompetitorAnalysisResult = {
@@ -880,7 +955,7 @@ export async function createOpportunityFromGap(projectId: string, gapId: string)
 
 /** Bulk: create opportunities from the top 3–5 High/Medium gaps not yet converted. */
 export async function createOpportunitiesFromTopGaps(projectId: string) {
-  return once(`competitors-bulk:${projectId}`, async () => {
+  return runOwnedProducer(`competitors-bulk:${projectId}`, "unretained", async (session) => {
     const s = getState();
     const analysis = s.competitorAnalyses.find((a) => a.projectId === projectId);
     if (!analysis) throw new Error("Run a competitor analysis first.");
@@ -930,7 +1005,7 @@ function opportunityFromAuthorityItem(item: AuthorityItem, project: Project): Op
 }
 
 export async function runAuthorityAnalysis(projectId: string) {
-  return once(`authority:${projectId}`, async () => {
+  return runOwnedProducer(`authority:${projectId}`, "unretained", async (session) => {
     const { project, services } = requireProject(projectId);
 
     // Reuse existing audit / competitor context (if any) for a richer plan.
@@ -957,6 +1032,7 @@ export async function runAuthorityAnalysis(projectId: string) {
     if (!res || !Array.isArray(res.authorityItems) || res.authorityItems.length === 0) {
       throw new Error("AI returned no authority opportunities. Please try again.");
     }
+    session.check(); // a late response never writes into another session
     console.info("[ai.client] authority received", { projectId, items: res.authorityItems.length });
 
     const analysis: AuthorityAnalysisResult = {
@@ -1005,7 +1081,7 @@ export async function createOpportunityFromAuthorityItem(projectId: string, item
 
 /** Bulk: create opportunities from the top 3–5 High/Medium authority items not yet converted. */
 export async function createOpportunitiesFromTopAuthority(projectId: string) {
-  return once(`authority-bulk:${projectId}`, async () => {
+  return runOwnedProducer(`authority-bulk:${projectId}`, "unretained", async (session) => {
     const s = getState();
     const analysis = s.authorityAnalyses.find((a) => a.projectId === projectId);
     if (!analysis) throw new Error("Run an authority analysis first.");
@@ -1096,7 +1172,7 @@ const normKey = (s: string) => s.trim().toLowerCase().replace(/\s+/g, " ");
 
 /** Generate v2 authority opportunities (Brand-Intelligence aware), deduped + appended. */
 export async function generateAuthorityOpportunities(projectId: string) {
-  return once(`authority2:${projectId}`, async () => {
+  return runOwnedProducer(`authority2:${projectId}`, "unretained", async (session) => {
     const { project, services } = requireProject(projectId);
     const s = getState();
     const existing = s.authorityOpportunities.filter((a) => a.projectId === projectId);
@@ -1109,6 +1185,7 @@ export async function generateAuthorityOpportunities(projectId: string) {
     const { opportunities } = await generateAuthorityOpportunitiesFn({
       data: { project, services, existingTitles, livePages, explanationLanguage },
     });
+    session.check();
     if (!opportunities.length)
       throw new Error("AI returned no authority opportunities. Please try again.");
 
@@ -1202,7 +1279,7 @@ function opportunityFromVisibilityGap(gap: AiVisibilityGap, project: Project): O
 }
 
 export async function runAiVisibilityAnalysis(projectId: string) {
-  return once(`aivis:${projectId}`, async () => {
+  return runOwnedProducer(`aivis:${projectId}`, "unretained", async (session) => {
     const { project, services } = requireProject(projectId);
 
     // Reuse existing audit / competitor / authority context (if any).
@@ -1231,6 +1308,7 @@ export async function runAiVisibilityAnalysis(projectId: string) {
     ) {
       throw new Error("AI returned no AI-visibility results. Please try again.");
     }
+    session.check(); // a late response never writes into another session
     console.info("[ai.client] ai-visibility received", {
       projectId,
       prompts: res.promptSets?.length ?? 0,
@@ -1293,7 +1371,7 @@ export async function createOpportunityFromVisibilityGap(projectId: string, gapI
 
 /** Bulk: create opportunities from the top 3–5 High/Medium visibility gaps not yet converted. */
 export async function createOpportunitiesFromTopAiActions(projectId: string) {
-  return once(`aivis-bulk:${projectId}`, async () => {
+  return runOwnedProducer(`aivis-bulk:${projectId}`, "unretained", async (session) => {
     const s = getState();
     const analysis = s.aiVisibilityAnalyses.find((a) => a.projectId === projectId);
     if (!analysis) throw new Error("Run an AI visibility analysis first.");
@@ -1354,7 +1432,7 @@ export async function getBacklinksStatus() {
 }
 
 export async function runBacklinkAnalysis(projectId: string) {
-  return once(`backlinks:${projectId}`, async () => {
+  return runOwnedProducer(`backlinks:${projectId}`, "unretained", async (session) => {
     const { project, services } = requireProject(projectId);
 
     // Competitor domains: project setup first, then the latest competitor analysis.
@@ -1371,6 +1449,7 @@ export async function runBacklinkAnalysis(projectId: string) {
     if (!res || !Array.isArray(res.recommendations) || res.recommendations.length === 0) {
       throw new Error("AI returned no backlink recommendations. Please try again.");
     }
+    session.check(); // a late response never writes into another session
     console.info("[ai.client] backlinks received", {
       projectId,
       recommendations: res.recommendations.length,
@@ -1432,7 +1511,7 @@ export async function createOpportunityFromBacklinkRecommendation(
 
 /** Bulk: create opportunities from the top 3–5 High/Medium recommendations not yet converted. */
 export async function createOpportunitiesFromTopBacklinkActions(projectId: string) {
-  return once(`backlinks-bulk:${projectId}`, async () => {
+  return runOwnedProducer(`backlinks-bulk:${projectId}`, "unretained", async (session) => {
     const s = getState();
     const analysis = s.backlinkAnalyses.find((a) => a.projectId === projectId);
     if (!analysis) throw new Error("Run a backlink analysis first.");
@@ -1478,40 +1557,45 @@ export async function generateOutreachDraft(
     source: OutreachTargetSource;
   },
 ) {
-  return once(`outreach:${projectId}:${input.targetDomain.toLowerCase()}`, async () => {
-    const { project, services } = requireProject(projectId);
-    const generated = await generateOutreachDraftFn({
-      data: {
-        project,
-        services,
+  return runOwnedProducer(
+    `outreach:${projectId}:${input.targetDomain.toLowerCase()}`,
+    "unretained",
+    async (session) => {
+      const { project, services } = requireProject(projectId);
+      const generated = await generateOutreachDraftFn({
+        data: {
+          project,
+          services,
+          targetDomain: input.targetDomain,
+          contactName: input.contactName ?? "",
+          reason: input.reason ?? "",
+          suggestedAsset: input.suggestedAsset ?? "",
+          language: contentLangToProjectLanguage(project.appLanguage ?? "en"),
+        },
+      });
+      session.check();
+      const now = new Date().toISOString();
+      const draft: OutreachDraft = {
+        id: uid(),
+        projectId,
         targetDomain: input.targetDomain,
-        contactName: input.contactName ?? "",
-        reason: input.reason ?? "",
-        suggestedAsset: input.suggestedAsset ?? "",
-        language: contentLangToProjectLanguage(project.appLanguage ?? "en"),
-      },
-    });
-    const now = new Date().toISOString();
-    const draft: OutreachDraft = {
-      id: uid(),
-      projectId,
-      targetDomain: input.targetDomain,
-      contactName: input.contactName?.trim() ?? "",
-      contactEmail: input.contactEmail?.trim() ?? "",
-      source: input.source,
-      subject: generated.subject,
-      body: generated.body,
-      suggestedAsset: generated.suggestedAsset,
-      rationale: generated.rationale,
-      status: "Draft",
-      followUps: generated.followUps,
-      createdAt: now,
-      updatedAt: now,
-    };
-    addOutreachDraft(draft);
-    await saveWorkspaceNow();
-    return draft;
-  });
+        contactName: input.contactName?.trim() ?? "",
+        contactEmail: input.contactEmail?.trim() ?? "",
+        source: input.source,
+        subject: generated.subject,
+        body: generated.body,
+        suggestedAsset: generated.suggestedAsset,
+        rationale: generated.rationale,
+        status: "Draft",
+        followUps: generated.followUps,
+        createdAt: now,
+        updatedAt: now,
+      };
+      addOutreachDraft(draft);
+      await saveWorkspaceNow();
+      return draft;
+    },
+  );
 }
 
 // ============================================================
@@ -1557,24 +1641,31 @@ export async function generateContentForOpportunity(
    */
   seed?: Pick<ContentAsset, "publishSlug" | "republishTargetUrl">,
 ) {
-  return once(`content:${opportunityId}:${assetType}`, async () => {
+  return runOwnedProducer(`content:${opportunityId}:${assetType}`, "retained", async (session) => {
     const s = getState();
     const opp = s.opportunities.find((o) => o.id === opportunityId);
     if (!opp) throw new Error("Opportunity not found.");
     // Same page-map-first rule as generateAsset: never let the model guess paths.
-    await refreshSitemapInventory(opp.projectId).catch(() => null);
+    await refreshSitemapInventory(opp.projectId).catch(rethrowSessionError);
+    session.check(); // before the paid step
     const { project, services } = requireProject(opp.projectId);
 
     const result = (await generateContentFn({
       data: { project, services, opportunity: opp, assetType },
     })) as GeneratedContent;
 
+    // The server retained this result for the ORIGINAL user before answering (Recent
+    // generations recovers it without a new provider call); the client import below is
+    // fenced to that user's session and is never applied to a replacement session.
+    session.check();
     if (!result || !result.markdown) {
       throw new Error("AI returned empty content. Please try again.");
     }
 
     const now = new Date().toISOString();
     const resolvedBody = await resolveGeneratedLinks(result.markdown, project);
+    session.check(); // immediately before the mutation
+    if (!getState().opportunities.some((o) => o.id === opp.id)) throw producerSourceChanged();
     const existing = getState().content.find((a) => a.id === result.resultId);
     if (existing) return existing; // Recovery may have finished while this response was delayed.
     const asset: ContentAsset = {
@@ -1637,22 +1728,25 @@ export async function generateContentForOpportunity(
 
 /** Test the project's WordPress connection and persist the result (no secrets stored beyond settings). */
 export async function testWordPressConnection(projectId: string) {
-  const s = getState();
-  const project = s.projects.find((p) => p.id === projectId);
-  if (!project) throw new Error("Project not found.");
-  // creds.applicationPassword is "" for a migrated project (store-held, never
-  // hydrated to the browser); the server resolves it from projectId instead.
-  const creds = wpCreds(project);
-  const res = await testWordPressConnectionFn({ data: { ...creds, projectId } });
-  updateProjectConnector(projectId, {
-    wordpress: {
-      lastTestedAt: new Date().toISOString(),
-      lastTestStatus: res.success ? "success" : "error",
-      lastTestMessage: res.success ? res.message : res.error,
-    },
+  return runOwnedProducer(`wp-test:${projectId}`, "external", async (session) => {
+    const s = getState();
+    const project = s.projects.find((p) => p.id === projectId);
+    if (!project) throw new Error("Project not found.");
+    // creds.applicationPassword is "" for a migrated project (store-held, never
+    // hydrated to the browser); the server resolves it from projectId instead.
+    const creds = wpCreds(project);
+    const res = await testWordPressConnectionFn({ data: { ...creds, projectId } });
+    session.check();
+    updateProjectConnector(projectId, {
+      wordpress: {
+        lastTestedAt: new Date().toISOString(),
+        lastTestStatus: res.success ? "success" : "error",
+        lastTestMessage: res.success ? res.message : res.error,
+      },
+    });
+    await saveWorkspaceNow();
+    return res;
   });
-  await saveWorkspaceNow();
-  return res;
 }
 
 /**
@@ -1711,7 +1805,12 @@ function assertPublishable(asset: ContentAsset, project: Project): void {
   }
 }
 
-async function sendToWordPressDraft(asset: ContentAsset, project: Project, slug: string) {
+async function sendToWordPressDraft(
+  asset: ContentAsset,
+  project: Project,
+  slug: string,
+  session: ProducerSession,
+) {
   const creds = wpCreds(project);
   const postType = wpPostTypeFor(asset, project);
   // Manual == scheduled: body markdown + structured data both come from the ONE
@@ -1738,6 +1837,7 @@ async function sendToWordPressDraft(asset: ContentAsset, project: Project, slug:
       excerpt: asset.metaDescription ?? "",
     },
   });
+  session.check(); // the destination may already have changed; only this session projects it
   if (!res.success) {
     const msg = res.error || "WordPress draft failed. Please try again.";
     markContentAssetPublishFailed(asset.id, msg, new Date().toISOString());
@@ -1759,7 +1859,11 @@ async function sendToWordPressDraft(asset: ContentAsset, project: Project, slug:
   return res;
 }
 
-async function publishToWordPressLive(asset: ContentAsset, project: Project) {
+async function publishToWordPressLive(
+  asset: ContentAsset,
+  project: Project,
+  session: ProducerSession,
+) {
   const creds = wpCreds(project);
   const postType = wpPostTypeFor(asset, project);
   const activePaths = knownPathsForProject(project);
@@ -1785,6 +1889,7 @@ async function publishToWordPressLive(asset: ContentAsset, project: Project) {
       excerpt: asset.metaDescription ?? "",
     },
   });
+  session.check(); // the destination may already have changed; only this session projects it
   if (!res.success || !res.liveUrl) {
     const msg = res.error || "WordPress published but did not return a live URL.";
     if (res.recordingFailed) {
@@ -1820,22 +1925,25 @@ async function publishToWordPressLive(asset: ContentAsset, project: Project) {
 
 /** Test the project's Shopify connection and persist the result. */
 export async function testShopifyConnection(projectId: string) {
-  const s = getState();
-  const project = s.projects.find((p) => p.id === projectId);
-  if (!project) throw new Error("Project not found.");
-  // creds.adminAccessToken is "" for a migrated project (store-held, never
-  // hydrated to the browser); the server resolves it from projectId instead.
-  const creds = shopifyCreds(project);
-  const res = await testShopifyConnectionFn({ data: { ...creds, projectId } });
-  updateProjectConnector(projectId, {
-    shopify: {
-      lastTestedAt: new Date().toISOString(),
-      lastTestStatus: res.success ? "success" : "error",
-      lastTestMessage: res.success ? res.message : res.error,
-    },
+  return runOwnedProducer(`shopify-test:${projectId}`, "external", async (session) => {
+    const s = getState();
+    const project = s.projects.find((p) => p.id === projectId);
+    if (!project) throw new Error("Project not found.");
+    // creds.adminAccessToken is "" for a migrated project (store-held, never
+    // hydrated to the browser); the server resolves it from projectId instead.
+    const creds = shopifyCreds(project);
+    const res = await testShopifyConnectionFn({ data: { ...creds, projectId } });
+    session.check();
+    updateProjectConnector(projectId, {
+      shopify: {
+        lastTestedAt: new Date().toISOString(),
+        lastTestStatus: res.success ? "success" : "error",
+        lastTestMessage: res.success ? res.message : res.error,
+      },
+    });
+    await saveWorkspaceNow();
+    return res;
   });
-  await saveWorkspaceNow();
-  return res;
 }
 
 /** Fetch the store's blogs for the blog selector. */
@@ -1847,10 +1955,11 @@ export async function listShopifyBlogs(projectId: string) {
   return listShopifyBlogsFn({ data: { ...creds, projectId } });
 }
 
-async function sendToShopifyDraft(asset: ContentAsset, project: Project) {
+async function sendToShopifyDraft(asset: ContentAsset, project: Project, session: ProducerSession) {
   const res = await sendContentToShopifyDraftFn({
     data: shopifyArticleArgs(asset, project, knownPathsForProject(project)),
   });
+  session.check(); // the destination may already have changed; only this session projects it
   if (!res.success) {
     const msg = res.error || "Shopify article failed. Please try again.";
     markContentAssetPublishFailed(asset.id, msg, new Date().toISOString());
@@ -1878,10 +1987,15 @@ async function sendToShopifyDraft(asset: ContentAsset, project: Project) {
   return res;
 }
 
-async function publishToShopifyLive(asset: ContentAsset, project: Project) {
+async function publishToShopifyLive(
+  asset: ContentAsset,
+  project: Project,
+  session: ProducerSession,
+) {
   const res = await publishShopifyContentFn({
     data: shopifyArticleArgs(asset, project, knownPathsForProject(project)),
   });
+  session.check(); // the destination may already have changed; only this session projects it
   if (!res.success || !res.liveUrl) {
     const msg = res.error || "Shopify published but did not return a live URL.";
     if (res.recordingFailed) {
@@ -1932,7 +2046,7 @@ export async function sendContentToWebsite(
   destinationType: PublishDestinationType,
   slug: string,
 ) {
-  return once(`publish:${assetId}`, async () => {
+  return runOwnedProducer(`publish:${assetId}`, "external", async (session) => {
     const s = getState();
     const asset = s.content.find((c) => c.id === assetId);
     if (!asset) throw new Error("Content asset not found.");
@@ -1955,11 +2069,11 @@ export async function sendContentToWebsite(
 
     // WordPress connector branch — create/update a WordPress draft.
     if (isWordPress(project)) {
-      return sendToWordPressDraft(asset, project, finalSlug);
+      return sendToWordPressDraft(asset, project, finalSlug, session);
     }
     // Shopify connector branch — create/update an unpublished article.
     if (isShopify(project)) {
-      return sendToShopifyDraft(asset, project);
+      return sendToShopifyDraft(asset, project, session);
     }
 
     const endpoint = (project.publishEndpoint ?? "").trim();
@@ -1991,6 +2105,7 @@ export async function sendContentToWebsite(
         },
       });
 
+      session.check();
       markContentAssetSent(assetId, {
         publishDestinationType: destinationType,
         publishSlug: finalSlug,
@@ -2002,6 +2117,8 @@ export async function sendContentToWebsite(
       console.info("[ai.client] draft sent to website", { projectId: project.id, destinationType });
       return res;
     } catch (e) {
+      if (e instanceof ProducerSessionError) throw e; // never project a failure into another session
+      session.check(); // a late refusal from the old session is not projected either
       const msg = e instanceof Error ? e.message : "Publishing failed. Please try again.";
       markContentAssetPublishFailed(assetId, msg, new Date().toISOString());
       await saveWorkspaceNow();
@@ -2016,7 +2133,7 @@ export async function sendContentToWebsite(
  * Stores published/failed status; preserves draft state + content on failure.
  */
 export async function publishContentLive(assetId: string) {
-  return once(`publish-live:${assetId}`, async () => {
+  return runOwnedProducer(`publish-live:${assetId}`, "external", async (session) => {
     const s = getState();
     const asset = s.content.find((c) => c.id === assetId);
     if (!asset) throw new Error("Content asset not found.");
@@ -2026,11 +2143,11 @@ export async function publishContentLive(assetId: string) {
 
     // WordPress connector branch — publish/update the post live (create if needed).
     if (isWordPress(project)) {
-      return publishToWordPressLive(asset, project);
+      return publishToWordPressLive(asset, project, session);
     }
     // Shopify connector branch — publish/update the article live (create if needed).
     if (isShopify(project)) {
-      return publishToShopifyLive(asset, project);
+      return publishToShopifyLive(asset, project, session);
     }
 
     const liveEndpoint = (project.livePublishEndpoint ?? "").trim();
@@ -2052,6 +2169,7 @@ export async function publishContentLive(assetId: string) {
           assetId: asset.id,
         },
       });
+      session.check();
       markContentAssetPublishedLive(assetId, {
         liveUrl: res.liveUrl,
         livePublishedAt: res.publishedAt,
@@ -2061,6 +2179,8 @@ export async function publishContentLive(assetId: string) {
       console.info("[ai.client] published live", { projectId: project.id });
       return res;
     } catch (e) {
+      if (e instanceof ProducerSessionError) throw e;
+      session.check(); // a late refusal from the old session is not projected either
       const msg = e instanceof Error ? e.message : "Live publish failed. Please try again.";
       markContentAssetLivePublishFailed(assetId, msg, new Date().toISOString());
       await saveWorkspaceNow();

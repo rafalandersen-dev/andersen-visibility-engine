@@ -3,7 +3,7 @@ export const DE_AUTHORING_SOURCE_REVISION = "5a9416d74f532b65f78c0f19b89d221c6b2
 export const DE_AUTHORING_SOURCE_HASHES: Readonly<Record<string, string>> = {
   // Conversation source is the specialist-evidence chat candidate after ff9b085, recorded on its batch.
   conversation: "d37f66e7435e11e49b2e69c75ace0f494c1d288b7c4e4b1d3f3c110a1274649b",
-  core: "845b2b1ade4a0935ab924dcc4bdc27d72a7a120388740354bd69a697aa1c7ff2",
+  core: "8476f0a4138861b0b333d132799933037eda17dbd2d1ba4207b7cc4e0c9337d1",
   authentication: "f0d4cd1cdcf0283517e3a90abea9abdbc8528a76d9a15c10c7cad3ef84729dc8",
   "shared controls": "678278d00a51f6b4df582627cce0d38b176e65972d6ac578682f8e2e247d9de5",
   "setup screen": "565b0bcd89f346fd85f3b87d4e44716826a65bee54fd60eaa3b677c4d732a5ca",
@@ -12,7 +12,7 @@ export const DE_AUTHORING_SOURCE_HASHES: Readonly<Record<string, string>> = {
   "analytics screen": "d86d151031ad82c4dbc559e9816ad14cecaa3e4f1b0de2ff8de3c484de5b02c5",
   "billing screen": "d0e701bae4247d1129cc13dd6df6d9b569e725edbf5136255b68ca3fb2307194",
   "evidence screen": "2c7e9ccb48b02cd12911d0df6c31a96ec8ddfc6c558dfda3b3e14790d156c136",
-  "plan screen": "288f529ed3a18c00623c05011262d3cce0374158e558959fa8fc9dbc63174bb7",
+  "plan screen": "2bbe51606245c7a6fa86d34f4c932c7ecb9ac0332b116270fff96c3c8e5175c4",
   "editor screen": "1e827d2744ea1f2d3364b54983f06b42082f45ab6dfb0eda7b1375fdddd9ec9f",
   workflow: "a814f6d27647a305507c9298eaac39fe7c6eb27d0b98c06aac6603a26a8f7058",
   collaboration: "66e659da6d8b879af77aef68c0bba3717cb793240da5ae2364a93212f16bd83f",

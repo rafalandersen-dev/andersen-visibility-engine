@@ -24,6 +24,8 @@ const h = vi.hoisted(() => ({
 
 vi.mock("./store", () => ({
   getState: () => h.state,
+  // Integration: keep the real producer guard active in this caller fixture.
+  getWorkspaceSaveContext: () => ({ userId: "fixture-owner", epoch: 1, hydrated: true }),
   upsertContent: h.upsertContent,
   saveWorkspaceNow: h.saveWorkspaceNow,
 }));

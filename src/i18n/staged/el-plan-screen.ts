@@ -86,6 +86,15 @@ export const elPlanScreen: Readonly<Record<string, string>> = {
   "planScreen.discovery.suggestions": "Προτάσεις ανακάλυψης",
   "planScreen.discovery.awaiting": "Αναμένουν έλεγχο: {count}",
   "planScreen.discovery.addSelected": "Προσθήκη επιλεγμένων στο Πλάνο ({count})",
+  "planScreen.discovery.save.pending": "Αποθήκευση της επιλογής στον χώρο εργασίας…",
+  "planScreen.discovery.save.unconfirmed":
+    "Δεν μπορέσαμε να επιβεβαιώσουμε την αποθήκευση. Οι αλλαγές σας βρίσκονται σε αυτόν τον ανοιχτό χώρο εργασίας και δεν έχουν επιβεβαιωθεί ως αποθηκευμένες. Δοκιμάστε ξανά την αποθήκευση πριν από επαναφόρτωση ή αποσύνδεση.",
+  "planScreen.discovery.save.notReady":
+    "Ο χώρος εργασίας δεν είναι ακόμη έτοιμος για αποθήκευση. Οι αλλαγές σας βρίσκονται σε αυτόν τον ανοιχτό χώρο εργασίας και δεν έχουν επιβεβαιωθεί ως αποθηκευμένες. Δοκιμάστε ξανά μόλις φορτωθεί.",
+  "planScreen.discovery.save.retry": "Δοκιμή αποθήκευσης ξανά",
+  "planScreen.discovery.save.retryNote":
+    "Η επανάληψη αποθηκεύει τις τρέχουσες αλλαγές του χώρου εργασίας.",
+  "planScreen.discovery.save.confirmed": "Η αποθήκευση επιβεβαιώθηκε.",
   "planScreen.discovery.emptyTitle": "Δεν εκκρεμούν προτάσεις",
   "planScreen.discovery.emptyHelp":
     "Εκτέλεσε ανακάλυψη για να ελέγξεις νέες προτάσεις. Οι υπάρχουσες ευκαιρίες παραμένουν στο Πλάνο.",
