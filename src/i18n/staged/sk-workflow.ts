@@ -175,6 +175,9 @@ export const skWorkflow: Readonly<Record<string, string>> = {
   "quality.cat.conversion": "Konverzia",
   "quality.cat.trustSafety": "Dôvera a bezpečnosť",
   "quality.cat.internalLinks": "Interné odkazy",
+  "quality.fallback.unassessed": "Nehodnotené: hodnotiteľ nevrátil pre túto kategóriu platné skóre (nedostatočné podklady, nie nameraný problém).",
+  "quality.fallback.evaluatorNote": "Poznámka hodnotiteľa",
+  "quality.fallback.noExplanation": "Pre túto kategóriu nebolo vrátené žiadne vysvetlenie.",
   "editor.schedule.sourceHeldAt":
     "Pôvodný dátum: {when}. Pozastavené na kontrolu zdrojov; žiadne publikovanie nie je vo fronte.",
   "editor.schedule.failedTitle": "Naplánované publikovanie zlyhalo",

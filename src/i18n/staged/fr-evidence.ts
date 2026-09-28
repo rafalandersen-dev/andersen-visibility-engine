@@ -57,6 +57,12 @@ export const frEvidence: Readonly<Record<string, string>> = {
   "aiEval.rating.languageQuality": "Qualité linguistique",
   "aiEval.rating.usefulness": "Utilité",
   "aiEval.rating.safetyTrust": "Sécurité / confiance",
+  "aiEval.status.skipped": "Ignoré",
+  "aiEval.skipped.tooShort": "Aucun modèle n’a été exécuté : ce brouillon compte moins de 40 mots, Milo a donc renvoyé son score fixe et prudent « trop court » sans appel de modèle. Il n’y a rien à comparer, et aucune exécution, latence ou note n’a été enregistrée pour cette tentative.",
+  "aiEval.shortDraftHint": "Ce brouillon compte moins de 40 mots. Milo Score renverrait son score fixe « trop court » sans appel de modèle, il n’y a donc rien à comparer. Choisissez un brouillon plus long.",
+  "aiEval.status.notRun": "Non exécuté",
+  "aiEval.notRunAfterSkip": "Non exécuté : le côté existant a été ignoré, le modèle candidat n’a donc pas été appelé.",
+  "aiEval.skippedCandidate.tooShort": "Le modèle existant a été exécuté, mais le candidat a renvoyé le score fixe « trop court » de Milo sans appel de modèle. Aucune comparaison n’a été enregistrée et cette tentative ne peut pas être notée.",
   "proof.title": "Preuves de publication et résultats ultérieurs",
   "proof.help":
     "Chaque nouvelle tentative de publication conserve sa version approuvée et les références à ses sources et à son action. Les mesures ultérieures sont enregistrées séparément. Les anciennes mentions de publication ne sont pas converties rétroactivement en preuves vérifiées.",

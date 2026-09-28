@@ -57,6 +57,12 @@ export const huEvidence = {
   "aiEval.rating.languageQuality": "Nyelvi minőség",
   "aiEval.rating.usefulness": "Hasznosság",
   "aiEval.rating.safetyTrust": "Biztonság / megbízhatóság",
+  "aiEval.status.skipped": "Kihagyva",
+  "aiEval.skipped.tooShort": "Nem futott modell: ez a vázlat 40 szónál rövidebb, ezért a Milo modellhívás nélkül a rögzített, óvatos „túl rövid” pontszámát adta vissza. Nincs mit összehasonlítani, és ehhez a kísérlethez nem lett mentve futás, késleltetés vagy értékelés.",
+  "aiEval.shortDraftHint": "Ez a vázlat 40 szónál rövidebb. A Milo Score modellhívás nélkül a rögzített „túl rövid” pontszámát adná vissza, így nincs mit összehasonlítani. Válasszon hosszabb vázlatot.",
+  "aiEval.status.notRun": "Nem futott",
+  "aiEval.notRunAfterSkip": "Nem futott: a meglévő oldal kimaradt, így a jelölt modell nem lett meghívva.",
+  "aiEval.skippedCandidate.tooShort": "A meglévő modell lefutott, de a jelölt modellhívás nélkül a Milo rögzített „túl rövid” pontszámát adta vissza. Nem lett mentve összehasonlítás, és ez a kísérlet nem értékelhető.",
   "proof.title": "Közzétételi bizonyítékok és későbbi eredmények",
   "proof.help":
     "Minden új közzétételi kísérlet megőrzi a jóváhagyott verziót, valamint a forrásokra és műveletekre mutató hivatkozásokat. A későbbi mérések külön kerülnek mentésre. A korábbi közzétételi címkéket nem töltjük vissza ellenőrzött bizonyítékként.",

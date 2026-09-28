@@ -19,7 +19,13 @@ import { AiExpenseUnavailableError } from "./ai-expense.server";
 import { z } from "zod";
 import { AiProviderConfigurationError } from "./ai-provider.server";
 import { classifyAiError, aiErrorUserMessage } from "./ai-error-diagnostics.server";
-import { normalizeQualityScore } from "./quality";
+import {
+  MIN_EVALUABLE_WORDS,
+  hasMinimumWords,
+  normalizeQualityScore,
+  tooShortScore,
+  type QualityEvaluationResult,
+} from "./quality";
 import { normalizeHookProposals } from "./hook";
 import { internalLinkRule } from "./internal-link-prompt";
 import { brandIntelligenceBlock } from "./brand";
@@ -38,6 +44,7 @@ import { claimAiUsage, type UsageBucket } from "./ai-usage.server";
 import { withGenerationUsage } from "./generation-usage.server";
 import { contentRecoveryTarget, retainContentGeneration } from "./generation-result.server";
 import { CONTENT_BODY_MAX_CHARS } from "./generation-result";
+import { CANONICAL_DOCUMENT_MAX_CHARS } from "./content-assembler";
 
 const MODEL = DEFAULT_MODEL_ID;
 
@@ -2665,7 +2672,14 @@ export const evaluateContentQualityFn = createServerFn({ method: "POST" })
         project: z.any(),
         services: z.array(z.any()).default([]),
         title: z.string().default(""),
-        markdown: z.string().default(""),
+        // Bounded BEFORE anything reads it (finding 4125880002): the caller sends the CANONICAL
+        // assembled document (body + composed hook/TL;DR/takeaways/sources/author/breadcrumb/image
+        // sections), so the bound is CANONICAL_DOCUMENT_MAX_CHARS — the generated-body limit plus
+        // the assembler's finite sections allowance — in UTF-16 code units (zod `.max` = `length`).
+        // An oversized document is refused by input validation, before the word scan, the usage
+        // claim and the provider; nothing is truncated. The model itself still reads only the
+        // first 12 000 units of the document (the existing prompt slice below).
+        markdown: z.string().max(CANONICAL_DOCUMENT_MAX_CHARS).default(""),
         assetType: z.string().default("article"),
         destinationType: z.string().default(""),
         metaTitle: z.string().default(""),
@@ -2676,7 +2690,16 @@ export const evaluateContentQualityFn = createServerFn({ method: "POST" })
       })
       .parse(input),
   )
-  .handler(async ({ data, context }) => {
+  .handler(async ({ data, context }): Promise<QualityEvaluationResult> => {
+    // Short-draft economy, enforced here as well as in the client caller: an empty or
+    // too-short draft gets the same conservative score with NO usage claim and NO
+    // provider call (the owner evaluation route reaches this handler directly). The
+    // explicit `outcome: "skipped"` tells callers this is not model work. The predicate
+    // stops at the 40th word (no rewritten copy, no token array) and agrees with
+    // draftWordCount on every input.
+    if (!hasMinimumWords(data.markdown, MIN_EVALUABLE_WORDS)) {
+      return { outcome: "skipped", reason: "tooShort", score: tooShortScore(new Date().toISOString()) };
+    }
     // Spend limit, claimed before any model call so a refusal costs nothing.
     await claimAiUsage({ userId: context.userId as string, bucket: "miloScore" });
     const project = data.project as Project;
@@ -2726,8 +2749,11 @@ ${sharedRules}`,
         data.modelOverride,
       );
       // Normalize server-side so the return type is a concrete, serializable
-      // QualityScore (defensive: clamps, recomputes overall, fills fallbacks).
-      return normalizeQualityScore(payload, new Date().toISOString(), data.modelOverride || MODEL);
+      // QualityScore (defensive: validates, recomputes overall, marks unassessed).
+      return {
+        outcome: "model",
+        score: normalizeQualityScore(payload, new Date().toISOString(), data.modelOverride || MODEL),
+      };
     } catch (e) {
       throw mapGatewayError(e);
     }

@@ -509,6 +509,9 @@ export const sv: Record<string, string> = {
   "quality.cat.conversion": "Konvertering",
   "quality.cat.trustSafety": "Förtroende och säkerhet",
   "quality.cat.internalLinks": "Interna länkar",
+  "quality.fallback.unassessed": "Inte bedömd: utvärderaren returnerade ingen giltig poäng för den här kategorin (otillräckligt underlag, inte ett uppmätt problem).",
+  "quality.fallback.evaluatorNote": "Utvärderarens notering",
+  "quality.fallback.noExplanation": "Ingen förklaring returnerades för den här kategorin.",
 
   // ---- Brand Intelligence ----
   "brand.title": "Varumärkesintelligens",
@@ -832,6 +835,12 @@ export const sv: Record<string, string> = {
   "aiEval.rating.languageQuality": "Språkkvalitet",
   "aiEval.rating.usefulness": "Användbarhet",
   "aiEval.rating.safetyTrust": "Säkerhet / förtroende",
+  "aiEval.status.skipped": "Hoppades över",
+  "aiEval.skipped.tooShort": "Ingen modell kördes: utkastet har färre än 40 ord, så Milo returnerade sin fasta, försiktiga poäng för för korta utkast utan modellanrop. Det finns inget att jämföra, och ingen körning, latens eller betyg sparades för det här försöket.",
+  "aiEval.shortDraftHint": "Utkastet har färre än 40 ord. Milo Score skulle returnera sin fasta poäng för för korta utkast utan modellanrop, så det finns inget att jämföra. Välj ett längre utkast.",
+  "aiEval.status.notRun": "Kördes inte",
+  "aiEval.notRunAfterSkip": "Kördes inte: den befintliga sidan hoppades över, så kandidatmodellen anropades inte.",
+  "aiEval.skippedCandidate.tooShort": "Den befintliga modellen kördes, men kandidaten returnerade Milos fasta poäng för för korta utkast utan modellanrop. Ingen jämförelse sparades och det här försöket kan inte betygsättas.",
 
   // ---- Free AI Visibility Readiness Audit (public) ----
   "publicAudit.badge": "Gratis granskning",

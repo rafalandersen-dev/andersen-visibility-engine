@@ -58,6 +58,12 @@ export const nlEvidence: Readonly<Record<string, string>> = {
   "aiEval.rating.languageQuality": "Taalkwaliteit",
   "aiEval.rating.usefulness": "Bruikbaarheid",
   "aiEval.rating.safetyTrust": "Veiligheid / vertrouwen",
+  "aiEval.status.skipped": "Overgeslagen",
+  "aiEval.skipped.tooShort": "Er is geen model uitgevoerd: dit concept heeft minder dan 40 woorden, dus Milo gaf zijn vaste, voorzichtige te-kort-score terug zonder modelaanroep. Er valt niets te vergelijken, en voor deze poging zijn geen run, latentie of beoordelingen opgeslagen.",
+  "aiEval.shortDraftHint": "Dit concept heeft minder dan 40 woorden. Milo Score zou zijn vaste te-kort-score teruggeven zonder modelaanroep, dus er valt niets te vergelijken. Kies een langer concept.",
+  "aiEval.status.notRun": "Niet uitgevoerd",
+  "aiEval.notRunAfterSkip": "Niet uitgevoerd: de bestaande kant is overgeslagen, dus het kandidaatmodel is niet aangeroepen.",
+  "aiEval.skippedCandidate.tooShort": "Het bestaande model is uitgevoerd, maar de kandidaat gaf Milo's vaste te-kort-score terug zonder modelaanroep. Er is geen vergelijking opgeslagen en deze poging kan niet worden beoordeeld.",
   "proof.title": "Publicatiebewijs en latere resultaten",
   "proof.help":
     "Elke nieuwe publicatiepoging bewaart de goedgekeurde versie en bron-/actiereferenties. Latere metingen worden apart opgeslagen. Historische publicatielabels worden niet achteraf als geverifieerd bewijs ingevuld.",

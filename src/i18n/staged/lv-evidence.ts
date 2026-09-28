@@ -59,6 +59,12 @@ export const lvEvidence: Readonly<Record<string, string>> = {
   "aiEval.rating.languageQuality": "Valodas kvalitāte",
   "aiEval.rating.usefulness": "Lietderība",
   "aiEval.rating.safetyTrust": "Drošība / uzticamība",
+  "aiEval.status.skipped": "Izlaists",
+  "aiEval.skipped.tooShort": "Neviens modelis netika palaists: šajā melnrakstā ir mazāk nekā 40 vārdi, tāpēc Milo atgrieza savu fiksēto, piesardzīgo pārāk īsa teksta vērtējumu bez modeļa izsaukuma. Nav ko salīdzināt, un šim mēģinājumam netika saglabāta ne izpilde, ne aizture, ne vērtējumi.",
+  "aiEval.shortDraftHint": "Šajā melnrakstā ir mazāk nekā 40 vārdi. Milo Score atgrieztu savu fiksēto pārāk īsa teksta vērtējumu bez modeļa izsaukuma, tāpēc nav ko salīdzināt. Izvēlieties garāku melnrakstu.",
+  "aiEval.status.notRun": "Nav palaists",
+  "aiEval.notRunAfterSkip": "Nav palaists: esošā puse tika izlaista, tāpēc kandidāta modelis netika izsaukts.",
+  "aiEval.skippedCandidate.tooShort": "Esošais modelis tika palaists, bet kandidāts atgrieza Milo fiksēto pārāk īsa teksta vērtējumu bez modeļa izsaukuma. Salīdzinājums netika saglabāts, un šo mēģinājumu nevar novērtēt.",
   "proof.title": "Publicēšanas pierādījumi un vēlākie rezultāti",
   "proof.help":
     "Katrs jauns publicēšanas mēģinājums saglabā savu apstiprināto versiju un avotu/darbību atsauces. Vēlākie mērījumi tiek saglabāti atsevišķi. Vēsturiskās publicēšanas etiķetes netiek atpakaļejoši papildinātas kā verificēti pierādījumi.",

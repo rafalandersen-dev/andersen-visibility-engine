@@ -14,6 +14,7 @@ import {
 import { useStore, addAiEvaluationRun, updateAiEvaluationRun, uid } from "@/lib/store";
 import { useT } from "@/i18n";
 import { contentLangToProjectLanguage } from "@/lib/onboarding";
+import { runModelComparison, frozenAssetInput, frozenContentLanguage, qualityInputEligible, type FrozenEvaluationInput, type SideResult } from "@/lib/ai-evaluation";
 import {
   getAiRouterStatusFn,
   generateContentFn,
@@ -35,11 +36,6 @@ type RouterStatus = Awaited<ReturnType<typeof getAiRouterStatusFn>>;
 const TASKS: AiTaskType[] = ["contentGeneration", "contentImprove", "contentQualityScore", "authorityGeneration"];
 const RATING_KEYS: (keyof AiEvaluationRating)[] = ["quality", "brandFit", "languageQuality", "usefulness", "safetyTrust"];
 
-type SideResult = { status: "success" | "error" | "notConfigured"; output?: string; latencyMs?: number; error?: string };
-
-function preview(s: string, max = 4000): string {
-  return s.length > max ? s.slice(0, max) + "…" : s;
-}
 
 function AiEvaluationPage() {
   const navigate = useNavigate();
@@ -59,6 +55,7 @@ function AiEvaluationPage() {
   const [existing, setExisting] = useState<SideResult | null>(null);
   const [candidate, setCandidate] = useState<SideResult | null>(null);
   const [runId, setRunId] = useState<string | null>(null);
+  const [skipNotice, setSkipNotice] = useState<{ side: "existing" | "candidate"; reason: string } | null>(null);
 
   useEffect(() => {
     getAiRouterStatusFn().then(setStatus).catch(() => setStatus(null));
@@ -78,89 +75,74 @@ function AiEvaluationPage() {
     );
   }
 
-  const contentLanguage = contentLangToProjectLanguage(project.primaryContentLanguage ?? "en");
+  // The app explanation language is the project's app language; the CONTENT language of a quality comparison is
+  // frozen per attempt from the selected asset (its own label, else the project's primary content language —
+  // production's rule), see frozenContentLanguage below.
   const explanationLanguage = contentLangToProjectLanguage(project.appLanguage ?? "en");
 
-  async function callTask(modelOverride?: string): Promise<string> {
-    const p = project as Project;
-    if (task === "contentGeneration") {
-      const opp: Opportunity = oppId
-        ? (opportunities.find((o) => o.id === oppId) as Opportunity)
-        : {
-            id: "eval", projectId: p.id, title: topic.trim() || "Evaluation topic", language: p.primaryLanguage,
-            contentType: "Blog Article", searchIntent: "Informational", targetAudience: p.targetAudience || "Potential customers",
-            businessValue: "Evaluation", recommendedCta: "Contact us", priority: "Medium", status: "captured",
-          };
-      const res = await generateContentFn({ data: { project: p, services, opportunity: opp, assetType: "article", modelOverride } });
-      return res.markdown;
-    }
-    if (task === "contentImprove") {
-      const a = assets.find((x) => x.id === assetId);
-      if (!a) throw new Error(t("aiEval.needAsset"));
-      const res = await improveContentDraftFn({ data: { project: p, services, title: a.title, markdown: a.markdown || "", assetType: a.assetType ?? "article", contentLanguage, suggestions: a.qualityScore?.quickWins ?? [], modelOverride } });
-      return res.markdown;
-    }
-    if (task === "contentQualityScore") {
-      const a = assets.find((x) => x.id === assetId);
-      if (!a) throw new Error(t("aiEval.needAsset"));
-      const res = await evaluateContentQualityFn({ data: { project: p, services, title: a.title, markdown: a.markdown || "", assetType: a.assetType ?? "article", destinationType: a.publishDestinationType ?? "", metaTitle: a.metaTitle ?? "", metaDescription: a.metaDescription ?? "", contentLanguage, explanationLanguage, modelOverride } });
-      return `Milo Score ${res.overall}/100 · ${res.status} · ${res.publishingRecommendation}\n\n${JSON.stringify(res, null, 2)}`;
-    }
-    // authorityGeneration
-    const livePages = assets.filter((c) => c.livePublishStatus === "published" && c.liveUrl).map((c) => c.liveUrl as string);
-    const res = await generateAuthorityOpportunitiesFn({ data: { project: p, services, existingTitles: [], livePages, explanationLanguage, modelOverride } });
-    return res.opportunities.map((o) => `• [${o.type}] ${o.title}`).join("\n") + `\n\n${JSON.stringify(res.opportunities, null, 2)}`;
-  }
-
-  async function runOne(modelOverride?: string): Promise<SideResult> {
-    const start = Date.now();
-    try {
-      const output = await callTask(modelOverride);
-      return { status: "success", output, latencyMs: Date.now() - start };
-    } catch (e) {
-      return { status: "error", error: e instanceof Error ? e.message : "Failed", latencyMs: Date.now() - start };
-    }
-  }
+  const selectedAsset = assets.find((x) => x.id === assetId);
+  // Eligibility hint from the CANONICAL quality input production scores (real assembler, the selected project's
+  // context), derived on every render from the current selection, asset and project so it can never go stale;
+  // the server's explicit outcome (not this precheck) still protects the record.
+  const shortDraft =
+    task === "contentQualityScore" && Boolean(selectedAsset) && !qualityInputEligible(selectedAsset!, project);
 
   async function run() {
     setRunning(true);
     setExisting(null);
     setCandidate(null);
-    setRunId(null);
-    const ex = await runOne(undefined);
-    setExisting(ex);
-    let cand: SideResult;
-    if (!status?.candidateConfigured || !status?.candidateModel) {
-      cand = { status: "notConfigured" };
-    } else {
-      cand = await runOne(status.candidateModel);
-    }
-    setCandidate(cand);
-
-    const newRun: AiEvaluationRun = {
-      id: uid(),
-      createdAt: new Date().toISOString(),
-      projectId: project!.id,
-      taskType: task,
+    setRunId(null); // no rating can attach to a previous run while this attempt is in flight
+    setSkipNotice(null);
+    const p = project as Project;
+    const a = assets.find((x) => x.id === assetId);
+    const opp: Opportunity | undefined =
+      task === "contentGeneration"
+        ? oppId
+          ? (opportunities.find((o) => o.id === oppId) as Opportunity)
+          : {
+              id: "eval", projectId: p.id, title: topic.trim() || "Evaluation topic", language: p.primaryLanguage,
+              contentType: "Blog Article", searchIntent: "Informational", targetAudience: p.targetAudience || "Potential customers",
+              businessValue: "Evaluation", recommendedCta: "Contact us", priority: "Medium", status: "captured",
+            }
+        : undefined;
+    // Freeze every input once so both sides evaluate exactly the same values; the quality task freezes the
+    // CANONICAL assembled document (what production scores) from the current asset and project.
+    const frozen: FrozenEvaluationInput = {
+      task,
+      project: p,
+      services,
+      opportunity: opp,
+      asset: a ? frozenAssetInput(task, a, p) : undefined,
+      livePages: assets.filter((c) => c.livePublishStatus === "published" && c.liveUrl).map((c) => c.liveUrl as string),
+      contentLanguage: frozenContentLanguage(task, a, p),
+      explanationLanguage,
       existingModel: status?.defaultModel.model ?? "existing",
-      candidateModel: status?.candidateModel ?? undefined,
-      existingStatus: ex.status === "success" ? "success" : "error",
-      candidateStatus: cand.status,
-      existingLatencyMs: ex.latencyMs,
-      candidateLatencyMs: cand.latencyMs,
-      existingOutputPreview: ex.output ? preview(ex.output, 2000) : undefined,
-      candidateOutputPreview: cand.output ? preview(cand.output, 2000) : undefined,
-      existingError: ex.error,
-      candidateError: cand.error,
+      candidateModel: status?.candidateModel ?? null,
+      candidateConfigured: Boolean(status?.candidateConfigured),
     };
-    addAiEvaluationRun(newRun);
-    setRunId(newRun.id);
+    const result = await runModelComparison(frozen, {
+      // Each server function validates the frozen record with its own inputValidator (zod) on the server.
+      generateContent: (data) => generateContentFn({ data: data as never }),
+      improveDraft: (data) => improveContentDraftFn({ data: data as never }),
+      evaluateQuality: (data) => evaluateContentQualityFn({ data: data as never }),
+      generateAuthority: (data) => generateAuthorityOpportunitiesFn({ data: data as never }),
+      addRun: addAiEvaluationRun,
+      uid,
+      now: Date.now,
+      needAssetMessage: t("aiEval.needAsset"),
+    });
+    setExisting(result.existing);
+    setCandidate(result.candidate);
+    if (result.kind === "recorded") setRunId(result.run.id);
+    // kind === "skipped": nothing recorded, runId stays null, so no ratings section and no history row.
+    else setSkipNotice({ side: result.side, reason: result.reason });
     setRunning(false);
   }
 
   const needsAsset = task === "contentImprove" || task === "contentQualityScore";
   const canRun =
     !running &&
+    !shortDraft &&
     (task === "authorityGeneration" ||
       (task === "contentGeneration" ? Boolean(oppId || topic.trim()) : Boolean(assetId)));
 
@@ -215,6 +197,11 @@ function AiEvaluationPage() {
           </div>
         ) : null}
 
+        {shortDraft ? (
+          <p className="sm:col-span-2 text-xs text-amber-700 inline-flex items-start gap-1.5" data-short-draft-hint>
+            <AlertTriangle className="h-3.5 w-3.5 mt-0.5 shrink-0" />{t("aiEval.shortDraftHint")}
+          </p>
+        ) : null}
         <div className="sm:col-span-2 flex justify-end">
           <Button onClick={run} disabled={!canRun}>
             {running ? <Loader2 className="h-4 w-4 animate-spin" /> : <Play className="h-4 w-4" />}
@@ -224,16 +211,25 @@ function AiEvaluationPage() {
       </div>
 
       {/* Results */}
+      {skipNotice ? (
+        <p className="mt-4 rounded-md border border-amber-500/40 bg-amber-500/10 px-3 py-2 text-sm" data-comparison-skipped={skipNotice.side}>
+          {t(skipNotice.side === "existing" ? `aiEval.skipped.${skipNotice.reason}` : `aiEval.skippedCandidate.${skipNotice.reason}`)}
+        </p>
+      ) : null}
       {existing || candidate ? (
         <div className="mt-6 grid lg:grid-cols-2 gap-4">
           <ResultCard
             title={status?.defaultModel.label ?? t("aiEval.existingModel")}
             result={existing}
+            side="existing"
+            running={running}
             t={t}
           />
           <ResultCard
             title={status?.candidateLabel ?? t("aiEval.candidateModel")}
             result={candidate}
+            side="candidate"
+            running={running}
             t={t}
           />
         </div>
@@ -287,18 +283,28 @@ function AiEvaluationPage() {
   );
 }
 
-function ResultCard({ title, result, t }: { title: string; result: SideResult | null; t: (k: string) => string }) {
+/** Exported for static render tests. A spinner appears only while an attempt is in flight; every finished
+ * side (success, error, notConfigured, skipped, notRun) renders a terminal state. */
+export function ResultCard({ title, result, side, running, t }: { title: string; result: SideResult | null; side: "existing" | "candidate"; running: boolean; t: (k: string) => string }) {
   return (
-    <div className="rounded-lg border border-border bg-card p-4">
+    <div className="rounded-lg border border-border bg-card p-4" data-result-card={side}>
       <div className="flex items-center justify-between gap-2">
         <h3 className="font-medium">{title}</h3>
-        {result ? <StatusBadge status={result.status} t={t} latency={result.latencyMs} /> : <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />}
+        {result ? (
+          <StatusBadge status={result.status} t={t} latency={"latencyMs" in result ? result.latencyMs : undefined} />
+        ) : running ? (
+          <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" data-in-flight />
+        ) : null}
       </div>
       {result?.status === "error" ? (
         <p className="mt-2 text-sm text-destructive inline-flex items-start gap-1.5"><AlertTriangle className="h-3.5 w-3.5 mt-0.5" />{result.error}</p>
       ) : result?.status === "notConfigured" ? (
         <p className="mt-2 text-sm text-muted-foreground">{t("aiEval.notConfigured")}</p>
-      ) : result?.output ? (
+      ) : result?.status === "skipped" ? (
+        <p className="mt-2 text-sm text-muted-foreground" data-side-skipped={side}>{t(side === "existing" ? `aiEval.skipped.${result.reason}` : `aiEval.skippedCandidate.${result.reason}`)}</p>
+      ) : result?.status === "notRun" ? (
+        <p className="mt-2 text-sm text-muted-foreground" data-side-not-run>{t("aiEval.notRunAfterSkip")}</p>
+      ) : result?.status === "success" ? (
         <pre className="mt-2 max-h-96 overflow-auto rounded-md border border-border bg-background/40 p-3 text-xs whitespace-pre-wrap break-words">{result.output}</pre>
       ) : null}
     </div>

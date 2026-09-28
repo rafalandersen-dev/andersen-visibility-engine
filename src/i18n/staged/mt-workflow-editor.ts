@@ -153,6 +153,9 @@ export const mtWorkflowEditor: Readonly<Record<string, string>> = {
   "quality.cat.conversion": "Konverżjoni",
   "quality.cat.trustSafety": "Fiduċja u sigurtà",
   "quality.cat.internalLinks": "Links interni",
+  "quality.fallback.unassessed": "Mhux ivvalutat: l-evalwatur ma rritornax punteġġ validu għal din il-kategorija (evidenza insuffiċjenti, mhux problema mkejla).",
+  "quality.fallback.evaluatorNote": "Nota tal-evalwatur",
+  "quality.fallback.noExplanation": "Ma ġiet irritornata l-ebda spjegazzjoni għal din il-kategorija.",
   "editor.schedule.sourceHeldAt":
     "Data oriġinali: {when}. Miżmum għar-reviżjoni tas-sorsi; l-ebda pubblikazzjoni ma tinsab fil-kju.",
   "editor.schedule.failedTitle": "Il-pubblikazzjoni skedata falliet",

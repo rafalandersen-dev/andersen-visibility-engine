@@ -175,6 +175,9 @@ export const hrWorkflow: Readonly<Record<string, string>> = {
   "quality.cat.conversion": "Konverzija",
   "quality.cat.trustSafety": "Povjerenje i sigurnost",
   "quality.cat.internalLinks": "Interne poveznice",
+  "quality.fallback.unassessed": "Nije ocijenjeno: ocjenjivač nije vratio valjan rezultat za ovu kategoriju (nedovoljno dokaza, a ne izmjeren problem).",
+  "quality.fallback.evaluatorNote": "Napomena ocjenjivača",
+  "quality.fallback.noExplanation": "Za ovu kategoriju nije vraćeno objašnjenje.",
   "editor.schedule.sourceHeldAt":
     "Izvorni datum: {when}. Zadržano za pregled izvora; nijedna objava nije u redu čekanja.",
   "editor.schedule.failedTitle": "Zakazana objava nije uspjela",

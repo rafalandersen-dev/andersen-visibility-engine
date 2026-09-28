@@ -153,6 +153,9 @@ export const gaWorkflowEditor: Readonly<Record<string, string>> = {
   "quality.cat.conversion": "Tiontú",
   "quality.cat.trustSafety": "Muinín agus sábháilteacht",
   "quality.cat.internalLinks": "Naisc inmheánacha",
+  "quality.fallback.unassessed": "Gan mheasúnú: níor chuir an measúnóir scór bailí ar ais don chatagóir seo (fianaise neamhleor, ní fadhb thomhaiste).",
+  "quality.fallback.evaluatorNote": "Nóta an mheasúnóra",
+  "quality.fallback.noExplanation": "Níor cuireadh míniú ar bith ar ais don chatagóir seo.",
   "editor.schedule.sourceHeldAt":
     "Dáta bunaidh: {when}. Coinnithe le haghaidh athbhreithniú foinsí; níl aon fhoilsiú sa scuaine.",
   "editor.schedule.failedTitle": "Theip ar an bhfoilsiú sceidealaithe",

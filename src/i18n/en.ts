@@ -515,6 +515,9 @@ export const en: Record<string, string> = {
   "quality.cat.conversion": "Conversion",
   "quality.cat.trustSafety": "Trust & safety",
   "quality.cat.internalLinks": "Internal links",
+  "quality.fallback.unassessed": "Not assessed: the evaluator returned no valid score for this category (insufficient evidence, not a measured problem).",
+  "quality.fallback.evaluatorNote": "Evaluator note",
+  "quality.fallback.noExplanation": "No explanation was returned for this category.",
 
   // ---- Brand Intelligence ----
   "brand.title": "Brand Intelligence",
@@ -834,6 +837,12 @@ export const en: Record<string, string> = {
   "aiEval.rating.languageQuality": "Language quality",
   "aiEval.rating.usefulness": "Usefulness",
   "aiEval.rating.safetyTrust": "Safety / trust",
+  "aiEval.status.skipped": "Skipped",
+  "aiEval.skipped.tooShort": "No model was run: this draft has fewer than 40 words, so Milo returned its fixed conservative too-short score without a model call. There is nothing to compare, and no run, latency or ratings were saved for this attempt.",
+  "aiEval.shortDraftHint": "This draft has fewer than 40 words. Milo Score would return its fixed too-short score without a model call, so there is nothing to compare. Choose a longer draft.",
+  "aiEval.status.notRun": "Not run",
+  "aiEval.notRunAfterSkip": "Not run: the existing side was skipped, so the candidate model was not invoked.",
+  "aiEval.skippedCandidate.tooShort": "The existing model ran, but the candidate returned Milo's fixed too-short score without a model call. No comparison was saved, and this attempt cannot be rated.",
 
   // ---- Free AI Visibility Readiness Audit (public) ----
   "publicAudit.badge": "Free audit",

@@ -57,6 +57,12 @@ export const fiEvidence: Readonly<Record<string, string>> = {
   "aiEval.rating.languageQuality": "Kielen laatu",
   "aiEval.rating.usefulness": "Hyödyllisyys",
   "aiEval.rating.safetyTrust": "Turvallisuus / luottamus",
+  "aiEval.status.skipped": "Ohitettu",
+  "aiEval.skipped.tooShort": "Mallia ei ajettu: luonnoksessa on alle 40 sanaa, joten Milo palautti kiinteän, varovaisen liian lyhyen tekstin pistemääränsä ilman mallikutsua. Vertailtavaa ei ole, eikä tälle yritykselle tallennettu ajoa, viivettä tai arvioita.",
+  "aiEval.shortDraftHint": "Luonnoksessa on alle 40 sanaa. Milo Score palauttaisi kiinteän liian lyhyen tekstin pistemääränsä ilman mallikutsua, joten vertailtavaa ei ole. Valitse pidempi luonnos.",
+  "aiEval.status.notRun": "Ei ajettu",
+  "aiEval.notRunAfterSkip": "Ei ajettu: olemassa oleva puoli ohitettiin, joten ehdokasmallia ei kutsuttu.",
+  "aiEval.skippedCandidate.tooShort": "Olemassa oleva malli ajettiin, mutta ehdokas palautti Milon kiinteän liian lyhyen tekstin pistemäärän ilman mallikutsua. Vertailua ei tallennettu, eikä tätä yritystä voi arvioida.",
   "proof.title": "Julkaisunäyttö ja myöhemmät tulokset",
   "proof.help":
     "Jokainen uusi julkaisuyritys säilyttää hyväksytyn versionsa sekä lähde- ja toimintoviitteet. Myöhemmät mittaukset tallennetaan erikseen. Historiallisia julkaisumerkintöjä ei jälkikäteen täydennetä varmennetuksi näytöksi.",

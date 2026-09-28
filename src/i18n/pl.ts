@@ -510,6 +510,9 @@ export const pl: Record<string, string> = {
   "quality.cat.conversion": "Konwersja",
   "quality.cat.trustSafety": "Zaufanie i bezpieczeństwo",
   "quality.cat.internalLinks": "Linki wewnętrzne",
+  "quality.fallback.unassessed": "Nieocenione: ewaluator nie zwrócił prawidłowego wyniku dla tej kategorii (niewystarczające dowody, a nie zmierzony problem).",
+  "quality.fallback.evaluatorNote": "Uwaga ewaluatora",
+  "quality.fallback.noExplanation": "Dla tej kategorii nie zwrócono żadnego wyjaśnienia.",
 
   // ---- Brand Intelligence ----
   "brand.title": "Inteligencja marki",
@@ -833,6 +836,12 @@ export const pl: Record<string, string> = {
   "aiEval.rating.languageQuality": "Jakość językowa",
   "aiEval.rating.usefulness": "Przydatność",
   "aiEval.rating.safetyTrust": "Bezpieczeństwo / zaufanie",
+  "aiEval.status.skipped": "Pominięto",
+  "aiEval.skipped.tooShort": "Nie uruchomiono żadnego modelu: ten szkic ma mniej niż 40 słów, więc Milo zwrócił swój stały, ostrożny wynik dla zbyt krótkiego tekstu bez wywołania modelu. Nie ma czego porównywać; dla tej próby nie zapisano przebiegu, opóźnienia ani ocen.",
+  "aiEval.shortDraftHint": "Ten szkic ma mniej niż 40 słów. Milo Score zwróciłby swój stały wynik dla zbyt krótkiego tekstu bez wywołania modelu, więc nie ma czego porównywać. Wybierz dłuższy szkic.",
+  "aiEval.status.notRun": "Nie uruchomiono",
+  "aiEval.notRunAfterSkip": "Nie uruchomiono: istniejąca strona została pominięta, więc model kandydujący nie został wywołany.",
+  "aiEval.skippedCandidate.tooShort": "Istniejący model został uruchomiony, ale kandydat zwrócił stały wynik Milo dla zbyt krótkiego tekstu bez wywołania modelu. Nie zapisano porównania i tej próby nie można ocenić.",
 
   // ---- Free AI Visibility Readiness Audit (public) ----
   "publicAudit.badge": "Bezpłatny audyt",

@@ -249,7 +249,7 @@ export const GA_STAGED_BATCHES = [
     copy: gaEvidence,
     namespaces: ["answer", "logs", "proof", "aiEval", "benchmark"],
     sourceRevision: "ff9b085",
-    sourceHash: "2911f87d7691a2bf04548e0b7c0e63b3c93f25cdcd73c9af1ba5d22ffdee211d",
+    sourceHash: "1f9a2a7eea39cee7f70dfc8fa256ee24b64223a0743142ff8894fbde7cdbb2f5",
   },
   {
     name: "workflow",
@@ -274,7 +274,7 @@ export const GA_STAGED_BATCHES = [
       "publishingFidelity",
     ],
     sourceRevision: "ff9b085",
-    sourceHash: "649e9d723e890e3a356652ad7a515080081167e2d06a4dc5d3ad58cc5e2b6615",
+    sourceHash: "a814f6d27647a305507c9298eaac39fe7c6eb27d0b98c06aac6603a26a8f7058",
   },
   {
     name: "configuration",

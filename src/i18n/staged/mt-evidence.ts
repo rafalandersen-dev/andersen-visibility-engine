@@ -59,6 +59,12 @@ export const mtEvidence: Readonly<Record<string, string>> = {
   "aiEval.rating.languageQuality": "Kwalità tal-lingwa",
   "aiEval.rating.usefulness": "Utilità",
   "aiEval.rating.safetyTrust": "Sigurtà / fiduċja",
+  "aiEval.status.skipped": "Maqbuż",
+  "aiEval.skipped.tooShort": "Ma tħaddem l-ebda mudell: dan l-abbozz għandu inqas minn 40 kelma, għalhekk Milo irritorna l-punteġġ fiss u konservattiv tiegħu għal test qasir wisq mingħajr sejħa lill-mudell. M’hemm xejn x’tqabbel, u għal dan it-tentattiv ma nżammet l-ebda eżekuzzjoni, latenza jew klassifikazzjoni.",
+  "aiEval.shortDraftHint": "Dan l-abbozz għandu inqas minn 40 kelma. Milo Score jirritorna l-punteġġ fiss tiegħu għal test qasir wisq mingħajr sejħa lill-mudell, għalhekk m’hemm xejn x’tqabbel. Agħżel abbozz itwal.",
+  "aiEval.status.notRun": "Ma tħaddimx",
+  "aiEval.notRunAfterSkip": "Ma tħaddimx: in-naħa eżistenti nqabżet, għalhekk il-mudell kandidat ma ssejjaħx.",
+  "aiEval.skippedCandidate.tooShort": "Il-mudell eżistenti tħaddem, iżda l-kandidat irritorna l-punteġġ fiss ta’ Milo għal test qasir wisq mingħajr sejħa lill-mudell. Ma nżamm l-ebda paragun u dan it-tentattiv ma jistax jiġi klassifikat.",
   "proof.title": "Evidenza tal-pubblikazzjoni u riżultati sussegwenti",
   "proof.help":
     "Kull tentattiv ġdid ta’ pubblikazzjoni jissejvja l-verżjoni approvata tiegħu u r-referenzi tas-sorsi/tal-azzjonijiet. Il-kejl sussegwenti jinħażen separatament. It-tikketti storiċi tal-pubblikazzjoni ma jiġux miżjuda retroattivament bħala evidenza vverifikata.",

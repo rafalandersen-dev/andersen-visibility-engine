@@ -59,6 +59,12 @@ export const ltEvidence: Readonly<Record<string, string>> = {
   "aiEval.rating.languageQuality": "Kalbos kokybė",
   "aiEval.rating.usefulness": "Naudingumas",
   "aiEval.rating.safetyTrust": "Saugumas / patikimumas",
+  "aiEval.status.skipped": "Praleista",
+  "aiEval.skipped.tooShort": "Joks modelis nebuvo paleistas: šiame juodraštyje mažiau nei 40 žodžių, todėl Milo grąžino savo fiksuotą, atsargų per trumpo teksto balą be modelio iškvietimo. Nėra ko lyginti, o šiam bandymui neišsaugotas nei vykdymas, nei delsa, nei įvertinimai.",
+  "aiEval.shortDraftHint": "Šiame juodraštyje mažiau nei 40 žodžių. Milo Score grąžintų savo fiksuotą per trumpo teksto balą be modelio iškvietimo, todėl nėra ko lyginti. Pasirinkite ilgesnį juodraštį.",
+  "aiEval.status.notRun": "Nepaleista",
+  "aiEval.notRunAfterSkip": "Nepaleista: esama pusė buvo praleista, todėl kandidato modelis nebuvo iškviestas.",
+  "aiEval.skippedCandidate.tooShort": "Esamas modelis buvo paleistas, bet kandidatas grąžino fiksuotą Milo per trumpo teksto balą be modelio iškvietimo. Palyginimas neišsaugotas ir šio bandymo negalima įvertinti.",
   "proof.title": "Publikavimo įrodymai ir vėlesni rezultatai",
   "proof.help":
     "Kiekvienas naujas publikavimo bandymas išsaugo savo patvirtintą versiją ir šaltinių / veiksmų nuorodas. Vėlesni matavimai saugomi atskirai. Istorinės publikavimo žymės atgaline data nepapildomos kaip patikrinti įrodymai.",

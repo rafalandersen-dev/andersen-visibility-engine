@@ -122,11 +122,33 @@ export const MILO_SCORE_MATRIX: MiloScoreComponent[] = [
   },
 ];
 
-const clamp = (n: unknown): number => {
-  const v = typeof n === "number" ? n : typeof n === "string" ? parseFloat(n) : NaN;
-  if (!Number.isFinite(v)) return 0;
-  return Math.max(0, Math.min(100, Math.round(v)));
+/**
+ * Round an INTERNALLY computed weighted total (already a finite number in 0–100 up to
+ * floating-point residue). Never used on raw evaluator input — see parseCategoryScore.
+ */
+const roundInternalScore = (n: number): number => {
+  if (!Number.isFinite(n)) return 0;
+  return Math.max(0, Math.min(100, Math.round(n)));
 };
+
+/**
+ * Validate one RAW category score from the evaluator. Accepted: a finite number in
+ * 0–100, or (compatibility) a trimmed plain decimal numeric string wholly matching a
+ * value in 0–100 ("85", "72.5"). Rejected — returns null, never a guessed number:
+ * percent/suffix text ("85%"), blanks, booleans, objects/arrays, non-finite and
+ * out-of-range values (250, -1). Rounding happens only after validation.
+ */
+export function parseCategoryScore(raw: unknown): number | null {
+  let v: number;
+  if (typeof raw === "number") v = raw;
+  else if (typeof raw === "string") {
+    const s = raw.trim();
+    if (!/^\d+(\.\d+)?$/.test(s)) return null;
+    v = Number(s);
+  } else return null;
+  if (!Number.isFinite(v) || v < 0 || v > 100) return null;
+  return Math.round(v);
+}
 
 export function statusFromScore(score: number): QualityStatus {
   if (score >= 85) return "strong";
@@ -146,53 +168,130 @@ function asString(v: unknown): string {
   return typeof v === "string" ? v : v == null ? "" : String(v);
 }
 
-const FALLBACK_CATEGORY: QualityCategoryScore = {
-  score: 50,
-  status: "okay",
-  explanation: "Not enough information to evaluate this fully.",
-  suggestions: [],
-};
+/**
+ * Conservative-evidence rule (scenario 4, 28 Sep 2026): a category the evaluator did not
+ * assess with a valid score earns NO positive credit. It is stored as 0 / needsWork with
+ * an explanation that says "insufficient evidence", so the zero is never read as a
+ * measured negative fact. Bounded original caveats/suggestions are kept as context,
+ * never as a verified assessment.
+ */
+export const UNASSESSED_EXPLANATION =
+  "Not assessed: the evaluator returned no valid score for this category (insufficient evidence, not a measured problem).";
+/** Separator between the system fallback and a bounded model-authored note (display helper splits on it). */
+export const EVALUATOR_NOTE_SEPARATOR = " Evaluator note: ";
+/** System fallback when a valid score arrived without any explanation text. */
+export const NO_EXPLANATION_RETURNED = "No explanation was returned for this category.";
 
-function normalizeCategory(raw: unknown): QualityCategoryScore {
-  if (!raw || typeof raw !== "object") return { ...FALLBACK_CATEGORY };
-  const r = raw as Record<string, unknown>;
-  const score = clamp(r.score);
+/**
+ * Result of one quality evaluation at the server boundary. `outcome: "model"` is a normalized
+ * model result; `outcome: "skipped"` is a deterministic score returned WITHOUT any usage claim
+ * or provider call (currently only the fixed too-short score). Callers persist `score` only;
+ * the outcome is provenance for the caller and is never stored on the asset.
+ */
+export type QualityEvaluationResult =
+  | { outcome: "model"; score: QualityScore }
+  | { outcome: "skipped"; reason: "tooShort"; score: QualityScore };
+
+/** Trust & safety below this is a critical issue: blocks "ready" and caps the headline. */
+export const CRITICAL_TRUST_THRESHOLD = 50;
+
+function normalizeCategory(raw: unknown): { category: QualityCategoryScore; assessed: boolean } {
+  const r =
+    raw && typeof raw === "object" && !Array.isArray(raw) ? (raw as Record<string, unknown>) : null;
+  const score = r ? parseCategoryScore(r.score) : null;
+  const explanation = r ? asString(r.explanation).slice(0, 400) : "";
+  const suggestions = r ? asStringArray(r.suggestions, 3) : [];
+  if (score === null) {
+    return {
+      assessed: false,
+      category: {
+        score: 0,
+        status: "needsWork",
+        explanation: explanation
+          ? `${UNASSESSED_EXPLANATION}${EVALUATOR_NOTE_SEPARATOR}${explanation}`.slice(0, 400)
+          : UNASSESSED_EXPLANATION,
+        suggestions,
+      },
+    };
+  }
   return {
-    score,
-    status: statusFromScore(score),
-    explanation: asString(r.explanation).slice(0, 400) || FALLBACK_CATEGORY.explanation,
-    suggestions: asStringArray(r.suggestions, 3),
+    assessed: true,
+    category: {
+      score,
+      status: statusFromScore(score),
+      explanation: explanation || NO_EXPLANATION_RETURNED,
+      suggestions,
+    },
   };
 }
 
-function deriveRecommendation(overall: number, trustScore: number): PublishingRecommendation {
-  // A critical trust issue (low trust&safety) blocks "ready" even at a high overall.
-  const criticalTrustIssue = trustScore < 50;
-  if (overall >= 85 && !criticalTrustIssue) return "ready";
+function deriveRecommendation(
+  overall: number,
+  trust: { score: number; assessed: boolean },
+  anyUnassessed: boolean,
+): PublishingRecommendation {
+  // "ready" requires every category assessed AND no critical trust issue. Advisory only:
+  // this is not a publication block and never a claim of verified safety.
+  const criticalTrustIssue = trust.assessed && trust.score < CRITICAL_TRUST_THRESHOLD;
+  if (overall >= 85 && !criticalTrustIssue && !anyUnassessed) return "ready";
   if (overall >= 65) return "reviewFirst";
   return "notReady";
 }
 
+/** Headline status: the weighted number keeps its meaning, but "strong" is truthful
+ * only when every category was assessed and trust & safety is not critical. */
+function deriveHeadlineStatus(
+  overall: number,
+  trust: { score: number; assessed: boolean },
+  anyUnassessed: boolean,
+): QualityStatus {
+  const status = statusFromScore(overall);
+  if (status !== "strong") return status;
+  const criticalTrustIssue = trust.assessed && trust.score < CRITICAL_TRUST_THRESHOLD;
+  return anyUnassessed || criticalTrustIssue ? "okay" : "strong";
+}
+
 /**
  * Defensively normalize raw evaluator output into a complete, valid QualityScore.
- * Missing categories fall back; the overall is recomputed from the weighted
- * average of category scores so it can never disagree with the breakdown.
+ * Missing or invalid categories are stored as unassessed (0, needsWork, "insufficient
+ * evidence"); the overall is recomputed from the weighted average of category scores so
+ * it can never disagree with the breakdown; any unassessed category or a critical trust
+ * & safety score prevents "ready" and caps a "strong" headline at "okay". The model's own
+ * overall/status/recommendation fields are ignored. Applied at evaluation time only —
+ * stored scores are not re-normalized when read.
  */
-export function normalizeQualityScore(raw: unknown, evaluatedAt: string, model?: string): QualityScore {
+export function normalizeQualityScore(
+  raw: unknown,
+  evaluatedAt: string,
+  model?: string,
+): QualityScore {
   const r = (raw && typeof raw === "object" ? raw : {}) as Record<string, unknown>;
-  const rawCats = (r.categories && typeof r.categories === "object" ? r.categories : {}) as Record<string, unknown>;
+  const rawCats = (r.categories && typeof r.categories === "object" ? r.categories : {}) as Record<
+    string,
+    unknown
+  >;
 
   const categories = {} as Record<QualityCategoryKey, QualityCategoryScore>;
+  let anyUnassessed = false;
+  let trustAssessed = false;
   for (const key of QUALITY_CATEGORY_KEYS) {
-    categories[key] = normalizeCategory(rawCats[key]);
+    const { category, assessed } = normalizeCategory(rawCats[key]);
+    categories[key] = category;
+    if (!assessed) anyUnassessed = true;
+    if (key === "trustSafety") trustAssessed = assessed;
   }
 
   // Overall is always recomputed from weighted categories (ignores any AI-provided overall).
-  const overall = clamp(
-    QUALITY_CATEGORY_KEYS.reduce((sum, key) => sum + categories[key].score * QUALITY_WEIGHTS[key], 0),
+  // Unassessed categories score 0, so incomplete evidence can never add credit.
+  const overall = roundInternalScore(
+    QUALITY_CATEGORY_KEYS.reduce(
+      (sum, key) => sum + categories[key].score * QUALITY_WEIGHTS[key],
+      0,
+    ),
   );
-  const status = statusFromScore(overall);
-  const publishingRecommendation = deriveRecommendation(overall, categories.trustSafety.score);
+  const trust = { score: categories.trustSafety.score, assessed: trustAssessed };
+  const status = deriveHeadlineStatus(overall, trust, anyUnassessed);
+  const publishingRecommendation = deriveRecommendation(overall, trust, anyUnassessed);
 
   return {
     overall,
@@ -210,13 +309,71 @@ export function normalizeQualityScore(raw: unknown, evaluatedAt: string, model?:
 /** Strip markdown to a rough word count, used to short-circuit empty/short drafts. */
 export function draftWordCount(markdown: string): number {
   return markdown
-    .replace(/[#>*_`~\-]+/g, " ")
+    .replace(/[#>*_`~-]+/g, " ")
     .split(/\s+/)
     .filter(Boolean).length;
 }
 
 /** Minimum words before a draft is worth a real evaluation. */
 export const MIN_EVALUABLE_WORDS = 40;
+
+/**
+ * The exact separator set of `draftWordCount`: JavaScript `\s` (the ECMAScript WhiteSpace and LineTerminator
+ * code units, including U+00A0, U+1680, U+2000–U+200A, U+2028, U+2029, U+202F, U+205F, U+3000 and U+FEFF) plus
+ * the markdown punctuation `# > * _ \` ~ -` that the counter treats as a separator. A word is a maximal run of
+ * any other UTF-16 code unit; `hasMinimumWords` and `draftWordCount` agree on every input.
+ */
+function isDraftWordSeparator(code: number): boolean {
+  switch (code) {
+    case 0x23: // #
+    case 0x3e: // >
+    case 0x2a: // *
+    case 0x5f: // _
+    case 0x60: // `
+    case 0x7e: // ~
+    case 0x2d: // -
+    case 0x09:
+    case 0x0a:
+    case 0x0b:
+    case 0x0c:
+    case 0x0d:
+    case 0x20:
+    case 0xa0:
+    case 0x1680:
+    case 0x2028:
+    case 0x2029:
+    case 0x202f:
+    case 0x205f:
+    case 0x3000:
+    case 0xfeff:
+      return true;
+    default:
+      return code >= 0x2000 && code <= 0x200a;
+  }
+}
+
+/**
+ * Bounded short-draft predicate: `true` exactly when `draftWordCount(markdown) >= min`, computed by a single
+ * forward scan that stops at the `min`-th word — no rewritten copy of the input, no token array — so an
+ * oversized or pathological body costs at most one pass over its code units before the answer is known. Use it
+ * where only the threshold matters (the server's short-draft economy); UI counters that DISPLAY a number keep
+ * `draftWordCount`.
+ */
+export function hasMinimumWords(markdown: string, min: number): boolean {
+  if (min <= 0) return true;
+  let words = 0;
+  let inWord = false;
+  for (let i = 0; i < markdown.length; i++) {
+    if (isDraftWordSeparator(markdown.charCodeAt(i))) {
+      inWord = false;
+      continue;
+    }
+    if (inWord) continue;
+    inWord = true;
+    if (++words >= min) return true;
+  }
+  return false;
+}
 
 /** A conservative low score for empty/too-short drafts (no AI call needed). */
 export function tooShortScore(evaluatedAt: string): QualityScore {

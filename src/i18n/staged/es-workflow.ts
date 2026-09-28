@@ -174,6 +174,9 @@ export const esWorkflow: Readonly<Record<string, string>> = {
   "quality.cat.conversion": "Conversión",
   "quality.cat.trustSafety": "Confianza y seguridad",
   "quality.cat.internalLinks": "Enlaces internos",
+  "quality.fallback.unassessed": "Sin evaluar: el evaluador no devolvió una puntuación válida para esta categoría (evidencia insuficiente, no un problema medido).",
+  "quality.fallback.evaluatorNote": "Nota del evaluador",
+  "quality.fallback.noExplanation": "No se devolvió ninguna explicación para esta categoría.",
   "editor.schedule.sourceHeldAt":
     "Fecha original: {when}. Bloqueado para revisar fuentes; no hay ninguna publicación en cola.",
   "editor.schedule.failedTitle": "La publicación programada ha fallado",

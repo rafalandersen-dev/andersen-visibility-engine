@@ -262,7 +262,7 @@ describe("AW cases with the correct outcome", () => {
     h.backend.state.doc = structuredClone(DOC2);
     h.backend.state.rev = 1;
     await hydrateForUser("user2");
-    h.settle("evaluateContentQualityFn", score);
+    h.settle("evaluateContentQualityFn", { outcome: "model", score });
     await stale(pending);
     expect(getState().content.map((c) => c.id)).toEqual(["c2"]);
     expect(serverContent().find((c) => c.id === "c1")).toBeUndefined();
@@ -343,7 +343,7 @@ describe("same-session ownership of fields", () => {
         c.id === "c1" ? { ...c, markdown: body + "\n\nNew paragraph." } : c,
       ),
     }));
-    h.settle("evaluateContentQualityFn", score);
+    h.settle("evaluateContentQualityFn", { outcome: "model", score });
     await expect(pending).rejects.toMatchObject({ code: "source_changed" });
     expect(getState().content.find((c) => c.id === "c1")?.qualityScore).toBeUndefined();
   });
@@ -511,7 +511,7 @@ describe("AZ — five reviewed corrections", () => {
     const after = assembleContentAsset(getState().content[0], getState().projects[0]).markdown;
     expect(after).not.toBe(before);
     expect(getState().content[0].markdown).toBe(body); // raw markdown unchanged
-    h.settle("evaluateContentQualityFn", score);
+    h.settle("evaluateContentQualityFn", { outcome: "model", score });
     await expect(pending).rejects.toMatchObject({ code: "source_changed" });
     const c1 = getState().content[0];
     expect(c1.qualityScore).toBeUndefined();
@@ -521,7 +521,7 @@ describe("AZ — five reviewed corrections", () => {
   it("3b. unchanged evaluator inputs → the score is applied (positive control)", async () => {
     const pending = evaluateContentQuality("c1");
     await flush();
-    h.settle("evaluateContentQualityFn", score);
+    h.settle("evaluateContentQualityFn", { outcome: "model", score });
     await expect(pending).resolves.toBeDefined();
     expect(getState().content[0].qualityScore).toMatchObject({ overall: 77 });
     expect(getState().content[0].qualityScoreStale).toBe(false);

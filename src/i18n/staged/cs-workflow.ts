@@ -175,6 +175,9 @@ export const csWorkflow: Readonly<Record<string, string>> = {
   "quality.cat.conversion": "Konverze",
   "quality.cat.trustSafety": "Důvěra a bezpečnost",
   "quality.cat.internalLinks": "Interní odkazy",
+  "quality.fallback.unassessed": "Nehodnoceno: hodnotitel nevrátil pro tuto kategorii platné skóre (nedostatečné podklady, nikoli naměřený problém).",
+  "quality.fallback.evaluatorNote": "Poznámka hodnotitele",
+  "quality.fallback.noExplanation": "Pro tuto kategorii nebylo vráceno žádné vysvětlení.",
   "editor.schedule.sourceHeldAt":
     "Původní datum: {when}. Pozastaveno kvůli kontrole zdrojů; žádné zveřejnění není ve frontě.",
   "editor.schedule.failedTitle": "Plánované zveřejnění selhalo",

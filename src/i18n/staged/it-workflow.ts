@@ -175,6 +175,9 @@ export const itWorkflow: Readonly<Record<string, string>> = {
   "quality.cat.conversion": "Conversione",
   "quality.cat.trustSafety": "Fiducia e sicurezza",
   "quality.cat.internalLinks": "Link interni",
+  "quality.fallback.unassessed": "Non valutato: il valutatore non ha restituito un punteggio valido per questa categoria (evidenze insufficienti, non un problema misurato).",
+  "quality.fallback.evaluatorNote": "Nota del valutatore",
+  "quality.fallback.noExplanation": "Non è stata restituita alcuna spiegazione per questa categoria.",
   "editor.schedule.sourceHeldAt":
     "Data originale: {when}. Sospeso per la revisione delle fonti; nessuna pubblicazione è in coda.",
   "editor.schedule.failedTitle": "Pubblicazione pianificata non riuscita",

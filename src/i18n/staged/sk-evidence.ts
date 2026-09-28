@@ -56,6 +56,12 @@ export const skEvidence: Readonly<Record<string, string>> = {
   "aiEval.rating.languageQuality": "Jazyková kvalita",
   "aiEval.rating.usefulness": "Užitočnosť",
   "aiEval.rating.safetyTrust": "Bezpečnosť / dôvera",
+  "aiEval.status.skipped": "Preskočené",
+  "aiEval.skipped.tooShort": "Žiadny model sa nespustil: tento koncept má menej ako 40 slov, takže Milo vrátil svoje pevné konzervatívne skóre pre príliš krátky text bez volania modelu. Nie je čo porovnávať a pre tento pokus sa neuložil žiadny beh, latencia ani hodnotenia.",
+  "aiEval.shortDraftHint": "Tento koncept má menej ako 40 slov. Milo Score by vrátil svoje pevné skóre pre príliš krátky text bez volania modelu, takže nie je čo porovnávať. Vyberte dlhší koncept.",
+  "aiEval.status.notRun": "Nespustené",
+  "aiEval.notRunAfterSkip": "Nespustené: existujúca strana bola preskočená, takže kandidátsky model nebol vyvolaný.",
+  "aiEval.skippedCandidate.tooShort": "Existujúci model sa spustil, ale kandidát vrátil pevné skóre Milo pre príliš krátky text bez volania modelu. Porovnanie sa neuložilo a tento pokus nemožno hodnotiť.",
   "proof.title": "Dôkazy o publikovaní a neskoršie výsledky",
   "proof.help":
     "Každý nový pokus o publikovanie uchováva schválenú verziu a odkazy na zdroje a akcie. Neskoršie merania sa ukladajú samostatne. Historické označenia publikovania sa spätne nedopĺňajú ako overené dôkazy.",

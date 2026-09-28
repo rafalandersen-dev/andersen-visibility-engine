@@ -59,6 +59,12 @@ export const gaEvidence: Readonly<Record<string, string>> = {
   "aiEval.rating.languageQuality": "Cáilíocht teanga",
   "aiEval.rating.usefulness": "Úsáideacht",
   "aiEval.rating.safetyTrust": "Sábháilteacht / muinín",
+  "aiEval.status.skipped": "Scipeáilte",
+  "aiEval.skipped.tooShort": "Níor ritheadh aon mhúnla: tá níos lú ná 40 focal sa dréacht seo, mar sin sheol Milo a scór seasta coimeádach ró-ghairid ar ais gan glao múnla. Níl aon rud le cur i gcomparáid, agus níor sábháladh rith, aga folaigh ná rátálacha don iarracht seo.",
+  "aiEval.shortDraftHint": "Tá níos lú ná 40 focal sa dréacht seo. Sheolfadh Milo Score a scór seasta ró-ghairid ar ais gan glao múnla, mar sin níl aon rud le cur i gcomparáid. Roghnaigh dréacht níos faide.",
+  "aiEval.status.notRun": "Níor ritheadh",
+  "aiEval.notRunAfterSkip": "Níor ritheadh: scipeáladh an taobh atá ann cheana, mar sin níor glaodh ar an múnla iarrthóra.",
+  "aiEval.skippedCandidate.tooShort": "Ritheadh an múnla atá ann cheana, ach chuir an t-iarrthóir scór seasta ró-ghairid Milo ar ais gan glao múnla. Níor sábháladh comparáid ar bith agus ní féidir an iarracht seo a rátáil.",
   "proof.title": "Fianaise foilsithe agus torthaí ina dhiaidh",
   "proof.help":
     "Sábhálann gach iarracht foilsithe nua a leagan ceadaithe agus tagairtí foinse/gnímh. Stóráiltear tomhais ina dhiaidh sin ar leith. Ní chuirtear lipéid stairiúla foilsithe leis go cúlghabhálach mar fhianaise fhíoraithe.",

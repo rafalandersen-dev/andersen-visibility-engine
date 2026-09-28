@@ -57,6 +57,12 @@ export const etEvidence: Readonly<Record<string, string>> = {
   "aiEval.rating.languageQuality": "Keele kvaliteet",
   "aiEval.rating.usefulness": "Kasulikkus",
   "aiEval.rating.safetyTrust": "Turvalisus / usaldus",
+  "aiEval.status.skipped": "Vahele jäetud",
+  "aiEval.skipped.tooShort": "Ühtegi mudelit ei käivitatud: mustandis on alla 40 sõna, seega tagastas Milo oma fikseeritud konservatiivse liiga lühikese teksti skoori ilma mudelikutsungita. Võrrelda pole midagi ning selle katse kohta ei salvestatud käivitust, latentsust ega hinnanguid.",
+  "aiEval.shortDraftHint": "Mustandis on alla 40 sõna. Milo Score tagastaks oma fikseeritud liiga lühikese teksti skoori ilma mudelikutsungita, seega pole midagi võrrelda. Vali pikem mustand.",
+  "aiEval.status.notRun": "Ei käivitatud",
+  "aiEval.notRunAfterSkip": "Ei käivitatud: olemasolev pool jäeti vahele, seega kandidaatmudelit ei kutsutud.",
+  "aiEval.skippedCandidate.tooShort": "Olemasolev mudel käivitati, kuid kandidaat tagastas Milo fikseeritud liiga lühikese teksti skoori ilma mudelikutsungita. Võrdlust ei salvestatud ja seda katset ei saa hinnata.",
   "proof.title": "Avaldamise tõendusandmed ja hilisemad tulemused",
   "proof.help":
     "Iga uus avaldamiskatse säilitab oma heakskiidetud versiooni ning allika- ja tegevusviited. Hilisemad mõõtmised salvestatakse eraldi. Ajaloolisi avaldamissilte ei lisata tagantjärele kontrollitud tõenditena.",
