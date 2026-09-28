@@ -272,3 +272,71 @@ error toast with the authored copy, body 22 370 / tail present / updatedAt / bat
 Improve → complete rewrite → body 28 671 with the tail, updatedAt advanced, saved once (server 28 671), success toast;
 375×812 keyboard: Enter on Improve opens the dialog (focus on Cancel), Tab → Improve draft, Enter → request; refusal
 toast 343 px wide inside the viewport, no horizontal overflow, draft untouched. Not production; no provider.
+
+## Addendum (BM, 28 September 2026) — known quality/Improve refusals explained in the selected UI language
+
+Problem: `MiloScorePanel` `runEvaluate`/`runImprove` localized only producer-session errors (`producerErrorMessage`)
+and otherwise showed the raw `Error.message`. The server boundary (`mapGatewayError` in `ai.functions.ts`) flattens
+`AiTextBoundaryError` and provider-configuration errors into a plain `Error(message)` before the framework serializes
+it, so BL's `incomplete_output`, `input_too_large`, `invalid_response` and `timeout` refusals — and the usage-limit,
+budget and provider-class refusals — reached Polish, Swedish and Danish users in English. The AI evaluation view
+(`app.ai-evaluation.tsx`, `ResultCard`) rendered the same strings verbatim.
+
+Transport facts (bounded library/source proof, not a full HTTP round-trip): the authored English sentence is the
+ONLY property that reliably survives the server → client hop for these classes. `mapGatewayError` keeps no reason
+code on the flattened error, and the installed serializer (seroval 1.5.4 with the router's default plugins,
+`toCrossJSONAsync` → JSON → `fromCrossJSON`, the path selected by `server-functions-handler` and `serverFnFetcher`)
+reconstructs an `Error` with its message but DROPS custom enumerable properties such as `code` — an inert
+serialize/deserialize probe by Codex confirmed this (`codex-bm-serialization-review/result.md`): plain Error message
+kept, custom `code` absent; only a plain object keeps `code`. So the usage/expense errors that are thrown as-is also
+arrive as plain errors carrying only their message. A reason code on the wire would require changing the boundary
+contract, which this packet was not allowed to do.
+
+Correction (bounded exact-message map, no framework): `src/lib/ai-refusal-messages.ts` (pure, no imports) holds a
+closed `ReadonlyMap` of the 21 exact authored sentences (`AiTextBoundaryError` reasons, `AiExpenseUnavailableError`
+reasons, `AiProviderConfigurationError`, `UsageUnavailableError`, the 11 `aiErrorUserMessage` provider classes) → keys
+`quality.refusal.*`, plus ONE anchored regex for the two quality usage-limit sentences (`draft improvements`,
+`Milo Score runs`) that carries the count and bucket as `{count}`/`{bucket}` variables. Matching is exact (whole string)
+or fully anchored; no substring heuristics, no classification of arbitrary text. Unknown messages return `null`, so the
+caller falls back to the received message (or `quality.error`) unchanged. `MiloScorePanel.qualityActionFailureMessage`
+composes `producerErrorMessage` (session/source/save meanings preserved and first) → `aiRefusalMessage` → raw message →
+`quality.error`; `ResultCard` renders `aiRefusalText(result.error, t) ?? result.error`.
+
+Semantics preserved in the copy: `inputTooLarge`/`invalidLimits`/expense-unpriced/manual-budget/usage-limit copy
+describes refusal BEFORE any provider spend; `incompleteOutput`/`timeout`/`expenseTimeout` copy says the provider may
+have processed (or charged for) the single attempt and that Milo did not retry; `expenseUnconfirmed` copy says only
+that the cost budget could not be confirmed and work is paused — it is not evidence that a provider attempt occurred
+and does not claim one either way. No sentence claims a free call, a retry or semantic verification. Improve copy states the draft was kept unchanged; evaluation copy never implies
+content mutation. No boundary, limit, cost flow, model or API contract changed; BL's whole-input/whole-body paths are
+untouched (blob identities of `ai.functions.ts`, `ai-text-bounds.server.ts`, `ai-provider-expense.server.ts`,
+`mock-ai.ts` equal to 3ec020d3).
+
+Locale contracts: 24 new keys (`quality.refusal.*` incl. the two bucket labels) in en/pl/sv/da (authored complete
+sentences; no fluency or human-acceptance claim) and in the 20 staged catalogs (machine-authored, inactive; nl/fr
+reset-day wording chosen to keep the numeric-token parity contract). "workflow" batch fingerprint re-pinned
+`a814f6d2… → d09e361f8affe1c2ee3903432c21b1e6453dcd4b99a9996658ec1ec14989ee70` in 19 staged registrations and
+`de-source.ts`; staged key counts 4519 → 4543. No language activated.
+
+Tests: `ai-refusal-messages.test.ts` (every reason/class of the four error types and the usage-limit template maps to
+a key; prefixes, suffixes, near-misses, provider-looking text and empty strings map to nothing; 24 keys present in all
+four active catalogs with matching `{var}` sets; semantic wording assertions), `MiloScorePanel.test.ts` (producer error
+first, refusal second, raw message, `quality.error` fallback), `ai-evaluation-ui.test.ts` (ResultCard renders the
+localized sentence for a known refusal and the raw text for an unknown one). Locale contracts 30 files / 793 tests;
+focused 6 files / 127 tests; tsc 0; eslint 0 on changed conformant files (panel/route keep their pre-existing
+findings); prettier clean on conformant files; `git diff --check` 0; `vite build` 0.
+
+Local UI (harnesses `.coordination/quality-refusal-harness/` port 5193 and `.coordination/evaluation-refusal-harness/`
+port 5194; real AppShell, store, Milo Score panel and evaluation ResultCard over rejectable fake server functions;
+fictional data; no provider): pl/sv/da evaluate refusals (too large) → localized toast, body/score/batches unchanged;
+pl Improve → confirm → incomplete refusal → Polish toast, body 22 370 with tail and updatedAt unchanged; pl usage-limit
+→ "Wykorzystano wszystkie 20 uruchomienia Milo Score…"; da Improve invalid-response → Danish; evaluation view pl/sv →
+both ResultCards show the localized incomplete sentence with the localized error badge. 375×812 keyboard (pl): Enter on
+"Oceń ponownie" → refusal toast 343 px inside the viewport, `scrollWidth === innerWidth`, score 55/batches 0 unchanged;
+Tab → "Ulepsz szkic" → Enter → dialog 375 px (focus Cancel) → Tab → Enter → incomplete refusal → Polish toast, body
+22 370/tail/updatedAt unchanged.
+
+Remaining limits: the editor's shared `aiAction` catch and other AI surfaces still show the received English message
+(explicitly excluded by the 2026-09-12 editor localization record and not audited again here); only the two quality
+usage buckets are localized; any refusal whose sentence is outside the map (or whose wording changes server-side) shows
+as received — the map must be updated together with the authored sentences, which the parity test enforces for the
+four error types it imports. Local fixtures only; no production, provider or cost measurement claim.

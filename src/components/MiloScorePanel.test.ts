@@ -19,7 +19,8 @@ vi.mock("@/i18n", () => ({
 }));
 vi.mock("@/lib/mock-ai", () => ({ evaluateContentQuality: vi.fn(), improveContentDraft: vi.fn() }));
 vi.mock("sonner", () => ({ toast: { success: vi.fn(), error: vi.fn() } }));
-import { MiloScorePanel } from "./MiloScorePanel";
+import { MiloScorePanel, qualityActionFailureMessage } from "./MiloScorePanel";
+import { ProducerSessionError } from "@/lib/producer-session";
 
 const AT = "2026-09-28T12:00:00.000Z";
 const body = Array.from({ length: 60 }, (_, i) => `word${i}`).join(" ");
@@ -125,5 +126,23 @@ describe("MiloScorePanel shows system fallbacks in the UI language, model notes 
       );
     }
     lang.current = "en";
+  });
+});
+
+describe("BM: the action failure toast text", () => {
+  const pl = (k: string, vars?: Record<string, string | number>) => translate("pl", k, vars);
+  it("producer outcomes keep their meaning ahead of any refusal sentence", () => {
+    expect(qualityActionFailureMessage(new ProducerSessionError("source_changed"), pl)).toBe(
+      pl("shell.producer.sourceChanged"),
+    );
+  });
+  it("known refusals are translated; unknown Error text is shown as received; non-errors fall back", () => {
+    const incomplete =
+      "The AI service did not complete its answer for this whole draft. Milo kept the draft unchanged and did not retry it.";
+    expect(qualityActionFailureMessage(new Error(incomplete), pl)).toBe(
+      pl("quality.refusal.incompleteOutput"),
+    );
+    expect(qualityActionFailureMessage(new Error("Custom text"), pl)).toBe("Custom text");
+    expect(qualityActionFailureMessage(undefined, pl)).toBe(pl("quality.error"));
   });
 });

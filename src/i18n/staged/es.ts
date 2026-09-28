@@ -275,7 +275,7 @@ export const ES_STAGED_BATCHES = [
       "workflow",
     ],
     sourceRevision: "5a9416d74f532b65f78c0f19b89d221c6b2af6c2",
-    sourceHash: "a814f6d27647a305507c9298eaac39fe7c6eb27d0b98c06aac6603a26a8f7058",
+    sourceHash: "d09e361f8affe1c2ee3903432c21b1e6453dcd4b99a9996658ec1ec14989ee70",
   },
   {
     name: "citation review",
