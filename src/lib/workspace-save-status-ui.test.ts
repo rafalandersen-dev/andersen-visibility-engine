@@ -58,6 +58,34 @@ describe("WorkspaceSaveStatusBar", () => {
     expect(html).toContain("not confirmed as saved");
     expect(html).toMatch(/<button[^>]*disabled=""[^>]*>Retry save<\/button>/);
   });
+  it("every rendered state is excluded from print (shared print:hidden utility on the root element); notReady renders nothing", () => {
+    const roots = [
+      render("saved"),
+      render("unsaved"),
+      render("saving"),
+      renderToStaticMarkup(
+        createElement(WorkspaceSaveStatusBar, {
+          status: { kind: "unsaved", scheduled: false },
+          retrying: false,
+          onRetry: () => undefined,
+          t: (key: string) => translate("en", key),
+        }),
+      ),
+      render("unconfirmed"),
+      render("conflict"),
+    ];
+    for (const html of roots) {
+      // Exactly one root element, whose class list carries print:hidden and the screen layout classes.
+      const root = html.match(/^<(p|div)\b([^>]*)>/);
+      expect(root, html).not.toBeNull();
+      const classes = root![2].match(/class="([^"]*)"/)![1].split(" ");
+      expect(classes).toContain("print:hidden");
+      expect(classes).toContain("flex");
+      // Nothing inside the bar opts back in (no print:block / print:flex).
+      expect(html).not.toMatch(/print:(block|flex|inline)/);
+    }
+    expect(render("notReady")).toBe("");
+  });
   it("pl: unconfirmed uses the Polish copy", () => {
     const html = render("unconfirmed", "pl");
     expect(html).toContain("Nie udało się potwierdzić zapisu.");

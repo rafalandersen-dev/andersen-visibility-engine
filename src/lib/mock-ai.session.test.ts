@@ -102,6 +102,7 @@ import {
 } from "@/lib/store";
 import {
   generateMetadata,
+  generateSeoOpportunities,
   evaluateContentQuality,
   improveContentDraft,
   generateContentForOpportunity,
@@ -265,6 +266,44 @@ describe("AW cases with the correct outcome", () => {
     await stale(pending);
     expect(getState().content.map((c) => c.id)).toEqual(["c2"]);
     expect(serverContent().find((c) => c.id === "c1")).toBeUndefined();
+  });
+});
+
+describe("BC — PR165 finding 4126074735 mapped onto the accepted ownership (generateSeoOpportunities)", () => {
+  it("a pending discovery generation is counted as unretained work for the exit gate; after the FIRST successful sign-out cleanup its late response is refused, not written and not saved", async () => {
+    const pending = generateSeoOpportunities("p1");
+    await flush();
+    // The exact producer named by the finding runs under runOwnedProducer("opps:p1", "unretained"): it is what
+    // the sign-out gate counts and offers the explicit Stay / Sign out anyway choice for.
+    expect(getPendingProducerWork()).toMatchObject({ unretained: 1, retained: 0, external: 0 });
+    expect(getPendingProducerWork().operations).toContain("opps:p1");
+    // First successful auth: the ordinary cleanup resets the store (new epoch, no user, the signed-out shell
+    // snapshot with its demo opportunities).
+    resetStore();
+    const shellOpportunities = getState().opportunities;
+    h.settle("generateOpportunitiesFn", {
+      opportunities: [
+        {
+          title: "Late opportunity",
+          contentType: "Blog Article",
+          searchIntent: "Informational",
+          targetAudience: "x",
+          businessValue: "y",
+          recommendedCta: "z",
+          priority: "Medium",
+          language: "English",
+        },
+      ],
+    });
+    await stale(pending);
+    expect(getState().userId).toBeNull();
+    expect(getState().opportunities).toBe(shellOpportunities); // the shell snapshot is untouched (same reference)
+    expect(getState().opportunities.map((o) => o.title)).not.toContain("Late opportunity");
+    expect(h.backend.state.batches).toHaveLength(0);
+    // A replacement session of the same user is untouched by the stale result and starts with no pending work.
+    await hydrateForUser("user1");
+    expect(getState().opportunities.map((o) => o.title)).toEqual(["Opp"]);
+    expect(getPendingProducerWork().unretained).toBe(0);
   });
 });
 

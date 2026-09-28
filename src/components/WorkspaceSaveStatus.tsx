@@ -20,7 +20,10 @@ export function WorkspaceSaveStatusBar({
   t: (key: string) => string;
 }) {
   if (status.kind === "notReady") return null;
-  const base = "flex flex-wrap items-center gap-2 px-5 py-1.5 text-xs md:px-10";
+  // Shell chrome only: every state (status text, Save now, Retry) is excluded from print with the
+  // shared `print:hidden` utility (finding 4126074747 — the workspace status must never appear on
+  // a printed white-label proof report). Screen roles, live regions and buttons are unchanged.
+  const base = "flex flex-wrap items-center gap-2 px-5 py-1.5 text-xs md:px-10 print:hidden";
   if (status.kind === "saved")
     return (
       <p
