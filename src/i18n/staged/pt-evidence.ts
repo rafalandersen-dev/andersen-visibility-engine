@@ -57,6 +57,12 @@ export const ptEvidence: Readonly<Record<string, string>> = {
   "aiEval.rating.languageQuality": "Qualidade linguística",
   "aiEval.rating.usefulness": "Utilidade",
   "aiEval.rating.safetyTrust": "Segurança / confiança",
+  "aiEval.status.skipped": "Ignorado",
+  "aiEval.skipped.tooShort": "Nenhum modelo foi executado: este rascunho tem menos de 40 palavras, por isso o Milo devolveu a sua pontuação fixa e conservadora para textos demasiado curtos sem chamar o modelo. Não há nada para comparar e não foi guardada nenhuma execução, latência ou classificação para esta tentativa.",
+  "aiEval.shortDraftHint": "Este rascunho tem menos de 40 palavras. O Milo Score devolveria a sua pontuação fixa para textos demasiado curtos sem chamar o modelo, por isso não há nada para comparar. Escolha um rascunho mais longo.",
+  "aiEval.status.notRun": "Não executado",
+  "aiEval.notRunAfterSkip": "Não executado: o lado existente foi ignorado, por isso o modelo candidato não foi invocado.",
+  "aiEval.skippedCandidate.tooShort": "O modelo existente foi executado, mas o candidato devolveu a pontuação fixa do Milo para textos demasiado curtos sem chamar o modelo. Não foi guardada nenhuma comparação e esta tentativa não pode ser classificada.",
   "proof.title": "Evidências de publicação e resultados posteriores",
   "proof.help":
     "Cada nova tentativa de publicação preserva a versão aprovada e as referências de fontes/ações. As medições posteriores são guardadas separadamente. As etiquetas históricas de publicação não são convertidas retroativamente em evidências verificadas.",

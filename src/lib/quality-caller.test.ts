@@ -120,7 +120,7 @@ describe("A — assembled-document caller for an actually short canonical artifa
   });
   it("calls the remote evaluator exactly once for a draft at or above the threshold and persists its result", async () => {
     const remote = { overall: 40, status: "needsWork", publishingRecommendation: "notReady" };
-    h.remoteEvaluate.mockResolvedValueOnce(remote);
+    h.remoteEvaluate.mockResolvedValueOnce({ outcome: "model", score: remote });
     await evaluateContentQuality("a-long");
     expect(h.remoteEvaluate).toHaveBeenCalledTimes(1);
     const sent = (h.remoteEvaluate.mock.calls[0][0] as { data: Record<string, unknown> }).data;
@@ -156,7 +156,9 @@ describe("B — authenticated server evaluator (mocked transport; not live authe
       ),
     };
     h.generateBudgetedText.mockResolvedValueOnce(JSON.stringify(payload));
-    const score = await call(longWords);
+    const res = await call(longWords);
+    expect(res.outcome).toBe("model");
+    const score = res.score as Record<string, unknown>;
     expect(h.claimAiUsage).toHaveBeenCalledTimes(1);
     expect(h.generateBudgetedText).toHaveBeenCalledTimes(1);
     expect(score.overall).toBeLessThanOrEqual(25);
@@ -176,7 +178,8 @@ describe("B — authenticated server evaluator (mocked transport; not live authe
       ]),
     );
     h.generateBudgetedText.mockResolvedValueOnce(JSON.stringify({ overall: 100, categories }));
-    const score = await call(longWords);
+    const res = await call(longWords);
+    const score = res.score as Record<string, unknown>;
     expect(score.publishingRecommendation).toBe("reviewFirst");
     expect(score.status).toBe("okay");
   });
@@ -191,9 +194,13 @@ describe("B — authenticated server evaluator (mocked transport; not live authe
   ])(
     "%s: zero usage claims, zero provider calls, conservative not-ready score returned",
     async (_label, markdown) => {
-      const score = await call(markdown);
+      const res = await call(markdown);
       expect(h.claimAiUsage).not.toHaveBeenCalled();
       expect(h.generateBudgetedText).not.toHaveBeenCalled();
+      // Explicit provenance: a deterministic skip, never presented as model work.
+      expect(res.outcome).toBe("skipped");
+      expect(res.reason).toBe("tooShort");
+      const score = res.score as Record<string, unknown>;
       expect(score.publishingRecommendation).toBe("notReady");
       expect(score.status).toBe("needsWork");
       expect(score.overall).toBeLessThan(65);

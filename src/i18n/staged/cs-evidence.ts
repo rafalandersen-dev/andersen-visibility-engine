@@ -57,6 +57,12 @@ export const csEvidence: Readonly<Record<string, string>> = {
   "aiEval.rating.languageQuality": "Jazyková kvalita",
   "aiEval.rating.usefulness": "Užitečnost",
   "aiEval.rating.safetyTrust": "Bezpečnost / důvěra",
+  "aiEval.status.skipped": "Přeskočeno",
+  "aiEval.skipped.tooShort": "Žádný model nebyl spuštěn: tento koncept má méně než 40 slov, takže Milo vrátil své pevné konzervativní skóre pro příliš krátký text bez volání modelu. Není co porovnávat a pro tento pokus nebyl uložen žádný běh, latence ani hodnocení.",
+  "aiEval.shortDraftHint": "Tento koncept má méně než 40 slov. Milo Score by vrátil své pevné skóre pro příliš krátký text bez volání modelu, takže není co porovnávat. Vyberte delší koncept.",
+  "aiEval.status.notRun": "Nespuštěno",
+  "aiEval.notRunAfterSkip": "Nespuštěno: stávající strana byla přeskočena, takže kandidátský model nebyl vyvolán.",
+  "aiEval.skippedCandidate.tooShort": "Stávající model proběhl, ale kandidát vrátil pevné skóre Milo pro příliš krátký text bez volání modelu. Porovnání nebylo uloženo a tento pokus nelze hodnotit.",
   "proof.title": "Podklady o zveřejnění a pozdější výsledky",
   "proof.help":
     "Každý nový pokus o zveřejnění uchovává schválenou verzi a odkazy na zdroje či akce. Pozdější měření se ukládají samostatně. Historické štítky zveřejnění se zpětně nedoplňují jako ověřené podklady.",

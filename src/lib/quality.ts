@@ -182,6 +182,16 @@ export const EVALUATOR_NOTE_SEPARATOR = " Evaluator note: ";
 /** System fallback when a valid score arrived without any explanation text. */
 export const NO_EXPLANATION_RETURNED = "No explanation was returned for this category.";
 
+/**
+ * Result of one quality evaluation at the server boundary. `outcome: "model"` is a normalized
+ * model result; `outcome: "skipped"` is a deterministic score returned WITHOUT any usage claim
+ * or provider call (currently only the fixed too-short score). Callers persist `score` only;
+ * the outcome is provenance for the caller and is never stored on the asset.
+ */
+export type QualityEvaluationResult =
+  | { outcome: "model"; score: QualityScore }
+  | { outcome: "skipped"; reason: "tooShort"; score: QualityScore };
+
 /** Trust & safety below this is a critical issue: blocks "ready" and caps the headline. */
 export const CRITICAL_TRUST_THRESHOLD = 50;
 

@@ -57,6 +57,12 @@ export const slEvidence: Readonly<Record<string, string>> = {
   "aiEval.rating.languageQuality": "Jezikovna kakovost",
   "aiEval.rating.usefulness": "Uporabnost",
   "aiEval.rating.safetyTrust": "Varnost / zaupanje",
+  "aiEval.status.skipped": "Preskočeno",
+  "aiEval.skipped.tooShort": "Noben model ni bil zagnan: ta osnutek ima manj kot 40 besed, zato je Milo brez klica modela vrnil svojo fiksno, previdno oceno za prekratko besedilo. Ni kaj primerjati in za ta poskus ni bil shranjen noben zagon, zakasnitev ali ocena.",
+  "aiEval.shortDraftHint": "Ta osnutek ima manj kot 40 besed. Milo Score bi brez klica modela vrnil svojo fiksno oceno za prekratko besedilo, zato ni kaj primerjati. Izberite daljši osnutek.",
+  "aiEval.status.notRun": "Ni zagnano",
+  "aiEval.notRunAfterSkip": "Ni zagnano: obstoječa stran je bila preskočena, zato model kandidat ni bil poklican.",
+  "aiEval.skippedCandidate.tooShort": "Obstoječi model se je zagnal, kandidat pa je brez klica modela vrnil fiksno oceno Milo za prekratko besedilo. Primerjava ni bila shranjena in tega poskusa ni mogoče oceniti.",
   "proof.title": "Dokazila o objavi in poznejši rezultati",
   "proof.help":
     "Vsak nov poskus objave ohrani odobreno različico in reference na vire/dejanja. Poznejše meritve se shranijo ločeno. Zgodovinske oznake objav se naknadno ne dopolnjujejo kot preverjena dokazila.",

@@ -454,7 +454,7 @@ export async function evaluateContentQuality(contentAssetId: string) {
     // It must NOT receive faq[]/cta/internalLinks[] — those side-fields do not
     // publish, and grading them would award points for unpublished information.
     // The FAQ/CTA/internal-link components are graded from the article body.
-    const score = await evaluateContentQualityFn({
+    const evaluation = await evaluateContentQualityFn({
       data: {
         project,
         services,
@@ -469,11 +469,14 @@ export async function evaluateContentQuality(contentAssetId: string) {
       },
     });
 
+    // Only the score is persisted; the server's outcome (model | skipped) is provenance, not asset data.
+    const score = evaluation.score;
     upsertContent({ ...a, qualityScore: score, qualityScoreStale: false, updatedAt: evaluatedAt });
     await saveWorkspaceNow();
     console.info("[ai.client] milo score evaluated", {
       assetId: contentAssetId,
       overall: score.overall,
+      outcome: evaluation.outcome,
     });
     return score;
   });

@@ -46,3 +46,17 @@ historical headline (for example an unassessed trust category stored as 50 / "ok
 re-evaluates that draft, which is a separately authorized paid step. No migration or paid re-scoring
 is performed by this change. Offline controls are not owner-rated quality, cost or publication
 acceptance.
+
+## Addendum (AJ, 28 September 2026) — a skipped assessment is not a model comparison
+
+`evaluateContentQualityFn` now returns an explicit envelope: `{ outcome: "model", score }` for a
+normalized model result, or `{ outcome: "skipped", reason: "tooShort", score }` for the fixed
+too-short score returned without any usage claim or provider call. Callers persist `score` only
+(`mock-ai.ts`); the outcome is provenance and is never stored on the asset. The owner AI Evaluation
+route runs both sides through `src/lib/ai-evaluation.ts` on one frozen input: a skipped existing
+side ends the attempt before the candidate is invoked, an unexpectedly skipped candidate also ends it,
+and in both cases no run, latency, preview or rating is recorded and the previous run's rating
+linkage is cleared. The decision uses the server's outcome, never the numeric score, its copy or
+missing metadata; the route's under-40-words hint is an eligibility aid only. Localized keys:
+`aiEval.status.skipped`, `aiEval.skipped.tooShort`, `aiEval.shortDraftHint`. Existing history rows are
+untouched; rows recorded before this change from short drafts (if any) remain historical.

@@ -59,6 +59,12 @@ export const itEvidence: Readonly<Record<string, string>> = {
   "aiEval.rating.languageQuality": "Qualità linguistica",
   "aiEval.rating.usefulness": "Utilità",
   "aiEval.rating.safetyTrust": "Sicurezza / fiducia",
+  "aiEval.status.skipped": "Saltato",
+  "aiEval.skipped.tooShort": "Nessun modello è stato eseguito: questa bozza ha meno di 40 parole, quindi Milo ha restituito il suo punteggio fisso e prudente per testi troppo brevi senza chiamare il modello. Non c’è nulla da confrontare e per questo tentativo non sono stati salvati esecuzione, latenza o valutazioni.",
+  "aiEval.shortDraftHint": "Questa bozza ha meno di 40 parole. Milo Score restituirebbe il suo punteggio fisso per testi troppo brevi senza chiamare il modello, quindi non c’è nulla da confrontare. Scegli una bozza più lunga.",
+  "aiEval.status.notRun": "Non eseguito",
+  "aiEval.notRunAfterSkip": "Non eseguito: il lato esistente è stato saltato, quindi il modello candidato non è stato invocato.",
+  "aiEval.skippedCandidate.tooShort": "Il modello esistente è stato eseguito, ma il candidato ha restituito il punteggio fisso di Milo per testi troppo brevi senza chiamare il modello. Nessun confronto è stato salvato e questo tentativo non può essere valutato.",
   "proof.title": "Evidenze di pubblicazione e risultati successivi",
   "proof.help":
     "Ogni nuovo tentativo di pubblicazione conserva la versione approvata e i riferimenti alle fonti e alle azioni. Le misurazioni successive vengono salvate separatamente. Le etichette storiche di pubblicazione non vengono riclassificate retroattivamente come evidenze verificate.",

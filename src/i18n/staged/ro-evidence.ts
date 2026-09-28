@@ -57,6 +57,12 @@ export const roEvidence: Readonly<Record<string, string>> = {
   "aiEval.rating.languageQuality": "Calitatea limbii",
   "aiEval.rating.usefulness": "Utilitate",
   "aiEval.rating.safetyTrust": "Siguranță / încredere",
+  "aiEval.status.skipped": "Omis",
+  "aiEval.skipped.tooShort": "Nu a fost rulat niciun model: această ciornă are mai puțin de 40 de cuvinte, așa că Milo a returnat scorul său fix și prudent pentru text prea scurt fără apel la model. Nu există nimic de comparat și nu au fost salvate rulare, latență sau evaluări pentru această încercare.",
+  "aiEval.shortDraftHint": "Această ciornă are mai puțin de 40 de cuvinte. Milo Score ar returna scorul său fix pentru text prea scurt fără apel la model, deci nu există nimic de comparat. Alegeți o ciornă mai lungă.",
+  "aiEval.status.notRun": "Nerulat",
+  "aiEval.notRunAfterSkip": "Nerulat: partea existentă a fost omisă, așa că modelul candidat nu a fost apelat.",
+  "aiEval.skippedCandidate.tooShort": "Modelul existent a rulat, dar candidatul a returnat scorul fix al Milo pentru text prea scurt fără apel la model. Nu a fost salvată nicio comparație și această încercare nu poate fi evaluată.",
   "proof.title": "Dovezi de publicare și rezultate ulterioare",
   "proof.help":
     "Fiecare nouă încercare de publicare își păstrează versiunea aprobată și referințele la surse/acțiuni. Măsurătorile ulterioare sunt salvate separat. Etichetele istorice de publicare nu sunt completate retroactiv ca dovezi verificate.",

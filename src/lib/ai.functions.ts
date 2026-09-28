@@ -24,6 +24,7 @@ import {
   draftWordCount,
   normalizeQualityScore,
   tooShortScore,
+  type QualityEvaluationResult,
 } from "./quality";
 import { normalizeHookProposals } from "./hook";
 import { internalLinkRule } from "./internal-link-prompt";
@@ -2681,12 +2682,13 @@ export const evaluateContentQualityFn = createServerFn({ method: "POST" })
       })
       .parse(input),
   )
-  .handler(async ({ data, context }) => {
+  .handler(async ({ data, context }): Promise<QualityEvaluationResult> => {
     // Short-draft economy, enforced here as well as in the client caller: an empty or
     // too-short draft gets the same conservative score with NO usage claim and NO
-    // provider call (the owner evaluation route reaches this handler directly).
+    // provider call (the owner evaluation route reaches this handler directly). The
+    // explicit `outcome: "skipped"` tells callers this is not model work.
     if (draftWordCount(data.markdown) < MIN_EVALUABLE_WORDS) {
-      return tooShortScore(new Date().toISOString());
+      return { outcome: "skipped", reason: "tooShort", score: tooShortScore(new Date().toISOString()) };
     }
     // Spend limit, claimed before any model call so a refusal costs nothing.
     await claimAiUsage({ userId: context.userId as string, bucket: "miloScore" });
@@ -2737,8 +2739,11 @@ ${sharedRules}`,
         data.modelOverride,
       );
       // Normalize server-side so the return type is a concrete, serializable
-      // QualityScore (defensive: clamps, recomputes overall, fills fallbacks).
-      return normalizeQualityScore(payload, new Date().toISOString(), data.modelOverride || MODEL);
+      // QualityScore (defensive: validates, recomputes overall, marks unassessed).
+      return {
+        outcome: "model",
+        score: normalizeQualityScore(payload, new Date().toISOString(), data.modelOverride || MODEL),
+      };
     } catch (e) {
       throw mapGatewayError(e);
     }

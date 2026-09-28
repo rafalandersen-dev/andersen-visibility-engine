@@ -818,6 +818,12 @@ export const da: Record<string, string> = {
   "aiEval.rating.languageQuality": "Sprogkvalitet",
   "aiEval.rating.usefulness": "Anvendelighed",
   "aiEval.rating.safetyTrust": "Sikkerhed / tillid",
+  "aiEval.status.skipped": "Sprunget over",
+  "aiEval.skipped.tooShort": "Ingen model blev kørt: udkastet har færre end 40 ord, så Milo returnerede sin faste, forsigtige score for for korte udkast uden et modelkald. Der er intet at sammenligne, og der blev ikke gemt nogen kørsel, latenstid eller vurderinger for dette forsøg.",
+  "aiEval.shortDraftHint": "Udkastet har færre end 40 ord. Milo Score ville returnere sin faste score for for korte udkast uden et modelkald, så der er intet at sammenligne. Vælg et længere udkast.",
+  "aiEval.status.notRun": "Ikke kørt",
+  "aiEval.notRunAfterSkip": "Ikke kørt: den eksisterende side blev sprunget over, så kandidatmodellen blev ikke kaldt.",
+  "aiEval.skippedCandidate.tooShort": "Den eksisterende model kørte, men kandidaten returnerede Milos faste score for for korte udkast uden et modelkald. Ingen sammenligning blev gemt, og dette forsøg kan ikke vurderes.",
 
   // ---- Free AI Visibility Readiness Audit (public) ----
   "publicAudit.badge": "Gratis tjek",

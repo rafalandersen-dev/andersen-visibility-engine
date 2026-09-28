@@ -57,6 +57,12 @@ export const hrEvidence: Readonly<Record<string, string>> = {
   "aiEval.rating.languageQuality": "Jezična kvaliteta",
   "aiEval.rating.usefulness": "Korisnost",
   "aiEval.rating.safetyTrust": "Sigurnost / povjerenje",
+  "aiEval.status.skipped": "Preskočeno",
+  "aiEval.skipped.tooShort": "Nijedan model nije pokrenut: ovaj nacrt ima manje od 40 riječi, pa je Milo vratio svoj fiksni, konzervativni rezultat za prekratak tekst bez poziva modela. Nema što usporediti, a za ovaj pokušaj nisu spremljeni izvođenje, latencija ni ocjene.",
+  "aiEval.shortDraftHint": "Ovaj nacrt ima manje od 40 riječi. Milo Score bi vratio svoj fiksni rezultat za prekratak tekst bez poziva modela, pa nema što usporediti. Odaberite dulji nacrt.",
+  "aiEval.status.notRun": "Nije pokrenuto",
+  "aiEval.notRunAfterSkip": "Nije pokrenuto: postojeća strana je preskočena, pa model kandidat nije pozvan.",
+  "aiEval.skippedCandidate.tooShort": "Postojeći model je pokrenut, ali je kandidat vratio fiksni Milo rezultat za prekratak tekst bez poziva modela. Usporedba nije spremljena i ovaj se pokušaj ne može ocijeniti.",
   "proof.title": "Dokazi o objavi i kasniji rezultati",
   "proof.help":
     "Svaki novi pokušaj objave čuva odobrenu verziju i reference na izvore/radnje. Kasnija mjerenja spremaju se zasebno. Povijesne oznake objave ne dopunjuju se naknadno kao provjereni dokazi.",

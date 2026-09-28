@@ -58,6 +58,12 @@ export const esEvidence: Readonly<Record<string, string>> = {
   "aiEval.rating.languageQuality": "Calidad del idioma",
   "aiEval.rating.usefulness": "Utilidad",
   "aiEval.rating.safetyTrust": "Seguridad / confianza",
+  "aiEval.status.skipped": "Omitido",
+  "aiEval.skipped.tooShort": "No se ejecutó ningún modelo: este borrador tiene menos de 40 palabras, así que Milo devolvió su puntuación fija y conservadora para textos demasiado cortos sin llamar al modelo. No hay nada que comparar y no se guardó ninguna ejecución, latencia ni valoración para este intento.",
+  "aiEval.shortDraftHint": "Este borrador tiene menos de 40 palabras. Milo Score devolvería su puntuación fija para textos demasiado cortos sin llamar al modelo, así que no hay nada que comparar. Elige un borrador más largo.",
+  "aiEval.status.notRun": "No ejecutado",
+  "aiEval.notRunAfterSkip": "No ejecutado: se omitió el lado existente, así que no se invocó el modelo candidato.",
+  "aiEval.skippedCandidate.tooShort": "El modelo existente se ejecutó, pero el candidato devolvió la puntuación fija de Milo para textos demasiado cortos sin llamar al modelo. No se guardó ninguna comparación y este intento no se puede valorar.",
   "proof.title": "Pruebas de publicación y resultados posteriores",
   "proof.help":
     "Cada nuevo intento de publicación conserva su versión aprobada y las referencias a fuentes y acciones. Las mediciones posteriores se guardan por separado. Las etiquetas históricas de publicación no se convierten retroactivamente en pruebas verificadas.",

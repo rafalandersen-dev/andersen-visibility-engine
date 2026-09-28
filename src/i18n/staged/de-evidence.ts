@@ -59,6 +59,12 @@ export const deEvidence: Readonly<Record<string, string>> = {
   "aiEval.rating.languageQuality": "Sprachqualität",
   "aiEval.rating.usefulness": "Nützlichkeit",
   "aiEval.rating.safetyTrust": "Sicherheit / Vertrauen",
+  "aiEval.status.skipped": "Übersprungen",
+  "aiEval.skipped.tooShort": "Es wurde kein Modell ausgeführt: Dieser Entwurf hat weniger als 40 Wörter, daher hat Milo seine feste, konservative Zu-kurz-Bewertung ohne Modellaufruf zurückgegeben. Es gibt nichts zu vergleichen; für diesen Versuch wurden kein Lauf, keine Latenz und keine Bewertungen gespeichert.",
+  "aiEval.shortDraftHint": "Dieser Entwurf hat weniger als 40 Wörter. Milo Score würde seine feste Zu-kurz-Bewertung ohne Modellaufruf zurückgeben, es gibt also nichts zu vergleichen. Wählen Sie einen längeren Entwurf.",
+  "aiEval.status.notRun": "Nicht ausgeführt",
+  "aiEval.notRunAfterSkip": "Nicht ausgeführt: Die bestehende Seite wurde übersprungen, daher wurde das Kandidatenmodell nicht aufgerufen.",
+  "aiEval.skippedCandidate.tooShort": "Das bestehende Modell lief, aber der Kandidat lieferte Milos feste Zu-kurz-Bewertung ohne Modellaufruf. Es wurde kein Vergleich gespeichert, und dieser Versuch kann nicht bewertet werden.",
   "proof.title": "Veröffentlichungsnachweise und spätere Ergebnisse",
   "proof.help":
     "Jeder neue Veröffentlichungsversuch bewahrt seine freigegebene Version sowie Quellen- und Aktionsreferenzen. Spätere Messungen werden separat gespeichert. Historische Veröffentlichungskennzeichnungen werden nicht nachträglich als verifizierte Nachweise ergänzt.",

@@ -143,7 +143,7 @@ export const ES_STAGED_BATCHES = [
     copy: esEvidence,
     namespaces: ["answer", "logs", "proof", "aiEval", "benchmark"],
     sourceRevision: "5a9416d74f532b65f78c0f19b89d221c6b2af6c2",
-    sourceHash: "2911f87d7691a2bf04548e0b7c0e63b3c93f25cdcd73c9af1ba5d22ffdee211d",
+    sourceHash: "1f9a2a7eea39cee7f70dfc8fa256ee24b64223a0743142ff8894fbde7cdbb2f5",
   },
   {
     name: "growth",
