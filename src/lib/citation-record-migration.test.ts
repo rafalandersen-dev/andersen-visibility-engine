@@ -309,6 +309,8 @@ beforeAll(async () => {
     "20260926190000_citation_scope_binding_versions.sql",
     // Candidate improvement expected-head guard (v3 wrapper the server now calls; unapplied until reviewed).
     "20260927190000_citation_improvement_head_guard.sql",
+    // Candidate 20260928120000 (UNAPPLIED, R/R1/R2): the v4 wrappers the server now calls; additive over v3.
+    "20260928120000_citation_change_evidence.sql",
   ])
     await db.exec(readFileSync("supabase/migrations/" + name, "utf8"));
 }, 30000);

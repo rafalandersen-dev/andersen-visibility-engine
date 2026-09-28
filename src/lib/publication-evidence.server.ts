@@ -45,6 +45,10 @@ export async function withPublicationEvidence<T>(args: {
   project: Project;
   paths: string[];
   publish: () => Promise<T>;
+  /** Server-derived initiator of this publication (candidate 20260928120000): the authenticated interactive
+   * session, or the scheduler acting under the owner's authority. Recorded best-effort right after the
+   * evidence row exists; without it a later independent inspection reads the performer as unavailable. */
+  actor?: { actorId: string; initiator: "interactive" | "scheduler" };
   outcome: (result: T) => {
     success: boolean;
     retryable?: boolean;
@@ -77,6 +81,24 @@ export async function withPublicationEvidence<T>(args: {
     throw new PublishNotPossibleError(
       "Publication evidence could not be saved. No publication was started.",
     );
+  }
+  if (args.actor) {
+    try {
+      await call(
+        "record_publication_actor",
+        {
+          p_user: scope.ownerId,
+          p_project: scope.projectId,
+          p_id: id,
+          p_actor: args.actor.actorId,
+          p_initiator: args.actor.initiator,
+        },
+        args.rpc,
+      );
+    } catch {
+      // Provenance only: a missing actor record never blocks publishing; it makes performer independence
+      // unavailable for that attempt (fail-closed on the inspection side).
+    }
   }
   const empty: OutcomeData = {
     liveUrl: "",

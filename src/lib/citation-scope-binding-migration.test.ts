@@ -230,6 +230,10 @@ describe("legacy rows inserted BEFORE the candidate is applied", () => {
         "utf8",
       ),
     );
+    // Candidate change evidence (R/R1/R2, 2026-09-28): the v4 wrappers the server now calls; additive over v3.
+    await db.exec(
+      readFileSync("supabase/migrations/20260928120000_citation_change_evidence.sql", "utf8"),
+    );
     const listed = await readCitationFindings(scope, rpc);
     expect(listed.findings.map((f) => [f.id, f.scopeEnforcedAt])).toEqual([[legacyId, null]]);
     expect(scopeBinding(listed.findings[0].scopeEnforcedAt)).toBe("legacy");

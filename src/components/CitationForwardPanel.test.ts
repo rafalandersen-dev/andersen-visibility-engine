@@ -49,7 +49,20 @@ vi.mock("@/lib/answer-evidence.functions", () => ({ readAnswerEvidenceFn: vi.fn(
 vi.mock("@/lib/citation-approval.functions", () => ({
   readPublicationApprovalProvenanceFn: vi.fn(),
 }));
-vi.mock("@/lib/project-team.functions", () => ({ readProjectTeamRosterFn: vi.fn() }));
+vi.mock("@/lib/project-team.functions", () => ({
+  readProjectTeamRosterFn: vi.fn(),
+  readOwnerTeamPolicyFn: vi.fn(),
+}));
+vi.mock("@/lib/citation-change.functions", () => ({
+  readChangeArtifactsFn: vi.fn(),
+  saveChangeArtifactFn: vi.fn(),
+  removeChangeArtifactFn: vi.fn(),
+  setChangeApprovalFn: vi.fn(),
+  saveChangeReceiptFn: vi.fn(),
+  removeChangeReceiptFn: vi.fn(),
+  grantInspectionAssignmentFn: vi.fn(),
+  revokeInspectionAssignmentFn: vi.fn(),
+}));
 vi.mock("@/lib/publication-evidence.functions", () => ({
   readPublicationEvidenceFn: vi.fn(),
   readPublicationSnapshotFn: vi.fn(),
@@ -146,7 +159,7 @@ describe("forward panel — honest states and real controls", () => {
     expect(html).toContain("citationForward.authority");
     expect(html).toContain("citationForward.common.loading");
     // Codex P3: while the improvements list is still pending, readiness shows loading, never a measured zero.
-    expect(html).not.toContain("citationForward.readiness.verified");
+    expect(html).not.toContain("citationChange.readiness.verified");
     expect(html).toContain("citationForward.readiness.title");
     h.queries["citation-findings"] = ok({ findings: [] });
     h.queries["citation-improvements"] = ok({ improvements: [] });
@@ -154,7 +167,7 @@ describe("forward panel — honest states and real controls", () => {
     expect(html).toContain("citationForward.findings.empty");
     expect(html).toContain("citationForward.improvement.listEmpty");
     expect(html).not.toContain("citationForward.task.create");
-    expect(html).toContain("citationForward.readiness.verified 0 2");
+    expect(html).toContain("citationChange.readiness.verified 0 2");
     expect(html).toContain("citationForward.task.pinnedEmpty");
   });
   it("Codex P1: when a non-deleted task is already pinned to the selected row, creation is disabled and the existing pin is named", () => {
@@ -227,7 +240,7 @@ describe("forward panel — honest states and real controls", () => {
     h.queries["citation-improvements"] = failed;
     let html = render();
     expect(html).toContain("citationForward.readiness.unavailable");
-    expect(html).not.toContain("citationForward.readiness.verified");
+    expect(html).not.toContain("citationChange.readiness.verified");
     h.queries["citation-improvements"] = ok({
       improvements: [
         {
@@ -250,7 +263,7 @@ describe("forward panel — honest states and real controls", () => {
     html = render();
     expect(html).toContain("citationForward.improvement.historyRow");
     // The attested fetch only covers HEADS: no head is attested, so the query is disabled and counts render at 0.
-    expect(html).toContain("citationForward.readiness.verified 0 2");
+    expect(html).toContain("citationChange.readiness.verified 0 2");
   });
   it("offers only current, non-dismissed heads as finding versions and reports load failures as errors", () => {
     reset();
@@ -286,6 +299,8 @@ describe("forward panel — honest states and real controls", () => {
         findingRowIds: [ROW],
         taskId: "k3j9x2ab",
         publicationId: null,
+        changeArtifactId: null,
+        changeReceiptId: null,
         approvedBy: OWNER,
         description: "",
         baselineCaptureIds: [],
@@ -352,6 +367,8 @@ describe("forward panel — honest states and real controls", () => {
         findingRowIds: [ROW],
         taskId: "k3j9x2ab",
         publicationId: PUB,
+        changeArtifactId: null,
+        changeReceiptId: null,
         approvedBy: OWNER,
         description: "",
         baselineCaptureIds: [],
@@ -434,6 +451,7 @@ describe("forward panel — honest states and real controls", () => {
         baselineCaptureIds: [],
         verification: null,
       },
+      changeBinding: null,
       binding: {
         publicationId: PUB,
         assetId: "asset-1",
@@ -450,6 +468,8 @@ describe("forward panel — honest states and real controls", () => {
         findingRowIds: [ROW],
         taskId: "k3j9x2ab",
         publicationId: PUB,
+        changeArtifactId: null,
+        changeReceiptId: null,
         approvedBy: OWNER,
         description: "Added",
         baselineCaptureIds: [],
@@ -595,5 +615,282 @@ describe("forward panel — honest states and real controls", () => {
     );
     expect(missing).toContain("citationForward.task.state.missing");
     expect(missing).not.toContain("citationForward.task.state.archived");
+  });
+  it("change-kind detail (candidate 20260928120000): the bound artifact/receipt, the owner inspection controls without a hyperlink, the independent status, live dissent provenance, inspector chains with validity reasons, and readiness lines", () => {
+    reset();
+    const ART_SHA = "d".repeat(64);
+    const inspector = "00000000-0000-4000-8000-0000000000a1";
+    const head = {
+      ...summaryRow,
+      verificationStatus: "owner_attested",
+      evidenceStatus: "baseline_recorded",
+      independentStatus: "disputed",
+      verifiedEligible: false,
+      verifiedAt: null,
+    };
+    h.queries["citation-findings"] = ok({ findings: [finding()] });
+    h.queries["citation-improvements"] = ok({ improvements: [head] });
+    h.queries["citation-improvement"] = ok({
+      ...head,
+      record: {
+        improvementId: summaryRow.improvementId,
+        findingIds: ["00000000-0000-4000-8000-0000000000d1"],
+        taskId: "k3j9x2ab",
+        change: {
+          description: "Corrected the opening hours.",
+          approvedVersion: ART_SHA,
+          approvedBy: OWNER,
+          approvedAt: "2026-09-27T10:05:00Z",
+        },
+        destination: { kind: "listing", reference: "google-business-profile:acme" },
+        baselineCaptureIds: ["00000000-0000-4000-8000-0000000000e1"],
+        verification: {
+          method: "owner_inspection",
+          receipt: "r",
+          verifiedAt: "2026-09-27T12:00:00Z",
+          reviewer: OWNER,
+        },
+      },
+      boundFindingRowIds: [ROW],
+      publicationBinding: null,
+      changeBinding: {
+        kind: "listing",
+        reference: "google-business-profile:acme",
+        artifactId: "00000000-0000-4000-8000-0000000000aa",
+        artifactSha256: ART_SHA,
+        receiptId: "00000000-0000-4000-8000-0000000000ab",
+        ownerInspection: {
+          observedAt: "2026-09-27T12:00:00Z",
+          checkResult: "shows_approved_content",
+          observedReference: "google-business-profile:acme",
+        },
+        artifactDeleted: false,
+      },
+      assignments: [
+        {
+          inspectorId: inspector,
+          active: true,
+          grantedAt: "2026-09-27T11:00:00Z",
+          revokedAt: null,
+          effective: true,
+        },
+      ],
+      inspections: [
+        {
+          id: "00000000-0000-4000-8000-0000000000e7",
+          inspectorId: "00000000-0000-4000-8000-0000000000a4",
+          version: 1,
+          supersedesId: null,
+          checkResult: "shows_approved_content",
+          observedAt: "2026-09-27T11:20:00Z",
+          createdAt: "2026-09-27T11:20:01Z",
+          isHead: true,
+          effective: false,
+          ineffectiveReason: "authority",
+        },
+        {
+          id: "00000000-0000-4000-8000-0000000000e9",
+          inspectorId: inspector,
+          version: 2,
+          supersedesId: "00000000-0000-4000-8000-0000000000e8",
+          checkResult: "does_not_show",
+          observedAt: "2026-09-27T11:30:00Z",
+          createdAt: "2026-09-27T11:30:01Z",
+          isHead: true,
+          effective: true,
+          ineffectiveReason: null,
+        },
+        {
+          id: "00000000-0000-4000-8000-0000000000e8",
+          inspectorId: inspector,
+          version: 1,
+          supersedesId: null,
+          checkResult: "shows_approved_content",
+          observedAt: "2026-09-27T11:10:00Z",
+          createdAt: "2026-09-27T11:10:01Z",
+          isHead: false,
+          effective: false,
+          ineffectiveReason: "superseded",
+        },
+      ],
+      dissent: [
+        {
+          receiptId: "00000000-0000-4000-8000-0000000000e9",
+          improvementRowId: "00000000-0000-4000-8000-0000000000a0",
+          inspectorId: inspector,
+          observedAt: "2026-09-27T11:30:00Z",
+        },
+      ],
+    });
+    const html = renderToStaticMarkup(
+      createElement(CitationForwardPanel, {
+        projectId: "proj_a",
+        ownerId: OWNER,
+        language: "English",
+        initialOpenImprovementId: summaryRow.id,
+      }),
+    );
+    expect(html).toContain("data-change-binding");
+    expect(html).toContain("citationChange.artifact.kind.listing");
+    expect(html).toContain("google-business-profile:acme");
+    expect(html).toContain("d".repeat(16));
+    // Owner inspection controls exist for a change row, but there is no hyperlink to "open" (no URL to visit).
+    expect(html).toContain('name="inspection-result"');
+    expect(html).not.toContain("citationForward.inspection.open");
+    expect(html).not.toContain("citationForward.inspection.snapshot");
+    // The independent section: disputed + not eligible although the owner attested; dissent names the earlier row.
+    expect(html).toContain('data-independent="disputed"');
+    expect(html).toContain('data-eligible="no"');
+    expect(html).toContain('data-dissent="1"');
+    expect(html).toContain("citationChange.dissent.row");
+    expect(html).toContain('data-effective="yes"');
+    // A second inspector whose positive head lost effect under renewed authority is labelled with the reason and
+    // never counted.
+    expect(html).toContain('data-effective="no"');
+    expect(html).toContain("citationChange.inspect.reason.authority");
+    expect(html).toContain("citationChange.assign.link");
+    expect(html).toContain("citationChange.assign.revoke");
+    // The list chip carries the server label; readiness waits for the fresh detail of the disputed/attested head
+    // (its query key is not mocked here → loading, never a measured count).
+    expect(html).toContain("citationChange.independent.disputed");
+    expect(html).toContain("citationForward.readiness.title");
+    expect(html).not.toContain("citationChange.readiness.disputed 1");
+  });
+  it("Codex R5: an independent-only eligible row is labelled by its proof source (never 'no baseline recorded'), the neutral readiness count names its sources, and the owner sees the EXACT bound artifact fields with a reference-appropriate instruction; unavailable content disables a positive attestation", () => {
+    reset();
+    const ART = "00000000-0000-4000-8000-0000000000aa";
+    const ART_SHA = "d".repeat(64);
+    const independentHead = {
+      ...summaryRow,
+      verificationStatus: "receipt_recorded",
+      evidenceStatus: "baseline_absent",
+      independentStatus: "independently_inspected",
+      verifiedEligible: true,
+      verifiedAt: "2026-09-28T02:53:33Z",
+    };
+    const detailOf = (changeBinding: Record<string, unknown>) => ({
+      ...independentHead,
+      record: {
+        improvementId: summaryRow.improvementId,
+        findingIds: ["00000000-0000-4000-8000-0000000000d1"],
+        taskId: "k3j9x2ab",
+        change: {
+          description: "Set the site title.",
+          approvedVersion: ART_SHA,
+          approvedBy: OWNER,
+          approvedAt: "2026-09-28T02:50:00Z",
+        },
+        destination: { kind: "configuration", reference: "site-settings:general" },
+        baselineCaptureIds: ["00000000-0000-4000-8000-0000000000e1"],
+        verification: null,
+      },
+      boundFindingRowIds: [ROW],
+      publicationBinding: null,
+      changeBinding: {
+        kind: "configuration",
+        reference: "site-settings:general",
+        artifactId: ART,
+        artifactSha256: ART_SHA,
+        receiptId: "00000000-0000-4000-8000-0000000000ab",
+        ownerInspection: null,
+        artifactDeleted: false,
+        ...changeBinding,
+      },
+      assignments: [],
+      inspections: [],
+      dissent: [],
+    });
+    const artifact = (sha = ART_SHA) => ({
+      id: ART,
+      kind: "configuration",
+      reference: "site-settings:general",
+      fields: { siteTitle: { before: null, after: "Milo fixture title" } },
+      artifactSha256: sha,
+      createdBy: OWNER,
+      createdAt: "2026-09-28T02:49:00Z",
+      approval: null,
+      receipts: [],
+    });
+    const renderDetail = () =>
+      renderToStaticMarkup(
+        createElement(CitationForwardPanel, {
+          projectId: "proj_a",
+          ownerId: OWNER,
+          language: "English",
+          initialOpenImprovementId: summaryRow.id,
+        }),
+      );
+    h.queries["citation-findings"] = ok({ findings: [finding()] });
+    h.queries["citation-improvements"] = ok({ improvements: [independentHead] });
+    h.queries["citation-improvement"] = ok(detailOf({}));
+    h.queries["citation-improvement-attested"] = ok(new Map([[summaryRow.id, detailOf({})]]));
+    h.queries["citation-change-artifacts"] = ok({ artifacts: [artifact()] });
+    const tagOf = (html: string, marker: string) => {
+      const at = html.indexOf(marker);
+      return html.slice(html.lastIndexOf("<input", at), at);
+    };
+    let html = renderDetail();
+    // Evidence chip: proof-source label, never the owner-axis "no baseline recorded".
+    expect(html).toContain("citationChange.evidence.independentBaseline");
+    expect(html).not.toContain("citationForward.improvement.evidence.baseline_absent");
+    expect(html).toContain('data-evidence="baseline_absent"');
+    // Neutral count with its sources: 1 verified through the independent path, 0 owner-attested.
+    expect(html).toContain("citationChange.readiness.verified 1 2");
+    expect(html).toContain("citationChange.readiness.sources 0 1");
+    expect(html).not.toContain("citationForward.readiness.verified");
+    // Owner content: the exact bound artifact's fields + the reference-appropriate instruction; positive allowed.
+    expect(html).toContain('data-owner-content="fields"');
+    expect(html).toContain("siteTitle");
+    expect(html).toContain("Milo fixture title");
+    expect(html).toContain("citationChange.inspect.ownerIntro");
+    expect(html).not.toContain("citationForward.inspection.intro");
+    expect(html).not.toContain("citationForward.inspection.open");
+    expect(tagOf(html, 'value="shows_approved_content"')).not.toContain('disabled=""');
+    // Hash mismatch (a newer artifact under the same id) → unavailable, positive disabled, negative allowed.
+    h.queries["citation-change-artifacts"] = ok({ artifacts: [artifact("e".repeat(64))] });
+    html = renderDetail();
+    expect(html).toContain('data-owner-content="unavailable"');
+    expect(html).not.toContain("Milo fixture title");
+    expect(tagOf(html, 'value="shows_approved_content"')).toContain('disabled=""');
+    expect(tagOf(html, 'value="does_not_show"')).not.toContain('disabled=""');
+    // Artifact read error → unavailable; loading → loading (positive disabled until loaded); deleted → unavailable.
+    h.queries["citation-change-artifacts"] = failed;
+    expect(renderDetail()).toContain('data-owner-content="unavailable"');
+    delete h.queries["citation-change-artifacts"];
+    html = renderDetail();
+    expect(html).toContain('data-owner-content="loading"');
+    expect(tagOf(html, 'value="shows_approved_content"')).toContain('disabled=""');
+    h.queries["citation-change-artifacts"] = ok({ artifacts: [artifact()] });
+    h.queries["citation-improvement"] = ok(detailOf({ artifactDeleted: true }));
+    html = renderDetail();
+    expect(html).toContain("citationChange.binding.deleted");
+    expect(html).not.toContain('name="inspection-result"');
+    // An owner-only row keeps the released owner labels; a disputed row never qualifies.
+    const ownerHead = {
+      ...summaryRow,
+      verificationStatus: "owner_attested",
+      evidenceStatus: "baseline_recorded",
+      independentStatus: "none",
+      verifiedEligible: true,
+      verifiedAt: "2026-09-28T03:00:00Z",
+    };
+    h.queries["citation-improvements"] = ok({ improvements: [ownerHead] });
+    h.queries["citation-improvement"] = ok({ ...detailOf({}), ...ownerHead });
+    h.queries["citation-improvement-attested"] = ok(
+      new Map([[summaryRow.id, { ...detailOf({}), ...ownerHead }]]),
+    );
+    html = renderDetail();
+    expect(html).toContain("citationForward.improvement.evidence.baseline_recorded");
+    expect(html).not.toContain("citationChange.evidence.independentBaseline");
+    // T (PR157 finding 4118473980): a bound receipt from an earlier approval epoch is named as such and the owner
+    // inspection controls are withheld (no new inspection may bind that receipt); the audit block stays.
+    h.queries["citation-improvement"] = ok(detailOf({ receiptCurrent: false }));
+    const stale = renderDetail();
+    expect(stale).toContain("data-change-binding");
+    expect(stale).toContain("data-receipt-stale");
+    expect(stale).toContain("citationChange.binding.receiptStale");
+    expect(stale).not.toContain('name="inspection-result"');
+    h.queries["citation-improvement"] = ok(detailOf({ receiptCurrent: true }));
+    expect(renderDetail()).not.toContain("data-receipt-stale");
   });
 });

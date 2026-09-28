@@ -30,6 +30,7 @@ import { slSharedUi } from "./sl-shared-ui";
 import { slCitationReview } from "./sl-citation-review";
 import { slCitationAuthoring } from "./sl-citation-authoring";
 import { slCitationForward } from "./sl-citation-forward";
+import { slCitationChange } from "./sl-citation-change";
 /** Slovenian authoring; never imported by the runtime catalog. */
 export const SL_STAGED_BATCHES = [
   {
@@ -291,6 +292,13 @@ export const SL_STAGED_BATCHES = [
     namespaces: ["citationForward"],
     sourceRevision: "citation forward workflow candidate after 64db7a4b (Codex N1 corrections)",
     sourceHash: "692652100abfecf97689fd04a6f508d7d66db62417cfd2cfc3dc6f2adf8fcb70",
+  },
+  {
+    name: "citation change",
+    copy: slCitationChange,
+    namespaces: ["citationChange"],
+    sourceRevision: "citation change evidence candidate 20260928120000 (R/R1/R2)",
+    sourceHash: "576b6f207594745c1c3e082e0bba5d773318eb96241d4d5cf18187b680cdc2d5",
   },
 ] as const;
 export const SL_STAGED_CATALOG: Readonly<Record<string, string>> = Object.freeze(

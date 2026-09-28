@@ -53,7 +53,10 @@ import {
   newImprovementDraft,
   opportunityFromFinding,
   publishedAttemptsForTask,
+  evidenceLabelKey,
+  readinessDetailIds,
   retestReadiness,
+  type ChangeArtifact,
   tasksForFinding,
   taskStatus,
   type EvidenceRow,
@@ -64,6 +67,7 @@ import {
   inspectionRequest,
   pinnedRowsOf,
   pinnedTasks,
+  draftIssueKey,
 } from "./citation-forward";
 
 const OWNER = "00000000-0000-4000-8000-000000000001";
@@ -451,7 +455,8 @@ describe("published attempt ↔ improvement binding", () => {
       expect(ok.payload.improvement.findingIds).toEqual([FINDING]);
       expect(ok.payload.improvement.taskId).toBe("k3j9x2ab");
       expect(ok.payload.improvement.verification).toBeNull();
-      expect(ok.payload.binding.publicationId).toBe(PUB);
+      expect(ok.payload.binding?.publicationId).toBe(PUB);
+      expect(ok.payload.changeBinding).toBeNull();
       expect(ok.payload.expectedFindingRowIds).toEqual([ROW_V1]);
     }
     const issuesOf = (patch: Partial<typeof base>) => {
@@ -752,6 +757,364 @@ describe("retest readiness from live statuses", () => {
       stale.set(a2.id, detailOf(a2, records.get(a2.id)!.record, over));
       expect(retestReadiness([a1, a2], stale).distinctVerified, JSON.stringify(over)).toBe(1);
     }
+  });
+});
+
+describe("change-kind binding (candidate 20260928120000): artifact → approval → performed receipt → payload", () => {
+  const ART = "00000000-0000-4000-8000-0000000000aa";
+  const RCPT = "00000000-0000-4000-8000-0000000000ab";
+  const ART_SHA = "d".repeat(64);
+  const artifact = (over: Record<string, unknown> = {}): ChangeArtifact => ({
+    id: ART,
+    kind: "listing",
+    reference: "google-business-profile:acme",
+    fields: { openingHours: { before: "9–17", after: "9–18" } },
+    artifactSha256: ART_SHA,
+    createdBy: OWNER,
+    createdAt: "2026-09-27T10:00:00Z",
+    approval: {
+      approved: true,
+      current: true,
+      revision: 1,
+      approverKind: "owner",
+      approverId: OWNER,
+      approvedAt: "2026-09-27T10:05:00Z",
+    },
+    receipts: [
+      {
+        id: RCPT,
+        performedBy: OWNER,
+        performerKind: "owner",
+        performedAt: "2026-09-27T10:10:00Z",
+        recordedAt: "2026-09-27T10:10:01Z",
+        current: true,
+      },
+    ],
+    ...over,
+  });
+  const changeDraft = (over: Partial<ImprovementDraft> = {}): ImprovementDraft => ({
+    ...newImprovementDraft("00000000-0000-4000-8000-000000000071", "k3j9x2ab", OWNER),
+    findingRowIds: [ROW_V1],
+    changeArtifactId: ART,
+    changeReceiptId: RCPT,
+    description: "Corrected the opening hours on the listing.",
+    baselineCaptureIds: [ANSWER_BEFORE],
+    ...over,
+  });
+  it("derives version, approver, destination and the binding from the chosen approved artifact + receipt; publication fields stay null", () => {
+    const r = buildImprovementPayload(changeDraft(), {
+      rows: [row()],
+      attempts: [],
+      answers,
+      artifacts: [artifact()],
+    });
+    expect(r.ok).toBe(true);
+    if (!r.ok) return;
+    expect(r.payload.binding).toBeNull();
+    expect(r.payload.changeBinding).toEqual({
+      artifactId: ART,
+      artifactSha256: ART_SHA,
+      receiptId: RCPT,
+      ownerInspection: null,
+    });
+    expect(r.payload.improvement.change).toEqual({
+      description: "Corrected the opening hours on the listing.",
+      approvedVersion: ART_SHA,
+      approvedBy: OWNER,
+      approvedAt: "2026-09-27T10:05:00Z",
+    });
+    expect(r.payload.improvement.destination).toEqual({
+      kind: "listing",
+      reference: "google-business-profile:acme",
+    });
+    expect(r.payload.improvement.verification).toBeNull();
+    expect(r.payload.expectedFindingRowIds).toEqual([ROW_V1]);
+    // A delegate-approved artifact names the DELEGATE, never the owner.
+    const delegate = "00000000-0000-4000-8000-0000000000a1";
+    const d = buildImprovementPayload(changeDraft(), {
+      rows: [row()],
+      attempts: [],
+      answers,
+      artifacts: [
+        artifact({
+          approval: {
+            approved: true,
+            current: true,
+            revision: 2,
+            approverKind: "delegate",
+            approverId: delegate,
+            approvedAt: "2026-09-27T10:06:00Z",
+          },
+        }),
+      ],
+    });
+    expect(d.ok && d.payload.improvement.change.approvedBy).toBe(delegate);
+  });
+  it("reports each change issue honestly: missing/unknown artifact, non-current approval, missing receipt, a baseline captured after the declared instant", () => {
+    const issuesOf = (draft: ImprovementDraft, artifacts: ChangeArtifact[]) => {
+      const r = buildImprovementPayload(draft, { rows: [row()], attempts: [], answers, artifacts });
+      return r.ok ? [] : r.issues;
+    };
+    expect(issuesOf(changeDraft(), [])).toContain("artifact_required");
+    expect(issuesOf(changeDraft(), undefined as never)).toContain("artifact_required");
+    expect(
+      issuesOf(changeDraft(), [
+        artifact({ approval: { ...artifact().approval!, current: false } }),
+      ]),
+    ).toContain("artifact_unapproved");
+    expect(issuesOf(changeDraft(), [artifact({ approval: null })])).toContain(
+      "artifact_unapproved",
+    );
+    expect(issuesOf(changeDraft(), [artifact({ receipts: [] })])).toContain("receipt_required");
+    expect(issuesOf(changeDraft({ changeReceiptId: null }), [artifact()])).toContain(
+      "receipt_required",
+    );
+    // T (PR157 finding 4118473980): a listed receipt from an earlier approval epoch (server-derived
+    // `current: false`) is never bindable; a current one raises no such issue.
+    expect(
+      issuesOf(changeDraft(), [
+        artifact({ receipts: [{ ...artifact().receipts[0], current: false }] }),
+      ]),
+    ).toContain("receipt_stale");
+    expect(issuesOf(changeDraft(), [artifact()])).not.toContain("receipt_stale");
+    // The declared instant is the chronology anchor: a capture taken after it is not a baseline.
+    const late = artifact({
+      receipts: [
+        {
+          id: RCPT,
+          performedBy: OWNER,
+          performerKind: "owner",
+          performedAt: "2026-09-25T09:05:00Z",
+          recordedAt: "2026-09-25T09:05:01Z",
+          current: true,
+        },
+      ],
+    });
+    expect(issuesOf(changeDraft({ baselineCaptureIds: [ANSWER_AFTER] }), [late])).toContain(
+      "baseline_after_publication",
+    );
+    expect(issuesOf(changeDraft({ baselineCaptureIds: [ANSWER_BEFORE] }), [late])).toEqual([]);
+    expect(issuesOf(changeDraft({ findingRowIds: [] }), [artifact()])).toContain(
+      "findings_required",
+    );
+    expect(issuesOf(changeDraft({ description: "  " }), [artifact()])).toContain(
+      "description_required",
+    );
+  });
+  it("owner inspection of a change row: positive needs a baseline and carries the derived verification; negative never; a deleted artifact refuses", () => {
+    const displayed = {
+      id: "00000000-0000-4000-8000-0000000000a1",
+      improvementId: "00000000-0000-4000-8000-000000000071",
+      version: 1,
+      panelId: PANEL,
+      panelVersion: 2,
+      client: { name: "Acme", market: "SE" },
+      record: record({
+        destination: { kind: "listing", reference: "google-business-profile:acme" },
+        change: { ...record().change, approvedVersion: ART_SHA },
+      }),
+      publicationBinding: null,
+      changeBinding: {
+        kind: "listing" as const,
+        reference: "google-business-profile:acme",
+        artifactId: ART,
+        artifactSha256: ART_SHA,
+        receiptId: RCPT,
+        ownerInspection: null,
+        artifactDeleted: false,
+      },
+      boundFindingRowIds: [ROW_V1],
+    };
+    const list = [summary({ id: displayed.id, version: 1 })];
+    const input = {
+      checkResult: "shows_approved_content" as const,
+      observedAt: "2026-09-27T12:00:00Z",
+      ownerId: OWNER,
+    };
+    const ok = inspectionRequest(displayed, list, input);
+    expect(ok.ok).toBe(true);
+    if (!ok.ok) return;
+    expect(ok.request.binding).toBeNull();
+    expect(ok.request.changeBinding).toEqual({
+      artifactId: ART,
+      artifactSha256: ART_SHA,
+      receiptId: RCPT,
+      ownerInspection: {
+        observedAt: "2026-09-27T12:00:00Z",
+        checkResult: "shows_approved_content",
+        observedReference: "google-business-profile:acme",
+      },
+    });
+    expect(ok.request.improvement.verification).toMatchObject({
+      method: "owner_inspection",
+      reviewer: OWNER,
+      verifiedAt: "2026-09-27T12:00:00Z",
+    });
+    const neg = inspectionRequest(displayed, list, { ...input, checkResult: "does_not_show" });
+    expect(neg.ok && neg.request.improvement.verification).toBeNull();
+    expect(
+      inspectionRequest({ ...displayed, record: record({ baselineCaptureIds: [] }) }, list, input),
+    ).toEqual({ ok: false, issue: "baseline_required" });
+    expect(
+      inspectionRequest(
+        { ...displayed, changeBinding: { ...displayed.changeBinding, artifactDeleted: true } },
+        list,
+        input,
+      ),
+    ).toEqual({ ok: false, issue: "binding_required" });
+  });
+  it("readiness honours the server's eligibility: an independently inspected receipt counts, a disputed owner attestation does not, and the legacy owner rule still applies without the predicate", () => {
+    const independent = summary({
+      id: "00000000-0000-4000-8000-0000000000a5",
+      improvementId: "00000000-0000-4000-8000-000000000075",
+      verificationStatus: "receipt_recorded",
+      evidenceStatus: "baseline_absent",
+      independentStatus: "independently_inspected",
+      verifiedEligible: true,
+      verifiedAt: "2026-09-27T13:00:00Z",
+    });
+    const disputed = summary({
+      id: "00000000-0000-4000-8000-0000000000a6",
+      improvementId: "00000000-0000-4000-8000-000000000076",
+      verificationStatus: "owner_attested",
+      evidenceStatus: "baseline_recorded",
+      independentStatus: "disputed",
+      verifiedEligible: false,
+      verifiedAt: null,
+    });
+    const legacy = summary({
+      id: "00000000-0000-4000-8000-0000000000a7",
+      improvementId: "00000000-0000-4000-8000-000000000077",
+      verificationStatus: "owner_attested",
+      evidenceStatus: "baseline_recorded",
+    });
+    expect(readinessDetailIds([independent, disputed, legacy])).toEqual([
+      independent.id,
+      disputed.id,
+      legacy.id,
+    ]);
+    const verified = (over: Partial<Improvement> = {}) =>
+      record({
+        verification: {
+          method: "owner_inspection",
+          receipt: "r",
+          verifiedAt: "2026-09-27T12:00:00Z",
+          reviewer: OWNER,
+        },
+        ...over,
+      });
+    const changeRecord = record({
+      improvementId: independent.improvementId,
+      taskId: "zz99yy11",
+      destination: { kind: "listing", reference: "google-business-profile:acme" },
+    });
+    const details = new Map([
+      [
+        independent.id,
+        detailOf(independent, changeRecord, {
+          independentStatus: "independently_inspected",
+          verifiedEligible: true,
+          verifiedAt: "2026-09-27T13:00:00Z",
+        }),
+      ],
+      [
+        disputed.id,
+        detailOf(
+          disputed,
+          verified({ improvementId: disputed.improvementId, taskId: "aa11bb22" }),
+          {
+            independentStatus: "disputed",
+            verifiedEligible: false,
+            verifiedAt: null,
+          },
+        ),
+      ],
+      [legacy.id, detailOf(legacy, verified({ improvementId: legacy.improvementId }))],
+    ]);
+    const r = retestReadiness([independent, disputed, legacy], details);
+    expect(r).toMatchObject({
+      distinctVerified: 2,
+      independentlyInspected: 1,
+      disputed: 1,
+      receiptsRecorded: 1,
+    });
+    // The NEWER detail wins: a dispute that arrived between the two reads drops the independent head; an
+    // eligible detail whose list row was still unverified counts only when the list also marks it eligible.
+    const now = new Map(details);
+    now.set(
+      independent.id,
+      detailOf(independent, changeRecord, {
+        independentStatus: "disputed",
+        verifiedEligible: false,
+        verifiedAt: null,
+      }),
+    );
+    expect(retestReadiness([independent, disputed, legacy], now).distinctVerified).toBe(1);
+    // An eligible detail without an orderable instant or without baselines never counts.
+    const bad = new Map(details);
+    bad.set(
+      independent.id,
+      detailOf(independent, changeRecord, {
+        independentStatus: "independently_inspected",
+        verifiedEligible: true,
+        verifiedAt: null,
+      }),
+    );
+    expect(retestReadiness([independent, disputed, legacy], bad).distinctVerified).toBe(1);
+    bad.set(
+      independent.id,
+      detailOf(
+        independent,
+        { ...changeRecord, baselineCaptureIds: [] },
+        {
+          independentStatus: "independently_inspected",
+          verifiedEligible: true,
+          verifiedAt: "2026-09-27T13:00:00Z",
+        },
+      ),
+    );
+    expect(retestReadiness([independent, disputed, legacy], bad).distinctVerified).toBe(1);
+  });
+});
+
+describe("Codex R5: evidence label by proof source", () => {
+  it("labels an independent-only eligible row by its independent proof and keeps the released owner-axis labels for every other state", () => {
+    expect(
+      evidenceLabelKey({
+        evidenceStatus: "baseline_absent",
+        verificationStatus: "receipt_recorded",
+        verifiedEligible: true,
+        independentStatus: "independently_inspected",
+      }),
+    ).toBe("citationChange.evidence.independentBaseline");
+    // Owner-attested rows keep the owner label even when also independently inspected.
+    expect(
+      evidenceLabelKey({
+        evidenceStatus: "baseline_recorded",
+        verificationStatus: "owner_attested",
+        verifiedEligible: true,
+        independentStatus: "independently_inspected",
+      }),
+    ).toBe("citationForward.improvement.evidence.baseline_recorded");
+    // Not eligible (withdrawn → none, disputed, or unknown live projection) → the released label, never an
+    // inferred baseline.
+    for (const s of [
+      { independentStatus: "none" as const, verifiedEligible: false },
+      { independentStatus: "disputed" as const, verifiedEligible: false },
+      { independentStatus: "independently_inspected" as const, verifiedEligible: undefined },
+      { independentStatus: "inconclusive" as const, verifiedEligible: false },
+    ])
+      expect(
+        evidenceLabelKey({
+          evidenceStatus: "baseline_absent",
+          verificationStatus: "receipt_recorded",
+          ...s,
+        }),
+        JSON.stringify(s),
+      ).toBe("citationForward.improvement.evidence.baseline_absent");
+    expect(evidenceLabelKey({ evidenceStatus: "baseline_missing" })).toBe(
+      "citationForward.improvement.evidence.baseline_missing",
+    );
   });
 });
 
@@ -1123,6 +1486,20 @@ describe("Codex P corrections (PR156 review)", () => {
     );
     expect(manualDraftForTask(created, uid(), "2026-09-28T00:00:00Z").assetType).toBe(
       "servicePage",
+    );
+  });
+});
+
+describe("T (PR157 exact-head): draft issue namespace and the stale-receipt outcome", () => {
+  it("routes change-mode issues to the change-evidence namespace and public ones to the forward namespace; the stale receipt token maps to its own copy", () => {
+    expect(draftIssueKey("receipt_stale")).toBe("citationChange.issue.receipt_stale");
+    expect(draftIssueKey("receipt_required")).toBe("citationChange.issue.receipt_required");
+    expect(draftIssueKey("artifact_unapproved")).toBe("citationChange.issue.artifact_unapproved");
+    expect(draftIssueKey("description_required")).toBe(
+      "citationForward.issue.description_required",
+    );
+    expect(forwardErrorKey("citation_improvement_binding_receipt_stale")).toBe(
+      "citationChange.error.receiptStale",
     );
   });
 });

@@ -150,7 +150,9 @@ export async function runScheduledPublishes(
   await Promise.all(
     rows.map(async (row) => {
       try {
-        const result = await publishAssetServerSide(row.user_id, row.asset_id);
+        const result = await publishAssetServerSide(row.user_id, row.asset_id, {
+          actor: { actorId: row.user_id, initiator: "scheduler" },
+        });
         const recorded = await setRow(admin, row.id, {
           status: "published",
           published_at: result.publishedAt,

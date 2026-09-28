@@ -120,6 +120,84 @@ describe("publication evidence transport boundary", () => {
     ]);
     expect(publish).toHaveBeenCalledTimes(1);
   });
+  it("Codex R4/2: the authenticated actor is recorded right after evidence begins and before the connector runs; a failed actor record never blocks or alters the publish", async () => {
+    const events: string[] = [];
+    const seen: unknown[] = [];
+    const rpc = vi.fn(async (name: string, args: unknown) => {
+      events.push(name);
+      if (name === "record_publication_actor") seen.push(args);
+      return { data: true, error: null };
+    });
+    const publish = vi.fn(async () => {
+      events.push("transport");
+      return { success: true, liveUrl: "https://example.com/article" };
+    });
+    const actor = { actorId: ownerId, initiator: "interactive" as const };
+    await withPublicationEvidence({
+      ownerId,
+      asset,
+      project,
+      paths: [],
+      publish,
+      outcome,
+      rpc,
+      actor,
+    });
+    expect(events).toEqual([
+      "begin_publication_evidence",
+      "record_publication_actor",
+      "transport",
+      "finish_publication_evidence",
+    ]);
+    expect(seen[0]).toMatchObject({
+      p_user: ownerId,
+      p_project: "p",
+      p_actor: ownerId,
+      p_initiator: "interactive",
+    });
+    // The scheduler records itself as the scheduler under the owner's authority.
+    events.length = 0;
+    await withPublicationEvidence({
+      ownerId,
+      asset,
+      project,
+      paths: [],
+      publish,
+      outcome,
+      rpc,
+      actor: { actorId: ownerId, initiator: "scheduler" },
+    });
+    expect(seen[1]).toMatchObject({ p_actor: ownerId, p_initiator: "scheduler" });
+    // Without an actor nothing is recorded (older callers) — independence later reads as unavailable.
+    events.length = 0;
+    await withPublicationEvidence({ ownerId, asset, project, paths: [], publish, outcome, rpc });
+    expect(events).not.toContain("record_publication_actor");
+    // A failing actor record: publish still runs exactly once and the outcome is finished normally.
+    const failing = vi.fn(async (name: string) => {
+      if (name === "record_publication_actor") throw Error("db down");
+      events.push(name);
+      return { data: true, error: null };
+    });
+    events.length = 0;
+    publish.mockClear();
+    const result = await withManualPublicationEvidence({
+      ownerId,
+      asset,
+      project,
+      paths: [],
+      publish,
+      outcome,
+      rpc: failing,
+      actor,
+    });
+    expect(result).toMatchObject({ success: true });
+    expect(publish).toHaveBeenCalledTimes(1);
+    expect(events).toEqual([
+      "begin_publication_evidence",
+      "transport",
+      "finish_publication_evidence",
+    ]);
+  });
   it("makes recording failure after successful publication permanent", async () => {
     const rpc = vi
       .fn()

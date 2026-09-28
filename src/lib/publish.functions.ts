@@ -457,6 +457,7 @@ export const publishLiveFn = createServerFn({ method: "POST" })
       asset,
       project,
       paths,
+      actor: { actorId: context.userId, initiator: "interactive" },
       publish: async () => {
         const draft = await publishDraftDirect({
           ...draftPayloadFor(asset, project, paths),

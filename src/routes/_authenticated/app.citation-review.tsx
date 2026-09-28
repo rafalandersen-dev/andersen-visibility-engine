@@ -7,6 +7,7 @@ import { CitationPanelProtocolPanel } from "@/components/CitationPanelProtocolPa
 import { CitationBusinessFactsPanel } from "@/components/CitationBusinessFactsPanel";
 import { CitationFindingAuthor } from "@/components/CitationFindingAuthor";
 import { CitationForwardPanel } from "@/components/CitationForwardPanel";
+import { CitationInspectionPanel } from "@/components/CitationInspectionPanel";
 import { useAuth } from "@/lib/auth";
 import { useStore } from "@/lib/store";
 import { useT } from "@/i18n";
@@ -22,6 +23,8 @@ export const Route = createFileRoute("/_authenticated/app/citation-review")({
     owner: z.string().optional(),
     project: z.string().optional(),
     finding: z.string().optional(),
+    /** An assigned inspector's deep link to one improvement ROW (candidate 20260928120000). */
+    inspection: z.string().optional(),
   }),
   head: () => ({ meta: [{ title: "Citation review — Milo Growth" }] }),
   component: CitationReviewRoute,
@@ -46,6 +49,26 @@ function CitationReviewRoute() {
             findingRowId: link.context.findingRowId,
           }}
         />
+      </AppShell>
+    );
+  }
+
+  // Inspector mode (candidate 20260928120000): an assigned team inspector opens ONE improvement row through the
+  // owner-shared link; the server decides authority from the live team policy + the explicit assignment.
+  if (link.mode === "inspector") {
+    return (
+      <AppShell
+        title={t("citationChange.inspect.title")}
+        description={t("citationChange.inspect.intro")}
+      >
+        {user ? (
+          <CitationInspectionPanel
+            ownerId={link.context.ownerId}
+            projectId={link.context.projectId}
+            improvementRowId={link.context.improvementRowId}
+            actorId={user.id}
+          />
+        ) : null}
       </AppShell>
     );
   }
