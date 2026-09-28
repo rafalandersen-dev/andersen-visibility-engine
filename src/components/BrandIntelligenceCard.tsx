@@ -259,7 +259,7 @@ function BrandIntelligenceEditor({ project }: { project: Project }) {
       <Group
         title={t("brand.section.offers")}
         action={
-          <div className="flex gap-2">
+          <div className="flex flex-wrap gap-2">
             {services.length ? (
               <Button size="sm" variant="outline" onClick={importFromServices}>
                 {t("brand.offers.import")}
@@ -280,7 +280,7 @@ function BrandIntelligenceEditor({ project }: { project: Project }) {
           </div>
         }
       >
-        <div className="md:col-span-2 space-y-3">
+        <div className="md:col-span-2 min-w-0 space-y-3">
           <div className="text-xs font-medium text-muted-foreground">
             {t("brand.offers.primary")}
           </div>
@@ -592,16 +592,20 @@ function OfferList({
   return (
     <div className="space-y-2">
       {offers.map((o, i) => (
-        <div key={i} className="rounded-md border border-border p-3 space-y-2">
-          <div className="flex gap-2">
+        <div key={i} className="min-w-0 rounded-md border border-border p-3 space-y-2">
+          {/* Phone widths: a 3-column grid — name spans the first two columns beside Remove, the type and
+              priority selects share the second row — so nothing is narrower than its content and the row never
+              widens the page. From `sm` up it is the original single flex line. DOM (and Tab) order is unchanged:
+              name → type → priority → remove. */}
+          <div className="grid grid-cols-[minmax(0,1fr)_minmax(0,1fr)_auto] gap-2 sm:flex sm:items-center">
             <Input
-              className="flex-1"
+              className="col-span-2 row-start-1 min-w-0 sm:flex-1"
               placeholder={t("brand.field.name")}
               value={o.name}
               onChange={(e) => upd(i, { name: e.target.value })}
             />
             <Select value={o.type} onValueChange={(v) => upd(i, { type: v as BrandOffer["type"] })}>
-              <SelectTrigger className="h-9 w-32 text-xs">
+              <SelectTrigger className="col-start-1 row-start-2 h-9 w-full min-w-0 text-xs sm:w-32">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
@@ -616,7 +620,7 @@ function OfferList({
               value={o.priority}
               onValueChange={(v) => upd(i, { priority: v as BrandOffer["priority"] })}
             >
-              <SelectTrigger className="h-9 w-28 text-xs">
+              <SelectTrigger className="col-start-2 row-start-2 h-9 w-full min-w-0 text-xs sm:w-28">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
@@ -630,7 +634,7 @@ function OfferList({
             <Button
               size="icon"
               variant="ghost"
-              className="h-9 w-9 text-muted-foreground hover:text-destructive"
+              className="col-start-3 row-start-1 h-9 w-9 shrink-0 text-muted-foreground hover:text-destructive"
               onClick={() => onChange(offers.filter((_, j) => j !== i))}
               aria-label={t("brand.remove")}
             >
