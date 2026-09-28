@@ -6,7 +6,7 @@ export const lvCitationReview: Readonly<Record<string, string>> = {
     "Pārvaldiet neatkarīgu otro pārskatīšanu šī projekta citējumu konstatējumiem.",
   "citationReview.loading": "Ielādē…",
   "citationReview.owner.intro":
-    "Jūsu konstatējumi šim projektam. Statusi ir pašreizējās, dzīvās vērtības — īpašnieka apliecinājums nekad nav neatkarīgs vai cēlonisks pierādījums. Konstatējumu veidošana, saistīšana ar paneli un vietējo pārskatu parsēšana nav šī skata daļa.",
+    "Jūsu konstatējumi šim projektam. Statusi ir pašreizējās, dzīvās vērtības — īpašnieka apliecinājums nekad nav neatkarīgs vai cēlonisks pierādījums. Konstatējumu veidošana, Plan uzdevumi, Studio melnraksti, uzlabojumu saistīšana un īpašnieka pārbaude ir pieejami augstāk; neatkarīgs pierādījums galamērķī un vietējo pārskatu parsēšana paliek atvērti.",
   "citationReview.owner.empty": "Šim projektam vēl nav citējumu konstatējumu.",
   "citationReview.owner.version": "v{version}",
   "citationReview.owner.openFinding": "Atvērt konstatējumu: {family}",

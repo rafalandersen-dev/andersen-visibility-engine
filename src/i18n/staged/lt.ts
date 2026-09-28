@@ -41,6 +41,7 @@ import { ltSetupScreen } from "./lt-setup-screen";
 import { ltSharedUi } from "./lt-shared-ui";
 import { ltCitationReview } from "./lt-citation-review";
 import { ltCitationAuthoring } from "./lt-citation-authoring";
+import { ltCitationForward } from "./lt-citation-forward";
 /** Lithuanian authoring in progress; never imported by the runtime catalog. */
 export const LT_STAGED_BATCHES = [
   {
@@ -293,7 +294,7 @@ export const LT_STAGED_BATCHES = [
     copy: ltCitationReview,
     namespaces: ["citationReview"],
     sourceRevision: "P4 citation review candidate after bab861c8",
-    sourceHash: "d41949f7901f0d37b4debab152a406f238c34273ed422fe230df34ff41dcb151",
+    sourceHash: "6320ed498d4ce0af5c43d77d46109f8e85cffeebb25d64f16d815eb2332beae4",
   },
   {
     name: "citation authoring",
@@ -301,6 +302,13 @@ export const LT_STAGED_BATCHES = [
     namespaces: ["citationAuthoring"],
     sourceRevision: "citation owner authoring candidate after a392775c",
     sourceHash: "ffb6a332b8756b5467c8e06e740b9829d118f7c6112240a88046298922055c2a",
+  },
+  {
+    name: "citation forward",
+    copy: ltCitationForward,
+    namespaces: ["citationForward"],
+    sourceRevision: "citation forward workflow candidate after 64db7a4b (Codex N1 corrections)",
+    sourceHash: "692652100abfecf97689fd04a6f508d7d66db62417cfd2cfc3dc6f2adf8fcb70",
   },
 ] as const;
 export const LT_STAGED_CATALOG: Readonly<Record<string, string>> = Object.freeze(

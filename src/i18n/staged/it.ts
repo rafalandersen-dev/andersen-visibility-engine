@@ -29,6 +29,7 @@ import { itSharedUi } from "./it-shared-ui";
 import { itCore } from "./it-core";
 import { itCitationReview } from "./it-citation-review";
 import { itCitationAuthoring } from "./it-citation-authoring";
+import { itCitationForward } from "./it-citation-forward";
 
 /** Complete Italian key coverage; language and behavior acceptance pending. Keep isolated from runtime. */
 export const IT_STAGED_BATCHES = [
@@ -276,7 +277,7 @@ export const IT_STAGED_BATCHES = [
     copy: itCitationReview,
     namespaces: ["citationReview"],
     sourceRevision: "P4 citation review candidate after bab861c8",
-    sourceHash: "d41949f7901f0d37b4debab152a406f238c34273ed422fe230df34ff41dcb151",
+    sourceHash: "6320ed498d4ce0af5c43d77d46109f8e85cffeebb25d64f16d815eb2332beae4",
   },
   {
     name: "citation authoring",
@@ -284,6 +285,13 @@ export const IT_STAGED_BATCHES = [
     namespaces: ["citationAuthoring"],
     sourceRevision: "citation owner authoring candidate after a392775c",
     sourceHash: "ffb6a332b8756b5467c8e06e740b9829d118f7c6112240a88046298922055c2a",
+  },
+  {
+    name: "citation forward",
+    copy: itCitationForward,
+    namespaces: ["citationForward"],
+    sourceRevision: "citation forward workflow candidate after 64db7a4b (Codex N1 corrections)",
+    sourceHash: "692652100abfecf97689fd04a6f508d7d66db62417cfd2cfc3dc6f2adf8fcb70",
   },
 ] as const;
 export const IT_STAGED_CATALOG: Readonly<Record<string, string>> = Object.freeze(

@@ -5,7 +5,7 @@ export const etCitationReview: Readonly<Record<string, string>> = {
   "citationReview.subtitle": "Halda selle projekti viiteleidude sõltumatut teist ülevaatust.",
   "citationReview.loading": "Laadimine…",
   "citationReview.owner.intro":
-    "Sinu leiud selle projekti kohta. Olekud on praegused, reaalajas väärtused — omaniku kinnitus ei ole kunagi sõltumatu ega põhjuslik tõend. Leidude koostamine, paneeliga sidumine ja natiivsete aruannete lugemine ei kuulu sellesse vaatesse.",
+    "Sinu leiud selle projekti kohta. Olekud on praegused, reaalajas väärtused — omaniku kinnitus ei ole kunagi sõltumatu ega põhjuslik tõend. Leidude koostamine, Plan-ülesanded, Studio mustandid, paranduste sidumine ja omaniku kontroll on saadaval ülal; sõltumatu tõend sihtkohas ja natiivsete aruannete lugemine jäävad lahtiseks.",
   "citationReview.owner.empty": "Selle projekti kohta pole veel viiteleide.",
   "citationReview.owner.version": "v{version}",
   "citationReview.owner.openFinding": "Ava leid: {family}",

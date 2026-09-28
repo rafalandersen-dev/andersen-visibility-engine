@@ -6,7 +6,7 @@ export const frCitationReview: Readonly<Record<string, string>> = {
     "Gérez la seconde revue indépendante des constats de citation pour ce projet.",
   "citationReview.loading": "Chargement…",
   "citationReview.owner.intro":
-    "Vos constats pour ce projet. Les statuts sont les valeurs actuelles, en direct — une attestation du propriétaire n'est jamais une preuve indépendante ni causale. La rédaction des constats, la liaison aux panels et l'analyse des rapports natifs ne font pas partie de cette vue.",
+    "Vos constats pour ce projet. Les statuts sont les valeurs actuelles, en direct — une attestation du propriétaire n'est jamais une preuve indépendante ni causale. La rédaction des constats, les tâches du Plan, les brouillons Studio, la liaison des améliorations et l'inspection par le propriétaire sont disponibles ci-dessus ; la preuve indépendante à la destination et l'analyse des rapports natifs restent ouvertes.",
   "citationReview.owner.empty": "Aucun constat de citation pour ce projet pour le moment.",
   "citationReview.owner.version": "v{version}",
   "citationReview.owner.openFinding": "Ouvrir le constat : {family}",

@@ -58,16 +58,21 @@ export function lockedPanelDocument(f: LockedPanelFixture) {
       status === "locked" ? { approvedBy: f.userId, approvedAt: "2026-09-19T11:00:00.000Z" } : null,
   };
 }
-/** SQL + params reading the current head ROW of a logical finding/fact id — `v` (0 when absent) and `id` (null
+/** SQL + params reading the current head ROW of a logical finding/fact/improvement id — `v` (0 when absent) and `id` (null
  * when absent) — so a test that re-saves a correction can pass the head it "inspected" (version + immutable row
  * id) to the expected-head guard exactly as the UI does. */
 export function headVersionQuery(
-  table: "ai_citation_findings" | "ai_citation_business_facts",
+  table: "ai_citation_findings" | "ai_citation_business_facts" | "ai_citation_improvements",
   userId: string,
   projectId: string,
   logicalId: string,
 ): [string, unknown[]] {
-  const column = table === "ai_citation_findings" ? "finding_id" : "fact_id";
+  const column =
+    table === "ai_citation_findings"
+      ? "finding_id"
+      : table === "ai_citation_improvements"
+        ? "improvement_id"
+        : "fact_id";
   return [
     `SELECT coalesce(h.version,0)::int AS v, h.id AS id FROM (SELECT 1) one LEFT JOIN LATERAL (SELECT id,version FROM public.${table} WHERE user_id=$1 AND project_id=$2 AND ${column}=$3 ORDER BY version DESC,created_at DESC,id DESC LIMIT 1) h ON true`,
     [userId, projectId, logicalId],

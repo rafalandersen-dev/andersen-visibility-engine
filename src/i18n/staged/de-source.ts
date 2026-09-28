@@ -32,7 +32,10 @@ export const DE_AUTHORING_SOURCE_HASHES: Readonly<Record<string, string>> = {
   "public pricing": "8e7cecc9d6ca14af722fe8b4131d7982241e9e856335586f8d4e724469d0de60",
   "public studies": "ace563fb757a52abcd667e7e691d3e48024045a4e4f265e6949c66a828f5e8de",
   // P4 citation review candidate after bab861c8 (2026-09-26); English source in src/i18n/citation-review.ts.
-  "citation review": "d41949f7901f0d37b4debab152a406f238c34273ed422fe230df34ff41dcb151",
+  "citation review": "6320ed498d4ce0af5c43d77d46109f8e85cffeebb25d64f16d815eb2332beae4",
   // Owner authoring candidate after a392775c (2026-09-26); English source in src/i18n/citation-authoring.ts.
   "citation authoring": "ffb6a332b8756b5467c8e06e740b9829d118f7c6112240a88046298922055c2a",
+  // Forward workflow candidate after 64db7a4b with the Codex N1 corrections (2026-09-27/28); English source in
+  // src/i18n/citation-forward.ts.
+  "citation forward": "692652100abfecf97689fd04a6f508d7d66db62417cfd2cfc3dc6f2adf8fcb70",
 };

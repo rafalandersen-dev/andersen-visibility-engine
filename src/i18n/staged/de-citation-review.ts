@@ -6,7 +6,7 @@ export const deCitationReview: Readonly<Record<string, string>> = {
     "Verwalten Sie die unabhängige Zweitprüfung von Zitierbefunden für dieses Projekt.",
   "citationReview.loading": "Wird geladen…",
   "citationReview.owner.intro":
-    "Ihre Befunde für dieses Projekt. Die Status sind die aktuellen Live-Werte — eine Bestätigung durch den Inhaber ist nie ein unabhängiger oder kausaler Nachweis. Das Erfassen von Befunden, die Panel-Zuordnung und das Auslesen nativer Berichte gehören nicht zu dieser Ansicht.",
+    "Ihre Befunde für dieses Projekt. Die Status sind die aktuellen Live-Werte — eine Bestätigung durch den Inhaber ist nie ein unabhängiger oder kausaler Nachweis. Das Erfassen von Befunden, Plan-Aufgaben, Studio-Entwürfe, die Zuordnung von Verbesserungen und die Inhaberprüfung stehen oben zur Verfügung; ein unabhängiger Nachweis am Zielort und das Auslesen nativer Berichte bleiben offen.",
   "citationReview.owner.empty": "Für dieses Projekt gibt es noch keine Zitierbefunde.",
   "citationReview.owner.version": "v{version}",
   "citationReview.owner.openFinding": "Befund öffnen: {family}",

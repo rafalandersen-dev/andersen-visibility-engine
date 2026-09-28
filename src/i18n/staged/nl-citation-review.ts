@@ -6,7 +6,7 @@ export const nlCitationReview: Readonly<Record<string, string>> = {
     "Beheer de onafhankelijke tweede beoordeling van citatiebevindingen voor dit project.",
   "citationReview.loading": "Laden…",
   "citationReview.owner.intro":
-    "Uw bevindingen voor dit project. De statussen zijn de huidige, actuele waarden — een verklaring van de eigenaar is nooit een onafhankelijk of causaal bewijs. Het opstellen van bevindingen, panelkoppeling en het uitlezen van native rapporten maken geen deel uit van deze weergave.",
+    "Uw bevindingen voor dit project. De statussen zijn de huidige, actuele waarden — een verklaring van de eigenaar is nooit een onafhankelijk of causaal bewijs. Het opstellen van bevindingen, Plan-taken, Studio-concepten, koppeling van verbeteringen en eigenaarsinspectie zijn hierboven beschikbaar; onafhankelijk bewijs op de bestemming en het uitlezen van native rapporten blijven open.",
   "citationReview.owner.empty": "Nog geen citatiebevindingen voor dit project.",
   "citationReview.owner.version": "v{version}",
   "citationReview.owner.openFinding": "Bevinding openen: {family}",

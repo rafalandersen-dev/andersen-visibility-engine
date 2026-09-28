@@ -8,7 +8,7 @@ import {
   citationFindingSummarySchema,
   citationFindingsStateSchema,
   citationImprovementDetailSchema,
-  citationImprovementStageSchema,
+  citationImprovementStageInputSchema,
   citationImprovementSummarySchema,
   citationImprovementsStateSchema,
 } from "./citation-record";
@@ -27,6 +27,23 @@ const SURFACED_CITATION_ERRORS = new Set([
   "citation_finding_version_conflict",
   "citation_panel_scope_unauthenticated",
   "citation_finding_scope_drift",
+  // Improvement authoring outcomes (forward workflow, 27 September 2026): the same fixed tokens the released
+  // improvement save raises, each resolvable by the owner in the forward panel (reopen the current version,
+  // pick the attempt recorded for THIS task / destination, wait for the current approval, record an inspection,
+  // remove a verification that no positive inspection backs, restore or unpin a deleted finding/baseline). Still
+  // fixed tokens only: no raw database text is ever surfaced.
+  "citation_improvement_version_conflict",
+  "citation_improvement_finding_stale",
+  "citation_improvement_scope_drift",
+  "citation_improvement_finding_unresolved",
+  "citation_improvement_baseline_unresolved",
+  "citation_improvement_binding_unresolved",
+  "citation_improvement_binding_unapproved",
+  "citation_improvement_binding_approval_mismatch",
+  "citation_improvement_binding_task_mismatch",
+  "citation_improvement_binding_destination_mismatch",
+  "citation_improvement_binding_inspection_invalid",
+  "citation_improvement_verification_unbacked",
 ]);
 function surfacedCitationError(error: unknown): string {
   const message =
@@ -142,16 +159,20 @@ export async function saveCitationImprovement(
   rpc?: KnowledgeRpc,
 ) {
   const s = scope.parse(raw);
-  const input = citationImprovementStageSchema.parse(value);
+  const input = citationImprovementStageInputSchema.parse(value);
+  // v3 = the unchanged v2 save wrapped in the expected-head guard (candidate migration 20260927190000).
   return citationImprovementSummarySchema.parse(
     await call(
-      "save_ai_citation_improvement_v2",
+      "save_ai_citation_improvement_v3",
       {
         p_user: s.ownerId,
         p_project: s.projectId,
         p_record: input.improvement,
         p_scope: input.scope,
         p_binding: input.binding ?? null,
+        p_expected_version: input.expectedVersion ?? null,
+        p_expected_head: input.expectedHeadId ?? null,
+        p_expected_findings: input.expectedFindingRowIds ?? null,
       },
       rpc,
     ),

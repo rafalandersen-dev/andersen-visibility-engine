@@ -6,7 +6,7 @@ export const huCitationReview: Readonly<Record<string, string>> = {
     "Kezelje a projekt hivatkozási megállapításainak független második ellenőrzését.",
   "citationReview.loading": "Betöltés…",
   "citationReview.owner.intro":
-    "Az Ön megállapításai ehhez a projekthez. Az állapotok az aktuális, élő értékek — a tulajdonosi igazolás soha nem független vagy oksági bizonyíték. A megállapítások szerkesztése, a panelhez kötés és a natív jelentések feldolgozása nem része ennek a nézetnek.",
+    "Az Ön megállapításai ehhez a projekthez. Az állapotok az aktuális, élő értékek — a tulajdonosi igazolás soha nem független vagy oksági bizonyíték. A megállapítások szerkesztése, a Plan-feladatok, a Studio-piszkozatok, a javítások kötése és a tulajdonosi ellenőrzés fent érhető el; a célhelyen szerzett független bizonyíték és a natív jelentések feldolgozása nyitott marad.",
   "citationReview.owner.empty": "Ehhez a projekthez még nincs hivatkozási megállapítás.",
   "citationReview.owner.version": "v{version}",
   "citationReview.owner.openFinding": "Megállapítás megnyitása: {family}",

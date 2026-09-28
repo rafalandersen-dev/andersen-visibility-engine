@@ -29,6 +29,7 @@ import { frEditorScreen } from "./fr-editor-screen";
 import { frPlanScreen } from "./fr-plan-screen";
 import { frCitationReview } from "./fr-citation-review";
 import { frCitationAuthoring } from "./fr-citation-authoring";
+import { frCitationForward } from "./fr-citation-forward";
 
 /** Authoring batches only. Dictionary coverage does not establish full interface
  * acceptance. This catalog is not registered by the runtime or language picker. */
@@ -165,6 +166,11 @@ export const FR_STAGED_BATCHES = [
     name: "citation authoring",
     copy: frCitationAuthoring,
     namespaces: ["citationAuthoring"],
+  },
+  {
+    name: "citation forward",
+    copy: frCitationForward,
+    namespaces: ["citationForward"],
   },
 ] as const;
 
