@@ -58,6 +58,8 @@ export const slKnowledge: Readonly<Record<string, string>> = {
   "weekly.title": "Tedenska priprava",
   "weekly.help":
     "Uporablja zgoraj shranjene dneve, čas in časovni pas objavljanja projekta. Najprej shranite spremembe projekta. Sprememba koordinatorja ohrani obstoječe delo in zahteva razrešitev vseh aktivnih izvajanj ali izvajanj z negotovim izidom.",
+  "weekly.sessionHelp":
+    "Odjava ne zaustavi omogočene priprave v ozadju ali že načrtovanih objav. Te nastavitve upravljajo prihodnjo pripravo; že načrtovane objave upravljate v Vsebinskem koledarju.",
   "weekly.loading": "Nalaganje tedenske pripravljenosti…",
   "weekly.unavailable": "Tedenska pripravljenost ni na voljo. Osvežite za ponovno preverjanje.",
   "weekly.engine": "Koordinator priprave",
@@ -81,6 +83,8 @@ export const slKnowledge: Readonly<Record<string, string>> = {
   "weekly.noDraft": "Ni shranjenega osnutka",
   "weekly.queueHelp":
     "Shranjen ali odobren osnutek ni v čakalni vrsti. Samo dejanski vnos v čakalni vrsti objav je prikazan kot uvrščen v čakalno vrsto. Proračuni za ustvarjanje in odobritev objave se preverjajo ločeno.",
+  "weekly.startedHelp":
+    "Delo, ki se je že začelo, se lahko dokonča tudi po odjavi ali preklicu. Preklic ustavi naslednje korake za ta termin; ne razveljavi dokončanega koraka, ne povrne njegove porabe, ničesar ne odobri in ničesar ne objavi. Dokler je shranjeni urnik onemogočen ali je koordinator zaustavljen, se priprava ne začne.",
   "weekly.state.missing": "Manjka",
   "weekly.state.drafted": "Osnutek shranjen",
   "weekly.state.reserved": "Rezervirano",

@@ -184,6 +184,8 @@ export const frKnowledge: Readonly<Record<string, string>> = {
   "weekly.title": "Préparation hebdomadaire",
   "weekly.help":
     "Utilise les jours, l’heure et le fuseau horaire de publication enregistrés pour le projet ci-dessus. Enregistrez d’abord les modifications du projet. Changer de coordinateur conserve le travail existant et exige de résoudre toute exécution active ou incertaine.",
+  "weekly.sessionHelp":
+    "La déconnexion ne met pas en pause la préparation en arrière-plan activée ni les publications déjà planifiées. Ces réglages concernent la préparation future ; gérez les publications déjà planifiées dans le Calendrier éditorial.",
   "weekly.loading": "Chargement de l’état de préparation hebdomadaire…",
   "weekly.unavailable":
     "L’état de préparation hebdomadaire est indisponible. Actualisez pour vérifier à nouveau.",
@@ -208,6 +210,8 @@ export const frKnowledge: Readonly<Record<string, string>> = {
   "weekly.noDraft": "Aucun brouillon enregistré",
   "weekly.queueHelp":
     "Un brouillon enregistré ou approuvé n’est pas en file d’attente. Seule une entrée réelle dans la file de publication est indiquée comme telle. Les budgets de génération et l’approbation de publication sont vérifiés séparément.",
+  "weekly.startedHelp":
+    "Un travail déjà commencé peut se terminer même après votre déconnexion ou une annulation. L’annulation arrête les étapes suivantes pour ce créneau ; elle n’annule pas une étape terminée, ne restitue pas sa consommation, n’approuve rien et ne publie rien. Tant que le calendrier enregistré est désactivé ou que le coordinateur est en pause, aucune préparation ne démarre.",
   "weekly.state.missing": "Manquant",
   "weekly.state.drafted": "Brouillon enregistré",
   "weekly.state.reserved": "Réservé",

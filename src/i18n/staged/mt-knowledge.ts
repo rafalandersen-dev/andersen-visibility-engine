@@ -60,6 +60,8 @@ export const mtKnowledge: Readonly<Record<string, string>> = {
   "weekly.title": "Tħejjija tal-ġimgħa",
   "weekly.help":
     "Juża l-ġranet, il-ħin u ż-żona tal-ħin tal-pubblikazzjoni ssejvjati tal-proġett indikati hawn fuq. L-ewwel issejvja l-bidliet tal-proġett. Il-bidla tal-koordinatur iżżomm ix-xogħol eżistenti u teħtieġ li jiġi solvut kull tħaddim attiv jew inċert.",
+  "weekly.sessionHelp":
+    "Il-logout ma jwaqqafx it-tħejjija fl-isfond attivata jew il-pubblikazzjonijiet diġà skedati. Dawn is-settings jikkontrollaw it-tħejjija futura; il-pubblikazzjonijiet diġà skedati ġestixxihom fil-Kalendarju tal-kontenut.",
   "weekly.loading": "Qed titgħabba t-tħejjija tal-ġimgħa…",
   "weekly.unavailable":
     "It-tħejjija tal-ġimgħa mhijiex disponibbli. Aġġorna biex tiċċekkja mill-ġdid.",
@@ -84,6 +86,8 @@ export const mtKnowledge: Readonly<Record<string, string>> = {
   "weekly.noDraft": "L-ebda abbozz issejvjat",
   "weekly.queueHelp":
     "Abbozz issejvjat jew approvat mhuwiex imqiegħed fil-kju. Jintwera bħala fil-kju biss rekord reali tal-kju tal-pubblikazzjoni. Il-baġits tal-ġenerazzjoni u l-approvazzjoni tal-pubblikazzjoni jiġu ċċekkjati separatament.",
+  "weekly.startedHelp":
+    "Xogħol li diġà beda xorta jista’ jitlesta wara li toħroġ jew tikkanċella. Il-kanċellazzjoni twaqqaf il-passi li jmiss għal dak is-slot; ma tħassarx pass li tlesta, ma tirrestawrax l-użu tiegħu, ma tapprova xejn u ma tippubblika xejn. Sakemm l-iskeda salvata tkun diżattivata jew il-koordinatur ikun imwaqqaf, ma tibda l-ebda tħejjija.",
   "weekly.state.missing": "Nieqes",
   "weekly.state.drafted": "Abbozz issejvjat",
   "weekly.state.reserved": "Riżervat",

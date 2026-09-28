@@ -60,6 +60,8 @@ export const roKnowledge: Readonly<Record<string, string>> = {
   "weekly.title": "Pregătire săptămânală",
   "weekly.help":
     "Folosește zilele, ora și fusul orar de publicare salvate mai sus pentru proiect. Salvați mai întâi modificările proiectului. Schimbarea coordonatorului păstrează lucrările existente și necesită rezolvarea oricărei rulări active sau incerte.",
+  "weekly.sessionHelp":
+    "Deconectarea nu întrerupe pregătirea în fundal activată și nici publicările deja programate. Aceste setări controlează pregătirea viitoare; gestionați publicările deja programate în Calendar de conținut.",
   "weekly.loading": "Se încarcă pregătirea săptămânală…",
   "weekly.unavailable":
     "Starea pregătirii săptămânale nu este disponibilă. Reîmprospătați pentru a verifica din nou.",
@@ -84,6 +86,8 @@ export const roKnowledge: Readonly<Record<string, string>> = {
   "weekly.noDraft": "Nicio ciornă salvată",
   "weekly.queueHelp":
     "O ciornă salvată sau aprobată nu este în coadă. Doar o intrare reală în coada de publicare este afișată ca fiind în coadă. Bugetele de generare și aprobarea publicării sunt verificate separat.",
+  "weekly.startedHelp":
+    "Lucrul deja început se poate finaliza și după deconectare sau anulare. Anularea oprește pașii următori pentru acel interval; nu anulează un pas finalizat, nu restabilește consumul acestuia, nu aprobă nimic și nu publică nimic. Cât timp programul salvat este dezactivat sau coordonatorul este în pauză, nu începe nicio pregătire.",
   "weekly.state.missing": "Lipsă",
   "weekly.state.drafted": "Ciornă salvată",
   "weekly.state.reserved": "Rezervat",

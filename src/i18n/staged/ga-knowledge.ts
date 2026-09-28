@@ -62,6 +62,8 @@ export const gaKnowledge: Readonly<Record<string, string>> = {
   "weekly.title": "Ullmhúchán seachtainiúil",
   "weekly.help":
     "Úsáideann sé laethanta, am agus crios ama foilsithe sábháilte an tionscadail a luaitear thuas. Sábháil athruithe an tionscadail ar dtús. Coinníonn athrú an chomhordaitheora an obair atá ann cheana agus caithfear aon rith gníomhach nó éiginnte a réiteach.",
+  "weekly.sessionHelp":
+    "Ní chuireann logáil amach an t-ullmhú cúlra cumasaithe ná na foilseacháin atá sceidealta cheana ar sos. Rialaíonn na socruithe seo ullmhú sa todhchaí; bainistigh foilseacháin atá sceidealta cheana sa Féilire ábhair.",
   "weekly.loading": "Ullmhacht na seachtaine á lódáil…",
   "weekly.unavailable": "Níl ullmhacht na seachtaine ar fáil. Athnuaigh chun seiceáil arís.",
   "weekly.engine": "Comhordaitheoir ullmhúcháin",
@@ -85,6 +87,8 @@ export const gaKnowledge: Readonly<Record<string, string>> = {
   "weekly.noDraft": "Gan dréacht sábháilte",
   "weekly.queueHelp":
     "Níl dréacht sábháilte nó ceadaithe curtha sa scuaine. Ní thaispeántar mar mhír sa scuaine ach taifead fíor de scuaine an fhoilsithe. Seiceáiltear buiséid ghiniúna agus ceadú foilsithe ar leith.",
+  "weekly.startedHelp":
+    "Is féidir le hobair atá tosaithe cheana críochnú fós tar éis duit logáil amach nó cealú. Stopann cealú na chéad chéimeanna eile don sliotán sin; ní chuireann sé céim chríochnaithe ar ceal, ní athbhunaíonn sé a húsáid, ní cheadaíonn sé rud ar bith agus ní fhoilsíonn sé rud ar bith. Fad is atá an sceideal sábháilte díchumasaithe nó an comhordaitheoir ar sos, ní thosaíonn aon ullmhú.",
   "weekly.state.missing": "Ar iarraidh",
   "weekly.state.drafted": "Dréacht sábháilte",
   "weekly.state.reserved": "In áirithe",

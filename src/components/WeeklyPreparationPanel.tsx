@@ -69,6 +69,9 @@ export function WeeklyPreparationPanel({ project }: { project: Project }) {
     <section className="rounded-xl border border-border p-5 space-y-4">
       <h2 className="font-display text-xl">{t("weekly.title")}</h2>
       <p className="text-sm text-muted-foreground">{t("weekly.help")}</p>
+      <p className="text-sm text-muted-foreground" data-session-help>
+        {t("weekly.sessionHelp")}
+      </p>
       {query.isPending && <p role="status">{t("weekly.loading")}</p>}
       {query.isError && <p role="alert">{t("weekly.unavailable")}</p>}
       {control && (
@@ -235,6 +238,9 @@ export function WeeklyPreparationPanel({ project }: { project: Project }) {
           </ul>
           <p className="text-xs text-muted-foreground">{t("weekly.recoveryHelp")}</p>
           <p className="text-xs text-muted-foreground">{t("weekly.queueHelp")}</p>
+          <p className="text-xs text-muted-foreground" data-started-help>
+            {t("weekly.startedHelp")}
+          </p>
         </>
       )}
     </section>

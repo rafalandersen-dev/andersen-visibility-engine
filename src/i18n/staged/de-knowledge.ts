@@ -182,6 +182,8 @@ export const deKnowledge: Readonly<Record<string, string>> = {
   "weekly.title": "Wöchentliche Vorbereitung",
   "weekly.help":
     "Verwendet die oben gespeicherten Veröffentlichungstage, Uhrzeit und Zeitzone des Projekts. Speichere Projektänderungen zuerst. Ein Wechsel des Koordinators bewahrt bestehende Arbeit und erfordert die Klärung aller aktiven oder ungewissen Ausführungen.",
+  "weekly.sessionHelp":
+    "Das Abmelden pausiert weder die aktivierte Hintergrundvorbereitung noch bereits geplante Veröffentlichungen. Diese Einstellungen steuern die künftige Vorbereitung; bereits geplante Veröffentlichungen verwalten Sie im Redaktionskalender.",
   "weekly.loading": "Wöchentliche Bereitschaft wird geladen…",
   "weekly.unavailable":
     "Wöchentliche Bereitschaft ist nicht verfügbar. Aktualisiere die Ansicht, um erneut zu prüfen.",
@@ -206,6 +208,8 @@ export const deKnowledge: Readonly<Record<string, string>> = {
   "weekly.noDraft": "Kein gespeicherter Entwurf",
   "weekly.queueHelp":
     "Ein gespeicherter oder freigegebener Entwurf ist nicht eingereiht. Nur ein tatsächlicher Eintrag in der Veröffentlichungswarteschlange wird als eingereiht angezeigt. Generierungsbudgets und Veröffentlichungsfreigabe werden getrennt geprüft.",
+  "weekly.startedHelp":
+    "Bereits begonnene Arbeit kann auch nach dem Abmelden oder Abbrechen noch abgeschlossen werden. Das Abbrechen stoppt die folgenden Schritte für diesen Termin; es macht keinen abgeschlossenen Schritt rückgängig, stellt dessen Verbrauch nicht wieder her, genehmigt nichts und veröffentlicht nichts. Solange der gespeicherte Zeitplan deaktiviert oder der Koordinator pausiert ist, beginnt keine Vorbereitung.",
   "weekly.state.missing": "Fehlt",
   "weekly.state.drafted": "Entwurf gespeichert",
   "weekly.state.reserved": "Reserviert",

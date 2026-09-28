@@ -57,6 +57,8 @@ export const hrKnowledge: Readonly<Record<string, string>> = {
   "weekly.title": "Tjedna priprema",
   "weekly.help":
     "Koristi gore spremljene dane objave, vrijeme i vremensku zonu projekta. Najprije spremite promjene projekta. Promjena koordinatora čuva postojeći rad i zahtijeva razrješenje svakog aktivnog ili neizvjesnog pokretanja.",
+  "weekly.sessionHelp":
+    "Odjava ne pauzira omogućenu pripremu u pozadini ni već zakazane objave. Ove postavke upravljaju budućom pripremom; već zakazanim objavama upravljate u Kalendaru sadržaja.",
   "weekly.loading": "Učitavanje tjedne spremnosti…",
   "weekly.unavailable": "Tjedna spremnost nije dostupna. Osvježite za ponovnu provjeru.",
   "weekly.engine": "Koordinator pripreme",
@@ -80,6 +82,8 @@ export const hrKnowledge: Readonly<Record<string, string>> = {
   "weekly.noDraft": "Nema spremljenog nacrta",
   "weekly.queueHelp":
     "Spremljeni ili odobreni nacrt nije u redu čekanja. Samo stvarni unos u redu objavljivanja prikazuje se kao stavljen u red. Budžeti generiranja i odobrenje objave provjeravaju se zasebno.",
+  "weekly.startedHelp":
+    "Posao koji je već započeo može se dovršiti i nakon odjave ili otkazivanja. Otkazivanje zaustavlja sljedeće korake za taj termin; ne poništava dovršeni korak, ne vraća njegovu potrošnju, ništa ne odobrava i ništa ne objavljuje. Dok je spremljeni raspored onemogućen ili je koordinator pauziran, priprema ne započinje.",
   "weekly.state.missing": "Nedostaje",
   "weekly.state.drafted": "Nacrt spremljen",
   "weekly.state.reserved": "Rezervirano",

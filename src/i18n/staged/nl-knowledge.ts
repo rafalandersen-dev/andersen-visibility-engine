@@ -60,6 +60,8 @@ export const nlKnowledge: Readonly<Record<string, string>> = {
   "weekly.title": "Weekvoorbereiding",
   "weekly.help":
     "Gebruikt de hierboven opgeslagen publicatiedagen, tijd en tijdzone van het project. Sla projectwijzigingen eerst op. De coördinator wijzigen behoudt bestaand werk en vereist dat actieve of onzekere uitvoeringen worden opgelost.",
+  "weekly.sessionHelp":
+    "Uitloggen pauzeert de ingeschakelde achtergrondvoorbereiding en al geplande publicaties niet. Deze instellingen sturen toekomstige voorbereiding; al geplande publicaties beheer je in de Contentkalender.",
   "weekly.loading": "Weekgereedheid laden…",
   "weekly.unavailable": "Weekgereedheid is niet beschikbaar. Vernieuw om opnieuw te controleren.",
   "weekly.engine": "Voorbereidingscoördinator",
@@ -83,6 +85,8 @@ export const nlKnowledge: Readonly<Record<string, string>> = {
   "weekly.noDraft": "Geen opgeslagen concept",
   "weekly.queueHelp":
     "Een opgeslagen of goedgekeurd concept staat niet in de wachtrij. Alleen een daadwerkelijke vermelding in de publicatiewachtrij wordt als zodanig getoond. Generatiebudgetten en publicatiegoedkeuring worden apart gecontroleerd.",
+  "weekly.startedHelp":
+    "Werk dat al is gestart kan nog worden afgerond nadat je uitlogt of annuleert. Annuleren stopt de volgende stappen voor dat moment; het maakt een afgeronde stap niet ongedaan, herstelt het verbruik niet, keurt niets goed en publiceert niets. Zolang het opgeslagen schema is uitgeschakeld of de coördinator is gepauzeerd, start er geen voorbereiding.",
   "weekly.state.missing": "Ontbreekt",
   "weekly.state.drafted": "Concept opgeslagen",
   "weekly.state.reserved": "Gereserveerd",

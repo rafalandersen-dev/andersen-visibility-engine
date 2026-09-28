@@ -182,6 +182,8 @@ export const esKnowledge: Readonly<Record<string, string>> = {
   "weekly.title": "Preparación semanal",
   "weekly.help":
     "Utiliza los días, la hora y la zona horaria de publicación guardados arriba para el proyecto. Guarda primero los cambios del proyecto. Cambiar el coordinador conserva el trabajo existente y exige resolver cualquier ejecución activa o de resultado incierto.",
+  "weekly.sessionHelp":
+    "Cerrar sesión no pausa la preparación en segundo plano activada ni las publicaciones ya programadas. Estos ajustes controlan la preparación futura; las publicaciones ya programadas se gestionan en Calendario de contenidos.",
   "weekly.loading": "Cargando preparación semanal…",
   "weekly.unavailable":
     "La preparación semanal no está disponible. Actualiza para volver a comprobarla.",
@@ -206,6 +208,8 @@ export const esKnowledge: Readonly<Record<string, string>> = {
   "weekly.noDraft": "No hay borrador guardado",
   "weekly.queueHelp":
     "Un borrador guardado o aprobado no está en cola. Solo una entrada real en la cola de publicación se muestra como en cola. Los presupuestos de generación y la aprobación de publicación se comprueban por separado.",
+  "weekly.startedHelp":
+    "El trabajo que ya ha empezado puede terminar aunque cierres sesión o canceles. Cancelar detiene los pasos siguientes de ese hueco; no deshace un paso terminado, no restaura su consumo, no aprueba nada ni publica nada. Mientras el calendario guardado esté desactivado o el coordinador en pausa, no se inicia ninguna preparación.",
   "weekly.state.missing": "Falta",
   "weekly.state.drafted": "Borrador guardado",
   "weekly.state.reserved": "Reservado",
