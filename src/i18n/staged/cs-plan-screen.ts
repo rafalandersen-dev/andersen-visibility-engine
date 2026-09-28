@@ -84,6 +84,14 @@ export const csPlanScreen: Readonly<Record<string, string>> = {
   "planScreen.discovery.suggestions": "Navržené příležitosti",
   "planScreen.discovery.awaiting": "Čeká na kontrolu: {count}",
   "planScreen.discovery.addSelected": "Přidat vybrané do Plánu ({count})",
+  "planScreen.discovery.save.pending": "Ukládání výběru do pracovního prostoru…",
+  "planScreen.discovery.save.unconfirmed":
+    "Uložení se nepodařilo potvrdit. Změny jsou v tomto otevřeném pracovním prostoru a nejsou potvrzeny jako uložené. Zkuste uložit znovu před obnovením stránky nebo odhlášením.",
+  "planScreen.discovery.save.notReady":
+    "Pracovní prostor ještě není připraven k uložení. Změny jsou v tomto otevřeném pracovním prostoru a nejsou potvrzeny jako uložené. Zkuste to znovu po jeho načtení.",
+  "planScreen.discovery.save.retry": "Zkusit uložit znovu",
+  "planScreen.discovery.save.retryNote": "Opakování uloží aktuální změny pracovního prostoru.",
+  "planScreen.discovery.save.confirmed": "Uložení potvrzeno.",
   "planScreen.discovery.emptyTitle": "Žádné návrhy nečekají",
   "planScreen.discovery.emptyHelp":
     "Spusťte hledání příležitostí a zkontrolujte nové návrhy. Stávající příležitosti zůstávají v Plánu.",

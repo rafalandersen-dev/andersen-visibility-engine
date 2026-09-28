@@ -85,6 +85,15 @@ export const nlPlanScreen: Readonly<Record<string, string>> = {
   "planScreen.discovery.suggestions": "Ontdekkingssuggesties",
   "planScreen.discovery.awaiting": "Wacht op beoordeling: {count}",
   "planScreen.discovery.addSelected": "Selectie toevoegen aan Plan ({count})",
+  "planScreen.discovery.save.pending": "Je selectie wordt in de werkruimte opgeslagen…",
+  "planScreen.discovery.save.unconfirmed":
+    "We konden het opslaan niet bevestigen. Je wijzigingen staan in deze geopende werkruimte en zijn niet bevestigd als opgeslagen. Probeer opnieuw op te slaan voordat je herlaadt of uitlogt.",
+  "planScreen.discovery.save.notReady":
+    "De werkruimte is nog niet klaar om op te slaan. Je wijzigingen staan in deze geopende werkruimte en zijn niet bevestigd als opgeslagen. Probeer het opnieuw zodra deze is geladen.",
+  "planScreen.discovery.save.retry": "Opnieuw opslaan",
+  "planScreen.discovery.save.retryNote":
+    "Opnieuw proberen slaat de huidige wijzigingen van de werkruimte op.",
+  "planScreen.discovery.save.confirmed": "Opslaan bevestigd.",
   "planScreen.discovery.emptyTitle": "Geen suggesties in afwachting",
   "planScreen.discovery.emptyHelp":
     "Voer ontdekking uit om nieuwe suggesties te beoordelen. Bestaande kansen blijven in Plan staan.",

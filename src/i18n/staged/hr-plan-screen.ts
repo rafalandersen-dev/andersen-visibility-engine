@@ -84,6 +84,15 @@ export const hrPlanScreen: Readonly<Record<string, string>> = {
   "planScreen.discovery.suggestions": "Prijedlozi otkrivanja",
   "planScreen.discovery.awaiting": "Čeka pregled: {count}",
   "planScreen.discovery.addSelected": "Dodaj odabrano u Plan ({count})",
+  "planScreen.discovery.save.pending": "Spremanje odabira u radni prostor…",
+  "planScreen.discovery.save.unconfirmed":
+    "Nismo mogli potvrditi spremanje. Vaše promjene su u ovom otvorenom radnom prostoru i nisu potvrđene kao spremljene. Pokušajte ponovno spremiti prije ponovnog učitavanja ili odjave.",
+  "planScreen.discovery.save.notReady":
+    "Radni prostor još nije spreman za spremanje. Vaše promjene su u ovom otvorenom radnom prostoru i nisu potvrđene kao spremljene. Pokušajte ponovno nakon što se učita.",
+  "planScreen.discovery.save.retry": "Pokušaj ponovno spremiti",
+  "planScreen.discovery.save.retryNote":
+    "Ponovni pokušaj sprema trenutačne promjene radnog prostora.",
+  "planScreen.discovery.save.confirmed": "Spremanje potvrđeno.",
   "planScreen.discovery.emptyTitle": "Nema prijedloga na čekanju",
   "planScreen.discovery.emptyHelp":
     "Pokrenite otkrivanje kako biste pregledali nove prijedloge. Postojeće prilike ostaju u Planu.",

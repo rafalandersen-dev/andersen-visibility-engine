@@ -87,6 +87,16 @@ export const frPlanScreen: Readonly<Record<string, string>> = {
   "planScreen.discovery.suggestions": "Suggestions découvertes",
   "planScreen.discovery.awaiting": "À examiner : {count}",
   "planScreen.discovery.addSelected": "Ajouter la sélection dans Plan ({count})",
+  "planScreen.discovery.save.pending":
+    "Enregistrement de votre sélection dans l’espace de travail…",
+  "planScreen.discovery.save.unconfirmed":
+    "Nous n’avons pas pu confirmer l’enregistrement. Vos modifications sont dans cet espace de travail ouvert et ne sont pas confirmées comme enregistrées. Réessayez d’enregistrer avant de recharger ou de vous déconnecter.",
+  "planScreen.discovery.save.notReady":
+    "L’espace de travail n’est pas encore prêt à enregistrer. Vos modifications sont dans cet espace de travail ouvert et ne sont pas confirmées comme enregistrées. Réessayez une fois qu’il est chargé.",
+  "planScreen.discovery.save.retry": "Réessayer l’enregistrement",
+  "planScreen.discovery.save.retryNote":
+    "Réessayer enregistre les modifications actuelles de l’espace de travail.",
+  "planScreen.discovery.save.confirmed": "Enregistrement confirmé.",
   "planScreen.discovery.emptyTitle": "Aucune suggestion en attente",
   "planScreen.discovery.emptyHelp":
     "Lancez une recherche pour examiner de nouvelles suggestions. Les opportunités existantes restent dans Plan.",

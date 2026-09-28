@@ -83,6 +83,15 @@ export const lvPlanScreen: Readonly<Record<string, string>> = {
   "planScreen.discovery.suggestions": "Atklāšanas ieteikumi",
   "planScreen.discovery.awaiting": "Gaida pārskatīšanu: {count}",
   "planScreen.discovery.addSelected": "Pievienot atlasītos plānam ({count})",
+  "planScreen.discovery.save.pending": "Saglabā jūsu izvēli darbvietā…",
+  "planScreen.discovery.save.unconfirmed":
+    "Nevarējām apstiprināt saglabāšanu. Jūsu izmaiņas ir šajā atvērtajā darbvietā un nav apstiprinātas kā saglabātas. Mēģiniet saglabāt vēlreiz pirms pārlādes vai izrakstīšanās.",
+  "planScreen.discovery.save.notReady":
+    "Darbvieta vēl nav gatava saglabāšanai. Jūsu izmaiņas ir šajā atvērtajā darbvietā un nav apstiprinātas kā saglabātas. Mēģiniet vēlreiz, kad tā ir ielādēta.",
+  "planScreen.discovery.save.retry": "Mēģināt saglabāt vēlreiz",
+  "planScreen.discovery.save.retryNote":
+    "Atkārtots mēģinājums saglabā pašreizējās darbvietas izmaiņas.",
+  "planScreen.discovery.save.confirmed": "Saglabāšana apstiprināta.",
   "planScreen.discovery.emptyTitle": "Nav gaidošu ieteikumu",
   "planScreen.discovery.emptyHelp":
     "Palaidiet atklāšanu, lai pārskatītu jaunus ieteikumus. Esošās iespējas paliek plānā.",

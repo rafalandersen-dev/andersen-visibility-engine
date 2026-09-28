@@ -83,6 +83,14 @@ export const fiPlanScreen: Readonly<Record<string, string>> = {
   "planScreen.discovery.suggestions": "Ideahaun ehdotukset",
   "planScreen.discovery.awaiting": "Odottaa tarkistusta: {count}",
   "planScreen.discovery.addSelected": "Lisää valitut Suunnitelmaan ({count})",
+  "planScreen.discovery.save.pending": "Tallennetaan valintaasi työtilaan…",
+  "planScreen.discovery.save.unconfirmed":
+    "Tallennusta ei voitu vahvistaa. Muutoksesi ovat tässä avoimessa työtilassa, eikä niitä ole vahvistettu tallennetuiksi. Yritä tallentaa uudelleen ennen sivun päivitystä tai uloskirjautumista.",
+  "planScreen.discovery.save.notReady":
+    "Työtila ei ole vielä valmis tallennettavaksi. Muutoksesi ovat tässä avoimessa työtilassa, eikä niitä ole vahvistettu tallennetuiksi. Yritä uudelleen, kun se on latautunut.",
+  "planScreen.discovery.save.retry": "Yritä tallentaa uudelleen",
+  "planScreen.discovery.save.retryNote": "Uusi yritys tallentaa työtilan nykyiset muutokset.",
+  "planScreen.discovery.save.confirmed": "Tallennus vahvistettu.",
   "planScreen.discovery.emptyTitle": "Ei odottavia ehdotuksia",
   "planScreen.discovery.emptyHelp":
     "Suorita ideahaku tarkastellaksesi uusia ehdotuksia. Nykyiset mahdollisuudet säilyvät Suunnitelmassa.",
