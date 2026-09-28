@@ -83,6 +83,15 @@ export const etPlanScreen: Readonly<Record<string, string>> = {
   "planScreen.discovery.suggestions": "Avastamise soovitused",
   "planScreen.discovery.awaiting": "Ülevaatust ootab: {count}",
   "planScreen.discovery.addSelected": "Lisa valitud plaani ({count})",
+  "planScreen.discovery.save.pending": "Valiku salvestamine tööruumi…",
+  "planScreen.discovery.save.unconfirmed":
+    "Salvestamist ei õnnestunud kinnitada. Muudatused on selles avatud tööruumis ega ole salvestatuna kinnitatud. Proovi enne uuesti laadimist või väljalogimist uuesti salvestada.",
+  "planScreen.discovery.save.notReady":
+    "Tööruum pole veel salvestamiseks valmis. Muudatused on selles avatud tööruumis ega ole salvestatuna kinnitatud. Proovi uuesti, kui see on laaditud.",
+  "planScreen.discovery.save.retry": "Proovi uuesti salvestada",
+  "planScreen.discovery.save.retryNote":
+    "Uuesti proovimine salvestab tööruumi praegused muudatused.",
+  "planScreen.discovery.save.confirmed": "Salvestamine kinnitatud.",
   "planScreen.discovery.emptyTitle": "Soovitusi pole ootel",
   "planScreen.discovery.emptyHelp":
     "Käivita avastamine, et vaadata üle uusi soovitusi. Olemasolevad võimalused jäävad plaani.",

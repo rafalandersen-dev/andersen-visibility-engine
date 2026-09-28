@@ -86,6 +86,15 @@ export const huPlanScreen: Readonly<Record<string, string>> = {
   "planScreen.discovery.suggestions": "Felfedezési javaslatok",
   "planScreen.discovery.awaiting": "Ellenőrzésre vár: {count}",
   "planScreen.discovery.addSelected": "Kijelöltek hozzáadása a Tervhez ({count})",
+  "planScreen.discovery.save.pending": "A kijelölés mentése a munkaterületre…",
+  "planScreen.discovery.save.unconfirmed":
+    "Nem tudtuk megerősíteni a mentést. A módosítások ebben a nyitott munkaterületen vannak, és nincsenek mentettként megerősítve. Újratöltés vagy kijelentkezés előtt próbálja újra a mentést.",
+  "planScreen.discovery.save.notReady":
+    "A munkaterület még nem áll készen a mentésre. A módosítások ebben a nyitott munkaterületen vannak, és nincsenek mentettként megerősítve. Próbálja újra, ha betöltődött.",
+  "planScreen.discovery.save.retry": "Mentés újra",
+  "planScreen.discovery.save.retryNote":
+    "Az újrapróbálás a munkaterület aktuális módosításait menti.",
+  "planScreen.discovery.save.confirmed": "Mentés megerősítve.",
   "planScreen.discovery.emptyTitle": "Nincs várakozó javaslat",
   "planScreen.discovery.emptyHelp":
     "Indíts felfedezést új javaslatok ellenőrzéséhez. A meglévő lehetőségek a Tervben maradnak.",

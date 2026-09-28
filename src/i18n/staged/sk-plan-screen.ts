@@ -83,6 +83,14 @@ export const skPlanScreen: Readonly<Record<string, string>> = {
   "planScreen.discovery.suggestions": "Návrhy z hľadania príležitostí",
   "planScreen.discovery.awaiting": "Čaká na kontrolu: {count}",
   "planScreen.discovery.addSelected": "Pridať vybrané do Plánu ({count})",
+  "planScreen.discovery.save.pending": "Ukladá sa výber do pracovného priestoru…",
+  "planScreen.discovery.save.unconfirmed":
+    "Uloženie sa nepodarilo potvrdiť. Zmeny sú v tomto otvorenom pracovnom priestore a nie sú potvrdené ako uložené. Skúste uložiť znova pred obnovením alebo odhlásením.",
+  "planScreen.discovery.save.notReady":
+    "Pracovný priestor ešte nie je pripravený na uloženie. Zmeny sú v tomto otvorenom pracovnom priestore a nie sú potvrdené ako uložené. Skúste znova po jeho načítaní.",
+  "planScreen.discovery.save.retry": "Skúsiť uložiť znova",
+  "planScreen.discovery.save.retryNote": "Opakovanie uloží aktuálne zmeny pracovného priestoru.",
+  "planScreen.discovery.save.confirmed": "Uloženie potvrdené.",
   "planScreen.discovery.emptyTitle": "Nečakajú žiadne návrhy",
   "planScreen.discovery.emptyHelp":
     "Spustite hľadanie príležitostí a skontrolujte nové návrhy. Existujúce príležitosti zostávajú v Pláne.",

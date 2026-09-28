@@ -85,6 +85,15 @@ export const mtPlanScreen: Readonly<Record<string, string>> = {
   "planScreen.discovery.suggestions": "Suġġerimenti tal-iskoperta",
   "planScreen.discovery.awaiting": "Qed jistennew ir-reviżjoni: {count}",
   "planScreen.discovery.addSelected": "Żid il-magħżula mal-pjan ({count})",
+  "planScreen.discovery.save.pending": "Qed tiġi ssejvjata l-għażla tiegħek fl-ispazju tax-xogħol…",
+  "planScreen.discovery.save.unconfirmed":
+    "Ma stajniex nikkonfermaw is-salvataġġ. Il-bidliet tiegħek qegħdin f’dan l-ispazju tax-xogħol miftuħ u mhumiex ikkonfermati bħala ssejvjati. Erġa’ pprova ssejvja qabel ma terġa’ tgħabbi jew toħroġ.",
+  "planScreen.discovery.save.notReady":
+    "L-ispazju tax-xogħol għadu mhux lest biex jiġi ssejvjat. Il-bidliet tiegħek qegħdin f’dan l-ispazju tax-xogħol miftuħ u mhumiex ikkonfermati bħala ssejvjati. Erġa’ pprova ladarba jkun tgħabba.",
+  "planScreen.discovery.save.retry": "Erġa’ pprova ssejvja",
+  "planScreen.discovery.save.retryNote":
+    "Tentattiv ġdid isejvja l-bidliet attwali tal-ispazju tax-xogħol.",
+  "planScreen.discovery.save.confirmed": "Salvataġġ ikkonfermat.",
   "planScreen.discovery.emptyTitle": "M’hemm l-ebda suġġeriment pendenti",
   "planScreen.discovery.emptyHelp":
     "Ħaddem l-iskoperta biex tirrevedi suġġerimenti ġodda. L-opportunitajiet eżistenti jibqgħu fil-pjan.",

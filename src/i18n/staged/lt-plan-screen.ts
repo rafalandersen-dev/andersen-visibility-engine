@@ -84,6 +84,15 @@ export const ltPlanScreen: Readonly<Record<string, string>> = {
   "planScreen.discovery.suggestions": "Atradimo pasiūlymai",
   "planScreen.discovery.awaiting": "Laukia peržiūros: {count}",
   "planScreen.discovery.addSelected": "Pridėti pasirinktus į planą ({count})",
+  "planScreen.discovery.save.pending": "Pasirinkimas išsaugomas darbo srityje…",
+  "planScreen.discovery.save.unconfirmed":
+    "Nepavyko patvirtinti išsaugojimo. Jūsų pakeitimai yra šioje atidarytoje darbo srityje ir nėra patvirtinti kaip išsaugoti. Pabandykite išsaugoti dar kartą prieš perkraudami ar atsijungdami.",
+  "planScreen.discovery.save.notReady":
+    "Darbo sritis dar neparuošta išsaugojimui. Jūsų pakeitimai yra šioje atidarytoje darbo srityje ir nėra patvirtinti kaip išsaugoti. Pabandykite dar kartą, kai ji įkelta.",
+  "planScreen.discovery.save.retry": "Bandyti išsaugoti dar kartą",
+  "planScreen.discovery.save.retryNote":
+    "Pakartojimas išsaugo dabartinius darbo srities pakeitimus.",
+  "planScreen.discovery.save.confirmed": "Išsaugojimas patvirtintas.",
   "planScreen.discovery.emptyTitle": "Laukiančių pasiūlymų nėra",
   "planScreen.discovery.emptyHelp":
     "Paleiskite atradimą, kad peržiūrėtumėte naujus pasiūlymus. Esamos galimybės lieka plane.",
