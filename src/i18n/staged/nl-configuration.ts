@@ -113,7 +113,7 @@ export const nlConfiguration: Readonly<Record<string, string>> = {
     "Shopify ondersteunt alleen blogartikelen. Deze content wordt als blogartikel gepubliceerd.",
   "claude.title": "Claude-koppeling (MCP)",
   "claude.subtitle":
-    "Verbind Milo met Claude als MCP-koppeling. Genereer een verbindingstoken, voeg het toe aan Claude Code of Claude Desktop en lees je projecten, kansen, content, Milo Score, audits, Search Console- en autoriteitsgegevens rechtstreeks in Claude.",
+    "Verbind Milo met Claude als MCP-connector: voeg hem toe als aangepaste connector in Claude.ai, Claude Desktop of Cowork (OAuth), of gebruik een verbindingstoken in Claude Code, en lees je projecten, kansen, content, Milo Score, audits, Search Console- en autoriteitsgegevens rechtstreeks in Claude.",
   "claude.accountNote":
     "Deze koppeling geldt voor het account: één token geeft Claude alleen-lezen toegang tot alle projecten in deze werkruimte.",
   "claude.endpoint": "MCP-eindpunt",
@@ -124,10 +124,13 @@ export const nlConfiguration: Readonly<Record<string, string>> = {
     "Kopieer dit token nu — het wordt maar één keer getoond en kan niet worden hersteld.",
   "claude.copy": "Kopiëren",
   "claude.copied": "Gekopieerd",
-  "claude.cliHeading": "Claude Code (CLI)",
-  "claude.desktopHeading": "Claude Desktop (claude_desktop_config.json)",
+  "claude.cliHeading": "Claude Code (CLI) — dit commando bevat je nieuwe token; deel het niet",
+  "claude.connectorsHeading": "Claude.ai, Claude Desktop en Cowork — toevoegen als aangepaste connector (OAuth, geen token nodig)",
+  "claude.connectorsBody": "Open in Claude Instellingen → Connectors → Aangepaste connector toevoegen, plak het MCP-eindpunt hierboven, meld je vervolgens aan bij Milo en sta toegang toe. De toestemming is alleen-lezen, tenzij extra scopes worden aangeboden en je die goedkeurt. De connector verschijnt daarna hieronder onder Verbonden apps. De claude_desktop_config.json van Claude Desktop is alleen voor lokale servers en wordt niet voor Milo gebruikt.",
+  "claude.mcpJsonHeading": "Claude Code-projectconfiguratie (.mcp.json)",
+  "claude.mcpJsonNote": "Veilig om te committen: het verwijst naar de omgevingsvariabele MILO_MCP_TOKEN in plaats van naar een token. Stel die variabele op elke machine in op een verbindingstoken.",
   "claude.activeTokens": "Actieve tokens",
-  "claude.noTokens": "Nog geen verbindingstokens. Genereer er één om Claude te verbinden.",
+  "claude.noTokens": "Nog geen verbindingstokens. Een token is alleen nodig voor clients die een header sturen, zoals Claude Code. Claude.ai, Claude Desktop en Cowork verbinden met OAuth (zie hierboven) en verschijnen onder Verbonden apps.",
   "claude.unnamed": "Naamloos token",
   "claude.created": "Aangemaakt",
   "claude.lastUsed": "laatst gebruikt",
@@ -136,10 +139,10 @@ export const nlConfiguration: Readonly<Record<string, string>> = {
   "claude.revoked": "Token ingetrokken.",
   "claude.revokeError": "Kan het token niet intrekken. Probeer het opnieuw.",
   "claude.createError": "Kan geen token genereren. Probeer het opnieuw.",
-  "claude.tools": "Beschikbare tools (alleen lezen)",
+  "claude.tools": "Alleen-lezen tools die beschikbaar zijn voor een verbindingstoken",
   "claude.securityTitle": "Beveiliging",
   "claude.security":
-    "Alleen-lezen toegang tot je Milo-gegevens. Tokens worden als hash opgeslagen, na aanmaak niet meer getoond en nooit gelogd. Trek een token op elk moment in om de verbinding te verbreken.",
+    "Verbindingstokens geven alleen-lezen toegang tot je Milo-gegevens; OAuth-toestemmingen zijn beperkt tot de scopes die je goedkeurt. Tokens worden gehasht opgeslagen, na aanmaken nooit meer getoond en nooit gelogd. Trek een token of een verbonden app op elk moment in om de verbinding te verbreken.",
   "claude.apps.title": "Verbonden apps",
   "claude.apps.subtitle":
     "Apps die via Claude.ai met je Milo Growth-account zijn verbonden. Je kunt de toegang op elk moment intrekken.",

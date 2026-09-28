@@ -110,7 +110,7 @@ export const etConfiguration: Readonly<Record<string, string>> = {
   "shopify.blogOnly": "Shopify toetab ainult blogiartikleid. See sisu avaldatakse blogiartiklina.",
   "claude.title": "Claude’i konnektor (MCP)",
   "claude.subtitle":
-    "Ühenda Milo Claude’iga MCP konnektorina. Genereeri ühendustõend, lisa see Claude Code’i või Claude Desktopi ning loe otse Claude’is oma projekte, võimalusi, sisu, Milo Score’i, auditeid, Search Console’i ja autoriteedi andmeid.",
+    "Ühenda Milo Claude'iga MCP-ühendusena: lisa see kohandatud ühendusena Claude.ai-s, Claude Desktopis või Coworkis (OAuth) või kasuta Claude Code'is ühendustõendit ning loe oma projekte, võimalusi, sisu, Milo Score'i, auditeid, Search Console'i ja autoriteedi andmeid otse Claude'is.",
   "claude.accountNote":
     "See ühendus on kontopõhine: üks tõend annab Claude’ile ainult lugemisõiguse selle tööruumi kõigile projektidele.",
   "claude.endpoint": "MCP lõpp-punkt",
@@ -121,10 +121,13 @@ export const etConfiguration: Readonly<Record<string, string>> = {
     "Kopeeri tõend kohe — seda näidatakse ainult üks kord ja seda ei saa taastada.",
   "claude.copy": "Kopeeri",
   "claude.copied": "Kopeeritud",
-  "claude.cliHeading": "Claude Code (CLI)",
-  "claude.desktopHeading": "Claude Desktop (claude_desktop_config.json)",
+  "claude.cliHeading": "Claude Code (CLI) — see käsk sisaldab sinu uut tõendit; ära jaga seda",
+  "claude.connectorsHeading": "Claude.ai, Claude Desktop ja Cowork — lisa kohandatud ühendusena (OAuth, tõendit pole vaja)",
+  "claude.connectorsBody": "Ava Claude'is Seaded → Ühendused → Lisa kohandatud ühendus, kleebi ülalolev MCP lõpp-punkt, seejärel logi Milosse sisse ja luba juurdepääs. Õigus on ainult lugemiseks, kui ei pakuta lisaulatusi ja sa neid ei kinnita. Ühendus ilmub seejärel allpool jaotises Ühendatud rakendused. Claude Desktopi claude_desktop_config.json on ainult kohalike serverite jaoks ja seda Milo puhul ei kasutata.",
+  "claude.mcpJsonHeading": "Claude Code'i projekti konfiguratsioon (.mcp.json)",
+  "claude.mcpJsonNote": "Turvaline hoidlasse salvestada: see viitab tõendi asemel keskkonnamuutujale MILO_MCP_TOKEN. Määra see muutuja igas masinas ühendustõendiks.",
   "claude.activeTokens": "Aktiivsed tõendid",
-  "claude.noTokens": "Ühendustõendeid veel pole. Genereeri üks, et Claude ühendada.",
+  "claude.noTokens": "Ühendustõendeid veel pole. Tõendit vajavad ainult päist saatvad kliendid, näiteks Claude Code. Claude.ai, Claude Desktop ja Cowork ühenduvad OAuthiga (vt eespool) ja kuvatakse jaotises Ühendatud rakendused.",
   "claude.unnamed": "Nimetu tõend",
   "claude.created": "Loodud",
   "claude.lastUsed": "viimati kasutatud",
@@ -133,10 +136,10 @@ export const etConfiguration: Readonly<Record<string, string>> = {
   "claude.revoked": "Tõend on tühistatud.",
   "claude.revokeError": "Tõendit ei õnnestunud tühistada. Proovi uuesti.",
   "claude.createError": "Tõendit ei õnnestunud genereerida. Proovi uuesti.",
-  "claude.tools": "Saadaolevad tööriistad (ainult lugemiseks)",
+  "claude.tools": "Ainult lugemiseks mõeldud tööriistad, mis on ühendustõendile saadaval",
   "claude.securityTitle": "Turvalisus",
   "claude.security":
-    "Ainult lugemisõigus sinu Milo andmetele. Tõendeid säilitatakse räsitud kujul, neid ei kuvata pärast loomist uuesti ega logita kunagi. Ühenduse katkestamiseks tühista tõend igal ajal.",
+    "Ühendustõendid annavad Milo andmetele ainult lugemisjuurdepääsu; OAuth-õigused on piiratud ulatustega, mille kinnitad. Tõendeid hoitakse räsituna, neid ei näidata pärast loomist enam kunagi ega logita kunagi. Tühista tõend või ühendatud rakendus igal ajal, et ühendus katkestada.",
   "claude.apps.title": "Ühendatud rakendused",
   "claude.apps.subtitle":
     "Claude.ai kaudu sinu Milo Growthi kontoga ühendatud rakendused. Saad juurdepääsu igal ajal tühistada.",

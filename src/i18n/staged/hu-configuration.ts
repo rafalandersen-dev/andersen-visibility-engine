@@ -114,7 +114,7 @@ export const huConfiguration = {
     "A Shopify csak blogcikkeket támogat. Ez a tartalom blogcikként lesz közzétéve.",
   "claude.title": "Claude-csatlakozó (MCP)",
   "claude.subtitle":
-    "Csatlakoztasd a Milót a Claude-hoz MCP-csatlakozóként. Generálj kapcsolati tokent, add hozzá a Claude Code-hoz vagy a Claude Desktophoz, és olvasd közvetlenül a Claude-ban a projektjeidet, lehetőségeidet, tartalmaidat, Milo-pontszámaidat, auditjaidat, Search Console- és tekintélyépítési adataidat.",
+    "Kapcsolja össze a Milót a Claude-dal MCP-csatlakozóként: adja hozzá egyéni csatlakozóként a Claude.ai-ban, a Claude Desktopban vagy a Coworkben (OAuth), vagy használjon kapcsolati tokent a Claude Code-ban, és olvassa projektjeit, lehetőségeit, tartalmait, a Milo Score-t, az auditokat, a Search Console- és tekintélyadatokat közvetlenül a Claude-ban.",
   "claude.accountNote":
     "Ez a kapcsolat fiókszintű: egy token csak olvasási hozzáférést ad a Claude-nak a munkaterület összes projektjéhez.",
   "claude.endpoint": "MCP-végpont",
@@ -125,11 +125,14 @@ export const huConfiguration = {
     "Másold ki most ezt a tokent — csak egyszer jelenik meg, és nem állítható vissza.",
   "claude.copy": "Másolás",
   "claude.copied": "Másolva",
-  "claude.cliHeading": "Claude Code (CLI)",
-  "claude.desktopHeading": "Claude Desktop (claude_desktop_config.json)",
+  "claude.cliHeading": "Claude Code (CLI) — ez a parancs tartalmazza az új tokenjét; ne ossza meg",
+  "claude.connectorsHeading": "Claude.ai, Claude Desktop és Cowork — hozzáadás egyéni csatlakozóként (OAuth, token nélkül)",
+  "claude.connectorsBody": "A Claude-ban nyissa meg a Beállítások → Csatlakozók → Egyéni csatlakozó hozzáadása menüt, illessze be a fenti MCP-végpontot, majd jelentkezzen be a Milóba és engedélyezze a hozzáférést. Az engedély csak olvasható, hacsak nem ajánlanak fel további hatóköröket, és ön jóvá nem hagyja azokat. A csatlakozó ezután lent, a Csatlakoztatott alkalmazások között jelenik meg. A Claude Desktop claude_desktop_config.json fájlja csak helyi kiszolgálókhoz való, a Milóhoz nem használatos.",
+  "claude.mcpJsonHeading": "Claude Code projektkonfiguráció (.mcp.json)",
+  "claude.mcpJsonNote": "Biztonságosan beküldhető a tárolóba: token helyett a MILO_MCP_TOKEN környezeti változóra hivatkozik. Állítsa ezt a változót kapcsolati tokenre minden gépen.",
   "claude.activeTokens": "Aktív tokenek",
   "claude.noTokens":
-    "Még nincsenek kapcsolati tokenek. Generálj egyet a Claude csatlakoztatásához.",
+    "Még nincs kapcsolati token. Tokenre csak a fejlécet küldő klienseknek van szükségük, például a Claude Code-nak. A Claude.ai, a Claude Desktop és a Cowork OAuth-tal kapcsolódik (lásd fent), és a Csatlakoztatott alkalmazások között jelenik meg.",
   "claude.unnamed": "Névtelen token",
   "claude.created": "Létrehozva",
   "claude.lastUsed": "utolsó használat",
@@ -138,10 +141,10 @@ export const huConfiguration = {
   "claude.revoked": "Token visszavonva.",
   "claude.revokeError": "Nem sikerült visszavonni a tokent. Próbáld újra.",
   "claude.createError": "Nem sikerült tokent generálni. Próbáld újra.",
-  "claude.tools": "Elérhető eszközök (csak olvasás)",
+  "claude.tools": "Kapcsolati token számára elérhető, csak olvasható eszközök",
   "claude.securityTitle": "Biztonság",
   "claude.security":
-    "Csak olvasási hozzáférés a Milo-adataidhoz. A tokeneket hash formájában tároljuk, létrehozás után többé nem jelenítjük meg és soha nem naplózzuk őket. A kapcsolat bontásához bármikor visszavonhatsz egy tokent.",
+    "A kapcsolati tokenek csak olvasási hozzáférést adnak a Milo-adataihoz; az OAuth-engedélyek az ön által jóváhagyott hatókörökre korlátozódnak. A tokenek hashelve tárolódnak, létrehozás után soha nem jelennek meg újra, és soha nem kerülnek naplózásra. A leválasztáshoz bármikor visszavonhat egy tokent vagy csatlakoztatott alkalmazást.",
   "claude.apps.title": "Csatlakoztatott alkalmazások",
   "claude.apps.subtitle":
     "A Milo Growth-fiókodhoz a Claude.ai-on keresztül csatlakoztatott alkalmazások. A hozzáférést bármikor visszavonhatod.",

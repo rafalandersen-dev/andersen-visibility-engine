@@ -113,7 +113,7 @@ export const gaConfiguration: Readonly<Record<string, string>> = {
     "Ní thacaíonn Shopify ach le hailt bhlag. Foilseofar an t-ábhar seo mar alt blag.",
   "claude.title": "Nascóir Claude (MCP)",
   "claude.subtitle":
-    "Nasc Milo le Claude mar nascóir MCP. Gin comhartha naisc, cuir le Claude Code nó Claude Desktop é agus léigh do thionscadail, do dheiseanna, d’ábhar, Milo Score, iniúchtaí, Search Console agus sonraí údaráis go díreach i Claude.",
+    "Ceangail Milo le Claude mar nascóir MCP: cuir leis é mar nascóir saincheaptha in Claude.ai, Claude Desktop nó Cowork (OAuth), nó úsáid comhartha ceangail in Claude Code, agus léigh do thionscadail, deiseanna, ábhar, Milo Score, iniúchtaí, sonraí Search Console agus údaráis go díreach laistigh de Claude.",
   "claude.accountNote":
     "Tá an nasc seo ar leibhéal an chuntais: tugann comhartha amháin rochtain léite amháin do Claude ar gach tionscadal sa spás oibre seo.",
   "claude.endpoint": "Críochphointe MCP",
@@ -124,10 +124,13 @@ export const gaConfiguration: Readonly<Record<string, string>> = {
     "Cóipeáil an comhartha seo anois — ní thaispeántar é ach uair amháin agus ní féidir é a aisghabháil.",
   "claude.copy": "Cóipeáil",
   "claude.copied": "Cóipeáilte",
-  "claude.cliHeading": "Claude Code (CLI)",
-  "claude.desktopHeading": "Claude Desktop (claude_desktop_config.json)",
+  "claude.cliHeading": "Claude Code (CLI) — tá do chomhartha nua san ordú seo; ná roinn é",
+  "claude.connectorsHeading": "Claude.ai, Claude Desktop agus Cowork — cuir leis mar nascóir saincheaptha (OAuth, gan comhartha)",
+  "claude.connectorsBody": "In Claude oscail Socruithe → Nascóirí → Cuir nascóir saincheaptha leis, greamaigh an críochphointe MCP thuas, ansin logáil isteach i Milo agus ceadaigh rochtain. Is inléite amháin an deonú mura dtairgtear scóip bhreise agus mura gceadaíonn tú iad. Feicfear an nascóir ansin thíos faoi Aipeanna nasctha. Is do fhreastalaithe áitiúla amháin claude_desktop_config.json Claude Desktop agus ní úsáidtear é do Milo.",
+  "claude.mcpJsonHeading": "Cumraíocht tionscadail Claude Code (.mcp.json)",
+  "claude.mcpJsonNote": "Sábháilte le tiomantas: tagraíonn sé don athróg timpeallachta MILO_MCP_TOKEN in ionad comhartha. Socraigh an athróg sin mar chomhartha ceangail ar gach meaisín.",
   "claude.activeTokens": "Comharthaí gníomhacha",
-  "claude.noTokens": "Níl comharthaí naisc ann fós. Gin comhartha chun Claude a nascadh.",
+  "claude.noTokens": "Níl aon chomharthaí ceangail fós. Ní bhíonn comhartha ag teastáil ach ó chliaint a sheolann ceanntásc, mar Claude Code. Ceanglaíonn Claude.ai, Claude Desktop agus Cowork le OAuth (féach thuas) agus feictear iad faoi Aipeanna nasctha.",
   "claude.unnamed": "Comhartha gan ainm",
   "claude.created": "Cruthaithe",
   "claude.lastUsed": "úsáidte go deireanach",
@@ -136,10 +139,10 @@ export const gaConfiguration: Readonly<Record<string, string>> = {
   "claude.revoked": "Cúlghaireadh an comhartha.",
   "claude.revokeError": "Níorbh fhéidir an comhartha a chúlghairm. Bain triail eile as.",
   "claude.createError": "Níorbh fhéidir an comhartha a ghiniúint. Bain triail eile as.",
-  "claude.tools": "Uirlisí ar fáil (léamh amháin)",
+  "claude.tools": "Uirlisí inléite amháin atá ar fáil do chomhartha ceangail",
   "claude.securityTitle": "Slándáil",
   "claude.security":
-    "Rochtain léite amháin ar do shonraí i Milo. Stóráiltear comharthaí mar haisí, ní thaispeántar arís iad tar éis a gcruthaithe agus ní logáiltear riamh iad. Chun dícheangal, is féidir leat comhartha a chúlghairm am ar bith.",
+    "Tugann comharthaí ceangail rochtain inléite amháin ar do shonraí Milo; tá deonuithe OAuth teoranta do na scóipeanna a cheadaíonn tú. Stóráiltear comharthaí haiseáilte, ní thaispeántar arís iad tar éis a gcruthaithe agus ní logáiltear iad riamh. Cúlghair comhartha nó aip nasctha am ar bith chun dícheangal.",
   "claude.apps.title": "Aipeanna nasctha",
   "claude.apps.subtitle":
     "Aipeanna atá nasctha le do chuntas Milo Growth trí Claude.ai. Is féidir leat rochtain a chúlghairm am ar bith.",

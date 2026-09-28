@@ -112,7 +112,7 @@ export const ptConfiguration: Readonly<Record<string, string>> = {
     "O Shopify suporta apenas artigos de blogue. Este conteúdo será publicado como artigo de blogue.",
   "claude.title": "Conector Claude (MCP)",
   "claude.subtitle":
-    "Ligue o Milo ao Claude como conector MCP. Gere um token de ligação, adicione-o ao Claude Code ou Claude Desktop e leia os seus projetos, oportunidades, conteúdos, Milo Score, auditorias, Search Console e dados de autoridade diretamente no Claude.",
+    "Ligue o Milo ao Claude como conector MCP: adicione-o como conector personalizado no Claude.ai, Claude Desktop ou Cowork (OAuth), ou use um token de ligação no Claude Code, e leia os seus projetos, oportunidades, conteúdos, Milo Score, auditorias, dados da Search Console e de autoridade diretamente no Claude.",
   "claude.accountNote":
     "Esta ligação é ao nível da conta: um token dá ao Claude acesso só de leitura a todos os projetos desta área de trabalho.",
   "claude.endpoint": "Endpoint MCP",
@@ -123,10 +123,13 @@ export const ptConfiguration: Readonly<Record<string, string>> = {
     "Copie este token agora — só é apresentado uma vez e não pode ser recuperado.",
   "claude.copy": "Copiar",
   "claude.copied": "Copiado",
-  "claude.cliHeading": "Claude Code (CLI)",
-  "claude.desktopHeading": "Claude Desktop (claude_desktop_config.json)",
+  "claude.cliHeading": "Claude Code (CLI) — este comando contém o seu novo token; não o partilhe",
+  "claude.connectorsHeading": "Claude.ai, Claude Desktop e Cowork — adicionar como conector personalizado (OAuth, sem token)",
+  "claude.connectorsBody": "No Claude abra Definições → Conectores → Adicionar conector personalizado, cole o endpoint MCP acima, depois inicie sessão no Milo e permita o acesso. A permissão é só de leitura, salvo se forem oferecidos âmbitos adicionais e os aprovar. O conector aparece depois abaixo em Aplicações ligadas. O claude_desktop_config.json do Claude Desktop destina-se apenas a servidores locais e não é usado para o Milo.",
+  "claude.mcpJsonHeading": "Configuração de projeto do Claude Code (.mcp.json)",
+  "claude.mcpJsonNote": "Seguro para confirmar no repositório: refere a variável de ambiente MILO_MCP_TOKEN em vez de um token. Defina essa variável com um token de ligação em cada máquina.",
   "claude.activeTokens": "Tokens ativos",
-  "claude.noTokens": "Ainda não existem tokens de ligação. Gere um para ligar o Claude.",
+  "claude.noTokens": "Ainda não há tokens de ligação. Um token só é necessário para clientes que enviam um cabeçalho, como o Claude Code. O Claude.ai, o Claude Desktop e o Cowork ligam-se por OAuth (ver acima) e aparecem em Aplicações ligadas.",
   "claude.unnamed": "Token sem título",
   "claude.created": "Criado",
   "claude.lastUsed": "última utilização",
@@ -135,10 +138,10 @@ export const ptConfiguration: Readonly<Record<string, string>> = {
   "claude.revoked": "Token revogado.",
   "claude.revokeError": "Não foi possível revogar o token. Tente novamente.",
   "claude.createError": "Não foi possível gerar um token. Tente novamente.",
-  "claude.tools": "Ferramentas disponíveis (só de leitura)",
+  "claude.tools": "Ferramentas só de leitura disponíveis para um token de ligação",
   "claude.securityTitle": "Segurança",
   "claude.security":
-    "Acesso só de leitura aos seus dados do Milo. Os tokens são guardados como hashes, nunca voltam a ser apresentados após a criação e nunca são registados nos registos de execução. Revogue um token a qualquer momento para desligar.",
+    "Os tokens de ligação dão acesso só de leitura aos seus dados do Milo; as permissões OAuth limitam-se aos âmbitos que aprovar. Os tokens são guardados com hash, nunca voltam a ser mostrados após a criação e nunca são registados. Revogue um token ou uma aplicação ligada a qualquer momento para desligar.",
   "claude.apps.title": "Aplicações ligadas",
   "claude.apps.subtitle":
     "Aplicações ligadas à sua conta Milo Growth através do Claude.ai. Pode revogar o acesso a qualquer momento.",

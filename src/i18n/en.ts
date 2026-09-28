@@ -929,7 +929,7 @@ export const en: Record<string, string> = {
   // ---- Claude connector (MCP) ----
   "claude.title": "Claude connector (MCP)",
   "claude.subtitle":
-    "Connect Milo to Claude as an MCP connector. Generate a connection token, add it to Claude Code or Claude Desktop, and read your projects, opportunities, content, Milo Score, audits, Search Console and authority data directly inside Claude.",
+    "Connect Milo to Claude as an MCP connector: add it as a custom connector in Claude.ai, Claude Desktop or Cowork (OAuth), or use a connection token in Claude Code, and read your projects, opportunities, content, Milo Score, audits, Search Console and authority data directly inside Claude.",
   "claude.accountNote":
     "This connection is account-level: one token gives Claude read-only access to all projects in this workspace.",
   "claude.endpoint": "MCP endpoint",
@@ -939,10 +939,13 @@ export const en: Record<string, string> = {
   "claude.tokenOnce": "Copy this token now — it is shown only once and cannot be recovered.",
   "claude.copy": "Copy",
   "claude.copied": "Copied",
-  "claude.cliHeading": "Claude Code (CLI)",
-  "claude.desktopHeading": "Claude Desktop (claude_desktop_config.json)",
+  "claude.cliHeading": "Claude Code (CLI) — this command contains your new token; do not share it",
+  "claude.connectorsHeading": "Claude.ai, Claude Desktop and Cowork — add as a custom connector (OAuth, no token needed)",
+  "claude.connectorsBody": "In Claude open Settings → Connectors → Add custom connector, paste the MCP endpoint above, then sign in to Milo and allow access. The grant is read-only unless additional scopes are offered and you approve them. The connector then appears under Connected apps below. Claude Desktop's claude_desktop_config.json is only for local servers and is not used for Milo.",
+  "claude.mcpJsonHeading": "Claude Code project config (.mcp.json)",
+  "claude.mcpJsonNote": "Safe to commit: it references the MILO_MCP_TOKEN environment variable instead of a token. Set that variable to a connection token on each machine.",
   "claude.activeTokens": "Active tokens",
-  "claude.noTokens": "No connection tokens yet. Generate one to connect Claude.",
+  "claude.noTokens": "No connection tokens yet. A token is only needed by clients that send a header, such as Claude Code. Claude.ai, Claude Desktop and Cowork connect with OAuth (see above) and appear under Connected apps.",
   "claude.unnamed": "Untitled token",
   "claude.created": "Created",
   "claude.lastUsed": "last used",
@@ -951,10 +954,10 @@ export const en: Record<string, string> = {
   "claude.revoked": "Token revoked.",
   "claude.revokeError": "Could not revoke the token. Please try again.",
   "claude.createError": "Could not generate a token. Please try again.",
-  "claude.tools": "Available tools (read-only)",
+  "claude.tools": "Read-only tools available to a connection token",
   "claude.securityTitle": "Security",
   "claude.security":
-    "Read-only access to your Milo data. Tokens are stored hashed, never shown again after creation, and never logged. Revoke a token at any time to disconnect.",
+    "Connection tokens give read-only access to your Milo data; OAuth grants are limited to the scopes you approve. Tokens are stored hashed, never shown again after creation and never logged. Revoke a token or a connected app at any time to disconnect.",
 
   // ---- Claude connected apps (OAuth) ----
   "claude.apps.title": "Connected apps",

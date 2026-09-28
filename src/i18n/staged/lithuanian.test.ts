@@ -31,8 +31,6 @@ const properNames = new Set<string>([
   "brand.field.url",
   "wp.wordpress",
   "shopify.shopify",
-  "claude.cliHeading",
-  "claude.desktopHeading",
   // The version chip "v{version}" is a technical token, identical in Lithuanian (P4 citation review, 2026-09-26).
   "citationReview.owner.version",
 ]);
@@ -74,7 +72,7 @@ it("keeps staged Lithuanian outside runtime and assigns each authored key once",
   const keys = LT_STAGED_BATCHES.flatMap((batch) => Object.keys(batch.copy));
   expect(new Set(keys).size).toBe(keys.length);
   expect(Object.keys(LT_STAGED_CATALOG).sort()).toEqual(keys.sort());
-  expect(keys).toHaveLength(4204);
+  expect(keys).toHaveLength(4207);
   expect(Object.isFrozen(LT_STAGED_CATALOG)).toBe(true);
 });
 it("covers the complete current English interface key set", () => {

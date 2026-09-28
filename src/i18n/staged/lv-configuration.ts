@@ -113,7 +113,7 @@ export const lvConfiguration: Readonly<Record<string, string>> = {
     "Shopify atbalsta tikai emuāra rakstus. Šis saturs tiks publicēts kā emuāra raksts.",
   "claude.title": "Claude savienotājs (MCP)",
   "claude.subtitle":
-    "Pievienojiet Milo pie Claude kā MCP savienotāju. Ģenerējiet savienojuma tokenu, pievienojiet to Claude Code vai Claude Desktop un lasiet savus projektus, iespējas, saturu, Milo Score, auditus, Search Console un autoritātes datus tieši Claude.",
+    "Savienojiet Milo ar Claude kā MCP savienotāju: pievienojiet to kā pielāgotu savienotāju Claude.ai, Claude Desktop vai Cowork (OAuth) vai izmantojiet savienojuma pilnvaru Claude Code un lasiet savus projektus, iespējas, saturu, Milo Score, auditus, Search Console un autoritātes datus tieši Claude.",
   "claude.accountNote":
     "Šis savienojums ir konta līmenī: viens tokens nodrošina Claude tikai lasīšanas piekļuvi visiem šīs darbvietas projektiem.",
   "claude.endpoint": "MCP galapunkts",
@@ -124,10 +124,13 @@ export const lvConfiguration: Readonly<Record<string, string>> = {
     "Nokopējiet šo tokenu tagad — tas tiek parādīts tikai vienreiz, un to nevar atgūt.",
   "claude.copy": "Kopēt",
   "claude.copied": "Nokopēts",
-  "claude.cliHeading": "Claude Code (CLI)",
-  "claude.desktopHeading": "Claude Desktop (claude_desktop_config.json)",
+  "claude.cliHeading": "Claude Code (CLI) — šī komanda satur jūsu jauno pilnvaru; nekopīgojiet to",
+  "claude.connectorsHeading": "Claude.ai, Claude Desktop un Cowork — pievienot kā pielāgotu savienotāju (OAuth, bez pilnvaras)",
+  "claude.connectorsBody": "Claude atveriet Iestatījumi → Savienotāji → Pievienot pielāgotu savienotāju, ielīmējiet augstāk redzamo MCP galapunktu, pēc tam pierakstieties Milo un atļaujiet piekļuvi. Atļauja ir tikai lasīšanai, ja vien netiek piedāvāti papildu tvērumi un jūs tos neapstiprināt. Savienotājs pēc tam parādās zemāk sadaļā Savienotās lietotnes. Claude Desktop fails claude_desktop_config.json ir paredzēts tikai vietējiem serveriem un Milo netiek izmantots.",
+  "claude.mcpJsonHeading": "Claude Code projekta konfigurācija (.mcp.json)",
+  "claude.mcpJsonNote": "Droši saglabāt repozitorijā: tajā ir atsauce uz vides mainīgo MILO_MCP_TOKEN, nevis pilnvaru. Katrā datorā iestatiet šo mainīgo uz savienojuma pilnvaru.",
   "claude.activeTokens": "Aktīvie tokeni",
-  "claude.noTokens": "Savienojuma tokenu vēl nav. Ģenerējiet tokenu, lai pievienotu Claude.",
+  "claude.noTokens": "Savienojuma pilnvaru vēl nav. Pilnvara ir vajadzīga tikai klientiem, kas sūta galveni, piemēram, Claude Code. Claude.ai, Claude Desktop un Cowork savienojas ar OAuth (skatīt iepriekš) un parādās sadaļā Savienotās lietotnes.",
   "claude.unnamed": "Tokens bez nosaukuma",
   "claude.created": "Izveidots",
   "claude.lastUsed": "pēdējoreiz izmantots",
@@ -136,10 +139,10 @@ export const lvConfiguration: Readonly<Record<string, string>> = {
   "claude.revoked": "Tokens atsaukts.",
   "claude.revokeError": "Tokenu neizdevās atsaukt. Lūdzu, mēģiniet vēlreiz.",
   "claude.createError": "Tokenu neizdevās ģenerēt. Lūdzu, mēģiniet vēlreiz.",
-  "claude.tools": "Pieejamie rīki (tikai lasīšana)",
+  "claude.tools": "Tikai lasīšanai paredzēti rīki, kas pieejami savienojuma pilnvarai",
   "claude.securityTitle": "Drošība",
   "claude.security":
-    "Tikai lasīšanas piekļuve jūsu Milo datiem. Tokeni tiek glabāti jaucējkoda veidā, pēc izveides vairs netiek rādīti un nekad netiek žurnalēti. Lai atvienotu, tokenu var atsaukt jebkurā laikā.",
+    "Savienojuma pilnvaras dod tikai lasīšanas piekļuvi jūsu Milo datiem; OAuth atļaujas ir ierobežotas līdz jūsu apstiprinātajiem tvērumiem. Pilnvaras glabā jauktā veidā, pēc izveides tās vairs nekad nerāda un nekad nereģistrē žurnālos. Jebkurā laikā atsauciet pilnvaru vai savienoto lietotni, lai atvienotos.",
   "claude.apps.title": "Pievienotās lietotnes",
   "claude.apps.subtitle":
     "Lietotnes, kas pievienotas jūsu Milo Growth kontam caur Claude.ai. Piekļuvi var atsaukt jebkurā laikā.",

@@ -113,7 +113,7 @@ export const mtConfiguration: Readonly<Record<string, string>> = {
     "Shopify jappoġġa biss artikli tal-blog. Dan il-kontenut se jiġi ppubblikat bħala artiklu tal-blog.",
   "claude.title": "Konnettur ta’ Claude (MCP)",
   "claude.subtitle":
-    "Qabbad lil Milo ma’ Claude bħala konnettur MCP. Iġġenera token tal-konnessjoni, żidu ma’ Claude Code jew Claude Desktop u aqra l-proġetti, l-opportunitajiet, il-kontenut, Milo Score, l-awditi, Search Console u d-dejta tal-awtorità tiegħek direttament f’Claude.",
+    "Qabbad Milo ma’ Claude bħala konnettur MCP: żidu bħala konnettur personalizzat f’Claude.ai, Claude Desktop jew Cowork (OAuth), jew uża token ta’ konnessjoni f’Claude Code, u aqra l-proġetti, l-opportunitajiet, il-kontenut, il-Milo Score, l-awditi, id-data ta’ Search Console u tal-awtorità tiegħek direttament ġo Claude.",
   "claude.accountNote":
     "Din il-konnessjoni hija fil-livell tal-kont: token wieħed jagħti lil Claude aċċess għall-qari biss għall-proġetti kollha ta’ dan l-ispazju tax-xogħol.",
   "claude.endpoint": "Endpoint tal-MCP",
@@ -123,10 +123,13 @@ export const mtConfiguration: Readonly<Record<string, string>> = {
   "claude.tokenOnce": "Ikkopja dan it-token issa — jintwera darba biss u ma jistax jiġi rkuprat.",
   "claude.copy": "Ikkopja",
   "claude.copied": "Ikkupjat",
-  "claude.cliHeading": "Claude Code (CLI)",
-  "claude.desktopHeading": "Claude Desktop (claude_desktop_config.json)",
+  "claude.cliHeading": "Claude Code (CLI) — dan il-kmand fih it-token il-ġdid tiegħek; taqsmux",
+  "claude.connectorsHeading": "Claude.ai, Claude Desktop u Cowork — żid bħala konnettur personalizzat (OAuth, mingħajr token)",
+  "claude.connectorsBody": "F’Claude iftaħ Settings → Konnetturi → Żid konnettur personalizzat, waħħal l-endpoint MCP ta’ hawn fuq, imbagħad idħol f’Milo u ppermetti l-aċċess. Il-permess huwa għall-qari biss sakemm ma jiġux offruti ambiti addizzjonali u inti tapprovahom. Il-konnettur imbagħad jidher hawn taħt fl-Apps konnessi. Il-claude_desktop_config.json ta’ Claude Desktop huwa għal servers lokali biss u ma jintużax għal Milo.",
+  "claude.mcpJsonHeading": "Konfigurazzjoni tal-proġett Claude Code (.mcp.json)",
+  "claude.mcpJsonNote": "Sigur biex jiġi kkommittjat: jirreferi għall-varjabbli tal-ambjent MILO_MCP_TOKEN minflok token. Issettja dik il-varjabbli għal token ta’ konnessjoni fuq kull magna.",
   "claude.activeTokens": "Tokens attivi",
-  "claude.noTokens": "Għad m’hemmx tokens tal-konnessjoni. Iġġenera token biex tqabbad lil Claude.",
+  "claude.noTokens": "Għad m’hemmx tokens ta’ konnessjoni. Token huwa meħtieġ biss għal klijenti li jibagħtu header, bħal Claude Code. Claude.ai, Claude Desktop u Cowork jikkonnettjaw b’OAuth (ara hawn fuq) u jidhru taħt Apps konnessi.",
   "claude.unnamed": "Token mingħajr isem",
   "claude.created": "Maħluq",
   "claude.lastUsed": "l-aħħar użu",
@@ -135,10 +138,10 @@ export const mtConfiguration: Readonly<Record<string, string>> = {
   "claude.revoked": "It-token ġie revokat.",
   "claude.revokeError": "It-token ma setax jiġi revokat. Erġa’ pprova.",
   "claude.createError": "It-token ma setax jiġi ġġenerat. Erġa’ pprova.",
-  "claude.tools": "Għodod disponibbli (qari biss)",
+  "claude.tools": "Għodod għall-qari biss disponibbli għal token ta’ konnessjoni",
   "claude.securityTitle": "Sigurtà",
   "claude.security":
-    "Aċċess għall-qari biss għad-dejta tiegħek f’Milo. It-tokens jinħażnu bħala hash, ma jibqgħux jintwerew wara li jinħolqu u qatt ma jiġu rreġistrati fil-logs. Biex tiskonnettja, tista’ tirrevoka token fi kwalunkwe ħin.",
+    "It-tokens ta’ konnessjoni jagħtu aċċess għall-qari biss għad-data tiegħek ta’ Milo; il-permessi OAuth huma limitati għall-ambiti li tapprova. It-tokens jinħażnu hashed, qatt ma jerġgħu jintwerew wara l-ħolqien u qatt ma jiġu rreġistrati. Irrevoka token jew app konnessa fi kwalunkwe ħin biex taqta’ l-konnessjoni.",
   "claude.apps.title": "Apps konnessi",
   "claude.apps.subtitle":
     "Apps konnessi mal-kont tiegħek ta’ Milo Growth permezz ta’ Claude.ai. Tista’ tirrevoka l-aċċess fi kwalunkwe ħin.",

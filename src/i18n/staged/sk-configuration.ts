@@ -109,7 +109,7 @@ export const skConfiguration: Readonly<Record<string, string>> = {
     "Shopify podporuje iba blogové články. Tento obsah bude publikovaný ako blogový článok.",
   "claude.title": "Konektor Claude (MCP)",
   "claude.subtitle":
-    "Pripojte Milo ku Claude ako konektor MCP. Vygenerujte prístupový token, pridajte ho do Claude Code alebo Claude Desktop a čítajte svoje projekty, príležitosti, obsah, Milo Score, audity, Search Console a údaje o autorite priamo v Claude.",
+    "Prepojte Milo s Claude ako MCP konektor: pridajte ho ako vlastný konektor v Claude.ai, Claude Desktop alebo Cowork (OAuth), alebo použite token pripojenia v Claude Code a čítajte svoje projekty, príležitosti, obsah, Milo Score, audity, dáta Search Console a autority priamo v Claude.",
   "claude.accountNote":
     "Toto pripojenie je na úrovni účtu: jeden token dáva Claude prístup iba na čítanie ku všetkým projektom v tomto pracovnom priestore.",
   "claude.endpoint": "Koncový bod MCP",
@@ -119,10 +119,13 @@ export const skConfiguration: Readonly<Record<string, string>> = {
   "claude.tokenOnce": "Skopírujte tento token teraz — zobrazí sa iba raz a nemožno ho obnoviť.",
   "claude.copy": "Kopírovať",
   "claude.copied": "Skopírované",
-  "claude.cliHeading": "Claude Code (CLI)",
-  "claude.desktopHeading": "Claude Desktop (claude_desktop_config.json)",
+  "claude.cliHeading": "Claude Code (CLI) — tento príkaz obsahuje váš nový token; nezdieľajte ho",
+  "claude.connectorsHeading": "Claude.ai, Claude Desktop a Cowork — pridať ako vlastný konektor (OAuth, bez tokenu)",
+  "claude.connectorsBody": "V Claude otvorte Nastavenia → Konektory → Pridať vlastný konektor, prilepte vyššie uvedený MCP endpoint, potom sa prihláste do Milo a povoľte prístup. Oprávnenie je len na čítanie, pokiaľ nie sú ponúknuté ďalšie rozsahy a vy ich neschválite. Konektor sa potom zobrazí nižšie v Pripojených aplikáciách. Súbor claude_desktop_config.json v Claude Desktop slúži len pre lokálne servery a pre Milo sa nepoužíva.",
+  "claude.mcpJsonHeading": "Konfigurácia projektu Claude Code (.mcp.json)",
+  "claude.mcpJsonNote": "Bezpečná na uloženie do repozitára: odkazuje na premennú prostredia MILO_MCP_TOKEN namiesto tokenu. Nastavte túto premennú na token pripojenia na každom počítači.",
   "claude.activeTokens": "Aktívne tokeny",
-  "claude.noTokens": "Zatiaľ žiadne prístupové tokeny. Vygenerujte jeden na pripojenie Claude.",
+  "claude.noTokens": "Zatiaľ žiadne tokeny pripojenia. Token potrebujú len klienti, ktorí posielajú hlavičku, napríklad Claude Code. Claude.ai, Claude Desktop a Cowork sa pripájajú cez OAuth (pozri vyššie) a zobrazujú sa v Pripojených aplikáciách.",
   "claude.unnamed": "Token bez názvu",
   "claude.created": "Vytvorené",
   "claude.lastUsed": "naposledy použité",
@@ -131,10 +134,10 @@ export const skConfiguration: Readonly<Record<string, string>> = {
   "claude.revoked": "Token bol zneplatnený.",
   "claude.revokeError": "Token sa nepodarilo zneplatniť. Skúste to znova.",
   "claude.createError": "Token sa nepodarilo vygenerovať. Skúste to znova.",
-  "claude.tools": "Dostupné nástroje (iba na čítanie)",
+  "claude.tools": "Nástroje len na čítanie dostupné tokenu pripojenia",
   "claude.securityTitle": "Zabezpečenie",
   "claude.security":
-    "Prístup k vašim údajom Milo iba na čítanie. Tokeny sa ukladajú ako haše, po vytvorení sa už nezobrazujú a nikdy sa nezapisujú do protokolov. Pripojenie môžete kedykoľvek zrušiť zneplatnením tokenu.",
+    "Tokeny pripojenia poskytujú prístup len na čítanie k vašim dátam Milo; oprávnenia OAuth sú obmedzené na rozsahy, ktoré schválite. Tokeny sú uložené ako hash, po vytvorení sa už nikdy nezobrazia a nikdy sa nelogujú. Token alebo pripojenú aplikáciu môžete kedykoľvek odvolať a odpojiť sa.",
   "claude.apps.title": "Pripojené aplikácie",
   "claude.apps.subtitle":
     "Aplikácie pripojené k vášmu účtu Milo Growth cez Claude.ai. Prístup môžete kedykoľvek odobrať.",

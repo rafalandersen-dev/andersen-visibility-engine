@@ -173,7 +173,7 @@ export const SK_STAGED_BATCHES = [
     copy: skConfiguration,
     namespaces: ["brand", "wp", "shopify", "claude", "connect", "connections", "coverage"],
     sourceRevision: "b5e84bf",
-    sourceHash: "0e11ebfcac212ec85d91c8734430e0cd661dc727057c565c1cfcd33f59a1aa60",
+    sourceHash: "29eb61124072d7a6beede37033d8cfe8c3c0175e9fbe2da2dfe49d2ee0e395ba",
   },
   {
     name: "collaboration",

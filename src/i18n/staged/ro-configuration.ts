@@ -114,7 +114,7 @@ export const roConfiguration: Readonly<Record<string, string>> = {
     "Shopify acceptă doar articole de blog. Acest conținut va fi publicat ca articol de blog.",
   "claude.title": "Conector Claude (MCP)",
   "claude.subtitle":
-    "Conectați Milo la Claude ca un conector MCP. Generați un token de conectare, adăugați-l în Claude Code sau Claude Desktop și citiți proiectele, oportunitățile, conținutul, Milo Score, auditurile, datele Search Console și de autoritate direct în Claude.",
+    "Conectați Milo la Claude ca un conector MCP: adăugați-l ca un conector personalizat în Claude.ai, Claude Desktop sau Cowork (OAuth) sau folosiți un token de conectare în Claude Code și citiți proiectele, oportunitățile, conținutul, Milo Score, auditurile, datele Search Console și de autoritate direct în Claude.",
   "claude.accountNote":
     "Această conexiune este la nivel de cont: un singur token îi oferă lui Claude acces doar în citire la toate proiectele din acest spațiu de lucru.",
   "claude.endpoint": "Endpoint MCP",
@@ -125,10 +125,13 @@ export const roConfiguration: Readonly<Record<string, string>> = {
     "Copiați acest token acum — este afișat o singură dată și nu poate fi recuperat.",
   "claude.copy": "Copiați",
   "claude.copied": "Copiat",
-  "claude.cliHeading": "Claude Code (CLI)",
-  "claude.desktopHeading": "Claude Desktop (claude_desktop_config.json)",
+  "claude.cliHeading": "Claude Code (CLI) — această comandă conține noul dvs. token; nu îl partajați",
+  "claude.connectorsHeading": "Claude.ai, Claude Desktop și Cowork — adăugare ca un conector personalizat (OAuth, fără token)",
+  "claude.connectorsBody": "În Claude deschideți Setări → Conectori → Adăugare conector personalizat, lipiți endpointul MCP de mai sus, apoi autentificați-vă în Milo și permiteți accesul. Permisiunea este doar pentru citire, cu excepția cazului în care sunt oferite domenii suplimentare și le aprobați. Conectorul apare apoi mai jos în Aplicații conectate. Fișierul claude_desktop_config.json din Claude Desktop este doar pentru servere locale și nu este folosit pentru Milo.",
+  "claude.mcpJsonHeading": "Configurația de proiect Claude Code (.mcp.json)",
+  "claude.mcpJsonNote": "Sigur de salvat în depozit: face referire la variabila de mediu MILO_MCP_TOKEN în locul unui token. Setați această variabilă la un token de conectare pe fiecare mașină.",
   "claude.activeTokens": "Tokenuri active",
-  "claude.noTokens": "Nu există încă tokenuri de conectare. Generați unul pentru a conecta Claude.",
+  "claude.noTokens": "Încă nu există tokenuri de conectare. Un token este necesar doar clienților care trimit un antet, precum Claude Code. Claude.ai, Claude Desktop și Cowork se conectează prin OAuth (vezi mai sus) și apar în Aplicații conectate.",
   "claude.unnamed": "Token fără nume",
   "claude.created": "Creat",
   "claude.lastUsed": "ultima utilizare",
@@ -137,10 +140,10 @@ export const roConfiguration: Readonly<Record<string, string>> = {
   "claude.revoked": "Tokenul a fost revocat.",
   "claude.revokeError": "Tokenul nu a putut fi revocat. Încercați din nou.",
   "claude.createError": "Nu a putut fi generat un token. Încercați din nou.",
-  "claude.tools": "Instrumente disponibile (doar citire)",
+  "claude.tools": "Instrumente doar pentru citire disponibile unui token de conectare",
   "claude.securityTitle": "Securitate",
   "claude.security":
-    "Acces doar în citire la datele Milo. Tokenurile sunt stocate sub formă de hash, nu mai sunt afișate după creare și nu sunt niciodată înregistrate în jurnale. Revocați oricând un token pentru a deconecta.",
+    "Tokenurile de conectare oferă acces doar pentru citire la datele dvs. Milo; permisiunile OAuth sunt limitate la domeniile pe care le aprobați. Tokenurile sunt stocate hashuite, nu mai sunt afișate niciodată după creare și nu sunt înregistrate niciodată. Revocați oricând un token sau o aplicație conectată pentru a vă deconecta.",
   "claude.apps.title": "Aplicații conectate",
   "claude.apps.subtitle":
     "Aplicații conectate la contul Milo Growth prin Claude.ai. Puteți revoca accesul oricând.",

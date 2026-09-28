@@ -11,6 +11,7 @@ import {
 import { Bot, Copy, KeyRound, Loader2, Trash2, ShieldCheck } from "lucide-react";
 import { toast } from "sonner";
 import { ConnectedAppsSection } from "@/components/ConnectedAppsSection";
+import { cliSnippet, mcpJsonSnippet } from "@/lib/mcp-client-snippets";
 
 async function copy(text: string, msg: string, failureMsg: string) {
   try {
@@ -72,22 +73,17 @@ export function ClaudeConnectorCard() {
     }
   }
 
-  const tokenForSnippet = freshToken ?? "YOUR_TOKEN";
-  const cliSnippet = `claude mcp add --transport http milo-growth ${endpoint} --header "Authorization: Bearer ${tokenForSnippet}"`;
-  const desktopSnippet = `{
-  "mcpServers": {
-    "milo-growth": {
-      "url": "${endpoint}",
-      "headers": { "Authorization": "Bearer ${tokenForSnippet}" }
-    }
-  }
-}`;
+  // The CLI line carries the one-time token (shown only while it is on screen); the project config never does.
+  const cli = freshToken ? cliSnippet(endpoint, freshToken) : null;
+  const mcpJson = mcpJsonSnippet(endpoint);
 
   return (
     <section className="rounded-lg border border-border bg-card p-6">
       <div className="flex items-center gap-2">
         <Bot className="h-4 w-4 text-gold/80" />
-        <div className="text-[10px] uppercase tracking-[0.22em] text-muted-foreground">{t("claude.title")}</div>
+        <div className="text-[10px] uppercase tracking-[0.22em] text-muted-foreground">
+          {t("claude.title")}
+        </div>
       </div>
       <div className="my-4 gold-rule" />
       <p className="text-sm text-muted-foreground max-w-2xl">{t("claude.subtitle")}</p>
@@ -97,21 +93,70 @@ export function ClaudeConnectorCard() {
       <div className="mt-5">
         <div className="text-xs font-medium text-muted-foreground">{t("claude.endpoint")}</div>
         <div className="mt-1.5 flex items-center gap-2">
-          <code className="flex-1 rounded-md border border-border bg-secondary/40 px-3 py-2 text-xs font-mono break-all">{endpoint}</code>
-          <Button type="button" size="sm" variant="outline" onClick={() => copy(endpoint, t("claude.copied"), t("analyticsScreen.copyFailed"))}>
+          <code className="flex-1 rounded-md border border-border bg-secondary/40 px-3 py-2 text-xs font-mono break-all">
+            {endpoint}
+          </code>
+          <Button
+            type="button"
+            size="sm"
+            variant="outline"
+            onClick={() => copy(endpoint, t("claude.copied"), t("analyticsScreen.copyFailed"))}
+          >
             <Copy className="h-3.5 w-3.5" />
           </Button>
         </div>
+      </div>
+
+      {/* Claude.ai / Claude Desktop / Cowork: account-level custom connector with OAuth — no token needed */}
+      <div
+        className="mt-5 rounded-md border border-border bg-secondary/20 p-3"
+        data-connectors-guidance
+      >
+        <div className="text-xs font-medium text-foreground">{t("claude.connectorsHeading")}</div>
+        <p className="mt-1.5 text-xs text-muted-foreground max-w-2xl">
+          {t("claude.connectorsBody")}
+        </p>
+      </div>
+
+      {/* Claude Code project configuration — safe to commit (environment placeholder, never a token) */}
+      <div className="mt-5" data-mcp-json>
+        <div className="text-xs font-medium text-muted-foreground">
+          {t("claude.mcpJsonHeading")}
+        </div>
+        <div className="mt-1.5 flex items-start gap-2">
+          <pre className="flex-1 min-w-0 overflow-x-auto rounded-md border border-border bg-secondary/40 px-3 py-2 text-xs font-mono">
+            {mcpJson}
+          </pre>
+          <Button
+            type="button"
+            size="sm"
+            variant="outline"
+            aria-label={t("claude.copy")}
+            onClick={() => copy(mcpJson, t("claude.copied"), t("analyticsScreen.copyFailed"))}
+          >
+            <Copy className="h-3.5 w-3.5" />
+          </Button>
+        </div>
+        <p className="mt-1.5 text-xs text-muted-foreground max-w-2xl">{t("claude.mcpJsonNote")}</p>
       </div>
 
       {/* Generate token */}
       <div className="mt-5 flex flex-wrap items-end gap-3">
         <div>
           <label className="text-xs font-medium text-muted-foreground">{t("claude.label")}</label>
-          <Input className="mt-1.5 w-56" value={label} onChange={(e) => setLabel(e.target.value)} placeholder={t("claude.labelPlaceholder")} />
+          <Input
+            className="mt-1.5 w-56"
+            value={label}
+            onChange={(e) => setLabel(e.target.value)}
+            placeholder={t("claude.labelPlaceholder")}
+          />
         </div>
         <Button type="button" onClick={onCreate} disabled={creating}>
-          {creating ? <Loader2 className="h-4 w-4 animate-spin" /> : <KeyRound className="h-4 w-4" />}
+          {creating ? (
+            <Loader2 className="h-4 w-4 animate-spin" />
+          ) : (
+            <KeyRound className="h-4 w-4" />
+          )}
           {t("claude.generate")}
         </Button>
       </div>
@@ -121,22 +166,32 @@ export function ClaudeConnectorCard() {
         <div className="mt-4 rounded-md border border-gold/40 bg-gold/5 p-4">
           <div className="text-xs font-medium text-foreground">{t("claude.tokenOnce")}</div>
           <div className="mt-2 flex items-center gap-2">
-            <code className="flex-1 rounded-md border border-border bg-background/60 px-3 py-2 text-xs font-mono break-all">{freshToken}</code>
-            <Button type="button" size="sm" variant="outline" onClick={() => copy(freshToken, t("claude.copied"), t("analyticsScreen.copyFailed"))}>
+            <code className="flex-1 rounded-md border border-border bg-background/60 px-3 py-2 text-xs font-mono break-all">
+              {freshToken}
+            </code>
+            <Button
+              type="button"
+              size="sm"
+              variant="outline"
+              onClick={() => copy(freshToken, t("claude.copied"), t("analyticsScreen.copyFailed"))}
+            >
               <Copy className="h-3.5 w-3.5" /> {t("claude.copy")}
             </Button>
           </div>
-          <div className="mt-4 text-xs font-medium text-muted-foreground">{t("claude.cliHeading")}</div>
-          <div className="mt-1.5 flex items-start gap-2">
-            <code className="flex-1 rounded-md border border-border bg-background/60 px-3 py-2 text-xs font-mono break-all">{cliSnippet}</code>
-            <Button type="button" size="sm" variant="outline" onClick={() => copy(cliSnippet, t("claude.copied"), t("analyticsScreen.copyFailed"))}>
-              <Copy className="h-3.5 w-3.5" />
-            </Button>
+          <div className="mt-4 text-xs font-medium text-muted-foreground">
+            {t("claude.cliHeading")}
           </div>
-          <div className="mt-3 text-xs font-medium text-muted-foreground">{t("claude.desktopHeading")}</div>
-          <div className="mt-1.5 flex items-start gap-2">
-            <pre className="flex-1 overflow-x-auto rounded-md border border-border bg-background/60 px-3 py-2 text-xs font-mono">{desktopSnippet}</pre>
-            <Button type="button" size="sm" variant="outline" onClick={() => copy(desktopSnippet, t("claude.copied"), t("analyticsScreen.copyFailed"))}>
+          <div className="mt-1.5 flex items-start gap-2" data-cli-snippet>
+            <code className="flex-1 min-w-0 rounded-md border border-border bg-background/60 px-3 py-2 text-xs font-mono break-all">
+              {cli}
+            </code>
+            <Button
+              type="button"
+              size="sm"
+              variant="outline"
+              aria-label={t("claude.copy")}
+              onClick={() => cli && copy(cli, t("claude.copied"), t("analyticsScreen.copyFailed"))}
+            >
               <Copy className="h-3.5 w-3.5" />
             </Button>
           </div>
@@ -145,22 +200,36 @@ export function ClaudeConnectorCard() {
 
       {/* Existing tokens */}
       <div className="mt-6">
-        <div className="text-[10px] uppercase tracking-[0.22em] text-muted-foreground mb-2">{t("claude.activeTokens")}</div>
+        <div className="text-[10px] uppercase tracking-[0.22em] text-muted-foreground mb-2">
+          {t("claude.activeTokens")}
+        </div>
         {loading ? (
-          <p className="text-sm text-muted-foreground inline-flex items-center gap-2"><Loader2 className="h-4 w-4 animate-spin" /> …</p>
+          <p className="text-sm text-muted-foreground inline-flex items-center gap-2">
+            <Loader2 className="h-4 w-4 animate-spin" /> …
+          </p>
         ) : tokens.length === 0 ? (
           <p className="text-sm text-muted-foreground">{t("claude.noTokens")}</p>
         ) : (
           <ul className="space-y-1.5">
             {tokens.map((tok) => (
-              <li key={tok.id} className="flex items-center justify-between gap-3 rounded-md border border-border px-3 py-2 text-sm">
+              <li
+                key={tok.id}
+                className="flex items-center justify-between gap-3 rounded-md border border-border px-3 py-2 text-sm"
+              >
                 <div className="min-w-0">
                   <span className="font-medium">{tok.label || t("claude.unnamed")}</span>
                   <span className="ml-2 text-xs text-muted-foreground">
-                    {t("claude.created")} {tok.createdAt.slice(0, 10)} · {t("claude.lastUsed")} {tok.lastUsedAt ? tok.lastUsedAt.slice(0, 10) : t("claude.never")}
+                    {t("claude.created")} {tok.createdAt.slice(0, 10)} · {t("claude.lastUsed")}{" "}
+                    {tok.lastUsedAt ? tok.lastUsedAt.slice(0, 10) : t("claude.never")}
                   </span>
                 </div>
-                <Button size="icon" variant="ghost" className="h-8 w-8 text-muted-foreground hover:text-destructive" onClick={() => onRevoke(tok.id)} aria-label={t("claude.revoke")}>
+                <Button
+                  size="icon"
+                  variant="ghost"
+                  className="h-8 w-8 text-muted-foreground hover:text-destructive"
+                  onClick={() => onRevoke(tok.id)}
+                  aria-label={t("claude.revoke")}
+                >
                   <Trash2 className="h-4 w-4" />
                 </Button>
               </li>
@@ -172,15 +241,24 @@ export function ClaudeConnectorCard() {
       {/* Tools + security */}
       <div className="mt-6 grid md:grid-cols-2 gap-4">
         <div>
-          <div className="text-[10px] uppercase tracking-[0.22em] text-muted-foreground mb-2">{t("claude.tools")}</div>
+          <div className="text-[10px] uppercase tracking-[0.22em] text-muted-foreground mb-2">
+            {t("claude.tools")}
+          </div>
           <div className="flex flex-wrap gap-1.5">
             {toolNames.map((n) => (
-              <span key={n} className="rounded-full border border-border bg-secondary/30 px-2.5 py-0.5 text-xs font-mono">{n}</span>
+              <span
+                key={n}
+                className="rounded-full border border-border bg-secondary/30 px-2.5 py-0.5 text-xs font-mono"
+              >
+                {n}
+              </span>
             ))}
           </div>
         </div>
         <div className="rounded-md border border-border bg-secondary/20 p-3">
-          <div className="flex items-center gap-2 text-xs font-medium text-foreground"><ShieldCheck className="h-3.5 w-3.5 text-emerald-600" /> {t("claude.securityTitle")}</div>
+          <div className="flex items-center gap-2 text-xs font-medium text-foreground">
+            <ShieldCheck className="h-3.5 w-3.5 text-emerald-600" /> {t("claude.securityTitle")}
+          </div>
           <p className="mt-1.5 text-xs text-muted-foreground">{t("claude.security")}</p>
         </div>
       </div>

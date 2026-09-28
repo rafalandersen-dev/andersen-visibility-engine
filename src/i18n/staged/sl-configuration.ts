@@ -113,7 +113,7 @@ export const slConfiguration: Readonly<Record<string, string>> = {
     "Shopify podpira samo članke v blogu. Ta vsebina bo objavljena kot članek v blogu.",
   "claude.title": "Povezovalnik Claude (MCP)",
   "claude.subtitle":
-    "Povežite Milo s Claudom prek povezovalnika MCP. Ustvarite žeton za povezavo, ga dodajte v Claude Code ali Claude Desktop in neposredno v Claudu berite svoje projekte, priložnosti, vsebine, Milo Score, revizije, podatke Search Console in podatke o avtoriteti.",
+    "Povežite Milo s Claudom kot konektor MCP: dodajte ga kot konektor po meri v Claude.ai, Claude Desktop ali Cowork (OAuth) ali uporabite žeton za povezavo v Claude Code in berite svoje projekte, priložnosti, vsebino, Milo Score, revizije, podatke Search Console in avtoritete neposredno v Claudu.",
   "claude.accountNote":
     "Ta povezava velja na ravni računa: en žeton Claudu omogoča dostop samo za branje do vseh projektov v tem delovnem prostoru.",
   "claude.endpoint": "Končna točka MCP",
@@ -123,10 +123,13 @@ export const slConfiguration: Readonly<Record<string, string>> = {
   "claude.tokenOnce": "Žeton kopirajte zdaj — prikazan je samo enkrat in ga ni mogoče obnoviti.",
   "claude.copy": "Kopiraj",
   "claude.copied": "Kopirano",
-  "claude.cliHeading": "Claude Code (CLI)",
-  "claude.desktopHeading": "Claude Desktop (claude_desktop_config.json)",
+  "claude.cliHeading": "Claude Code (CLI) — ta ukaz vsebuje vaš novi žeton; ne delite ga",
+  "claude.connectorsHeading": "Claude.ai, Claude Desktop in Cowork — dodaj kot konektor po meri (OAuth, brez žetona)",
+  "claude.connectorsBody": "V Claudu odprite Nastavitve → Konektorji → Dodaj konektor po meri, prilepite zgornjo končno točko MCP, nato se prijavite v Milo in dovolite dostop. Dovoljenje je samo za branje, razen če so ponujeni dodatni obsegi in jih odobrite. Konektor se nato prikaže spodaj pod Povezane aplikacije. Datoteka claude_desktop_config.json v Claude Desktopu je samo za lokalne strežnike in se za Milo ne uporablja.",
+  "claude.mcpJsonHeading": "Konfiguracija projekta Claude Code (.mcp.json)",
+  "claude.mcpJsonNote": "Varno za shranjevanje v repozitorij: namesto žetona se sklicuje na okoljsko spremenljivko MILO_MCP_TOKEN. To spremenljivko na vsakem računalniku nastavite na žeton za povezavo.",
   "claude.activeTokens": "Aktivni žetoni",
-  "claude.noTokens": "Žetonov za povezavo še ni. Ustvarite ga, da povežete Claude.",
+  "claude.noTokens": "Še ni žetonov za povezavo. Žeton potrebujejo le odjemalci, ki pošiljajo glavo, na primer Claude Code. Claude.ai, Claude Desktop in Cowork se povezujejo z OAuth (glej zgoraj) in se prikažejo pod Povezane aplikacije.",
   "claude.unnamed": "Žeton brez imena",
   "claude.created": "Ustvarjeno",
   "claude.lastUsed": "nazadnje uporabljeno",
@@ -135,10 +138,10 @@ export const slConfiguration: Readonly<Record<string, string>> = {
   "claude.revoked": "Žeton preklican.",
   "claude.revokeError": "Žetona ni bilo mogoče preklicati. Poskusite znova.",
   "claude.createError": "Žetona ni bilo mogoče ustvariti. Poskusite znova.",
-  "claude.tools": "Razpoložljiva orodja (samo za branje)",
+  "claude.tools": "Orodja samo za branje, ki so na voljo žetonu za povezavo",
   "claude.securityTitle": "Varnost",
   "claude.security":
-    "Dostop samo za branje do vaših podatkov Milo. Žetoni so shranjeni kot zgoščene vrednosti, po ustvarjanju niso več prikazani in se nikoli ne zapisujejo v dnevnike. Povezavo lahko kadar koli prekinete s preklicem žetona.",
+    "Žetoni za povezavo dajejo dostop samo za branje do vaših podatkov Milo; dovoljenja OAuth so omejena na obsege, ki jih odobrite. Žetoni so shranjeni zgoščeni, po ustvarjanju se nikoli več ne prikažejo in se nikoli ne beležijo. Kadar koli prekličite žeton ali povezano aplikacijo, da prekinete povezavo.",
   "claude.apps.title": "Povezane aplikacije",
   "claude.apps.subtitle":
     "Aplikacije, povezane z vašim računom Milo Growth prek Claude.ai. Dostop lahko kadar koli prekličete.",

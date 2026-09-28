@@ -112,7 +112,7 @@ export const frConfiguration: Readonly<Record<string, string>> = {
     "Shopify prend uniquement en charge les articles de blog. Ce contenu sera publié sous forme d’article de blog.",
   "claude.title": "Connecteur Claude (MCP)",
   "claude.subtitle":
-    "Connectez Milo à Claude via un connecteur MCP. Générez un jeton de connexion, ajoutez-le à Claude Code ou Claude Desktop, puis consultez vos projets, opportunités, contenus, scores Milo, audits, données Search Console et données d’autorité directement dans Claude.",
+    "Connectez Milo à Claude comme connecteur MCP : ajoutez-le comme connecteur personnalisé dans Claude.ai, Claude Desktop ou Cowork (OAuth), ou utilisez un jeton de connexion dans Claude Code, et lisez vos projets, opportunités, contenus, Milo Score, audits, données Search Console et d’autorité directement dans Claude.",
   "claude.accountNote":
     "Cette connexion s’applique au compte : un seul jeton donne à Claude un accès en lecture seule à tous les projets de cet espace de travail.",
   "claude.endpoint": "Point de terminaison MCP",
@@ -123,11 +123,14 @@ export const frConfiguration: Readonly<Record<string, string>> = {
     "Copiez ce jeton maintenant : il n’est affiché qu’une seule fois et ne peut pas être récupéré.",
   "claude.copy": "Copier",
   "claude.copied": "Copié",
-  "claude.cliHeading": "Claude Code (CLI)",
-  "claude.desktopHeading": "Claude Desktop (claude_desktop_config.json)",
+  "claude.cliHeading": "Claude Code (CLI) — cette commande contient votre nouveau jeton ; ne la partagez pas",
+  "claude.connectorsHeading": "Claude.ai, Claude Desktop et Cowork — ajouter comme connecteur personnalisé (OAuth, sans jeton)",
+  "claude.connectorsBody": "Dans Claude, ouvrez Paramètres → Connecteurs → Ajouter un connecteur personnalisé, collez le point de terminaison MCP ci-dessus, puis connectez-vous à Milo et autorisez l’accès. L’autorisation est en lecture seule sauf si des portées supplémentaires sont proposées et que vous les approuvez. Le connecteur apparaît ensuite ci-dessous dans Applications connectées. Le fichier claude_desktop_config.json de Claude Desktop sert uniquement aux serveurs locaux et n’est pas utilisé pour Milo.",
+  "claude.mcpJsonHeading": "Configuration de projet Claude Code (.mcp.json)",
+  "claude.mcpJsonNote": "Sûr à valider dans le dépôt : il référence la variable d’environnement MILO_MCP_TOKEN au lieu d’un jeton. Définissez cette variable avec un jeton de connexion sur chaque machine.",
   "claude.activeTokens": "Jetons actifs",
   "claude.noTokens":
-    "Aucun jeton de connexion pour le moment. Générez-en un pour connecter Claude.",
+    "Aucun jeton de connexion pour l’instant. Un jeton n’est nécessaire qu’aux clients qui envoient un en-tête, comme Claude Code. Claude.ai, Claude Desktop et Cowork se connectent via OAuth (voir ci-dessus) et apparaissent dans Applications connectées.",
   "claude.unnamed": "Jeton sans titre",
   "claude.created": "Créé",
   "claude.lastUsed": "dernière utilisation",
@@ -136,10 +139,10 @@ export const frConfiguration: Readonly<Record<string, string>> = {
   "claude.revoked": "Jeton révoqué.",
   "claude.revokeError": "Impossible de révoquer le jeton. Veuillez réessayer.",
   "claude.createError": "Impossible de générer un jeton. Veuillez réessayer.",
-  "claude.tools": "Outils disponibles (lecture seule)",
+  "claude.tools": "Outils en lecture seule accessibles à un jeton de connexion",
   "claude.securityTitle": "Sécurité",
   "claude.security":
-    "Accès en lecture seule à vos données Milo. Les jetons sont stockés sous forme d’empreintes hachées, ne sont plus affichés après leur création et ne sont jamais consignés dans les journaux. Révoquez un jeton à tout moment pour déconnecter l’accès.",
+    "Les jetons de connexion donnent un accès en lecture seule à vos données Milo ; les autorisations OAuth sont limitées aux portées que vous approuvez. Les jetons sont stockés hachés, jamais réaffichés après création et jamais journalisés. Révoquez un jeton ou une application connectée à tout moment pour vous déconnecter.",
   "claude.apps.title": "Applications connectées",
   "claude.apps.subtitle":
     "Applications connectées à votre compte Milo Growth via Claude.ai. Vous pouvez révoquer leur accès à tout moment.",

@@ -928,7 +928,7 @@ export const sv: Record<string, string> = {
   // ---- Claude connector (MCP) ----
   "claude.title": "Claude-anslutning (MCP)",
   "claude.subtitle":
-    "Anslut Milo till Claude som en MCP-anslutning. Generera en anslutningstoken, lägg till den i Claude Code eller Claude Desktop och läs dina projekt, möjligheter, innehåll, Milo Score, granskningar, Search Console- och auktoritetsdata direkt i Claude.",
+    "Anslut Milo till Claude som en MCP-anslutning: lägg till den som en anpassad anslutning i Claude.ai, Claude Desktop eller Cowork (OAuth), eller använd en anslutningstoken i Claude Code, och läs dina projekt, möjligheter, innehåll, Milo Score, granskningar, Search Console- och auktoritetsdata direkt i Claude.",
   "claude.accountNote":
     "Anslutningen är på kontonivå: en token ger Claude skrivskyddad åtkomst till alla projekt i denna arbetsyta.",
   "claude.endpoint": "MCP-slutpunkt",
@@ -938,10 +938,13 @@ export const sv: Record<string, string> = {
   "claude.tokenOnce": "Kopiera denna token nu — den visas bara en gång och kan inte återställas.",
   "claude.copy": "Kopiera",
   "claude.copied": "Kopierad",
-  "claude.cliHeading": "Claude Code (CLI)",
-  "claude.desktopHeading": "Claude Desktop (claude_desktop_config.json)",
+  "claude.cliHeading": "Claude Code (CLI) — det här kommandot innehåller din nya token; dela den inte",
+  "claude.connectorsHeading": "Claude.ai, Claude Desktop och Cowork — lägg till som anpassad anslutning (OAuth, ingen token behövs)",
+  "claude.connectorsBody": "Öppna i Claude Inställningar → Anslutningar → Lägg till anpassad anslutning, klistra in MCP-slutpunkten ovan, logga sedan in i Milo och tillåt åtkomst. Behörigheten är skrivskyddad om inte ytterligare omfattningar erbjuds och du godkänner dem. Anslutningen visas sedan under Anslutna appar nedan. Claude Desktops claude_desktop_config.json är bara för lokala servrar och används inte för Milo.",
+  "claude.mcpJsonHeading": "Projektkonfiguration för Claude Code (.mcp.json)",
+  "claude.mcpJsonNote": "Säker att checka in: den refererar till miljövariabeln MILO_MCP_TOKEN i stället för en token. Sätt variabeln till en anslutningstoken på varje dator.",
   "claude.activeTokens": "Aktiva tokens",
-  "claude.noTokens": "Inga anslutningstokens ännu. Generera en för att ansluta Claude.",
+  "claude.noTokens": "Inga anslutningstokens ännu. En token behövs bara för klienter som skickar en header, till exempel Claude Code. Claude.ai, Claude Desktop och Cowork ansluter med OAuth (se ovan) och visas under Anslutna appar.",
   "claude.unnamed": "Namnlös token",
   "claude.created": "Skapad",
   "claude.lastUsed": "senast använd",
@@ -950,10 +953,10 @@ export const sv: Record<string, string> = {
   "claude.revoked": "Token återkallad.",
   "claude.revokeError": "Kunde inte återkalla token. Försök igen.",
   "claude.createError": "Kunde inte generera en token. Försök igen.",
-  "claude.tools": "Tillgängliga verktyg (skrivskyddade)",
+  "claude.tools": "Skrivskyddade verktyg som är tillgängliga för en anslutningstoken",
   "claude.securityTitle": "Säkerhet",
   "claude.security":
-    "Skrivskyddad åtkomst till dina Milo-data. Tokens lagras hashade, visas aldrig igen efter skapande och loggas aldrig. Återkalla en token när som helst för att koppla från.",
+    "Anslutningstokens ger skrivskyddad åtkomst till dina Milo-data; OAuth-behörigheter begränsas till de omfattningar du godkänner. Tokens lagras hashade, visas aldrig igen efter skapande och loggas aldrig. Återkalla en token eller en ansluten app när som helst för att koppla från.",
 
   // ---- Claude connected apps (OAuth) ----
   "claude.apps.title": "Anslutna appar",

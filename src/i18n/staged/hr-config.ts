@@ -112,7 +112,7 @@ export const hrConfig: Readonly<Record<string, string>> = {
     "Shopify podržava samo članke na blogu. Ovaj će sadržaj biti objavljen kao članak na blogu.",
   "claude.title": "Claude povezivač (MCP)",
   "claude.subtitle":
-    "Povežite Milo s Claudeom kao MCP povezivač. Generirajte token za povezivanje, dodajte ga u Claude Code ili Claude Desktop i čitajte svoje projekte, prilike, sadržaj, Milo Score, revizije te podatke iz usluge Search Console i podatke o autoritetu izravno u Claudeu.",
+    "Povežite Milo s Claudeom kao MCP konektor: dodajte ga kao prilagođeni konektor u Claude.ai, Claude Desktop ili Cowork (OAuth) ili upotrijebite token za povezivanje u Claude Codeu i čitajte svoje projekte, prilike, sadržaj, Milo Score, revizije, podatke Search Consolea i autoriteta izravno u Claudeu.",
   "claude.accountNote":
     "Ova je veza na razini računa: jedan token daje Claudeu pristup samo za čitanje svim projektima u ovom radnom prostoru.",
   "claude.endpoint": "MCP krajnja točka",
@@ -123,11 +123,14 @@ export const hrConfig: Readonly<Record<string, string>> = {
     "Kopirajte ovaj token sada — prikazuje se samo jednom i ne može se oporaviti.",
   "claude.copy": "Kopiraj",
   "claude.copied": "Kopirano",
-  "claude.cliHeading": "Claude Code (CLI)",
-  "claude.desktopHeading": "Claude Desktop (claude_desktop_config.json)",
+  "claude.cliHeading": "Claude Code (CLI) — ova naredba sadrži vaš novi token; ne dijelite ga",
+  "claude.connectorsHeading": "Claude.ai, Claude Desktop i Cowork — dodaj kao prilagođeni konektor (OAuth, bez tokena)",
+  "claude.connectorsBody": "U Claudeu otvorite Postavke → Konektori → Dodaj prilagođeni konektor, zalijepite gornju MCP krajnju točku, zatim se prijavite u Milo i dopustite pristup. Dopuštenje je samo za čitanje osim ako se ponude dodatni opsezi i vi ih odobrite. Konektor se zatim prikazuje niže u Povezanim aplikacijama. Datoteka claude_desktop_config.json u Claude Desktopu služi samo lokalnim poslužiteljima i ne koristi se za Milo.",
+  "claude.mcpJsonHeading": "Konfiguracija projekta Claude Code (.mcp.json)",
+  "claude.mcpJsonNote": "Sigurno za spremanje u repozitorij: upućuje na varijablu okruženja MILO_MCP_TOKEN umjesto na token. Postavite tu varijablu na token za povezivanje na svakom računalu.",
   "claude.activeTokens": "Aktivni tokeni",
   "claude.noTokens":
-    "Još nema tokena za povezivanje. Generirajte jedan kako biste povezali Claude.",
+    "Još nema tokena za povezivanje. Token je potreban samo klijentima koji šalju zaglavlje, poput Claude Codea. Claude.ai, Claude Desktop i Cowork povezuju se putem OAutha (vidi gore) i prikazuju se u Povezanim aplikacijama.",
   "claude.unnamed": "Token bez naziva",
   "claude.created": "Izrađeno",
   "claude.lastUsed": "posljednji put korišteno",
@@ -136,10 +139,10 @@ export const hrConfig: Readonly<Record<string, string>> = {
   "claude.revoked": "Token opozvan.",
   "claude.revokeError": "Token nije bilo moguće opozvati. Pokušajte ponovno.",
   "claude.createError": "Token nije bilo moguće generirati. Pokušajte ponovno.",
-  "claude.tools": "Dostupni alati (samo za čitanje)",
+  "claude.tools": "Alati samo za čitanje dostupni tokenu za povezivanje",
   "claude.securityTitle": "Sigurnost",
   "claude.security":
-    "Pristup vašim Milo podacima samo za čitanje. Tokeni se pohranjuju kao sažeci, nakon izrade više se ne prikazuju i nikada se ne zapisuju u zapisnike. Opozovite token u bilo kojem trenutku kako biste prekinuli vezu.",
+    "Tokeni za povezivanje daju pristup samo za čitanje vašim Milo podacima; OAuth dopuštenja ograničena su na opsege koje odobrite. Tokeni se pohranjuju hashirani, nikada se ne prikazuju ponovno nakon stvaranja i nikada se ne bilježe. Opozovite token ili povezanu aplikaciju u bilo kojem trenutku kako biste prekinuli vezu.",
   "claude.apps.title": "Povezane aplikacije",
   "claude.apps.subtitle":
     "Aplikacije povezane s vašim Milo Growth računom putem Claude.ai. Pristup možete opozvati u bilo kojem trenutku.",

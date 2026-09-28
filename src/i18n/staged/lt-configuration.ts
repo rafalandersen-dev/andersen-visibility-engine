@@ -114,7 +114,7 @@ export const ltConfiguration: Readonly<Record<string, string>> = {
     "Shopify palaiko tik tinklaraščio straipsnius. Šis turinys bus paskelbtas kaip tinklaraščio straipsnis.",
   "claude.title": "Claude jungtis (MCP)",
   "claude.subtitle":
-    "Prijunkite Milo prie Claude kaip MCP jungtį. Sugeneruokite ryšio raktą, pridėkite jį prie Claude Code arba Claude Desktop ir skaitykite savo projektus, galimybes, turinį, Milo Score, auditus, Search Console ir autoriteto duomenis tiesiai Claude.",
+    "Prijunkite Milo prie Claude kaip MCP jungtį: pridėkite ją kaip pasirinktinę jungtį Claude.ai, Claude Desktop arba Cowork (OAuth) arba naudokite ryšio prieigos raktą Claude Code ir skaitykite savo projektus, galimybes, turinį, Milo Score, auditus, Search Console ir autoriteto duomenis tiesiogiai Claude.",
   "claude.accountNote":
     "Šis ryšys yra paskyros lygmens: vienas raktas suteikia Claude tik skaitymo prieigą prie visų šios darbo srities projektų.",
   "claude.endpoint": "MCP galinis taškas",
@@ -125,10 +125,13 @@ export const ltConfiguration: Readonly<Record<string, string>> = {
     "Nukopijuokite šį raktą dabar — jis rodomas tik vieną kartą ir jo atkurti negalima.",
   "claude.copy": "Kopijuoti",
   "claude.copied": "Nukopijuota",
-  "claude.cliHeading": "Claude Code (CLI)",
-  "claude.desktopHeading": "Claude Desktop (claude_desktop_config.json)",
+  "claude.cliHeading": "Claude Code (CLI) — šioje komandoje yra jūsų naujas prieigos raktas; nesidalykite juo",
+  "claude.connectorsHeading": "Claude.ai, Claude Desktop ir Cowork — pridėti kaip pasirinktinę jungtį (OAuth, be prieigos rakto)",
+  "claude.connectorsBody": "Claude atidarykite Nustatymai → Jungtys → Pridėti pasirinktinę jungtį, įklijuokite aukščiau esantį MCP galinį tašką, tada prisijunkite prie Milo ir leiskite prieigą. Leidimas yra tik skaitymui, nebent pasiūlomos papildomos apimtys ir jūs jas patvirtinate. Jungtis tada rodoma žemiau, Prijungtose programose. Claude Desktop failas claude_desktop_config.json skirtas tik vietiniams serveriams ir Milo nenaudojamas.",
+  "claude.mcpJsonHeading": "Claude Code projekto konfigūracija (.mcp.json)",
+  "claude.mcpJsonNote": "Saugu įrašyti į saugyklą: joje nurodomas aplinkos kintamasis MILO_MCP_TOKEN, o ne prieigos raktas. Kiekviename kompiuteryje nustatykite šį kintamąjį į ryšio prieigos raktą.",
   "claude.activeTokens": "Aktyvūs raktai",
-  "claude.noTokens": "Ryšio raktų dar nėra. Sugeneruokite raktą, kad prijungtumėte Claude.",
+  "claude.noTokens": "Ryšio prieigos raktų dar nėra. Prieigos raktas reikalingas tik antraštę siunčiantiems klientams, pavyzdžiui, Claude Code. Claude.ai, Claude Desktop ir Cowork jungiasi per OAuth (žr. aukščiau) ir rodomi Prijungtose programose.",
   "claude.unnamed": "Raktas be pavadinimo",
   "claude.created": "Sukurta",
   "claude.lastUsed": "paskutinį kartą naudota",
@@ -137,10 +140,10 @@ export const ltConfiguration: Readonly<Record<string, string>> = {
   "claude.revoked": "Raktas atšauktas.",
   "claude.revokeError": "Nepavyko atšaukti rakto. Bandykite dar kartą.",
   "claude.createError": "Nepavyko sugeneruoti rakto. Bandykite dar kartą.",
-  "claude.tools": "Galimi įrankiai (tik skaitymas)",
+  "claude.tools": "Tik skaitymui skirti įrankiai, pasiekiami ryšio prieigos raktui",
   "claude.securityTitle": "Saugumas",
   "claude.security":
-    "Tik skaitymo prieiga prie jūsų Milo duomenų. Raktai saugomi kaip maišos reikšmės, po sukūrimo daugiau nerodomi ir niekada neregistruojami žurnaluose. Norėdami atjungti, raktą galite atšaukti bet kada.",
+    "Ryšio prieigos raktai suteikia tik skaitymo prieigą prie jūsų Milo duomenų; OAuth leidimai apriboti jūsų patvirtintomis apimtimis. Prieigos raktai saugomi maišos pavidalu, po sukūrimo daugiau nerodomi ir niekada nefiksuojami žurnaluose. Bet kada atšaukite prieigos raktą ar prijungtą programą, kad atsijungtumėte.",
   "claude.apps.title": "Prijungtos programos",
   "claude.apps.subtitle":
     "Programos, prijungtos prie jūsų Milo Growth paskyros per Claude.ai. Prieigą galite atšaukti bet kada.",
