@@ -175,6 +175,9 @@ export const slWorkflow: Readonly<Record<string, string>> = {
   "quality.cat.conversion": "Konverzija",
   "quality.cat.trustSafety": "Zaupanje in varnost",
   "quality.cat.internalLinks": "Notranje povezave",
+  "quality.fallback.unassessed": "Ni ocenjeno: ocenjevalec za to kategorijo ni vrnil veljavne ocene (nezadostni dokazi, ne izmerjena težava).",
+  "quality.fallback.evaluatorNote": "Opomba ocenjevalca",
+  "quality.fallback.noExplanation": "Za to kategorijo ni bila vrnjena nobena razlaga.",
   "editor.schedule.sourceHeldAt":
     "Prvotni datum: {when}. Zadržano za pregled virov; nobena objava ni v čakalni vrsti.",
   "editor.schedule.failedTitle": "Načrtovano objavljanje ni uspelo",

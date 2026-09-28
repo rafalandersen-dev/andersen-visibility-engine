@@ -490,6 +490,9 @@ export const sv: Record<string, string> = {
   "quality.cat.conversion": "Konvertering",
   "quality.cat.trustSafety": "Förtroende och säkerhet",
   "quality.cat.internalLinks": "Interna länkar",
+  "quality.fallback.unassessed": "Inte bedömd: utvärderaren returnerade ingen giltig poäng för den här kategorin (otillräckligt underlag, inte ett uppmätt problem).",
+  "quality.fallback.evaluatorNote": "Utvärderarens notering",
+  "quality.fallback.noExplanation": "Ingen förklaring returnerades för den här kategorin.",
 
   // ---- Brand Intelligence ----
   "brand.title": "Varumärkesintelligens",

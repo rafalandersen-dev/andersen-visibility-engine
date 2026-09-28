@@ -174,6 +174,9 @@ export const fiWorkflow: Readonly<Record<string, string>> = {
   "quality.cat.conversion": "Konversio",
   "quality.cat.trustSafety": "Luottamus ja turvallisuus",
   "quality.cat.internalLinks": "Sisäiset linkit",
+  "quality.fallback.unassessed": "Ei arvioitu: arvioija ei palauttanut tälle kategorialle kelvollista pistemäärää (riittämätön näyttö, ei mitattu ongelma).",
+  "quality.fallback.evaluatorNote": "Arvioijan huomautus",
+  "quality.fallback.noExplanation": "Tälle kategorialle ei palautettu selitystä.",
   "editor.schedule.sourceHeldAt":
     "Alkuperäinen ajankohta: {when}. Pidossa lähteiden tarkistusta varten; julkaisua ei ole jonossa.",
   "editor.schedule.failedTitle": "Ajastettu julkaisu epäonnistui",

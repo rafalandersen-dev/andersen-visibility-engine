@@ -174,6 +174,9 @@ export const ptWorkflow: Readonly<Record<string, string>> = {
   "quality.cat.conversion": "Conversão",
   "quality.cat.trustSafety": "Confiança e segurança",
   "quality.cat.internalLinks": "Ligações internas",
+  "quality.fallback.unassessed": "Não avaliado: o avaliador não devolveu uma pontuação válida para esta categoria (evidência insuficiente, não um problema medido).",
+  "quality.fallback.evaluatorNote": "Nota do avaliador",
+  "quality.fallback.noExplanation": "Não foi devolvida nenhuma explicação para esta categoria.",
   "editor.schedule.sourceHeldAt":
     "Data original: {when}. Bloqueado para revisão das fontes; nenhuma publicação está em fila.",
   "editor.schedule.failedTitle": "A publicação agendada falhou",

@@ -174,6 +174,9 @@ export const deWorkflow: Readonly<Record<string, string>> = {
   "quality.cat.conversion": "Conversion",
   "quality.cat.trustSafety": "Vertrauen und Sicherheit",
   "quality.cat.internalLinks": "Interne Links",
+  "quality.fallback.unassessed": "Nicht bewertet: Der Evaluator hat für diese Kategorie keine gültige Punktzahl geliefert (unzureichende Belege, kein gemessenes Problem).",
+  "quality.fallback.evaluatorNote": "Hinweis des Evaluators",
+  "quality.fallback.noExplanation": "Für diese Kategorie wurde keine Erklärung geliefert.",
   "editor.schedule.sourceHeldAt":
     "Ursprüngliches Datum: {when}. Zur Quellenprüfung zurückgehalten; keine Veröffentlichung wartet in der Warteschlange.",
   "editor.schedule.failedTitle": "Terminierte Veröffentlichung fehlgeschlagen",

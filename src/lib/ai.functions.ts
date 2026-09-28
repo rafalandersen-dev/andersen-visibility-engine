@@ -19,7 +19,12 @@ import { AiExpenseUnavailableError } from "./ai-expense.server";
 import { z } from "zod";
 import { AiProviderConfigurationError } from "./ai-provider.server";
 import { classifyAiError, aiErrorUserMessage } from "./ai-error-diagnostics.server";
-import { normalizeQualityScore } from "./quality";
+import {
+  MIN_EVALUABLE_WORDS,
+  draftWordCount,
+  normalizeQualityScore,
+  tooShortScore,
+} from "./quality";
 import { normalizeHookProposals } from "./hook";
 import { internalLinkRule } from "./internal-link-prompt";
 import { brandIntelligenceBlock } from "./brand";
@@ -2677,6 +2682,12 @@ export const evaluateContentQualityFn = createServerFn({ method: "POST" })
       .parse(input),
   )
   .handler(async ({ data, context }) => {
+    // Short-draft economy, enforced here as well as in the client caller: an empty or
+    // too-short draft gets the same conservative score with NO usage claim and NO
+    // provider call (the owner evaluation route reaches this handler directly).
+    if (draftWordCount(data.markdown) < MIN_EVALUABLE_WORDS) {
+      return tooShortScore(new Date().toISOString());
+    }
     // Spend limit, claimed before any model call so a refusal costs nothing.
     await claimAiUsage({ userId: context.userId as string, bucket: "miloScore" });
     const project = data.project as Project;

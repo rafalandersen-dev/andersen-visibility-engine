@@ -491,6 +491,9 @@ export const da: Record<string, string> = {
   "quality.cat.conversion": "Konvertering",
   "quality.cat.trustSafety": "Tillid og sikkerhed",
   "quality.cat.internalLinks": "Interne links",
+  "quality.fallback.unassessed": "Ikke vurderet: evaluatoren returnerede ingen gyldig score for denne kategori (utilstrækkeligt grundlag, ikke et målt problem).",
+  "quality.fallback.evaluatorNote": "Evaluatorens note",
+  "quality.fallback.noExplanation": "Der blev ikke returneret nogen forklaring for denne kategori.",
 
   // ---- Brand Intelligence ----
   "brand.title": "Brandintelligens",

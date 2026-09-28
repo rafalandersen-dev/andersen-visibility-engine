@@ -151,6 +151,9 @@ export const roWorkflowEditor: Readonly<Record<string, string>> = {
   "quality.cat.conversion": "Conversie",
   "quality.cat.trustSafety": "Încredere și siguranță",
   "quality.cat.internalLinks": "Linkuri interne",
+  "quality.fallback.unassessed": "Neevaluat: evaluatorul nu a returnat un scor valid pentru această categorie (dovezi insuficiente, nu o problemă măsurată).",
+  "quality.fallback.evaluatorNote": "Nota evaluatorului",
+  "quality.fallback.noExplanation": "Nu a fost returnată nicio explicație pentru această categorie.",
   "editor.schedule.sourceHeldAt":
     "Data inițială: {when}. Suspendat pentru verificarea surselor; nicio publicare nu este în coadă.",
   "editor.schedule.failedTitle": "Publicarea programată a eșuat",

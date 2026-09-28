@@ -491,6 +491,9 @@ export const pl: Record<string, string> = {
   "quality.cat.conversion": "Konwersja",
   "quality.cat.trustSafety": "Zaufanie i bezpieczeństwo",
   "quality.cat.internalLinks": "Linki wewnętrzne",
+  "quality.fallback.unassessed": "Nieocenione: ewaluator nie zwrócił prawidłowego wyniku dla tej kategorii (niewystarczające dowody, a nie zmierzony problem).",
+  "quality.fallback.evaluatorNote": "Uwaga ewaluatora",
+  "quality.fallback.noExplanation": "Dla tej kategorii nie zwrócono żadnego wyjaśnienia.",
 
   // ---- Brand Intelligence ----
   "brand.title": "Inteligencja marki",

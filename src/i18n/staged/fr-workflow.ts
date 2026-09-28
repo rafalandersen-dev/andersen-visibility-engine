@@ -177,6 +177,9 @@ export const frWorkflow: Readonly<Record<string, string>> = {
   "quality.cat.conversion": "Conversion",
   "quality.cat.trustSafety": "Confiance et sécurité",
   "quality.cat.internalLinks": "Liens internes",
+  "quality.fallback.unassessed": "Non évalué : l’évaluateur n’a renvoyé aucun score valide pour cette catégorie (preuves insuffisantes, pas un problème mesuré).",
+  "quality.fallback.evaluatorNote": "Note de l’évaluateur",
+  "quality.fallback.noExplanation": "Aucune explication n’a été renvoyée pour cette catégorie.",
   "editor.schedule.sourceHeldAt":
     "Date initiale : {when}. En attente de vérification des sources ; aucune publication n’est en file d’attente.",
   "editor.schedule.failedTitle": "La publication programmée a échoué",

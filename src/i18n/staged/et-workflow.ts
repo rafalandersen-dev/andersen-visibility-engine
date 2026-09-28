@@ -176,6 +176,9 @@ export const etWorkflow: Readonly<Record<string, string>> = {
   "quality.cat.conversion": "Konversioon",
   "quality.cat.trustSafety": "Usaldus ja turvalisus",
   "quality.cat.internalLinks": "Siselingid",
+  "quality.fallback.unassessed": "Hindamata: hindaja ei tagastanud selle kategooria jaoks kehtivat skoori (ebapiisavad tõendid, mitte mõõdetud probleem).",
+  "quality.fallback.evaluatorNote": "Hindaja märkus",
+  "quality.fallback.noExplanation": "Selle kategooria kohta ei tagastatud selgitust.",
   "editor.schedule.sourceHeldAt":
     "Algne kuupäev: {when}. Ootel allikate ülevaatuseks; avaldamist pole järjekorda lisatud.",
   "editor.schedule.failedTitle": "Ajastatud avaldamine ebaõnnestus",

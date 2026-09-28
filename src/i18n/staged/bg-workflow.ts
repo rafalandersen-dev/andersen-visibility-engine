@@ -176,6 +176,9 @@ export const bgWorkflow: Readonly<Record<string, string>> = {
   "quality.cat.conversion": "Реализация",
   "quality.cat.trustSafety": "Доверие и безопасност",
   "quality.cat.internalLinks": "Вътрешни връзки",
+  "quality.fallback.unassessed": "Не е оценено: оценителят не върна валиден резултат за тази категория (недостатъчни доказателства, а не измерен проблем).",
+  "quality.fallback.evaluatorNote": "Бележка на оценителя",
+  "quality.fallback.noExplanation": "За тази категория не беше върнато обяснение.",
   "editor.schedule.sourceHeldAt":
     "Първоначална дата: {when}. Задържано за преглед на източниците; няма публикация в опашката.",
   "editor.schedule.failedTitle": "Насроченото публикуване е неуспешно",

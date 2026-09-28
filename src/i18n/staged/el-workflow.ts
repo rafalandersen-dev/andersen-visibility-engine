@@ -177,6 +177,9 @@ export const elWorkflow: Readonly<Record<string, string>> = {
   "quality.cat.conversion": "Μετατροπή",
   "quality.cat.trustSafety": "Εμπιστοσύνη και ασφάλεια",
   "quality.cat.internalLinks": "Εσωτερικοί σύνδεσμοι",
+  "quality.fallback.unassessed": "Δεν αξιολογήθηκε: ο αξιολογητής δεν επέστρεψε έγκυρη βαθμολογία για αυτή την κατηγορία (ανεπαρκή στοιχεία, όχι μετρημένο πρόβλημα).",
+  "quality.fallback.evaluatorNote": "Σημείωση αξιολογητή",
+  "quality.fallback.noExplanation": "Για αυτή την κατηγορία δεν επιστράφηκε καμία εξήγηση.",
   "editor.schedule.sourceHeldAt":
     "Αρχική ημερομηνία: {when}. Σε αναμονή ελέγχου πηγών· δεν υπάρχει δημοσίευση στην ουρά.",
   "editor.schedule.failedTitle": "Η προγραμματισμένη δημοσίευση απέτυχε",

@@ -173,6 +173,9 @@ export const huWorkflow = {
   "quality.cat.conversion": "Konverzió",
   "quality.cat.trustSafety": "Megbízhatóság és biztonság",
   "quality.cat.internalLinks": "Belső hivatkozások",
+  "quality.fallback.unassessed": "Nem értékelt: az értékelő nem adott vissza érvényes pontszámot ehhez a kategóriához (elégtelen bizonyíték, nem mért probléma).",
+  "quality.fallback.evaluatorNote": "Az értékelő megjegyzése",
+  "quality.fallback.noExplanation": "Ehhez a kategóriához nem érkezett magyarázat.",
   "editor.schedule.sourceHeldAt":
     "Eredeti dátum: {when}. Forrásellenőrzésre vár; nincs közzététel sorba állítva.",
   "editor.schedule.failedTitle": "Az ütemezett közzététel sikertelen",

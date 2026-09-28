@@ -61,7 +61,7 @@ export const BG_STAGED_BATCHES = [
       "publishingFidelity",
     ],
     sourceRevision: "5ee65d5",
-    sourceHash: "649e9d723e890e3a356652ad7a515080081167e2d06a4dc5d3ad58cc5e2b6615",
+    sourceHash: "a814f6d27647a305507c9298eaac39fe7c6eb27d0b98c06aac6603a26a8f7058",
   },
   {
     name: "evidence",

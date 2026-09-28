@@ -13,6 +13,7 @@ import {
 import { useT } from "@/i18n";
 import { evaluateContentQuality, improveContentDraft } from "@/lib/mock-ai";
 import { QUALITY_CATEGORY_ORDER, draftWordCount } from "@/lib/quality";
+import { classifyCategoryExplanation } from "@/lib/quality-explanation";
 import type { ContentAsset, QualityStatus, PublishingRecommendation } from "@/lib/types";
 import { Gauge, Loader2, Sparkles, RefreshCw, AlertTriangle } from "lucide-react";
 import { toast } from "sonner";
@@ -173,7 +174,24 @@ export function MiloScorePanel({
                         </span>
                       </summary>
                       <div className="px-3 pb-3 pt-0 text-sm text-foreground/80 space-y-1.5">
-                        <p>{c.explanation}</p>
+                        {(() => {
+                          // System-generated fallbacks are shown in the UI language; model notes stay verbatim.
+                          const view = classifyCategoryExplanation(c.explanation);
+                          if (view.kind === "unassessed")
+                            return (
+                              <>
+                                <p data-explanation="unassessed">{t("quality.fallback.unassessed")}</p>
+                                {view.note ? (
+                                  <p className="text-xs text-muted-foreground" data-explanation="evaluatorNote">
+                                    {t("quality.fallback.evaluatorNote")}: {view.note}
+                                  </p>
+                                ) : null}
+                              </>
+                            );
+                          if (view.kind === "noExplanation")
+                            return <p data-explanation="noExplanation">{t("quality.fallback.noExplanation")}</p>;
+                          return <p data-explanation="model">{view.text}</p>;
+                        })()}
                         {c.suggestions.length ? (
                           <ul className="list-disc pl-4 space-y-0.5 text-xs text-muted-foreground">
                             {c.suggestions.map((s, i) => <li key={i}>{s}</li>)}

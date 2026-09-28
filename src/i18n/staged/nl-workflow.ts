@@ -174,6 +174,9 @@ export const nlWorkflow: Readonly<Record<string, string>> = {
   "quality.cat.conversion": "Conversie",
   "quality.cat.trustSafety": "Vertrouwen en veiligheid",
   "quality.cat.internalLinks": "Interne links",
+  "quality.fallback.unassessed": "Niet beoordeeld: de beoordelaar gaf geen geldige score voor deze categorie (onvoldoende bewijs, geen gemeten probleem).",
+  "quality.fallback.evaluatorNote": "Opmerking van de beoordelaar",
+  "quality.fallback.noExplanation": "Er is geen toelichting teruggegeven voor deze categorie.",
   "editor.schedule.sourceHeldAt":
     "Oorspronkelijke datum: {when}. Geblokkeerd voor bronbeoordeling; geen publicatie in de wachtrij.",
   "editor.schedule.failedTitle": "Geplande publicatie mislukt",

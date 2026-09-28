@@ -153,6 +153,9 @@ export const lvWorkflowEditor: Readonly<Record<string, string>> = {
   "quality.cat.conversion": "Konversija",
   "quality.cat.trustSafety": "Uzticamība un drošība",
   "quality.cat.internalLinks": "Iekšējās saites",
+  "quality.fallback.unassessed": "Nav novērtēts: vērtētājs šai kategorijai neatgrieza derīgu vērtējumu (nepietiekami pierādījumi, nevis izmērīta problēma).",
+  "quality.fallback.evaluatorNote": "Vērtētāja piezīme",
+  "quality.fallback.noExplanation": "Šai kategorijai netika atgriezts paskaidrojums.",
   "editor.schedule.sourceHeldAt":
     "Sākotnējais datums: {when}. Aizturēts avotu pārskatīšanai; neviena publicēšana nav rindā.",
   "editor.schedule.failedTitle": "Ieplānotā publicēšana neizdevās",

@@ -496,6 +496,9 @@ export const en: Record<string, string> = {
   "quality.cat.conversion": "Conversion",
   "quality.cat.trustSafety": "Trust & safety",
   "quality.cat.internalLinks": "Internal links",
+  "quality.fallback.unassessed": "Not assessed: the evaluator returned no valid score for this category (insufficient evidence, not a measured problem).",
+  "quality.fallback.evaluatorNote": "Evaluator note",
+  "quality.fallback.noExplanation": "No explanation was returned for this category.",
 
   // ---- Brand Intelligence ----
   "brand.title": "Brand Intelligence",

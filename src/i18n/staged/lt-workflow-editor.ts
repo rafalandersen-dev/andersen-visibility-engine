@@ -154,6 +154,9 @@ export const ltWorkflowEditor: Readonly<Record<string, string>> = {
   "quality.cat.conversion": "Konversija",
   "quality.cat.trustSafety": "Patikimumas ir saugumas",
   "quality.cat.internalLinks": "Vidinės nuorodos",
+  "quality.fallback.unassessed": "Neįvertinta: vertintojas šiai kategorijai negrąžino tinkamo balo (nepakanka įrodymų, o ne išmatuota problema).",
+  "quality.fallback.evaluatorNote": "Vertintojo pastaba",
+  "quality.fallback.noExplanation": "Šiai kategorijai negrąžintas joks paaiškinimas.",
   "editor.schedule.sourceHeldAt":
     "Pradinė data: {when}. Sulaikyta šaltinių peržiūrai; joks paskelbimas neįtrauktas į eilę.",
   "editor.schedule.failedTitle": "Suplanuotas paskelbimas nepavyko",
