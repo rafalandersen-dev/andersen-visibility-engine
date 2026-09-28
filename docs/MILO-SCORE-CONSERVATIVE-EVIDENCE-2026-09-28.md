@@ -60,3 +60,78 @@ linkage is cleared. The decision uses the server's outcome, never the numeric sc
 missing metadata; the route's under-40-words hint is an eligibility aid only. Localized keys:
 `aiEval.status.skipped`, `aiEval.skipped.tooShort`, `aiEval.shortDraftHint`. Existing history rows are
 untouched; rows recorded before this change from short drafts (if any) remain historical.
+
+## Addendum (BB, 28 September 2026) — bounded short-draft admission (finding 4125880002)
+
+`evaluateContentQualityFn` accepted a `markdown` body of any size and ran `draftWordCount` (a rewritten
+copy of the whole body, then a token array) before the usage claim. Two bounded steps now precede
+everything else. **Input cap:** the body is validated as `z.string().max(CONTENT_BODY_MAX_CHARS)`
+(40 000 UTF-16 code units, the same limit the content generator's `generation-result.ts` enforces on
+every generated body; zod `.max` compares `String.length`, so an astral character such as an emoji
+costs two units and a 4-byte UTF-8 sequence is never counted as one). An oversized body is refused by
+input validation — before the word scan, the usage claim and the provider — with zod's `too_big`
+error, the repository's existing convention for bounded string inputs. (Corrected by BD below: the
+caller sends the CANONICAL assembled document, which is larger than the body; the bound is now the
+canonical document bound.)
+**Early-exit predicate:** `hasMinimumWords(markdown, MIN_EVALUABLE_WORDS)` (`quality.ts`) answers the
+40-word threshold with one forward scan over code units that stops at the 40th word — no rewritten
+string, no token array — using exactly the counter's separator set (JavaScript `\s`, including U+00A0,
+U+1680, U+2000–U+200A, U+2028, U+2029, U+202F, U+205F, U+3000, U+FEFF, plus `# > * _ ` ~ -`). The
+threshold, the markdown punctuation behaviour and the skipped envelope are unchanged. `draftWordCount`
+is untouched and still used by the UI (`MiloScorePanel` "has body", the AI Evaluation route hint) and
+the client caller (`mock-ai.ts`), which display or compare the real number; the server never returns
+the threshold as a count.
+
+Tests: `quality.test.ts` (+4) proves the predicate agrees with the counter on samples, on boundaries
+39/40/41, and on every one of the 65 536 UTF-16 code units (`a<c>b` has two words iff `<c>` is a
+separator), and that a 200 000-unit single token, separator run or dash run gets the counter's answer.
+`quality-caller.test.ts` (+7, real server function under the mocked builder with pass-through spies on
+the scan) proves: one unit over the cap — plain, whitespace-only, markup-only, an 8 MiB single token and
+20 001 astral characters — is refused with no scan, no claim, no provider call; exactly the cap with a
+valid long draft is admitted and claims once then calls the provider once; a pathological single token,
+whitespace only, markup only and 39 words padded with separators, each at the cap, are scanned once and
+skipped with no claim; 40 words separated by unicode whitespace at the cap are evaluated. On the frozen
+evaluator those admission tests fail (6 of 7; must-fail verified). Focused suites (quality, matrix,
+explanation, caller, AI evaluation, metering coverage, usage claims): 8 files / 191 tests passed; tsc 0;
+prettier clean on the conformant files; eslint reports only the three pre-existing `ai.functions.ts`
+findings (a `no-control-regex` and two prettier lines on unchanged code; the base file is not
+prettier-conformant); `vite build` succeeded. The reviewer's 8 MiB CPU/memory figures were not
+reproduced or benchmarked here; no live provider was called.
+
+## Addendum (BD, 28 September 2026) — the bound is the canonical document, not the generated body
+
+Codex reproduced a P2 in the BB correction: the client caller `evaluateContentQuality` sends
+`assembleContentAsset(asset, project).markdown`, i.e. the body plus the composed sections (approved
+hook, TL;DR, key takeaways, sources block, author block, breadcrumb trail, image lines), so an accepted
+40 000-unit body with an approved hook assembled above the body-only cap and was refused. The BB
+statement that no legitimate draft is refused was false.
+
+Correction: `content-assembler.ts` now defines `CANONICAL_DOCUMENT_MAX_CHARS` =
+`CONTENT_BODY_MAX_CHARS` (40 000) + `CANONICAL_SECTIONS_ALLOWANCE_CHARS` (24 000) = 64 000 UTF-16 code
+units, and the evaluator validates `markdown` against that bound. The allowance is a finite POLICY
+budget for the assembler's composed sections, not a derived sum: those side fields are user-authored
+or generated separately and carry no stored size bound, so a budget of 24 000 units (e.g. hook ≤ 320,
+TL;DR and ten takeaways ~3 000, twenty source lines ~6 000, an author block ~1 000, ten image lines
+~6 000) is what is supported. Supported input, stated honestly: a generated body is bounded at
+40 000 by generation; a MANUAL draft body has no generation bound and is admitted only while its
+canonical document fits in 64 000 units; anything larger is refused by input validation before the
+scan, the usage claim and the provider, never truncated, and not every arbitrarily large manual draft
+is admitted. The model itself reads only the first 12 000 units of the document (the existing prompt
+slice, unchanged), so the bound governs admission cost, not model input. Early-exit scanning, the
+39/40 boundary, the skipped envelope, normalization and account budgets are unchanged.
+
+Tests (`quality-caller.test.ts`, +2, 24 in the file): through the REAL client → real assembler →
+captured transport payload → real validator: a maximum generated body with approved hook, TL;DR,
+takeaways, verified sources, author and breadcrumbs assembles above 40 000 and is ADMITTED (one claim,
+one provider call, the scan sees the assembled document); a document grown to EXACTLY 64 000 units is
+admitted, and one unit more is refused with no scan, no claim and no provider call. The BB oversized
+controls (plain, whitespace-only, markup-only, 8 MiB token, astral characters) now run against the
+canonical bound; the at-cap pathological/whitespace/markup/39-word skips and the 40-word admission
+run at the canonical bound. Codex's reproduction no longer reproduces (its bad-outcome assertion
+fails); with the BB body-only cap restored the two BD tests fail (must-fail verified).
+
+## Codex independent BB/BD admission verification
+
+Reviewed the finite 64000 UTF-16 canonical-document admission policy, unchanged 40000 generated-body bound, early-exit word predicate, real client/assembler payload and validator boundary tests. Independent quality/caller/generation suites:105 tests passed; four assembler suites added45 passing tests (150 total across7 suites). Types, Vite build and diff checks passed. The boundary tests exercise an assembled maximum body with approved sections, exactly64000 and64001 code units and refusal before scan/usage/provider. The original body-only cap rejection is corrected.
+
+This does not prove a live provider evaluation or the quality of a complete long article: the existing model prompt uses only the first12000 units, unchanged here. The 24000 section allowance is a policy allowance, not a guarantee covering arbitrary manual input. No model call or production mutation was performed during verification. Exact resulting-head external code/security controls remain required.

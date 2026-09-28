@@ -317,6 +317,64 @@ export function draftWordCount(markdown: string): number {
 /** Minimum words before a draft is worth a real evaluation. */
 export const MIN_EVALUABLE_WORDS = 40;
 
+/**
+ * The exact separator set of `draftWordCount`: JavaScript `\s` (the ECMAScript WhiteSpace and LineTerminator
+ * code units, including U+00A0, U+1680, U+2000–U+200A, U+2028, U+2029, U+202F, U+205F, U+3000 and U+FEFF) plus
+ * the markdown punctuation `# > * _ \` ~ -` that the counter treats as a separator. A word is a maximal run of
+ * any other UTF-16 code unit; `hasMinimumWords` and `draftWordCount` agree on every input.
+ */
+function isDraftWordSeparator(code: number): boolean {
+  switch (code) {
+    case 0x23: // #
+    case 0x3e: // >
+    case 0x2a: // *
+    case 0x5f: // _
+    case 0x60: // `
+    case 0x7e: // ~
+    case 0x2d: // -
+    case 0x09:
+    case 0x0a:
+    case 0x0b:
+    case 0x0c:
+    case 0x0d:
+    case 0x20:
+    case 0xa0:
+    case 0x1680:
+    case 0x2028:
+    case 0x2029:
+    case 0x202f:
+    case 0x205f:
+    case 0x3000:
+    case 0xfeff:
+      return true;
+    default:
+      return code >= 0x2000 && code <= 0x200a;
+  }
+}
+
+/**
+ * Bounded short-draft predicate: `true` exactly when `draftWordCount(markdown) >= min`, computed by a single
+ * forward scan that stops at the `min`-th word — no rewritten copy of the input, no token array — so an
+ * oversized or pathological body costs at most one pass over its code units before the answer is known. Use it
+ * where only the threshold matters (the server's short-draft economy); UI counters that DISPLAY a number keep
+ * `draftWordCount`.
+ */
+export function hasMinimumWords(markdown: string, min: number): boolean {
+  if (min <= 0) return true;
+  let words = 0;
+  let inWord = false;
+  for (let i = 0; i < markdown.length; i++) {
+    if (isDraftWordSeparator(markdown.charCodeAt(i))) {
+      inWord = false;
+      continue;
+    }
+    if (inWord) continue;
+    inWord = true;
+    if (++words >= min) return true;
+  }
+  return false;
+}
+
 /** A conservative low score for empty/too-short drafts (no AI call needed). */
 export function tooShortScore(evaluatedAt: string): QualityScore {
   const cat: QualityCategoryScore = {

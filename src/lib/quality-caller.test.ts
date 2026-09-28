@@ -63,10 +63,27 @@ vi.mock("./ai-usage.server", () => ({
   UsageUnavailableError: class extends Error {},
 }));
 vi.mock("./ai-provider-expense.server", () => ({ generateBudgetedText: h.generateBudgetedText }));
+// Pass-through spies on the word scan, so a test can prove an input was refused BEFORE it was scanned.
+vi.mock("./quality", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("./quality")>();
+  return {
+    ...actual,
+    draftWordCount: vi.fn(actual.draftWordCount),
+    hasMinimumWords: vi.fn(actual.hasMinimumWords),
+  };
+});
 vi.mock("@/integrations/supabase/client.server", () => ({ supabaseAdmin: {} }));
 
 import { evaluateContentQuality } from "./mock-ai";
-import { MIN_EVALUABLE_WORDS, QUALITY_CATEGORY_KEYS } from "./quality";
+import {
+  MIN_EVALUABLE_WORDS,
+  QUALITY_CATEGORY_KEYS,
+  draftWordCount,
+  hasMinimumWords,
+} from "./quality";
+import { CONTENT_BODY_MAX_CHARS } from "./generation-result";
+import { CANONICAL_DOCUMENT_MAX_CHARS, assembleContentAsset } from "./content-assembler";
+import type { ContentAsset, Project } from "./types";
 // Part B must exercise the REAL server function: the module mock above replaces only the client's import.
 const realAi = await vi.importActual<typeof import("./ai.functions")>("./ai.functions");
 const evaluateContentQualityFn = realAi.evaluateContentQualityFn;
@@ -215,5 +232,162 @@ describe("B — authenticated server evaluator (mocked transport; not live authe
     expect(h.claimAiUsage.mock.invocationCallOrder[0]).toBeLessThan(
       h.generateBudgetedText.mock.invocationCallOrder[0],
     );
+  });
+
+  describe("bounded admission (finding 4125880002): the body is capped before it is scanned", () => {
+    const scanned = () =>
+      vi.mocked(hasMinimumWords).mock.calls.length + vi.mocked(draftWordCount).mock.calls.length;
+    const refused = async (markdown: string) => {
+      const before = scanned();
+      // The mocked builder validates synchronously; the real transport rejects asynchronously.
+      await expect((async () => call(markdown))()).rejects.toThrow(/too_big|at most \d+/);
+      expect(scanned()).toBe(before);
+      expect(h.claimAiUsage).not.toHaveBeenCalled();
+      expect(h.generateBudgetedText).not.toHaveBeenCalled();
+    };
+    it("one code unit over CANONICAL_DOCUMENT_MAX_CHARS is refused by input validation: no word scan, no claim, no provider", async () => {
+      expect(CANONICAL_DOCUMENT_MAX_CHARS).toBeGreaterThan(CONTENT_BODY_MAX_CHARS);
+      await refused("x".repeat(CANONICAL_DOCUMENT_MAX_CHARS + 1));
+      // Whitespace-only, markup-only and a single pathological token are refused the same way when oversized.
+      await refused(" ".repeat(CANONICAL_DOCUMENT_MAX_CHARS + 1));
+      await refused("#".repeat(CANONICAL_DOCUMENT_MAX_CHARS + 1));
+      await refused("a".repeat(8 * 1024 * 1024));
+      // The limit counts UTF-16 code units (zod `.max` = `length`): an astral character costs two.
+      await refused("\u{1F600}".repeat(CANONICAL_DOCUMENT_MAX_CHARS / 2 + 1));
+    });
+    it("exactly CONTENT_BODY_MAX_CHARS is admitted: a long valid draft claims once then calls the provider once", async () => {
+      h.generateBudgetedText.mockResolvedValueOnce(JSON.stringify({ categories: {} }));
+      const words = Array.from({ length: MIN_EVALUABLE_WORDS + 20 }, (_, i) => `w${i}`).join(" ");
+      const body = words + " " + "z".repeat(CONTENT_BODY_MAX_CHARS - words.length - 1);
+      expect(body).toHaveLength(CONTENT_BODY_MAX_CHARS);
+      const res = await call(body);
+      expect(res.outcome).toBe("model");
+      expect(h.claimAiUsage).toHaveBeenCalledTimes(1);
+      expect(h.generateBudgetedText).toHaveBeenCalledTimes(1);
+      expect(vi.mocked(hasMinimumWords)).toHaveBeenCalledWith(body, MIN_EVALUABLE_WORDS);
+    });
+    it.each([
+      ["a single pathological token at the cap", "a".repeat(CANONICAL_DOCUMENT_MAX_CHARS)],
+      ["whitespace only at the cap", " \t\n\u00a0\u3000".repeat(CANONICAL_DOCUMENT_MAX_CHARS / 5)],
+      [
+        "markup only at the cap",
+        "# > * _ ` ~ -".repeat(Math.floor(CANONICAL_DOCUMENT_MAX_CHARS / 13)),
+      ],
+      [
+        "39 words padded with separators to the cap",
+        Array.from({ length: MIN_EVALUABLE_WORDS - 1 }, (_, i) => `w${i}`).join("-") +
+          "-".repeat(CANONICAL_DOCUMENT_MAX_CHARS - 200),
+      ],
+    ])(
+      "%s: admitted, scanned once, skipped as too short with no claim and no provider call",
+      async (_label, markdown) => {
+        expect(markdown.length).toBeLessThanOrEqual(CANONICAL_DOCUMENT_MAX_CHARS);
+        const res = await call(markdown);
+        expect(res.outcome).toBe("skipped");
+        expect(res.reason).toBe("tooShort");
+        expect(h.claimAiUsage).not.toHaveBeenCalled();
+        expect(h.generateBudgetedText).not.toHaveBeenCalled();
+        expect(vi.mocked(hasMinimumWords)).toHaveBeenCalledTimes(1);
+      },
+    );
+    it("40 words separated by unicode whitespace at the cap: admitted and evaluated (the threshold is unchanged)", async () => {
+      h.generateBudgetedText.mockResolvedValueOnce(JSON.stringify({ categories: {} }));
+      const words = Array.from({ length: MIN_EVALUABLE_WORDS }, (_, i) => `w${i}`).join("\u00a0");
+      const body = words + "\u3000".repeat(CANONICAL_DOCUMENT_MAX_CHARS - words.length);
+      expect(body).toHaveLength(CANONICAL_DOCUMENT_MAX_CHARS);
+      expect((await call(body)).outcome).toBe("model");
+      expect(h.claimAiUsage).toHaveBeenCalledTimes(1);
+    });
+  });
+
+  describe("BD — canonical assembled documents through the REAL client → assembler → validator", () => {
+    // A maximum-size GENERATED body (exactly CONTENT_BODY_MAX_CHARS) with the ordinary composed sections:
+    // approved hook, TL;DR, key takeaways, verified sources, author block and a breadcrumb trail.
+    const canonicalAsset = (over: Partial<ContentAsset> = {}): ContentAsset =>
+      ({
+        ...longAsset,
+        id: "a-canonical",
+        markdown: "word ".repeat(CONTENT_BODY_MAX_CHARS / 5),
+        hook: {
+          id: "h1",
+          text: "An approved introduction that opens the article with a question.",
+          type: "question",
+          provenance: "user-edited",
+          approval: "approved",
+        },
+        tldr: "The short answer, in two sentences.",
+        keyTakeaways: ["First takeaway.", "Second takeaway.", "Third takeaway."],
+        sources: [
+          { url: "https://example.invalid/source-1", title: "Source one", status: "verified" },
+          { url: "https://example.invalid/source-2", title: "Source two", status: "verified" },
+        ],
+        author: { name: "Fixture Author", role: "Owner", bio: "A real, consenting person." },
+        breadcrumbs: [
+          { name: "Home", url: "https://example.invalid/" },
+          { name: "Guides", url: "https://example.invalid/guides" },
+        ],
+        ...over,
+      }) as ContentAsset;
+    /** Runs the real client caller, captures the payload it actually sent, and feeds it to the real validator. */
+    const sendThroughClient = async (asset: ContentAsset) => {
+      h.state = { content: [asset], projects: [project], services: [] };
+      h.remoteEvaluate.mockResolvedValueOnce({ outcome: "model", score: {} });
+      await evaluateContentQuality(asset.id);
+      const sent = (h.remoteEvaluate.mock.calls.at(-1)![0] as { data: Record<string, unknown> })
+        .data;
+      expect(sent.markdown).toBe(assembleContentAsset(asset, project as Project).markdown);
+      vi.mocked(hasMinimumWords).mockClear();
+      vi.mocked(draftWordCount).mockClear();
+      h.claimAiUsage.mockClear();
+      h.generateBudgetedText.mockClear();
+      return sent;
+    };
+    const server = (sent: Record<string, unknown>) =>
+      (evaluateContentQualityFn as unknown as (a: unknown) => Promise<Record<string, unknown>>)({
+        data: sent,
+        context: { userId: "owner-1" },
+      });
+
+    it("a maximum generated body plus the approved hook and ordinary sections assembles above the body limit and is ADMITTED: one claim, one provider call", async () => {
+      const asset = canonicalAsset();
+      expect(asset.markdown).toHaveLength(CONTENT_BODY_MAX_CHARS);
+      const sent = await sendThroughClient(asset);
+      const doc = sent.markdown as string;
+      expect(doc.length).toBeGreaterThan(CONTENT_BODY_MAX_CHARS);
+      expect(doc.length).toBeLessThanOrEqual(CANONICAL_DOCUMENT_MAX_CHARS);
+      expect(doc).toContain("An approved introduction");
+      expect(doc).toContain("## Sources");
+      expect(doc).toContain("## About the author");
+      h.generateBudgetedText.mockResolvedValueOnce(JSON.stringify({ categories: {} }));
+      const res = await server(sent);
+      expect(res.outcome).toBe("model");
+      expect(vi.mocked(hasMinimumWords)).toHaveBeenCalledWith(doc, MIN_EVALUABLE_WORDS);
+      expect(h.claimAiUsage).toHaveBeenCalledTimes(1);
+      expect(h.generateBudgetedText).toHaveBeenCalledTimes(1);
+    });
+    it("exactly the canonical bound is admitted; one unit more is refused before the scan, the claim and the provider (same client, same assembler)", async () => {
+      // Grow a composed section (the TL;DR) until the assembled document is EXACTLY the bound; the body
+      // stays a maximum generated body throughout.
+      const base = canonicalAsset();
+      const baseLength = assembleContentAsset(base, project as Project).markdown.length;
+      const pad = CANONICAL_DOCUMENT_MAX_CHARS - baseLength;
+      expect(pad).toBeGreaterThan(0);
+      const atBound = canonicalAsset({ tldr: base.tldr + " " + "x".repeat(pad - 1) });
+      const sentAtBound = await sendThroughClient(atBound);
+      expect((sentAtBound.markdown as string).length).toBe(CANONICAL_DOCUMENT_MAX_CHARS);
+      h.generateBudgetedText.mockResolvedValueOnce(JSON.stringify({ categories: {} }));
+      expect((await server(sentAtBound)).outcome).toBe("model");
+      expect(h.claimAiUsage).toHaveBeenCalledTimes(1);
+      expect(h.generateBudgetedText).toHaveBeenCalledTimes(1);
+
+      const overBound = canonicalAsset({ tldr: base.tldr + " " + "x".repeat(pad) });
+      const sentOver = await sendThroughClient(overBound);
+      expect((sentOver.markdown as string).length).toBe(CANONICAL_DOCUMENT_MAX_CHARS + 1);
+      await expect((async () => server(sentOver))()).rejects.toThrow(/too_big|at most \d+/);
+      expect(vi.mocked(hasMinimumWords)).not.toHaveBeenCalled();
+      expect(vi.mocked(draftWordCount)).not.toHaveBeenCalled();
+      expect(h.claimAiUsage).not.toHaveBeenCalled();
+      expect(h.generateBudgetedText).not.toHaveBeenCalled();
+    });
   });
 });

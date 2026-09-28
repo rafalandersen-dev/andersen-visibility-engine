@@ -45,6 +45,24 @@ import {
   type ImageAnchorResolution,
 } from "./image-anchors";
 import type { AnchorKind } from "./anchors";
+import { CONTENT_BODY_MAX_CHARS } from "./generation-result";
+
+/**
+ * Finite admission bound for a CANONICAL assembled document (what `assembleContentAsset().markdown`
+ * produces and what the quality evaluator receives): the generated-body limit plus an allowance for the
+ * sections this assembler composes around the body — breadcrumb trail, approved hook, TL;DR, key
+ * takeaways, sources block, author block and image lines. Those side fields are user-authored or
+ * generated separately and carry no stored size bound of their own, so the allowance is a POLICY
+ * budget, not a derived sum: 24 000 UTF-16 code units comfortably holds e.g. a hook (≤ 320), a TL;DR and
+ * ten takeaways (~3 000), twenty source lines (~6 000), an author block (~1 000) and ten image lines
+ * (~6 000). Units are UTF-16 code units (`String.length`), the same unit zod `.max` compares. A canonical
+ * document over this bound is refused by input validation (never truncated); the body itself stays bound
+ * by CONTENT_BODY_MAX_CHARS at generation, while a MANUAL draft body has no generation bound and is admitted
+ * only while its canonical document fits here.
+ */
+export const CANONICAL_SECTIONS_ALLOWANCE_CHARS = 24_000;
+export const CANONICAL_DOCUMENT_MAX_CHARS =
+  CONTENT_BODY_MAX_CHARS + CANONICAL_SECTIONS_ALLOWANCE_CHARS;
 
 export interface AssembleOptions {
   /**

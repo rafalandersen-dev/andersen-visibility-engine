@@ -8,6 +8,7 @@
  */
 import { describe, expect, it } from "vitest";
 import {
+  hasMinimumWords,
   CRITICAL_TRUST_THRESHOLD,
   MIN_EVALUABLE_WORDS,
   QUALITY_CATEGORY_KEYS,
@@ -320,5 +321,56 @@ describe("empty or too-short draft helpers", () => {
       expect(score.categories[key].suggestions.length).toBeGreaterThan(0);
     }
     expect(score.topIssues.length).toBeGreaterThan(0);
+  });
+});
+
+describe("hasMinimumWords: a bounded early-exit predicate that agrees with draftWordCount", () => {
+  const w = (n: number) => Array.from({ length: n }, (_, i) => `w${i}`).join(" ");
+  it("boundaries: 39 words is below the 40-word threshold, 40 and more are not", () => {
+    expect(draftWordCount(w(39))).toBe(39);
+    expect(hasMinimumWords(w(39), MIN_EVALUABLE_WORDS)).toBe(false);
+    expect(draftWordCount(w(40))).toBe(40);
+    expect(hasMinimumWords(w(40), MIN_EVALUABLE_WORDS)).toBe(true);
+    expect(hasMinimumWords(w(41), MIN_EVALUABLE_WORDS)).toBe(true);
+    expect(hasMinimumWords("", MIN_EVALUABLE_WORDS)).toBe(false);
+    expect(hasMinimumWords("", 0)).toBe(true);
+  });
+  it("markdown punctuation and whitespace separate words exactly as the counter does", () => {
+    const samples = [
+      "# ## **  ** - - > `",
+      "foo-bar_baz#qux>quux*corge`grault~garply",
+      "a\u00a0b\u3000c\u2028d\u2029e\ufefff\u1680g\u2000h\u200ai\u202fj\u205fk",
+      "a\tb\nc\vd\fe\rf",
+      "word",
+      "  leading and trailing  ",
+      "emoji \u{1F600}\u{1F600} counts as one word",
+      "\u2001\u2002\u2003",
+      "---\n# Title\n\n> quote **bold** _em_ `code` ~~strike~~ - item\n",
+    ];
+    for (const s of samples)
+      for (const min of [0, 1, 2, 3, 5, 8, 13, 40])
+        expect(hasMinimumWords(s, min), JSON.stringify([s, min])).toBe(draftWordCount(s) >= min);
+  });
+  it("every UTF-16 code unit is classified exactly as the counter classifies it (separator or word character)", () => {
+    // 65 536 probes: "a<c>b" has two words iff <c> is a separator for the counter.
+    const mismatches: number[] = [];
+    for (let c = 0; c <= 0xffff; c++) {
+      const s = `a${String.fromCharCode(c)}b`;
+      if (hasMinimumWords(s, 2) !== draftWordCount(s) >= 2) mismatches.push(c);
+    }
+    expect(mismatches).toEqual([]);
+  });
+  it("a pathological single token or separator run is one pass with the counter's answer (no threshold is faked)", () => {
+    const token = "a".repeat(200_000);
+    expect(hasMinimumWords(token, MIN_EVALUABLE_WORDS)).toBe(false);
+    expect(draftWordCount(token)).toBe(1);
+    const spaces = " ".repeat(200_000);
+    expect(hasMinimumWords(spaces, 1)).toBe(false);
+    expect(draftWordCount(spaces)).toBe(0);
+    const dashes = "-".repeat(200_000) + " x";
+    expect(hasMinimumWords(dashes, 1)).toBe(true);
+    expect(hasMinimumWords(dashes, 2)).toBe(false);
+    // The UI counter is untouched: it still reports the exact number, never the threshold.
+    expect(draftWordCount(w(1000))).toBe(1000);
   });
 });
