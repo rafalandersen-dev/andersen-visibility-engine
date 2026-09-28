@@ -15,17 +15,33 @@ export interface McpTokenMeta {
   lastUsedAt: string | null;
 }
 
+export interface McpStatus {
+  endpoint: string;
+  toolNames: string[];
+  tokens: McpTokenMeta[];
+  /** Whether the OAuth connector surfaces are enabled on THIS deployment (server-only flag read at call time). */
+  oauthEnabled: boolean;
+}
+
 export const getMcpStatusFn = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .handler(async ({ context }): Promise<{ endpoint: string; toolNames: string[]; tokens: McpTokenMeta[] }> => {
+  .handler(async ({ context }): Promise<McpStatus> => {
     const { listTokens, mcpToolNames } = await import("./mcp.server");
+    const { isOAuthEnabled } = await import("./oauth.server");
     const tokens = await listTokens(context.userId);
-    return { endpoint: "https://milogrowth.com/api/mcp", toolNames: mcpToolNames(), tokens };
+    return {
+      endpoint: "https://milogrowth.com/api/mcp",
+      toolNames: mcpToolNames(),
+      tokens,
+      oauthEnabled: isOAuthEnabled(),
+    };
   });
 
 export const createMcpTokenFn = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((input: unknown) => z.object({ label: z.string().max(80).optional() }).parse(input))
+  .inputValidator((input: unknown) =>
+    z.object({ label: z.string().max(80).optional() }).parse(input),
+  )
   .handler(async ({ data, context }): Promise<{ token: string }> => {
     const { createToken } = await import("./mcp.server");
     const { token } = await createToken(context.userId, (data.label ?? "").trim());

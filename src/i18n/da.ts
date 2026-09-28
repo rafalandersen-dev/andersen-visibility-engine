@@ -958,7 +958,7 @@ export const da: Record<string, string> = {
   // ---- Claude connector (MCP) ----
   "claude.title": "Claude-forbindelse (MCP)",
   "claude.subtitle":
-    "Forbind Milo til Claude som en MCP-forbindelse. Generér en forbindelsestoken, tilføj den i Claude Code eller Claude Desktop, og læs dine projekter, muligheder, indhold, Milo Score, revisioner, Search Console- og autoritetsdata direkte i Claude.",
+    "Forbind Milo til Claude som en MCP-forbindelse, og læs dine projekter, muligheder, indhold, Milo Score, revisioner, Search Console- og autoritetsdata direkte i Claude. Claude Code kan bruge en forbindelsestoken (eller OAuth, hvor det er aktiveret); Claude.ai, Claude Desktop og Cowork kræver OAuth, som er en udrulningsindstilling — se dens status nedenfor.",
   "claude.accountNote":
     "Forbindelsen er på kontoniveau: én token giver Claude skrivebeskyttet adgang til alle projekter i dette arbejdsområde.",
   "claude.endpoint": "MCP-slutpunkt",
@@ -968,10 +968,18 @@ export const da: Record<string, string> = {
   "claude.tokenOnce": "Kopiér denne token nu — den vises kun én gang og kan ikke gendannes.",
   "claude.copy": "Kopiér",
   "claude.copied": "Kopieret",
-  "claude.cliHeading": "Claude Code (CLI)",
-  "claude.desktopHeading": "Claude Desktop (claude_desktop_config.json)",
+  "claude.cliHeading": "Claude Code (CLI) — denne kommando indeholder din nye token; del den ikke",
+  "claude.connectorsHeading": "Claude.ai, Claude Desktop og Cowork — tilføj som brugerdefineret forbindelse (OAuth, ingen token nødvendig)",
+  "claude.connectorsBody": "Åbn i Claude Indstillinger → Forbindelser → Tilføj brugerdefineret forbindelse, indsæt MCP-endepunktet ovenfor, log derefter ind i Milo og tillad adgang. Tilladelsen er skrivebeskyttet, medmindre yderligere omfang tilbydes og du godkender dem. Forbindelsen vises derefter under Forbundne apps nedenfor. Claude Desktops claude_desktop_config.json er kun til lokale servere og bruges ikke til Milo.",
+  "claude.oauthEnabledStatus": "OAuth er aktiveret i denne udrulning (status læst lige nu).",
+  "claude.oauthUnavailableHeading": "Claude.ai, Claude Desktop og Cowork (OAuth) — ikke tilgængelig i denne udrulning",
+  "claude.oauthUnavailableBody": "OAuth er slået fra i denne udrulning, så disse klienter kan ikke forbinde lige nu. Brug Claude Code med en forbindelsestoken nedenfor. Eksisterende tilladelser under Forbundne apps kan stadig gennemses og tilbagekaldes.",
+  "claude.oauthUnknownHeading": "Claude.ai, Claude Desktop og Cowork (OAuth) — tilgængelighed ikke bekræftet",
+  "claude.oauthUnknownBody": "Milo kunne ikke bekræfte, om OAuth er aktiveret i denne udrulning (indlæser stadig, eller statusforespørgslen mislykkedes). Stol ikke på OAuth-ruten, før status er indlæst. Claude Code med en forbindelsestoken virker uafhængigt af dette.",
+  "claude.mcpJsonHeading": "Projektkonfiguration til Claude Code (.mcp.json)",
+  "claude.mcpJsonNote": "Sikker at committe: den henviser til miljøvariablen MILO_MCP_TOKEN i stedet for en token. Sæt variablen til en forbindelsestoken på hver maskine.",
   "claude.activeTokens": "Aktive tokens",
-  "claude.noTokens": "Ingen forbindelsestokens endnu. Generér en for at forbinde Claude.",
+  "claude.noTokens": "Ingen forbindelsestokens endnu. En token er kun nødvendig for klienter, der sender en header, såsom Claude Code. Claude.ai, Claude Desktop og Cowork forbinder med OAuth, når det er aktiveret i denne udrulning (se status ovenfor), og vises derefter under Forbundne apps.",
   "claude.unnamed": "Token uden navn",
   "claude.created": "Oprettet",
   "claude.lastUsed": "sidst brugt",
@@ -980,10 +988,10 @@ export const da: Record<string, string> = {
   "claude.revoked": "Token tilbagekaldt.",
   "claude.revokeError": "Kunne ikke tilbagekalde token. Prøv igen.",
   "claude.createError": "Kunne ikke generere en token. Prøv igen.",
-  "claude.tools": "Tilgængelige værktøjer (skrivebeskyttet)",
+  "claude.tools": "Skrivebeskyttede værktøjer tilgængelige for en forbindelsestoken",
   "claude.securityTitle": "Sikkerhed",
   "claude.security":
-    "Skrivebeskyttet adgang til dine Milo-data. Tokens gemmes hashet, vises aldrig igen efter oprettelse og logges aldrig. Tilbagekald en token når som helst for at afbryde.",
+    "Forbindelsestokens giver skrivebeskyttet adgang til dine Milo-data; OAuth-tilladelser er begrænset til de omfang, du godkender. Tokens gemmes hashet, vises aldrig igen efter oprettelse og logges aldrig. Tilbagekald en token eller en forbundet app når som helst for at afbryde.",
 
   // ---- Claude connected apps (OAuth) ----
   "claude.apps.title": "Forbundne apps",
