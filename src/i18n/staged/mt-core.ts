@@ -163,6 +163,22 @@ export const mtCore: Readonly<Record<string, string>> = {
   "shell.account": "Kont",
   "shell.manageSubscription": "Immaniġġja jew ikkanċella l-abbonament",
   "shell.signOut": "Oħroġ",
+  "shell.workspaceSave.saved": "L-ispazju tax-xogħol ġie ssejvjat.",
+  "shell.workspaceSave.unsaved": "Bidliet mhux issejvjati fl-ispazju tax-xogħol…",
+  "shell.workspaceSave.saving": "Qed jiġi ssejvjat l-ispazju tax-xogħol…",
+  "shell.workspaceSave.saveNow": "Issejvja issa",
+  "shell.workspaceSave.conflict":
+    "Dan l-ispazju tax-xogħol inbidel f’sessjoni oħra. Il-bidliet lokali tiegħek għadhom hawn u mhumiex ikkonfermati bħala ssejvjati.",
+  "shell.signOutDialog.title":
+    "Il-bidliet fl-ispazju tax-xogħol mhumiex ikkonfermati bħala ssejvjati",
+  "shell.signOutDialog.body":
+    "Jekk toħroġ issa, xi bidliet jistgħu jkunu nieqsa mis-server. Tista’ tibqa’ u terġa’ tipprova ssejvja, jew toħroġ xorta waħda.",
+  "shell.signOutDialog.saving": "Qed jiġi ssejvjat l-ispazju tax-xogħol qabel ma toħroġ…",
+  "shell.signOutDialog.signingOut": "Ħiereġ…",
+  "shell.signOutDialog.stay": "Ibqa’ mdaħħal",
+  "shell.signOutDialog.leave": "Oħroġ xorta waħda",
+  "shell.signOutDialog.errorTitle": "Il-ħruġ ma tlestiex",
+  "shell.signOutDialog.errorBody": "Għadek imdaħħal. Tista’ terġa’ tipprova jew tibqa’ mdaħħal.",
   "shell.footerBuiltBy": "Milo Growth — żviluppat minn Andersen Innovations",
   "shell.language": "Lingwa tal-interfaċċja",
   "shell.languageProjectDefault": "Default tal-proġett",

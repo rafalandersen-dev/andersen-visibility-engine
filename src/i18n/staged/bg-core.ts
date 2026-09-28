@@ -161,6 +161,22 @@ export const bgCore: Readonly<Record<string, string>> = {
   "shell.account": "Акаунт",
   "shell.manageSubscription": "Управлявай или прекрати абонамента",
   "shell.signOut": "Изход",
+  "shell.workspaceSave.saved": "Работното пространство е запазено.",
+  "shell.workspaceSave.unsaved": "Незапазени промени в работното пространство…",
+  "shell.workspaceSave.saving": "Запазване на работното пространство…",
+  "shell.workspaceSave.saveNow": "Запази сега",
+  "shell.workspaceSave.conflict":
+    "Това работно пространство беше променено в друга сесия. Локалните ви промени са все още тук и не са потвърдени като запазени.",
+  "shell.signOutDialog.title": "Промените в работното пространство не са потвърдени като запазени",
+  "shell.signOutDialog.body":
+    "Ако излезете сега, някои промени може да липсват на сървъра. Можете да останете и да опитате запазването отново или да излезете въпреки това.",
+  "shell.signOutDialog.saving": "Запазване на работното пространство преди излизане…",
+  "shell.signOutDialog.signingOut": "Излизане…",
+  "shell.signOutDialog.stay": "Остани в профила",
+  "shell.signOutDialog.leave": "Излез въпреки това",
+  "shell.signOutDialog.errorTitle": "Излизането не беше завършено",
+  "shell.signOutDialog.errorBody":
+    "Все още сте в профила си. Можете да опитате отново или да останете.",
   "shell.footerBuiltBy": "Milo Growth — създадено от Andersen Innovations",
   "shell.language": "Език на интерфейса",
   "shell.languageProjectDefault": "По подразбиране за проекта",

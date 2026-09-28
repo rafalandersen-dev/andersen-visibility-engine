@@ -70,7 +70,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       ...snapshot,
       user: snapshot.session?.user ?? null,
       signOut: async () => {
-        await supabase.auth.signOut();
+        // A refused sign-out must stay visible to the caller: the session is still active.
+        const { error } = await supabase.auth.signOut();
+        if (error) throw error;
       },
       refreshRole: async () => {
         await observer.current?.refreshRole();

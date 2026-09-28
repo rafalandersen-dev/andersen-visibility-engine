@@ -163,6 +163,22 @@ export const nlCore: Readonly<Record<string, string>> = {
   "shell.account": "Account",
   "shell.manageSubscription": "Abonnement beheren of opzeggen",
   "shell.signOut": "Uitloggen",
+  "shell.workspaceSave.saved": "Werkruimte opgeslagen.",
+  "shell.workspaceSave.unsaved": "Niet-opgeslagen wijzigingen in de werkruimte…",
+  "shell.workspaceSave.saving": "Werkruimte wordt opgeslagen…",
+  "shell.workspaceSave.saveNow": "Nu opslaan",
+  "shell.workspaceSave.conflict":
+    "Deze werkruimte is in een andere sessie gewijzigd. Je lokale wijzigingen staan nog hier en zijn niet bevestigd als opgeslagen.",
+  "shell.signOutDialog.title": "Wijzigingen in de werkruimte zijn niet bevestigd als opgeslagen",
+  "shell.signOutDialog.body":
+    "Als je nu uitlogt, kunnen sommige wijzigingen op de server ontbreken. Je kunt blijven en het opslaan opnieuw proberen, of toch uitloggen.",
+  "shell.signOutDialog.saving": "Je werkruimte wordt opgeslagen voordat je uitlogt…",
+  "shell.signOutDialog.signingOut": "Uitloggen…",
+  "shell.signOutDialog.stay": "Ingelogd blijven",
+  "shell.signOutDialog.leave": "Toch uitloggen",
+  "shell.signOutDialog.errorTitle": "Uitloggen is niet voltooid",
+  "shell.signOutDialog.errorBody":
+    "Je bent nog ingelogd. Je kunt het opnieuw proberen of ingelogd blijven.",
   "shell.footerBuiltBy": "Milo Growth — gemaakt door Andersen Innovations",
   "shell.language": "Interfacetaal",
   "shell.languageProjectDefault": "Projectstandaard",

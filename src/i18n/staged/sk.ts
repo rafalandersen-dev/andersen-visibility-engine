@@ -68,7 +68,7 @@ export const SK_STAGED_BATCHES = [
       "pipeline",
     ],
     sourceRevision: "4ad3d13",
-    sourceHash: "845b2b1ade4a0935ab924dcc4bdc27d72a7a120388740354bd69a697aa1c7ff2",
+    sourceHash: "a322abae3bd44bd04fd2a647a7dcae1f41ab75ecfb367e8cc050490f7c702bbb",
   },
   {
     name: "setup screen",

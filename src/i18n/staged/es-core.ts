@@ -163,6 +163,23 @@ export const esCore: Readonly<Record<string, string>> = {
   "shell.account": "Cuenta",
   "shell.manageSubscription": "Gestionar o cancelar la suscripción",
   "shell.signOut": "Cerrar sesión",
+  "shell.workspaceSave.saved": "Espacio de trabajo guardado.",
+  "shell.workspaceSave.unsaved": "Cambios sin guardar en el espacio de trabajo…",
+  "shell.workspaceSave.saving": "Guardando el espacio de trabajo…",
+  "shell.workspaceSave.saveNow": "Guardar ahora",
+  "shell.workspaceSave.conflict":
+    "Este espacio de trabajo cambió en otra sesión. Tus ediciones locales siguen aquí y no están confirmadas como guardadas.",
+  "shell.signOutDialog.title":
+    "Los cambios del espacio de trabajo no están confirmados como guardados",
+  "shell.signOutDialog.body":
+    "Si cierras sesión ahora, es posible que falten algunos cambios en el servidor. Puedes quedarte y reintentar el guardado, o cerrar sesión de todos modos.",
+  "shell.signOutDialog.saving": "Guardando tu espacio de trabajo antes de cerrar sesión…",
+  "shell.signOutDialog.signingOut": "Cerrando sesión…",
+  "shell.signOutDialog.stay": "Seguir conectado",
+  "shell.signOutDialog.leave": "Cerrar sesión de todos modos",
+  "shell.signOutDialog.errorTitle": "No se completó el cierre de sesión",
+  "shell.signOutDialog.errorBody":
+    "Sigues conectado. Puedes intentarlo de nuevo o seguir conectado.",
   "shell.footerBuiltBy": "Milo Growth — creado por Andersen Innovations",
   "shell.language": "Idioma de la interfaz",
   "shell.languageProjectDefault": "Idioma predeterminado del proyecto",

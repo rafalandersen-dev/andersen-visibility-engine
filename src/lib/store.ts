@@ -185,6 +185,22 @@ const notify = () => listeners.forEach((l) => l());
 let saveTimer: ReturnType<typeof setTimeout> | null = null;
 const SAVE_DEBOUNCE_MS = 600;
 
+// ---- Workspace persistence status (AS) ----
+// Reported, never authoritative: the save path itself is unchanged. The status is derived lazily
+// per "persistence version" so a render never re-runs the diff, and a burst of edits runs it once.
+let persistenceVersion = 0;
+let saveInFlight = 0;
+let editSeq = 0;
+let lastSaveOutcome: SaveOutcomeRecord | null = null;
+let lastPersistenceBump: "edit" | "other" = "other";
+let saveStatusCache: { version: number; value: WorkspaceSaveStatus } | null = null;
+const persistenceListeners = new Set<() => void>();
+function touchPersistence(kind: "edit" | "other") {
+  persistenceVersion += 1;
+  lastPersistenceBump = kind;
+  persistenceListeners.forEach((l) => l());
+}
+
 // P0 fix 2026-07-25: device-local active project. The blob's activeProjectId
 // is whatever ANY tab/device saved last — restoring it on hydrate (and, worse,
 // on conflict rehydrate) flipped this tab's active project mid-session, and
@@ -207,6 +223,38 @@ function writeStoredActiveProject(userId: string, projectId: string): void {
   }
 }
 
+export const subscribeWorkspaceSaveStatus = (listener: () => void) => {
+  persistenceListeners.add(listener);
+  return () => {
+    persistenceListeners.delete(listener);
+  };
+};
+
+/** Memoized per persistence version; the diff runs only on a transition into "dirty" or a settle. */
+export function getWorkspaceSaveStatus(): WorkspaceSaveStatus {
+  if (saveStatusCache && saveStatusCache.version === persistenceVersion)
+    return saveStatusCache.value;
+  const previous = saveStatusCache?.value;
+  const version = persistenceVersion;
+  const value = deriveWorkspaceSaveStatus({
+    hydrated: state.hydrated,
+    userId: state.userId,
+    epoch: workspaceEpoch,
+    saveInFlight,
+    hasBaseline: lastSavedDoc !== null,
+    editSeq,
+    lastOutcome: lastSaveOutcome,
+    saveScheduled: saveTimer !== null,
+    isDirty: () => {
+      // An edit on top of an already-dirty workspace stays dirty; the next settle re-diffs.
+      if (previous?.kind === "unsaved" && lastPersistenceBump === "edit") return true;
+      return hasUnsavedWorkspaceChanges();
+    },
+  });
+  saveStatusCache = { version, value };
+  return value;
+}
+
 /** Store a DB-acknowledged rev locally. Bypasses setState/scheduleSave on purpose. */
 function applyRev(rev: number) {
   state = { ...state, rev };
@@ -216,6 +264,12 @@ function applyRev(rev: number) {
 // P0 fix 2026-07-25: conflict recovery merges instead of wiping (see
 // workspace-merge.ts for the incident and the per-field contract).
 import { type WorkspaceSnapshot } from "./workspace-merge";
+import {
+  deriveWorkspaceSaveStatus,
+  NOT_READY_SAVE_STATUS,
+  type SaveOutcomeRecord,
+  type WorkspaceSaveStatus,
+} from "./workspace-save-status";
 import {
   assembleWorkspaceDoc,
   diffWorkspaceDocs,
@@ -330,6 +384,46 @@ async function saveWorkspaceUnchained(
   epoch: number,
   requestedUserId: State["userId"],
 ): Promise<void> {
+  // Status tracking only (AS): the body below is the unchanged save path. A save that never
+  // reaches the network (session changed, not hydrated) is not reported as activity.
+  if (
+    workspaceEpoch !== epoch ||
+    state.userId !== requestedUserId ||
+    typeof window === "undefined" ||
+    !state.hydrated ||
+    !state.userId
+  ) {
+    return saveWorkspaceBody(epoch, requestedUserId);
+  }
+  const startedAtEdit = editSeq;
+  saveInFlight += 1;
+  touchPersistence("other");
+  let outcome: SaveOutcomeRecord["kind"] = "unconfirmed";
+  let reason: SaveOutcomeRecord["reason"] = "rejected";
+  try {
+    await saveWorkspaceBody(epoch, requestedUserId);
+    outcome = "confirmed";
+  } catch (e) {
+    if (e instanceof Error && /changed in another session/i.test(e.message)) reason = "conflict";
+    throw e;
+  } finally {
+    if (workspaceEpoch === epoch) {
+      saveInFlight -= 1;
+      if (state.userId === requestedUserId) {
+        lastSaveOutcome = {
+          kind: outcome,
+          reason,
+          epoch,
+          userId: requestedUserId,
+          editSeq: startedAtEdit,
+        };
+      }
+    }
+    touchPersistence("other");
+  }
+}
+
+async function saveWorkspaceBody(epoch: number, requestedUserId: State["userId"]): Promise<void> {
   const assertCurrent = () => {
     if (workspaceEpoch !== epoch || state.userId !== requestedUserId) {
       throw new Error("The workspace session changed. Reopen the current workspace before saving.");
@@ -439,8 +533,10 @@ function scheduleSave() {
 
 export const setState = (updater: (s: State) => State) => {
   state = updater(state);
+  editSeq += 1;
   scheduleSave();
   notify();
+  touchPersistence("edit");
 };
 
 /** State change that must NOT trigger a workspace save (server-owned data). */
@@ -491,8 +587,11 @@ export async function hydrateForUser(userId: string): Promise<void> {
 
   // Reset visible state to a clean loading shell scoped to this user.
   lastSavedDoc = null;
+  saveInFlight = 0;
+  lastSaveOutcome = null;
   state = { ...emptyState, userId };
   notify();
+  touchPersistence("other");
 
   try {
     // Per-entity read: ONE RPC returns {meta, entities}; null = not migrated.
@@ -555,6 +654,7 @@ export async function hydrateForUser(userId: string): Promise<void> {
     lastSavedDoc = null;
   }
   notify();
+  touchPersistence("other");
   // Entitlement is server-owned; mirror it in after the workspace loads.
   await refreshEntitlement();
 }
@@ -563,6 +663,8 @@ export function resetStore(): void {
   workspaceEpoch += 1;
   saveChain = Promise.resolve();
   lastSavedDoc = null; // diff baseline is per signed-in user
+  saveInFlight = 0;
+  lastSaveOutcome = null;
 
   if (saveTimer) {
     clearTimeout(saveTimer);
@@ -570,6 +672,7 @@ export function resetStore(): void {
   }
   state = ssrSnapshot;
   notify();
+  touchPersistence("other");
 }
 
 /**
@@ -621,6 +724,7 @@ export async function reloadWorkspaceForUser(userId: string): Promise<void> {
       };
       lastSavedDoc = doc as WorkspaceSnapshot; // fresh server truth = fresh baseline
       notify();
+      touchPersistence("other");
     }
   } catch (e) {
     console.warn("[workspace] reload failed", e);
@@ -661,6 +765,15 @@ export function useStore<T>(selector: (s: State) => T): T {
     subscribe,
     () => cache.current!.read(state, selector),
     () => serverCache.current!.read(ssrSnapshot, selector),
+  );
+}
+
+/** Reactive global workspace persistence status for the shell (SSR: not ready). */
+export function useWorkspaceSaveStatus(): WorkspaceSaveStatus {
+  return useSyncExternalStore(
+    subscribeWorkspaceSaveStatus,
+    getWorkspaceSaveStatus,
+    () => NOT_READY_SAVE_STATUS,
   );
 }
 

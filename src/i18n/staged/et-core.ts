@@ -160,6 +160,22 @@ export const etCore: Readonly<Record<string, string>> = {
   "shell.account": "Konto",
   "shell.manageSubscription": "Halda tellimust või tühista see",
   "shell.signOut": "Logi välja",
+  "shell.workspaceSave.saved": "Tööruum on salvestatud.",
+  "shell.workspaceSave.unsaved": "Salvestamata muudatused tööruumis…",
+  "shell.workspaceSave.saving": "Tööruumi salvestamine…",
+  "shell.workspaceSave.saveNow": "Salvesta kohe",
+  "shell.workspaceSave.conflict":
+    "Seda tööruumi muudeti teises seansis. Sinu kohalikud muudatused on endiselt siin ega ole salvestatuna kinnitatud.",
+  "shell.signOutDialog.title": "Tööruumi muudatused ei ole salvestatuna kinnitatud",
+  "shell.signOutDialog.body":
+    "Kui logid nüüd välja, võivad mõned muudatused serverist puududa. Võid jääda ja salvestamist uuesti proovida või siiski välja logida.",
+  "shell.signOutDialog.saving": "Tööruumi salvestamine enne väljalogimist…",
+  "shell.signOutDialog.signingOut": "Väljalogimine…",
+  "shell.signOutDialog.stay": "Jää sisselogituks",
+  "shell.signOutDialog.leave": "Logi siiski välja",
+  "shell.signOutDialog.errorTitle": "Väljalogimine ei õnnestunud",
+  "shell.signOutDialog.errorBody":
+    "Oled endiselt sisse logitud. Võid uuesti proovida või sisselogituks jääda.",
   "shell.footerBuiltBy": "Milo Growth — loonud Andersen Innovations",
   "shell.language": "Liidese keel",
   "shell.languageProjectDefault": "Projekti vaikekeel",

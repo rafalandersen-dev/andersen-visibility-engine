@@ -165,6 +165,22 @@ export const deCore: Readonly<Record<string, string>> = {
   "shell.account": "Konto",
   "shell.manageSubscription": "Abonnement verwalten oder kündigen",
   "shell.signOut": "Abmelden",
+  "shell.workspaceSave.saved": "Arbeitsbereich gespeichert.",
+  "shell.workspaceSave.unsaved": "Ungespeicherte Änderungen im Arbeitsbereich…",
+  "shell.workspaceSave.saving": "Arbeitsbereich wird gespeichert…",
+  "shell.workspaceSave.saveNow": "Jetzt speichern",
+  "shell.workspaceSave.conflict":
+    "Dieser Arbeitsbereich wurde in einer anderen Sitzung geändert. Ihre lokalen Änderungen sind weiterhin hier und nicht als gespeichert bestätigt.",
+  "shell.signOutDialog.title": "Änderungen im Arbeitsbereich sind nicht als gespeichert bestätigt",
+  "shell.signOutDialog.body":
+    "Wenn Sie sich jetzt abmelden, fehlen möglicherweise einige Änderungen auf dem Server. Sie können angemeldet bleiben und das Speichern erneut versuchen oder sich trotzdem abmelden.",
+  "shell.signOutDialog.saving": "Ihr Arbeitsbereich wird vor der Abmeldung gespeichert…",
+  "shell.signOutDialog.signingOut": "Abmeldung läuft…",
+  "shell.signOutDialog.stay": "Angemeldet bleiben",
+  "shell.signOutDialog.leave": "Trotzdem abmelden",
+  "shell.signOutDialog.errorTitle": "Abmeldung nicht abgeschlossen",
+  "shell.signOutDialog.errorBody":
+    "Sie sind weiterhin angemeldet. Sie können es erneut versuchen oder angemeldet bleiben.",
   "shell.footerBuiltBy": "Milo Growth — entwickelt von Andersen Innovations",
   "shell.language": "Oberflächensprache",
   "shell.languageProjectDefault": "Projektstandard",

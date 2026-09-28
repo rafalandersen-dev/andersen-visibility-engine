@@ -162,6 +162,22 @@ export const lvCore: Readonly<Record<string, string>> = {
   "shell.account": "Konts",
   "shell.manageSubscription": "Pārvaldīt vai atcelt abonementu",
   "shell.signOut": "Izrakstīties",
+  "shell.workspaceSave.saved": "Darbvieta saglabāta.",
+  "shell.workspaceSave.unsaved": "Nesaglabātas izmaiņas darbvietā…",
+  "shell.workspaceSave.saving": "Saglabā darbvietu…",
+  "shell.workspaceSave.saveNow": "Saglabāt tūlīt",
+  "shell.workspaceSave.conflict":
+    "Šī darbvieta tika mainīta citā sesijā. Jūsu vietējās izmaiņas joprojām ir šeit un nav apstiprinātas kā saglabātas.",
+  "shell.signOutDialog.title": "Darbvietas izmaiņas nav apstiprinātas kā saglabātas",
+  "shell.signOutDialog.body":
+    "Ja tagad izrakstīsieties, dažas izmaiņas serverī var trūkt. Varat palikt un mēģināt saglabāt vēlreiz vai tomēr izrakstīties.",
+  "shell.signOutDialog.saving": "Darbvieta tiek saglabāta pirms izrakstīšanās…",
+  "shell.signOutDialog.signingOut": "Notiek izrakstīšanās…",
+  "shell.signOutDialog.stay": "Palikt pierakstītam",
+  "shell.signOutDialog.leave": "Tomēr izrakstīties",
+  "shell.signOutDialog.errorTitle": "Izrakstīšanās netika pabeigta",
+  "shell.signOutDialog.errorBody":
+    "Jūs joprojām esat pierakstījies. Varat mēģināt vēlreiz vai palikt pierakstīts.",
   "shell.footerBuiltBy": "Milo Growth — izstrādājis Andersen Innovations",
   "shell.language": "Saskarnes valoda",
   "shell.languageProjectDefault": "Projekta noklusējums",

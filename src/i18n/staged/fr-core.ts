@@ -165,6 +165,23 @@ export const frCore: Readonly<Record<string, string>> = {
   "shell.account": "Compte",
   "shell.manageSubscription": "Gérer ou résilier l’abonnement",
   "shell.signOut": "Se déconnecter",
+  "shell.workspaceSave.saved": "Espace de travail enregistré.",
+  "shell.workspaceSave.unsaved": "Modifications non enregistrées dans l’espace de travail…",
+  "shell.workspaceSave.saving": "Enregistrement de l’espace de travail…",
+  "shell.workspaceSave.saveNow": "Enregistrer maintenant",
+  "shell.workspaceSave.conflict":
+    "Cet espace de travail a été modifié dans une autre session. Vos modifications locales sont toujours ici et ne sont pas confirmées comme enregistrées.",
+  "shell.signOutDialog.title":
+    "Les modifications de l’espace de travail ne sont pas confirmées comme enregistrées",
+  "shell.signOutDialog.body":
+    "Si vous vous déconnectez maintenant, certaines modifications peuvent manquer sur le serveur. Vous pouvez rester et réessayer l’enregistrement, ou vous déconnecter quand même.",
+  "shell.signOutDialog.saving": "Enregistrement de votre espace de travail avant la déconnexion…",
+  "shell.signOutDialog.signingOut": "Déconnexion…",
+  "shell.signOutDialog.stay": "Rester connecté",
+  "shell.signOutDialog.leave": "Se déconnecter quand même",
+  "shell.signOutDialog.errorTitle": "La déconnexion n’a pas abouti",
+  "shell.signOutDialog.errorBody":
+    "Vous êtes toujours connecté. Vous pouvez réessayer ou rester connecté.",
   "shell.footerBuiltBy": "Milo Growth — créé par Andersen Innovations",
   "shell.language": "Langue de l’interface",
   "shell.languageProjectDefault": "Valeur par défaut du projet",

@@ -162,6 +162,22 @@ export const huCore: Readonly<Record<string, string>> = {
   "shell.account": "Fiók",
   "shell.manageSubscription": "Előfizetés kezelése vagy lemondása",
   "shell.signOut": "Kijelentkezés",
+  "shell.workspaceSave.saved": "A munkaterület mentve.",
+  "shell.workspaceSave.unsaved": "Nem mentett módosítások a munkaterületen…",
+  "shell.workspaceSave.saving": "A munkaterület mentése…",
+  "shell.workspaceSave.saveNow": "Mentés most",
+  "shell.workspaceSave.conflict":
+    "Ezt a munkaterületet egy másik munkamenetben módosították. A helyi módosításai továbbra is itt vannak, és nincsenek mentettként megerősítve.",
+  "shell.signOutDialog.title": "A munkaterület módosításai nincsenek mentettként megerősítve",
+  "shell.signOutDialog.body":
+    "Ha most kijelentkezik, egyes módosítások hiányozhatnak a szerverről. Maradhat és újrapróbálhatja a mentést, vagy kijelentkezhet ennek ellenére.",
+  "shell.signOutDialog.saving": "A munkaterület mentése kijelentkezés előtt…",
+  "shell.signOutDialog.signingOut": "Kijelentkezés…",
+  "shell.signOutDialog.stay": "Maradok bejelentkezve",
+  "shell.signOutDialog.leave": "Kijelentkezés mindenképp",
+  "shell.signOutDialog.errorTitle": "A kijelentkezés nem fejeződött be",
+  "shell.signOutDialog.errorBody":
+    "Továbbra is be van jelentkezve. Újra próbálhatja, vagy bejelentkezve maradhat.",
   "shell.footerBuiltBy": "Milo Growth — készítette: Andersen Innovations",
   "shell.language": "Felület nyelve",
   "shell.languageProjectDefault": "Projekt alapértelmezése",

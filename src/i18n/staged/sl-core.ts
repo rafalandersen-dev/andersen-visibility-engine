@@ -162,6 +162,22 @@ export const slCore: Readonly<Record<string, string>> = {
   "shell.account": "Račun",
   "shell.manageSubscription": "Upravljaj ali prekliči naročnino",
   "shell.signOut": "Odjava",
+  "shell.workspaceSave.saved": "Delovni prostor je shranjen.",
+  "shell.workspaceSave.unsaved": "Neshranjene spremembe v delovnem prostoru…",
+  "shell.workspaceSave.saving": "Shranjevanje delovnega prostora…",
+  "shell.workspaceSave.saveNow": "Shrani zdaj",
+  "shell.workspaceSave.conflict":
+    "Ta delovni prostor je bil spremenjen v drugi seji. Vaše lokalne spremembe so še vedno tukaj in niso potrjene kot shranjene.",
+  "shell.signOutDialog.title": "Spremembe delovnega prostora niso potrjene kot shranjene",
+  "shell.signOutDialog.body":
+    "Če se zdaj odjavite, nekatere spremembe morda manjkajo na strežniku. Lahko ostanete in znova poskusite shraniti ali se vseeno odjavite.",
+  "shell.signOutDialog.saving": "Shranjevanje delovnega prostora pred odjavo…",
+  "shell.signOutDialog.signingOut": "Odjavljanje…",
+  "shell.signOutDialog.stay": "Ostani prijavljen",
+  "shell.signOutDialog.leave": "Vseeno se odjavi",
+  "shell.signOutDialog.errorTitle": "Odjava ni bila dokončana",
+  "shell.signOutDialog.errorBody":
+    "Še vedno ste prijavljeni. Lahko poskusite znova ali ostanete prijavljeni.",
   "shell.footerBuiltBy": "Milo Growth — razvilo podjetje Andersen Innovations",
   "shell.language": "Jezik vmesnika",
   "shell.languageProjectDefault": "Privzeto za projekt",
