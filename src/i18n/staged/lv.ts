@@ -75,7 +75,7 @@ export const LV_STAGED_BATCHES = [
       "pipeline",
     ],
     sourceRevision: "ff9b085",
-    sourceHash: "845b2b1ade4a0935ab924dcc4bdc27d72a7a120388740354bd69a697aa1c7ff2",
+    sourceHash: "8476f0a4138861b0b333d132799933037eda17dbd2d1ba4207b7cc4e0c9337d1",
   },
   {
     name: "setup screen",
@@ -124,7 +124,7 @@ export const LV_STAGED_BATCHES = [
     copy: lvPlanScreen,
     namespaces: ["planScreen"],
     sourceRevision: "ff9b085",
-    sourceHash: "288f529ed3a18c00623c05011262d3cce0374158e558959fa8fc9dbc63174bb7",
+    sourceHash: "2bbe51606245c7a6fa86d34f4c932c7ecb9ac0332b116270fff96c3c8e5175c4",
   },
   {
     name: "editor screen",
@@ -281,7 +281,7 @@ export const LV_STAGED_BATCHES = [
     copy: { ...lvConfiguration, ...lvCoverage },
     namespaces: ["brand", "wp", "shopify", "claude", "connect", "connections", "coverage"],
     sourceRevision: "ff9b085",
-    sourceHash: "0e11ebfcac212ec85d91c8734430e0cd661dc727057c565c1cfcd33f59a1aa60",
+    sourceHash: "c60d43a37be661079475896eeebe2c3cd1337a321e05df01b27a0e803ac823cc",
   },
   {
     name: "conversation",

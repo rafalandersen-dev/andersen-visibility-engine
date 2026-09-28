@@ -92,7 +92,9 @@ function OwnerEmailSettings({ userId }: { userId: string }) {
       )}
       <Button
         type="button"
-        className="mt-3"
+        // The long reload label ("discard edits") wraps inside the settings column on phone widths instead of
+        // widening the page; local override only, the shared Button keeps its nowrap/fixed-height default.
+        className="mt-3 h-auto min-h-9 max-w-full whitespace-normal text-left"
         variant="ghost"
         disabled={save.isPending || query.isFetching}
         onClick={() => void refresh()}

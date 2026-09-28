@@ -85,6 +85,14 @@ export const planScreenCopy: Record<OnboardingLanguage, Readonly<Record<string, 
     "planScreen.discovery.suggestions": "Discovery suggestions",
     "planScreen.discovery.awaiting": "Awaiting review: {count}",
     "planScreen.discovery.addSelected": "Add selected to Plan ({count})",
+    "planScreen.discovery.save.pending": "Saving your selection to the workspace…",
+    "planScreen.discovery.save.unconfirmed":
+      "We couldn't confirm the save. Your changes are in this open workspace and are not confirmed as saved. Retry saving before reloading or signing out.",
+    "planScreen.discovery.save.notReady":
+      "The workspace isn't ready to save yet. Your changes are in this open workspace and are not confirmed as saved. Retry once it has loaded.",
+    "planScreen.discovery.save.retry": "Retry save",
+    "planScreen.discovery.save.retryNote": "Retry saves the current workspace changes.",
+    "planScreen.discovery.save.confirmed": "Save confirmed.",
     "planScreen.discovery.emptyTitle": "No suggestions waiting",
     "planScreen.discovery.emptyHelp":
       "Run discovery to review new suggestions. Existing opportunities remain in Plan.",
@@ -208,6 +216,14 @@ export const planScreenCopy: Record<OnboardingLanguage, Readonly<Record<string, 
     "planScreen.discovery.suggestions": "Znalezione propozycje",
     "planScreen.discovery.awaiting": "Oczekują na ocenę: {count}",
     "planScreen.discovery.addSelected": "Dodaj wybrane do Planu ({count})",
+    "planScreen.discovery.save.pending": "Zapisywanie wyboru w obszarze roboczym…",
+    "planScreen.discovery.save.unconfirmed":
+      "Nie udało się potwierdzić zapisu. Zmiany są w tym otwartym obszarze roboczym i nie zostały potwierdzone jako zapisane. Ponów zapis przed przeładowaniem lub wylogowaniem.",
+    "planScreen.discovery.save.notReady":
+      "Obszar roboczy nie jest jeszcze gotowy do zapisu. Zmiany są w tym otwartym obszarze roboczym i nie zostały potwierdzone jako zapisane. Ponów po jego załadowaniu.",
+    "planScreen.discovery.save.retry": "Ponów zapis",
+    "planScreen.discovery.save.retryNote": "Ponowienie zapisuje bieżące zmiany obszaru roboczego.",
+    "planScreen.discovery.save.confirmed": "Zapis potwierdzony.",
     "planScreen.discovery.emptyTitle": "Brak propozycji do oceny",
     "planScreen.discovery.emptyHelp":
       "Uruchom wyszukiwanie, aby ocenić nowe propozycje. Istniejące możliwości SEO pozostają w Planie.",
@@ -330,6 +346,14 @@ export const planScreenCopy: Record<OnboardingLanguage, Readonly<Record<string, 
     "planScreen.discovery.suggestions": "Upptäckta förslag",
     "planScreen.discovery.awaiting": "Väntar på granskning: {count}",
     "planScreen.discovery.addSelected": "Lägg till valda i Plan ({count})",
+    "planScreen.discovery.save.pending": "Sparar ditt val i arbetsytan…",
+    "planScreen.discovery.save.unconfirmed":
+      "Vi kunde inte bekräfta sparningen. Dina ändringar finns i den här öppna arbetsytan och är inte bekräftade som sparade. Försök spara igen innan du laddar om eller loggar ut.",
+    "planScreen.discovery.save.notReady":
+      "Arbetsytan är inte redo att sparas ännu. Dina ändringar finns i den här öppna arbetsytan och är inte bekräftade som sparade. Försök igen när den har laddats.",
+    "planScreen.discovery.save.retry": "Försök spara igen",
+    "planScreen.discovery.save.retryNote": "Ett nytt försök sparar arbetsytans aktuella ändringar.",
+    "planScreen.discovery.save.confirmed": "Sparningen är bekräftad.",
     "planScreen.discovery.emptyTitle": "Inga förslag väntar",
     "planScreen.discovery.emptyHelp":
       "Starta en sökning för att granska nya förslag. Befintliga möjligheter finns kvar i Plan.",
@@ -455,6 +479,15 @@ export const planScreenCopy: Record<OnboardingLanguage, Readonly<Record<string, 
     "planScreen.discovery.suggestions": "Fundne forslag",
     "planScreen.discovery.awaiting": "Afventer gennemgang: {count}",
     "planScreen.discovery.addSelected": "Tilføj valgte til Plan ({count})",
+    "planScreen.discovery.save.pending": "Gemmer dit valg i arbejdsområdet…",
+    "planScreen.discovery.save.unconfirmed":
+      "Vi kunne ikke bekræfte gemningen. Dine ændringer er i dette åbne arbejdsområde og er ikke bekræftet som gemt. Prøv at gemme igen, før du genindlæser eller logger ud.",
+    "planScreen.discovery.save.notReady":
+      "Arbejdsområdet er ikke klar til at gemme endnu. Dine ændringer er i dette åbne arbejdsområde og er ikke bekræftet som gemt. Prøv igen, når det er indlæst.",
+    "planScreen.discovery.save.retry": "Prøv at gemme igen",
+    "planScreen.discovery.save.retryNote":
+      "Et nyt forsøg gemmer arbejdsområdets aktuelle ændringer.",
+    "planScreen.discovery.save.confirmed": "Gemning bekræftet.",
     "planScreen.discovery.emptyTitle": "Ingen forslag afventer",
     "planScreen.discovery.emptyHelp":
       "Start en søgning for at gennemgå nye forslag. Eksisterende muligheder bliver i Plan.",

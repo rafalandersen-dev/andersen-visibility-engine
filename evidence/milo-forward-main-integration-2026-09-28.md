@@ -1,0 +1,7 @@
+# Forward workflow integration with released main
+
+Normal merge of reviewed PR156 head03b51886b762aa1265b05b13d0b21bca623a0cf2 with released mainb137c57b3426d431ea4bfaf4aa21a38fc4c972e6. Codex minimal integration exception: fifteen additive staged-locale test counts resolved as4334+4237−4204=4367. No product-source conflict or independent product rewrite. Existing forward workflow and released session/save/MCP behavior retained.
+
+Independent27suites831tests passed, covering forward/head guard migration, real mock-ai session ownership, producer sessions, discovery acceptance, sign-out/save status and staged locale contracts. Types, build and staged diff checks passed. Logs .coordination/codex-o-main-integration-{tests,types,build}.log. Source migration20260927190000 SHA256a86b4b626c2144db95c23c366079228842f31e5fe57e21712840ce636cc75784 remains unchanged and UNAPPLIED. Prior local forward UI evidence remains scoped to its unchanged implementation; integration tests are not production proof.
+
+Exact resulting-head external code/security and non-generative gates are still required before release. Advisory too-large/manual-required outcome must remain truthful under existing manual-release policy. Fresh database preflight and single guarded O migration must precede application release; R migration remains separate and unapplied. Do not replay prior releases, provider work or publications. Full R00–R24/D01–D08 acceptance and owner-only boundaries remain open.

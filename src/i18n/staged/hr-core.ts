@@ -162,6 +162,32 @@ export const hrCore: Readonly<Record<string, string>> = {
   "shell.account": "Račun",
   "shell.manageSubscription": "Upravljaj pretplatom ili je otkaži",
   "shell.signOut": "Odjava",
+  "shell.workspaceSave.saved": "Radni prostor je spremljen.",
+  "shell.workspaceSave.unsaved": "Nespremljene promjene u radnom prostoru…",
+  "shell.workspaceSave.saving": "Spremanje radnog prostora…",
+  "shell.workspaceSave.saveNow": "Spremi sada",
+  "shell.workspaceSave.conflict":
+    "Ovaj radni prostor promijenjen je u drugoj sesiji. Vaše lokalne izmjene i dalje su ovdje i nisu potvrđene kao spremljene.",
+  "shell.signOutDialog.title": "Promjene radnog prostora nisu potvrđene kao spremljene",
+  "shell.signOutDialog.body":
+    "Ako se sada odjavite, neke promjene možda nedostaju na poslužitelju. Možete ostati i ponovno pokušati spremiti ili se svejedno odjaviti.",
+  "shell.signOutDialog.saving": "Spremanje radnog prostora prije odjave…",
+  "shell.signOutDialog.signingOut": "Odjava…",
+  "shell.signOutDialog.stay": "Ostani prijavljen",
+  "shell.signOutDialog.leave": "Svejedno se odjavi",
+  "shell.signOutDialog.errorTitle": "Odjava nije dovršena",
+  "shell.signOutDialog.errorBody":
+    "I dalje ste prijavljeni. Možete pokušati ponovno ili ostati prijavljeni.",
+  "shell.producer.notReady":
+    "Radni prostor još nije spreman. Pokušajte ponovno nakon što se učita.",
+  "shell.producer.staleSession":
+    "Sesija radnog prostora se promijenila. Rezultat nije primijenjen.",
+  "shell.producer.sourceChanged":
+    "Sadržaj se promijenio dok je ovo bilo u tijeku. Pokrenite ponovno.",
+  "shell.producer.signingOut": "Odjava je u tijeku. Ova radnja nije pokrenuta.",
+  "shell.signOutDialog.pendingTitle": "Rad je još u tijeku",
+  "shell.signOutDialog.pendingBody":
+    "{count} rezultat(a) ove sesije još se generira i ne čuvaju se na poslužitelju. Ako se sada odjavite, mogli bi se izgubiti. Možete ostati i pričekati ili se svejedno odjaviti.",
   "shell.footerBuiltBy": "Milo Growth — izradio Andersen Innovations",
   "shell.language": "Jezik sučelja",
   "shell.languageProjectDefault": "Zadano za projekt",

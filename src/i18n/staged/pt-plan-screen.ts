@@ -85,6 +85,15 @@ export const ptPlanScreen: Readonly<Record<string, string>> = {
   "planScreen.discovery.suggestions": "Sugestões de descoberta",
   "planScreen.discovery.awaiting": "A aguardar revisão: {count}",
   "planScreen.discovery.addSelected": "Adicionar selecionadas ao Plano ({count})",
+  "planScreen.discovery.save.pending": "A guardar a sua seleção na área de trabalho…",
+  "planScreen.discovery.save.unconfirmed":
+    "Não foi possível confirmar a gravação. As suas alterações estão nesta área de trabalho aberta e não estão confirmadas como guardadas. Tente guardar novamente antes de recarregar ou terminar sessão.",
+  "planScreen.discovery.save.notReady":
+    "A área de trabalho ainda não está pronta para guardar. As suas alterações estão nesta área de trabalho aberta e não estão confirmadas como guardadas. Tente novamente depois de carregada.",
+  "planScreen.discovery.save.retry": "Tentar guardar novamente",
+  "planScreen.discovery.save.retryNote":
+    "Tentar novamente guarda as alterações atuais da área de trabalho.",
+  "planScreen.discovery.save.confirmed": "Gravação confirmada.",
   "planScreen.discovery.emptyTitle": "Sem sugestões em espera",
   "planScreen.discovery.emptyHelp":
     "Execute a descoberta para rever novas sugestões. As oportunidades existentes permanecem no Plano.",
