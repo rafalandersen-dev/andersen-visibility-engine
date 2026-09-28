@@ -176,12 +176,14 @@ describe("sign-out with unconfirmed changes", () => {
 });
 
 describe("supplier error, cancellation, overlap and new sessions", () => {
-  it("auth sign-out refused: error state stays visible, no navigation; Leave retries the sign-out", async () => {
+  it("auth sign-out refused: error state stays visible, no navigation; retrying the auth is refused again", async () => {
     const f = makeFlow({ fail: true });
     await f.flow.start();
     expect(f.flow.state().kind).toBe("error");
     expect(f.calls).toEqual({ signOut: 1, signedOut: 0 });
-    await f.flow.leave();
+    await f.flow.leave(); // Leave is the unconfirmed-state consent only: no-op here
+    expect(f.calls.signOut).toBe(1);
+    await f.flow.retryAuth();
     expect(f.calls.signOut).toBe(2);
     expect(f.flow.state().kind).toBe("error"); // still refused; still signed in
   });
@@ -370,6 +372,115 @@ describe("AT — asynchronous auth settlement and session lifecycle", () => {
     release();
     await p;
     expect(f.calls.signOut).toBe(0);
+    expect(f.flow.state().kind).toBe("idle");
+  });
+});
+
+describe("AV — late edits around a refused auth sign-out", () => {
+  const serverTitle = () =>
+    (h.backend.state.doc as { opportunities: { title: string }[] }).opportunities[0].title;
+
+  it("edit arriving while the first (failing) auth is pending is saved before the retried auth", async () => {
+    const auth = { fail: true, defer: true, resetsStore: true };
+    const f = makeFlow(auth);
+    const first = f.flow.start();
+    expect(f.flow.state().kind).toBe("signingOut");
+    edit("Late background result");
+    expect(getWorkspaceSaveStatus().kind).toBe("unsaved");
+    f.releaseSignOut();
+    await first;
+    expect(f.flow.state().kind).toBe("error");
+    auth.fail = false;
+    auth.defer = false;
+    await f.flow.retryAuth();
+    expect(f.states.map((s) => s.kind).slice(-3)).toEqual(["saving", "signingOut", "idle"]);
+    expect(h.backend.state.batches).toHaveLength(1);
+    expect(serverTitle()).toBe("Late background result");
+    expect(f.calls).toEqual({ signOut: 2, signedOut: 1 });
+  });
+
+  it("edit made AFTER the auth failure is saved before the retried auth", async () => {
+    const auth = { fail: true, resetsStore: true };
+    const f = makeFlow(auth);
+    await f.flow.start();
+    expect(f.flow.state().kind).toBe("error");
+    edit("Edited after the refusal");
+    auth.fail = false;
+    await f.flow.retryAuth();
+    expect(h.backend.state.batches).toHaveLength(1);
+    expect(serverTitle()).toBe("Edited after the refusal");
+    expect(f.calls).toEqual({ signOut: 2, signedOut: 1 });
+  });
+
+  it("failed save on the auth retry → unconfirmed choice, no second auth request, no navigation; explicit Leave still works", async () => {
+    const auth = { fail: true, resetsStore: true };
+    const f = makeFlow(auth);
+    await f.flow.start();
+    edit("Late edit");
+    h.backend.state.errors.apply = { message: "503" };
+    auth.fail = false;
+    await f.flow.retryAuth();
+    expect(f.flow.state()).toEqual({ kind: "unconfirmed", status: "unconfirmed" });
+    expect(f.calls).toEqual({ signOut: 1, signedOut: 0 });
+    // Retry save from the dialog once the backend recovers → auth → signed out.
+    h.backend.state.errors.apply = undefined as never;
+    await f.flow.retry();
+    expect(serverTitle()).toBe("Late edit");
+    expect(f.calls).toEqual({ signOut: 2, signedOut: 1 });
+  });
+
+  it("failed save on the auth retry, then the explicit Leave: signs out with the recorded consent", async () => {
+    const auth = { fail: true, resetsStore: true };
+    const f = makeFlow(auth);
+    await f.flow.start();
+    edit("Late edit");
+    h.backend.state.errors.apply = { message: "503" };
+    auth.fail = false;
+    await f.flow.retryAuth();
+    expect(f.flow.state().kind).toBe("unconfirmed");
+    await f.flow.leave();
+    expect(f.calls).toEqual({ signOut: 2, signedOut: 1 });
+    expect(h.backend.state.batches).toHaveLength(0);
+  });
+
+  it("content conflict on the auth retry → unconfirmed(conflict), no second auth request", async () => {
+    const auth = { fail: true, resetsStore: true };
+    const f = makeFlow(auth);
+    setState((s) => ({ ...s, content: [{ id: "c1", title: "Draft", body: "mine" } as never] }));
+    await saveWorkspaceNow();
+    await f.flow.start();
+    (h.backend.state.doc as { content: unknown[] }).content = [
+      { id: "c1", title: "Draft", body: "theirs" },
+    ];
+    setState((s) => ({ ...s, content: [{ id: "c1", title: "Draft", body: "mine2" } as never] }));
+    auth.fail = false;
+    await f.flow.retryAuth();
+    expect(f.flow.state()).toEqual({ kind: "unconfirmed", status: "conflict" });
+    expect(f.calls.signOut).toBe(1);
+  });
+
+  it("clean auth retry: no edits → no save, one more auth request, signed out", async () => {
+    const auth = { fail: true, resetsStore: true };
+    const f = makeFlow(auth);
+    await f.flow.start();
+    auth.fail = false;
+    await f.flow.retryAuth();
+    expect(h.backend.state.batches).toHaveLength(0);
+    expect(f.calls).toEqual({ signOut: 2, signedOut: 1 });
+  });
+
+  it("stale-session error retry: no save, no auth request, dialog retired", async () => {
+    const auth = { fail: true };
+    const f = makeFlow(auth);
+    await f.flow.start();
+    expect(f.flow.state().kind).toBe("error");
+    resetStore();
+    await hydrateForUser("user2");
+    edit("New session edit");
+    auth.fail = false;
+    await f.flow.retryAuth();
+    expect(f.calls.signOut).toBe(1);
+    expect(h.backend.state.batches).toHaveLength(0);
     expect(f.flow.state().kind).toBe("idle");
   });
 });

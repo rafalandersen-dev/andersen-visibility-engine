@@ -30,12 +30,17 @@ export function SignOutDialog({
   onStay,
   onRetry,
   onLeave,
+  onRetryAuth,
   t,
 }: {
   state: SignOutFlowState;
   onStay: () => void;
+  /** Unconfirmed state: one more save of the current workspace changes. */
   onRetry: () => void;
+  /** Unconfirmed state: the explicit choice to sign out anyway. */
   onLeave: () => void;
+  /** Error state: try the sign-out again (the workspace is re-checked and saved first if needed). */
+  onRetryAuth: () => void;
   t: (key: string) => string;
 }) {
   const open = state.kind !== "idle";
@@ -57,10 +62,15 @@ export function SignOutDialog({
   useEffect(() => {
     const previous = previousKind.current;
     previousKind.current = state.kind;
+    if (state.kind === "idle" || previous === state.kind) return;
     if (state.kind === "signingOut" && document.activeElement === stayRef.current) {
       contentRef.current?.focus(); // Stay is disabled while the auth request is in flight
     } else if (previous === "signingOut" && state.kind === "error") {
       focusStay(); // the refused sign-out re-enables Stay: return focus once, not on every render
+    } else if (!contentRef.current?.contains(document.activeElement)) {
+      // The activated control left the DOM with the transition (e.g. the error-state button while
+      // the retried sign-out saves first): keep focus inside the dialog, on the safe control.
+      focusEntry();
     }
   }, [state.kind]);
   return (
@@ -138,7 +148,12 @@ export function SignOutDialog({
             </Button>
           ) : null}
           {state.kind === "unconfirmed" || state.kind === "error" ? (
-            <Button type="button" variant="destructive" onClick={onLeave}>
+            <Button
+              type="button"
+              variant="destructive"
+              onClick={state.kind === "error" ? onRetryAuth : onLeave}
+              data-sign-out-leave={state.kind}
+            >
               {t("shell.signOutDialog.leave")}
             </Button>
           ) : null}

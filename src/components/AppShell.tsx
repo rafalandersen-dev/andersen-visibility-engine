@@ -345,6 +345,7 @@ export function AppShell({
           onStay={signOutFlow.stay}
           onRetry={() => void signOutFlow.retry()}
           onLeave={() => void signOutFlow.leave()}
+          onRetryAuth={() => void signOutFlow.retryAuth()}
           t={t}
         />
         {/* Print pages at paper width fall below the lg breakpoint, so without

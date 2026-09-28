@@ -14,7 +14,8 @@
  * (same account re-login = new epoch, or another user) retires the old action: no navigation, no
  * error, no save — the stale dialog simply closes. Retry/Leave validate the token BEFORE starting
  * any work. An auth request already issued to the supplier cannot be cancelled; only its effects
- * on this UI are.
+ * on this UI are. A refused auth request re-checks the workspace before it is retried, because
+ * background work may have produced new unsaved changes in the meantime (AV).
  */
 import type { WorkspaceSaveContext } from "./discovery-save-recovery";
 import type { WorkspaceSaveStatus } from "./workspace-save-status";
@@ -160,14 +161,34 @@ export function createSignOutFlow(deps: SignOutFlowDeps) {
     stay: () => {
       retire();
     },
-    /** From the dialog: sign out although changes are not confirmed as saved. */
+    /** From the unconfirmed dialog ONLY: the explicit choice to sign out although changes are not
+     * confirmed as saved. */
     leave: async () => {
-      if (state.kind !== "unconfirmed" && state.kind !== "error") return;
+      if (state.kind !== "unconfirmed") return;
       if (relation() !== "original") {
         retire();
         return;
       }
       await doSignOut(generation);
+    },
+    /** From the error dialog: try the auth sign-out again. Background work may have made the
+     * workspace dirty while the first request was pending or after it failed, so the CURRENT
+     * status is read first and the ordinary one-save/decision path runs before any new auth
+     * request: a confirmed save proceeds to auth once; a failed/unknown/conflicting save shows
+     * the unconfirmed choice (Stay / Retry / explicit Leave) without a second auth request. */
+    retryAuth: async () => {
+      if (state.kind !== "error") return;
+      if (relation() !== "original") {
+        retire(); // stale dialog: no work for another session
+        return;
+      }
+      busy = true;
+      const gen = generation;
+      if (nothingToLose(deps.status())) {
+        await doSignOut(gen);
+        return;
+      }
+      await attemptThenDecide(gen);
     },
     /** Called when the store session changes while the shell stays mounted: drop a stale dialog. */
     reconcile: () => {

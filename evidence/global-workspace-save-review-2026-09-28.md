@@ -9,3 +9,11 @@ AU changed only SignOutDialog relative to the accepted AT source manifest. Indep
 The native beforeunload prompt has not been independently proved; only synthetic event behavior is verified. No real auth/provider/database/publication/deployment action occurred in these fixtures. Existing USD50 monthly budget and manual free-account allocation remain unchanged.
 
 This candidate is stacked on the discovery-save-recovery branch (PR164) and depends on PR163 then PR164. Do not merge into that feature branch. After prerequisites release, integrate main normally and obtain checks for the resulting commit. Exact code/security reviews and non-generative release checks remain required. No migration accompanies this candidate.
+
+## AV — failed-auth retry correction
+
+External exact-head code review found that changes arriving during a refused authentication request could be discarded by its retry. Retry-auth now checks current original-session state and saves newly dirty work before attempting auth; failed or conflicting persistence shows the existing unconfirmed choice. Explicit Leave from that unconfirmed choice stays separate. Focus stays inside the dialog when a retry replaces the activated control.
+
+Independent delta: four source/test files;54 focused tests, types, build and diff check pass. Two additional independent real-store regressions prove both a late edit is persisted and an already-running save finishes before the retried auth (one batch, saved late title, one eventual sign-out). Browser confirms failed-save retry keeps auth calls at1, local edit retained, unconfirmed choice/focus on Stay; saved-before-retry retains late edit on the fake server and signs out once. The narrower in-flight browser timing experiment did not capture that window, so it is not claimed as independent UI proof; the exact queue behavior is covered by the real-store event test.
+
+All checks use local fictional backends. A separate reported limitation remains under assessment: late async producer results around a successful first auth sign-out/session replacement. This correction does not claim to resolve that broader lifecycle or full R04–R07 acceptance. Production remains unchanged and release dependencies/gates still apply.
