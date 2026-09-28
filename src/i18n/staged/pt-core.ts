@@ -162,6 +162,32 @@ export const ptCore: Readonly<Record<string, string>> = {
   "shell.account": "Conta",
   "shell.manageSubscription": "Gerir ou cancelar a subscrição",
   "shell.signOut": "Terminar sessão",
+  "shell.workspaceSave.saved": "Área de trabalho guardada.",
+  "shell.workspaceSave.unsaved": "Alterações por guardar na área de trabalho…",
+  "shell.workspaceSave.saving": "A guardar a área de trabalho…",
+  "shell.workspaceSave.saveNow": "Guardar agora",
+  "shell.workspaceSave.conflict":
+    "Esta área de trabalho foi alterada noutra sessão. As suas edições locais continuam aqui e não estão confirmadas como guardadas.",
+  "shell.signOutDialog.title":
+    "As alterações da área de trabalho não estão confirmadas como guardadas",
+  "shell.signOutDialog.body":
+    "Se terminar sessão agora, algumas alterações podem faltar no servidor. Pode ficar e tentar guardar novamente, ou terminar sessão mesmo assim.",
+  "shell.signOutDialog.saving": "A guardar a sua área de trabalho antes de terminar sessão…",
+  "shell.signOutDialog.signingOut": "A terminar sessão…",
+  "shell.signOutDialog.stay": "Continuar com sessão iniciada",
+  "shell.signOutDialog.leave": "Terminar sessão mesmo assim",
+  "shell.signOutDialog.errorTitle": "O fim de sessão não foi concluído",
+  "shell.signOutDialog.errorBody":
+    "Continua com sessão iniciada. Pode tentar novamente ou manter a sessão.",
+  "shell.producer.notReady":
+    "A área de trabalho ainda não está pronta. Tente novamente depois de carregada.",
+  "shell.producer.staleSession":
+    "A sessão da área de trabalho mudou. O resultado não foi aplicado.",
+  "shell.producer.sourceChanged": "O conteúdo mudou enquanto isto decorria. Execute novamente.",
+  "shell.producer.signingOut": "O fim de sessão está em curso. Esta ação não foi iniciada.",
+  "shell.signOutDialog.pendingTitle": "Ainda há trabalho em curso",
+  "shell.signOutDialog.pendingBody":
+    "{count} resultado(s) desta sessão ainda estão a ser gerados e não são guardados no servidor. Se terminar sessão agora, podem perder-se. Pode ficar e aguardar, ou terminar sessão mesmo assim.",
   "shell.footerBuiltBy": "Milo Growth — desenvolvido por Andersen Innovations",
   "shell.language": "Idioma da interface",
   "shell.languageProjectDefault": "Predefinição do projeto",

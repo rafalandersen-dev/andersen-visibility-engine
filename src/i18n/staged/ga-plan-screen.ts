@@ -86,6 +86,14 @@ export const gaPlanScreen: Readonly<Record<string, string>> = {
   "planScreen.discovery.suggestions": "Moltaí fionnachtana",
   "planScreen.discovery.awaiting": "Ag fanacht le hathbhreithniú: {count}",
   "planScreen.discovery.addSelected": "Cuir na cinn roghnaithe leis an bplean ({count})",
+  "planScreen.discovery.save.pending": "Do rogha á sábháil sa spás oibre…",
+  "planScreen.discovery.save.unconfirmed":
+    "Níorbh fhéidir linn an sábháil a dheimhniú. Tá d’athruithe sa spás oibre oscailte seo agus níl siad deimhnithe mar shábháilte. Bain triail eile as sábháil sula n-athlódálann tú nó sula logálann tú amach.",
+  "planScreen.discovery.save.notReady":
+    "Níl an spás oibre réidh le sábháil fós. Tá d’athruithe sa spás oibre oscailte seo agus níl siad deimhnithe mar shábháilte. Bain triail eile as nuair a bheidh sé lódáilte.",
+  "planScreen.discovery.save.retry": "Bain triail eile as sábháil",
+  "planScreen.discovery.save.retryNote": "Sábhálann athiarracht athruithe reatha an spáis oibre.",
+  "planScreen.discovery.save.confirmed": "Sábháil deimhnithe.",
   "planScreen.discovery.emptyTitle": "Níl aon mholadh ar feitheamh",
   "planScreen.discovery.emptyHelp":
     "Rith an fhionnachtain chun moltaí nua a athbhreithniú. Fanann na deiseanna atá ann cheana sa phlean.",

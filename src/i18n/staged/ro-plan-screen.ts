@@ -84,6 +84,15 @@ export const roPlanScreen: Readonly<Record<string, string>> = {
   "planScreen.discovery.suggestions": "Sugestii de descoperire",
   "planScreen.discovery.awaiting": "În așteptarea analizei: {count}",
   "planScreen.discovery.addSelected": "Adăugați selecția în Planificare ({count})",
+  "planScreen.discovery.save.pending": "Se salvează selecția în spațiul de lucru…",
+  "planScreen.discovery.save.unconfirmed":
+    "Nu am putut confirma salvarea. Modificările sunt în acest spațiu de lucru deschis și nu sunt confirmate ca salvate. Reîncercați salvarea înainte de reîncărcare sau deconectare.",
+  "planScreen.discovery.save.notReady":
+    "Spațiul de lucru nu este încă pregătit pentru salvare. Modificările sunt în acest spațiu de lucru deschis și nu sunt confirmate ca salvate. Reîncercați după ce s-a încărcat.",
+  "planScreen.discovery.save.retry": "Reîncearcă salvarea",
+  "planScreen.discovery.save.retryNote":
+    "Reîncercarea salvează modificările curente ale spațiului de lucru.",
+  "planScreen.discovery.save.confirmed": "Salvare confirmată.",
   "planScreen.discovery.emptyTitle": "Nicio sugestie în așteptare",
   "planScreen.discovery.emptyHelp":
     "Rulați descoperirea pentru a analiza sugestii noi. Oportunitățile existente rămân în Planificare.",

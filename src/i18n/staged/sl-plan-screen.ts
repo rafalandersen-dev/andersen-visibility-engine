@@ -83,6 +83,15 @@ export const slPlanScreen: Readonly<Record<string, string>> = {
   "planScreen.discovery.suggestions": "Predlogi odkrivanja",
   "planScreen.discovery.awaiting": "Čaka na pregled: {count}",
   "planScreen.discovery.addSelected": "Dodaj izbrano v Načrt ({count})",
+  "planScreen.discovery.save.pending": "Shranjevanje izbire v delovni prostor…",
+  "planScreen.discovery.save.unconfirmed":
+    "Shranjevanja nismo mogli potrditi. Vaše spremembe so v tem odprtem delovnem prostoru in niso potrjene kot shranjene. Poskusite znova shraniti, preden osvežite stran ali se odjavite.",
+  "planScreen.discovery.save.notReady":
+    "Delovni prostor še ni pripravljen za shranjevanje. Vaše spremembe so v tem odprtem delovnem prostoru in niso potrjene kot shranjene. Poskusite znova, ko se naloži.",
+  "planScreen.discovery.save.retry": "Poskusi znova shraniti",
+  "planScreen.discovery.save.retryNote":
+    "Ponovni poskus shrani trenutne spremembe delovnega prostora.",
+  "planScreen.discovery.save.confirmed": "Shranjevanje potrjeno.",
   "planScreen.discovery.emptyTitle": "Ni čakajočih predlogov",
   "planScreen.discovery.emptyHelp":
     "Zaženite odkrivanje in preglejte nove predloge. Obstoječe priložnosti ostanejo v Načrtu.",

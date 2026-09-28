@@ -86,6 +86,15 @@ export const dePlanScreen: Readonly<Record<string, string>> = {
   "planScreen.discovery.suggestions": "Entdeckungsvorschläge",
   "planScreen.discovery.awaiting": "Warten auf Prüfung: {count}",
   "planScreen.discovery.addSelected": "Ausgewählte zu Plan hinzufügen ({count})",
+  "planScreen.discovery.save.pending": "Auswahl wird im Arbeitsbereich gespeichert…",
+  "planScreen.discovery.save.unconfirmed":
+    "Wir konnten das Speichern nicht bestätigen. Ihre Änderungen befinden sich in diesem geöffneten Arbeitsbereich und sind nicht als gespeichert bestätigt. Versuchen Sie erneut zu speichern, bevor Sie neu laden oder sich abmelden.",
+  "planScreen.discovery.save.notReady":
+    "Der Arbeitsbereich ist noch nicht bereit zum Speichern. Ihre Änderungen befinden sich in diesem geöffneten Arbeitsbereich und sind nicht als gespeichert bestätigt. Versuchen Sie es erneut, sobald er geladen ist.",
+  "planScreen.discovery.save.retry": "Erneut speichern",
+  "planScreen.discovery.save.retryNote":
+    "Ein erneuter Versuch speichert die aktuellen Änderungen des Arbeitsbereichs.",
+  "planScreen.discovery.save.confirmed": "Speichern bestätigt.",
   "planScreen.discovery.emptyTitle": "Keine ausstehenden Vorschläge",
   "planScreen.discovery.emptyHelp":
     "Führe die Entdeckung aus, um neue Vorschläge zu prüfen. Vorhandene Chancen bleiben in Plan.",

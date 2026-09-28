@@ -163,6 +163,31 @@ export const itCore: Readonly<Record<string, string>> = {
   "shell.account": "Account",
   "shell.manageSubscription": "Gestisci o annulla l’abbonamento",
   "shell.signOut": "Esci",
+  "shell.workspaceSave.saved": "Area di lavoro salvata.",
+  "shell.workspaceSave.unsaved": "Modifiche non salvate nell’area di lavoro…",
+  "shell.workspaceSave.saving": "Salvataggio dell’area di lavoro…",
+  "shell.workspaceSave.saveNow": "Salva ora",
+  "shell.workspaceSave.conflict":
+    "Quest’area di lavoro è stata modificata in un’altra sessione. Le tue modifiche locali sono ancora qui e non sono confermate come salvate.",
+  "shell.signOutDialog.title": "Le modifiche dell’area di lavoro non sono confermate come salvate",
+  "shell.signOutDialog.body":
+    "Se esci ora, alcune modifiche potrebbero mancare sul server. Puoi restare e riprovare il salvataggio, oppure uscire comunque.",
+  "shell.signOutDialog.saving": "Salvataggio dell’area di lavoro prima dell’uscita…",
+  "shell.signOutDialog.signingOut": "Uscita in corso…",
+  "shell.signOutDialog.stay": "Resta connesso",
+  "shell.signOutDialog.leave": "Esci comunque",
+  "shell.signOutDialog.errorTitle": "Uscita non completata",
+  "shell.signOutDialog.errorBody": "Sei ancora connesso. Puoi riprovare o restare connesso.",
+  "shell.producer.notReady":
+    "L’area di lavoro non è ancora pronta. Riprova quando è stata caricata.",
+  "shell.producer.staleSession":
+    "La sessione dell’area di lavoro è cambiata. Il risultato non è stato applicato.",
+  "shell.producer.sourceChanged":
+    "Il contenuto è cambiato durante l’esecuzione. Eseguila di nuovo.",
+  "shell.producer.signingOut": "La disconnessione è in corso. Questa azione non è stata avviata.",
+  "shell.signOutDialog.pendingTitle": "Il lavoro è ancora in corso",
+  "shell.signOutDialog.pendingBody":
+    "{count} risultato/i di questa sessione sono ancora in generazione e non vengono conservati sul server. Se esci ora, potrebbero andare persi. Puoi restare e attendere, oppure uscire comunque.",
   "shell.footerBuiltBy": "Milo Growth — realizzato da Andersen Innovations",
   "shell.language": "Lingua dell’interfaccia",
   "shell.languageProjectDefault": "Lingua predefinita del progetto",
