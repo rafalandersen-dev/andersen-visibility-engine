@@ -44,6 +44,7 @@ import {
 import { AppShell } from "@/components/AppShell";
 import { Button } from "@/components/ui/button";
 import { CreateContentDialog } from "@/components/CreateContentDialog";
+import { DiscoverySelectionToggle } from "@/components/DiscoverySelectionToggle";
 import { SampleBadge } from "@/components/SampleBadge";
 import {
   acceptDiscoverySuggestions,
@@ -896,7 +897,8 @@ function ScheduleDropDialog({
   );
 }
 
-function DiscoverView({
+/** Exported for the static accessibility test and the local harness; the route renders it unchanged. */
+export function DiscoverView({
   project,
   suggestions,
   onOpenPlan,
@@ -1146,15 +1148,12 @@ function DiscoverView({
                     key={item.id}
                     className="grid min-h-14 grid-cols-[32px_2fr_1fr_.8fr_.7fr_1.4fr_.7fr] items-center gap-3 border-b border-[#e2e6eb] px-4 py-2 text-[10px] text-[#586371] last:border-b-0"
                   >
-                    <button
-                      type="button"
-                      aria-label={t("planScreen.discovery.select", { title: item.title })}
-                      onClick={() => item.status === "suggested" && toggle(item.id)}
+                    <DiscoverySelectionToggle
+                      checked={checked}
                       disabled={item.status !== "suggested"}
-                      className={`grid h-4 w-4 place-items-center rounded-[3px] border ${checked ? "border-[#a86f09] bg-[#b87f12] text-white" : "border-[#8e979d] bg-white"}`}
-                    >
-                      {checked ? <Check size={11} /> : null}
-                    </button>
+                      label={t("planScreen.discovery.select", { title: item.title })}
+                      onToggle={() => toggle(item.id)}
+                    />
                     <strong className="text-[11px] leading-4 text-[#20272b]">{item.title}</strong>
                     <span>{opportunitySourceLabel(item as unknown as Opportunity, t)}</span>
                     <span>{t(`planScreen.intent.${item.searchIntent}`)}</span>
