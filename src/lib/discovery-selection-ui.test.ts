@@ -32,6 +32,8 @@ vi.mock("@/lib/store", () => ({
   reloadWorkspaceForUser: vi.fn(),
   restoreOpportunity: vi.fn(),
   saveWorkspaceNow: vi.fn(async () => undefined),
+  getWorkspaceSaveContext: () => ({ epoch: 0, userId: "u1", hydrated: true }),
+  hasUnsavedWorkspaceChanges: () => false,
   transitionOpportunity: vi.fn(),
   undoAcceptedDiscoverySuggestions: vi.fn(),
   updateOpportunity: vi.fn(),
@@ -106,6 +108,13 @@ describe("DiscoverView exposes the discovery selection state accessibly (AM)", (
     expect(html).toContain(translate("en", "planScreen.discovery.addSelected", { count: 3 }));
     expect(html).not.toMatch(/type="submit"/);
     expect(html).not.toContain("<form");
+    // AP: idle save status renders nothing; the Add control is a non-submit button.
+    expect(html).not.toContain("data-discovery-save");
+    const add =
+      html.match(/<button[^>]*>(?:(?!<\/button>).)*Add selected to Plan \(3\)<\/button>/)?.[0] ??
+      "";
+    expect(add).toContain('type="button"');
+    expect(add).not.toMatch(/\sdisabled=""/);
   });
   it("pl: the same states with Polish labels", () => {
     lang.current = "pl";

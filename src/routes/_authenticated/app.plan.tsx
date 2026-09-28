@@ -46,6 +46,13 @@ import { Button } from "@/components/ui/button";
 import { CreateContentDialog } from "@/components/CreateContentDialog";
 import { DiscoverySelectionToggle } from "@/components/DiscoverySelectionToggle";
 import { deriveDiscoverySelection } from "@/lib/discovery-selection";
+import {
+  createDiscoverySaveController,
+  visibleSaveStatus,
+  type DiscoverySaveStatus as DiscoverySaveStatusValue,
+} from "@/lib/discovery-save-recovery";
+import { createDiscoveryAcceptanceFlow } from "@/lib/discovery-acceptance-flow";
+import { DiscoverySaveStatus } from "@/components/DiscoverySaveStatus";
 import { SampleBadge } from "@/components/SampleBadge";
 import {
   acceptDiscoverySuggestions,
@@ -54,6 +61,8 @@ import {
   hasSampleData,
   archiveOpportunity,
   getState,
+  getWorkspaceSaveContext,
+  hasUnsavedWorkspaceChanges,
   reloadWorkspaceForUser,
   restoreOpportunity,
   saveWorkspaceNow,
@@ -920,12 +929,60 @@ export function DiscoverView({
       ),
   );
   const [generating, setGenerating] = useState(false);
+  // AP/AQ: truthful save status for the acceptance action, bound to its originating context
+  // (session epoch + user + project). Terminal statuses never render in another context.
+  const [saveStatus, setSaveStatus] = useState<DiscoverySaveStatusValue>({ kind: "idle" });
+  const mountedRef = useRef(true);
+  const scopeRef = useRef<string | null>(project?.id ?? null);
+  scopeRef.current = project?.id ?? null;
+  const visibleRef = useRef<DiscoverySuggestion[]>([]);
+  const selectedRef = useRef(selected);
+  selectedRef.current = selected;
+  const flowRef = useRef<ReturnType<typeof createDiscoveryAcceptanceFlow> | null>(null);
+  const saveControllerRef = useRef<ReturnType<typeof createDiscoverySaveController> | null>(null);
+  if (saveControllerRef.current === null) {
+    saveControllerRef.current = createDiscoverySaveController({
+      save: saveWorkspaceNow,
+      context: getWorkspaceSaveContext,
+      hasUnsavedChanges: hasUnsavedWorkspaceChanges,
+      onStatus: setSaveStatus,
+      isMounted: () => mountedRef.current,
+      scope: () => scopeRef.current,
+    });
+    flowRef.current = createDiscoveryAcceptanceFlow({
+      controller: saveControllerRef.current,
+      accept: acceptDiscoverySuggestions,
+      visible: () => visibleRef.current,
+      getSelected: () => selectedRef.current,
+      setSelected: (updater) => setSelected((prev) => updater(prev)),
+    });
+  }
+  useEffect(() => {
+    mountedRef.current = true;
+    return () => {
+      mountedRef.current = false;
+      saveControllerRef.current?.dispose();
+    };
+  }, []);
+  const sessionUserId = useStore((state) => state.userId);
+  const sessionHydrated = useStore((state) => state.hydrated);
+  useEffect(() => {
+    saveControllerRef.current?.reconcile(); // drop a terminal status bound to another context
+  }, [project?.id, sessionUserId, sessionHydrated]);
+  const sessionContext = getWorkspaceSaveContext();
+  const shownSaveStatus = visibleSaveStatus(saveStatus, {
+    epoch: sessionContext.epoch,
+    userId: sessionContext.userId,
+    scope: project?.id ?? null,
+  });
+  const savePending = saveStatus.kind === "pending";
   const [title, setTitle] = useState("");
   const [reason, setReason] = useState("");
   const [intent, setIntent] = useState<Opportunity["searchIntent"]>("Informational");
   const [priority, setPriority] = useState<Opportunity["priority"]>("Medium");
 
   const visible = suggestions.filter((item) => item.status !== "dismissed");
+  visibleRef.current = visible;
   const suggested = visible.filter((item) => item.status === "suggested");
   // Pressed state follows the CURRENT status, not the local set alone: a row the store has already
   // accepted (save pending or rejected) is never presented as selected (review 4123370116).
@@ -956,9 +1013,9 @@ export function DiscoverView({
   }
 
   async function acceptSelected() {
-    const created = acceptDiscoverySuggestions(selection.selectedIds);
-    await saveWorkspaceNow();
-    setSelected(new Set());
+    const result = await flowRef.current?.acceptSelected();
+    if (!result || result.outcome?.kind !== "confirmed") return; // unconfirmed/stale: no success toast
+    const { created } = result;
     if (created.length === 0) {
       toast.message(t("planScreen.discovery.noneAdded"));
       return;
@@ -970,6 +1027,12 @@ export function DiscoverView({
         onClick: () => undoAcceptedDiscoverySuggestions(created.map((item) => item.id)),
       },
     });
+  }
+
+  /** Retry saves the CURRENT workspace changes through the existing save, only in the bound context;
+   * no accept, no ids, no provider call, no Undo, and the selection is left untouched. */
+  async function retrySave() {
+    await flowRef.current?.retry();
   }
 
   async function createManual() {
@@ -1120,11 +1183,16 @@ export function DiscoverView({
               {t("planScreen.discovery.awaiting", { count: suggested.length })}
             </span>
           </div>
-          <Button onClick={acceptSelected} disabled={selection.selectedIds.length === 0}>
+          <Button
+            type="button"
+            onClick={acceptSelected}
+            disabled={savePending || selection.selectedIds.length === 0}
+          >
             <CheckCircle size={17} />{" "}
             {t("planScreen.discovery.addSelected", { count: selection.selectedIds.length })}
           </Button>
         </div>
+        <DiscoverySaveStatus status={shownSaveStatus} onRetry={retrySave} t={t} />
 
         {visible.length === 0 ? (
           <div className="grid place-items-center px-6 py-14 text-center">
@@ -1156,7 +1224,7 @@ export function DiscoverView({
                   >
                     <DiscoverySelectionToggle
                       checked={checked}
-                      disabled={row?.disabled ?? true}
+                      disabled={savePending || (row?.disabled ?? true)}
                       label={t("planScreen.discovery.select", { title: item.title })}
                       onToggle={() => toggle(item.id)}
                     />

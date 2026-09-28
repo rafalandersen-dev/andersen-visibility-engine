@@ -84,6 +84,15 @@ export const esPlanScreen: Readonly<Record<string, string>> = {
   "planScreen.discovery.suggestions": "Sugerencias de descubrimiento",
   "planScreen.discovery.awaiting": "Pendientes de revisión: {count}",
   "planScreen.discovery.addSelected": "Añadir seleccionadas a Plan ({count})",
+  "planScreen.discovery.save.pending": "Guardando tu selección en el espacio de trabajo…",
+  "planScreen.discovery.save.unconfirmed":
+    "No pudimos confirmar el guardado. Tus cambios están en este espacio de trabajo abierto y no están confirmados como guardados. Reintenta guardar antes de recargar o cerrar sesión.",
+  "planScreen.discovery.save.notReady":
+    "El espacio de trabajo aún no está listo para guardar. Tus cambios están en este espacio de trabajo abierto y no están confirmados como guardados. Reintenta cuando se haya cargado.",
+  "planScreen.discovery.save.retry": "Reintentar guardado",
+  "planScreen.discovery.save.retryNote":
+    "Reintentar guarda los cambios actuales del espacio de trabajo.",
+  "planScreen.discovery.save.confirmed": "Guardado confirmado.",
   "planScreen.discovery.emptyTitle": "No hay sugerencias pendientes",
   "planScreen.discovery.emptyHelp":
     "Ejecuta el descubrimiento para revisar nuevas sugerencias. Las oportunidades existentes permanecen en Plan.",

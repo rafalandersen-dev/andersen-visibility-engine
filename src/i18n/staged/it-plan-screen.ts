@@ -84,6 +84,15 @@ export const itPlanScreen: Readonly<Record<string, string>> = {
   "planScreen.discovery.suggestions": "Suggerimenti di scoperta",
   "planScreen.discovery.awaiting": "In attesa di revisione: {count}",
   "planScreen.discovery.addSelected": "Aggiungi selezionati al Piano ({count})",
+  "planScreen.discovery.save.pending": "Salvataggio della selezione nell’area di lavoro…",
+  "planScreen.discovery.save.unconfirmed":
+    "Non è stato possibile confermare il salvataggio. Le modifiche sono in quest’area di lavoro aperta e non sono confermate come salvate. Riprova a salvare prima di ricaricare o uscire.",
+  "planScreen.discovery.save.notReady":
+    "L’area di lavoro non è ancora pronta per il salvataggio. Le modifiche sono in quest’area di lavoro aperta e non sono confermate come salvate. Riprova quando è stata caricata.",
+  "planScreen.discovery.save.retry": "Riprova il salvataggio",
+  "planScreen.discovery.save.retryNote":
+    "Riprovare salva le modifiche correnti dell’area di lavoro.",
+  "planScreen.discovery.save.confirmed": "Salvataggio confermato.",
   "planScreen.discovery.emptyTitle": "Nessun suggerimento in attesa",
   "planScreen.discovery.emptyHelp":
     "Avvia la scoperta per esaminare nuovi suggerimenti. Le opportunità esistenti rimangono nel Piano.",

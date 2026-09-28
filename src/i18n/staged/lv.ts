@@ -122,7 +122,7 @@ export const LV_STAGED_BATCHES = [
     copy: lvPlanScreen,
     namespaces: ["planScreen"],
     sourceRevision: "ff9b085",
-    sourceHash: "288f529ed3a18c00623c05011262d3cce0374158e558959fa8fc9dbc63174bb7",
+    sourceHash: "2bbe51606245c7a6fa86d34f4c932c7ecb9ac0332b116270fff96c3c8e5175c4",
   },
   {
     name: "editor screen",

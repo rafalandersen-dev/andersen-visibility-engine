@@ -451,6 +451,23 @@ const setStateNoSave = (updater: (s: State) => State) => {
 
 export const getState = () => state;
 
+/** Read-only workspace session identity for callers that must suppress stale settlements:
+ * the real hydration/sign-out epoch plus the signed-in user and hydration flag. */
+export const getWorkspaceSaveContext = (): {
+  epoch: number;
+  userId: string | null;
+  hydrated: boolean;
+} => ({ epoch: workspaceEpoch, userId: state.userId, hydrated: state.hydrated });
+
+/** True while the current snapshot differs from the last CONFIRMED save (or nothing is confirmable yet). */
+export function hasUnsavedWorkspaceChanges(): boolean {
+  if (!state.hydrated || !state.userId) return true;
+  return !diffWorkspaceDocs(
+    (lastSavedDoc ?? {}) as Record<string, unknown>,
+    persistedSnapshot(state) as Record<string, unknown>,
+  ).isEmpty;
+}
+
 const subscribe = (l: () => void) => {
   listeners.add(l);
   return () => {

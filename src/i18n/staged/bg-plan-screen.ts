@@ -84,6 +84,15 @@ export const bgPlanScreen: Readonly<Record<string, string>> = {
   "planScreen.discovery.suggestions": "Предложения от откриването",
   "planScreen.discovery.awaiting": "Чакащи преглед: {count}",
   "planScreen.discovery.addSelected": "Добави избраните в Плана ({count})",
+  "planScreen.discovery.save.pending": "Запазване на избора в работното пространство…",
+  "planScreen.discovery.save.unconfirmed":
+    "Не можахме да потвърдим запазването. Промените са в това отворено работно пространство и не са потвърдени като запазени. Опитайте да запазите отново, преди да презаредите или излезете.",
+  "planScreen.discovery.save.notReady":
+    "Работното пространство още не е готово за запазване. Промените са в това отворено работно пространство и не са потвърдени като запазени. Опитайте отново, след като се зареди.",
+  "planScreen.discovery.save.retry": "Опитай запазване отново",
+  "planScreen.discovery.save.retryNote":
+    "Повторният опит запазва текущите промени в работното пространство.",
+  "planScreen.discovery.save.confirmed": "Запазването е потвърдено.",
   "planScreen.discovery.emptyTitle": "Няма чакащи предложения",
   "planScreen.discovery.emptyHelp":
     "Стартирайте откриване, за да прегледате нови предложения. Съществуващите възможности остават в Плана.",
