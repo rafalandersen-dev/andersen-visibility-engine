@@ -94,11 +94,13 @@ export function frozenAssetInput(
 }
 
 /**
- * The content language production's quality caller declares for an asset (`evaluateContentQuality` in
+ * The content language production's asset callers declare (`evaluateContentQuality` and `improveContentDraft` in
  * mock-ai.ts: `languageLabel(a.language, contentLangToProjectLanguage(project.primaryContentLanguage ?? "en"))`):
  * the asset's own language label when it has one, else the project's primary content language. Frozen once per
- * attempt from the CURRENT asset and project, so both model sides receive the same declaration. Other tasks keep
- * the comparison's existing project-language contract (contentImprove is not changed here).
+ * attempt from the CURRENT asset and project, so both model sides receive the same declaration for the quality
+ * score AND the improve rewrite (a Swedish article in a Polish-primary project is scored and rewritten as
+ * Swedish, as in production). Tasks without a selected asset (content generation, authority) keep the project's
+ * primary content language.
  */
 export function frozenContentLanguage(
   task: AiTaskType,
@@ -106,7 +108,7 @@ export function frozenContentLanguage(
   project: Project,
 ): string {
   const projectLanguage = contentLangToProjectLanguage(project.primaryContentLanguage ?? "en");
-  return task === "contentQualityScore" && asset
+  return (task === "contentQualityScore" || task === "contentImprove") && asset
     ? (asset.language ?? projectLanguage)
     : projectLanguage;
 }

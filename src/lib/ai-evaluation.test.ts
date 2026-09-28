@@ -38,7 +38,7 @@ vi.mock("./ai-usage.server", () => ({
 vi.mock("./ai-provider-expense.server", () => ({ generateBudgetedText: h.generateBudgetedText }));
 vi.mock("@/integrations/supabase/client.server", () => ({ supabaseAdmin: {} }));
 
-import { evaluateContentQualityFn } from "./ai.functions";
+import { evaluateContentQualityFn, improveContentDraftFn } from "./ai.functions";
 import { MIN_EVALUABLE_WORDS, QUALITY_CATEGORY_KEYS } from "./quality";
 import {
   canonicalQualityMarkdown,
@@ -434,13 +434,110 @@ describe("BI: the quality comparison declares the selected asset's content langu
       expect(p).not.toContain("Danish");
     }
   });
-  it("other task contracts are unchanged: contentImprove still declares the project's primary content language", async () => {
-    const sv = asset({ language: "Swedish" as ContentAsset["language"] });
-    expect(frozenContentLanguage("contentImprove", sv, polishProject)).toBe(POLISH);
+  it("tasks without a selected asset keep the project's primary content language (generation, authority)", () => {
     expect(frozenContentLanguage("authorityGeneration", undefined, polishProject)).toBe(POLISH);
-    const d = deps();
-    await runModelComparison(attempt(sv, "contentImprove"), d);
-    for (const call of (d.improveDraft as ReturnType<typeof vi.fn>).mock.calls)
-      expect((call[0] as { contentLanguage: string }).contentLanguage).toBe(POLISH);
+    expect(frozenContentLanguage("contentGeneration", undefined, polishProject)).toBe(POLISH);
+    expect(frozenContentLanguage("contentQualityScore", undefined, polishProject)).toBe(POLISH);
+  });
+});
+
+describe("BJ: the improve comparison declares the selected article's language too (production's improveContentDraft rule)", () => {
+  const polishProject = {
+    ...project,
+    primaryContentLanguage: "pl",
+    appLanguage: "pl",
+  } as unknown as Project;
+  const POLISH = contentLangToProjectLanguage("pl");
+  const hookWords = (n: number) => Array.from({ length: n }, (_, i) => `hook${i}`).join(" ");
+  const asset = (over: Partial<ContentAsset> = {}): ContentAsset =>
+    ({
+      id: "a1",
+      projectId: "p1",
+      title: "T",
+      slug: "t",
+      markdown: words(60),
+      assetType: "article",
+      updatedAt: "2026-09-28T00:00:00.000Z",
+      hook: {
+        id: "h1",
+        text: hookWords(25),
+        type: "question",
+        provenance: "user-edited",
+        approval: "approved",
+      },
+      ...over,
+    }) as ContentAsset;
+  // The REAL improve server function, called as the route calls it, through its mocked boundaries.
+  const realDeps = () =>
+    deps({
+      improveDraft: (data) =>
+        (improveContentDraftFn as unknown as (a: unknown) => Promise<{ markdown: string }>)({
+          data,
+          context: { userId: "owner-1" },
+        }),
+    });
+  const attempt = (a: ContentAsset) =>
+    frozen(frozenAssetInput("contentImprove", a, polishProject).markdown, {
+      task: "contentImprove",
+      project: polishProject,
+      contentLanguage: frozenContentLanguage("contentImprove", a, polishProject),
+      explanationLanguage: contentLangToProjectLanguage("pl"),
+    });
+  const prompts = () => h.generateBudgetedText.mock.calls.map((c) => String(c[1]));
+
+  it("a Swedish asset in a Polish-primary project: both improve prompts keep Swedish, on the raw body (no assembled sections), one claim per side", async () => {
+    const a = asset({ language: "Swedish" as ContentAsset["language"] });
+    expect(frozenContentLanguage("contentImprove", a, polishProject)).toBe("Swedish");
+    h.generateBudgetedText.mockResolvedValue(JSON.stringify({ markdown: "improved" }));
+    const result = await runModelComparison(attempt(a), realDeps());
+    expect(result.kind).toBe("recorded");
+    expect(runs[0].existingOutputPreview).toBe("improved");
+    expect(h.claimAiUsage).toHaveBeenCalledTimes(2);
+    const ps = prompts();
+    expect(ps).toHaveLength(2);
+    for (const p of ps) {
+      expect(p).toContain("Keep the same topic, intent and language (Swedish).");
+      expect(p).toContain(a.markdown);
+      expect(p).not.toContain("hook0"); // improve rewrites the raw body, not the assembled article
+    }
+  });
+  it("missing and legacy labels match production: no label → the project's Polish; English/Danish pass through", async () => {
+    expect(frozenContentLanguage("contentImprove", asset(), polishProject)).toBe(POLISH);
+    for (const label of ["English", "Danish"])
+      expect(
+        frozenContentLanguage(
+          "contentImprove",
+          asset({ language: label as ContentAsset["language"] }),
+          polishProject,
+        ),
+      ).toBe(label);
+    h.generateBudgetedText.mockResolvedValue(JSON.stringify({ markdown: "improved" }));
+    await runModelComparison(attempt(asset()), realDeps());
+    for (const p of prompts()) expect(p).toContain(`intent and language (${POLISH}).`);
+  });
+  it("the current selection decides, a frozen attempt cannot change mid-comparison, and quality keeps the same rule", async () => {
+    const sv = asset({ language: "Swedish" as ContentAsset["language"] });
+    const da = asset({ id: "a2", language: "Danish" as ContentAsset["language"] });
+    expect(frozenContentLanguage("contentImprove", da, polishProject)).toBe("Danish");
+    expect(frozenContentLanguage("contentQualityScore", sv, polishProject)).toBe("Swedish");
+    const input = attempt(sv);
+    sv.language = "Danish" as ContentAsset["language"]; // an edit landing after the freeze
+    h.generateBudgetedText.mockResolvedValue(JSON.stringify({ markdown: "improved" }));
+    await runModelComparison(input, realDeps());
+    const ps = prompts();
+    expect(ps).toHaveLength(2);
+    for (const p of ps) {
+      expect(p).toContain("language (Swedish).");
+      expect(p).not.toContain("Danish");
+    }
+  });
+  it("the improve prompt's 12 000-unit body prefix stays explicit: a longer raw body is embedded only up to that prefix", async () => {
+    const long = asset({ markdown: words(60) + " " + "z".repeat(13_000) + " TAIL-MARKER" });
+    h.generateBudgetedText.mockResolvedValue(JSON.stringify({ markdown: "improved" }));
+    await runModelComparison(attempt(long), realDeps());
+    for (const p of prompts()) {
+      expect(p).toContain(long.markdown.slice(0, 12_000));
+      expect(p).not.toContain("TAIL-MARKER");
+    }
   });
 });

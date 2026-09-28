@@ -194,3 +194,27 @@ English app language, the hooked draft labelled Swedish; the stub records the de
 draft sends `contentLanguage: "Swedish"` / `explanationLanguage: "English"` to BOTH stubbed requests on the identical
 45-word canonical body; running the unlabelled 60-word draft sends `"Polish"` / `"English"` to both. No production or
 provider call.
+
+## Addendum (BJ, 28 September 2026) — the improve comparison declares the selected article's language too
+
+BI left contentImprove at the project's primary content language on purpose; production's `improveContentDraft`
+resolves `languageLabel(asset.language, contentLangToProjectLanguage(project.primaryContentLanguage ?? "en"))`
+exactly like the quality caller, so a Swedish article in a Polish-primary project was asked for a Polish rewrite
+in the comparison and a Swedish one in production. Correction (`frozenContentLanguage` in `src/lib/ai-evaluation.ts`,
+two lines): contentQualityScore AND contentImprove now freeze the selected asset's label with the same project
+fallback, once per attempt from the current asset and project at click time; content generation and authority keep
+the project's primary content language. contentImprove still freezes the raw body (no assembled sections), quality
+still freezes the canonical document; the app explanation language stays independent; no-history skips, the
+64 000-unit canonical bound, model/prompt size limits (the improve prompt still embeds only the first 12 000 units
+of the body) and producer/session/save/budget safeguards are untouched. The BI test that pinned the old improve
+contract was replaced.
+
+Tests (`ai-evaluation.test.ts`, +4 through the REAL `improveContentDraftFn` under the mocked boundaries; the
+pinned BI test replaced by a project-language check for generation/authority): Swedish asset in a Polish-primary
+project → both improve prompts say "Keep the same topic, intent and language (Swedish)." on the raw body without the
+hook, one usage claim per side, a recorded run; no label → the project's Polish in both prompts, English/Danish pass
+through; the current selection decides (Danish asset → Danish) and a frozen attempt keeps Swedish in both prompts
+after the label changes to Danish mid-comparison; the 12 000-unit body prefix stays explicit (a longer body is
+embedded only up to the prefix, its tail marker absent). Local UI (harness on 5185, real route; the improve stub now
+records the declared language): task "Improve draft" + the Swedish-labelled hooked draft → both stubbed requests
+received `contentLanguage: "Swedish"` on the identical raw 20-word body without the hook; one run recorded.
