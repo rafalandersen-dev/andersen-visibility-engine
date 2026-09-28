@@ -220,12 +220,22 @@ function evidence(
   };
 }
 
-export async function generateBudgetedText(
+/** Termination as reported by the provider adapter for one bounded text attempt. */
+export interface BudgetedTextResult {
+  text: string;
+  /** `stop` is the only positive completion; anything else (or undefined) means the provider ended
+   * the answer for another reason. The attempt is reserved, dispatched and reconciled EXACTLY as a
+   * complete one — usage evidence and the monetary reservation are recorded before any caller can
+   * refuse the text at its own boundary. */
+  finishReason?: string;
+}
+
+export async function generateBudgetedTextResult(
   context: NativeExpenseContext,
   prompt: string,
   maxOutputTokens: number,
   modelId = DEFAULT_MODEL_ID,
-) {
+): Promise<BudgetedTextResult> {
   validateTextRequest(prompt, maxOutputTokens);
   context.signal?.throwIfAborted();
   // An evaluation candidate needs its own verified price contract before it
@@ -246,13 +256,22 @@ export async function generateBudgetedText(
         combined,
       );
       return {
-        value: result.text,
+        value: { text: result.text, finishReason: result.finishReason },
         evidence: evidence(result.usage, result.providerRequestId, "text"),
       };
     },
     120_000,
   );
   return result.value;
+}
+
+export async function generateBudgetedText(
+  context: NativeExpenseContext,
+  prompt: string,
+  maxOutputTokens: number,
+  modelId = DEFAULT_MODEL_ID,
+) {
+  return (await generateBudgetedTextResult(context, prompt, maxOutputTokens, modelId)).text;
 }
 
 export async function generateBudgetedImage(context: NativeExpenseContext, prompt: string) {

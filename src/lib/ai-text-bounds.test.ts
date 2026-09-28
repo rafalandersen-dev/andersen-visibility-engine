@@ -2,6 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { type LanguageModel } from "ai";
 import {
   generateBoundedText,
+  generateBoundedTextResult,
   AI_TEXT_PROMPT_MAX_BYTES,
   AI_TEXT_RESULT_MAX_BYTES,
   AI_TEXT_TIMEOUT_MS,
@@ -104,5 +105,21 @@ describe("bounded text provider attempts", () => {
     await expect(generateBoundedText("input", 1000, model)).rejects.toBe(error);
     expect(vi.getTimerCount()).toBe(0);
     expect(mocks.generate).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe("BL: the unified finish reason is carried through the bounded result", () => {
+  it.each(["stop", "length", "content-filter", "error", "other"])(
+    "passes %s through",
+    async (finishReason) => {
+      mocks.generate.mockResolvedValue({ text: "{}", finishReason });
+      expect((await generateBoundedTextResult("x", 8000, model)).finishReason).toBe(finishReason);
+      expect(mocks.generate).toHaveBeenCalledTimes(1);
+    },
+  );
+  it("is undefined when the adapter reports none, and the text-only helper is unchanged", async () => {
+    mocks.generate.mockResolvedValue({ text: "{}" });
+    expect((await generateBoundedTextResult("x", 8000, model)).finishReason).toBeUndefined();
+    expect(await generateBoundedText("x", 8000, model)).toBe("{}");
   });
 });

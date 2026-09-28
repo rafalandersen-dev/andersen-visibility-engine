@@ -218,3 +218,57 @@ after the label changes to Danish mid-comparison; the 12 000-unit body prefix st
 embedded only up to the prefix, its tail marker absent). Local UI (harness on 5185, real route; the improve stub now
 records the declared language): task "Improve draft" + the Swedish-labelled hooked draft → both stubbed requests
 received `contentLanguage: "Swedish"` on the identical raw 20-word body without the hook; one run recorded.
+
+## Addendum (BL, 28 September 2026) — whole-input quality and safe whole-body Improve
+
+Base: released `e5657d45` (PR162 merged), isolated worktree `milo-full-document-quality-20260928`. BK (read-only)
+established: the evaluator scored only the first 12 000 units of a canonical document it accepts up to 64 000, while
+the UI presents a whole-draft readiness score; Improve rewrote the first 12 000 units of a raw body and the client
+replaced the WHOLE body with that rewrite (tail lost), its input had no bound, and a missing/empty answer silently
+returned the original body. Codex direction: full admitted input, no limit increases (4 000 quality / 8 000 Improve
+completion tokens, 65 536-byte prompt, 16 000 global, 256 KiB result, 60 s, no retries, USD 0.50 reserve, USD 50/month,
+model unchanged), safe rejection of incomplete output with cost evidence retained.
+
+Supported contract now:
+- **Quality**: the WHOLE canonical document is embedded (no prefix); the exact final prompt is admitted against the
+  fixed request contract (65 536 UTF-8 bytes, 4 000 completion tokens) BEFORE the usage claim, the reservation and the
+  provider; the 64 000-unit schema cap and the 40-word skip (no history) are unchanged. Explicit gap: a canonical
+  document whose prompt exceeds 65 536 bytes (≈ 58–60k units of ASCII with this prompt's overhead, far fewer for
+  2-byte/3-byte scripts) is refused with the existing "too much source text" message — never sliced.
+- **Improve**: the raw body is bounded at 40 000 units (generator limit) by input validation before any scan; the WHOLE
+  body is embedded; the exact prompt is admitted (65 536 bytes, 8 000 completion tokens) before the claim; the answer
+  must be a positive `stop` termination AND a non-empty `markdown` string within 40 000 units — no alias keys, no fallback
+  to the original body; otherwise the task refuses before any client store mutation, the draft (body, title, hook,
+  metadata, updatedAt) stays untouched and nothing is saved. Explicit gap: a body whose complete rewrite does not fit
+  8 000 completion tokens is refused after one attempt (authored copy: "The AI service did not complete its answer for
+  this whole draft. Milo kept the draft unchanged and did not retry it."); the owner edits or shortens it. No chunking,
+  no retry, no appended unseen tail.
+- **Termination evidence**: `generateBoundedTextResult` carries the SDK's unified finish reason; the new
+  `generateBudgetedTextResult` returns `{ text, finishReason }` through the SAME reservation/evidence flow
+  (`withReservedAiExpense` reconciles the reserve with the authentic usage counters and provider request id before any
+  caller can refuse the text); `generateBudgetedText` keeps its text-only contract for every other caller. Installed
+  adapter (`@ai-sdk/openai-compatible` 3, `ai` 7.0.4): `stop→stop`, `length→length`, `content_filter→content-filter`,
+  anything else or missing → `other`. Only the two whole-input tasks require `stop`; a positive stop is not proof of
+  semantic quality or tail preservation and is not claimed as such.
+
+Tests: `full-document-quality.test.ts` (32; real server functions under the mocked builder/auth/usage/provider
+boundaries, and the real client producer over the real store with a fake backend) — tail markers past 12 000 units in
+both prompts; exact prompt-byte limits measured through the real prompt builders (largest admissible ASCII body
+scored/rewritten, one byte more refused before claim/reserve/provider); UTF-8 overflow and schema caps refused before
+any spend; short skip unchanged; `length`/`content-filter`/`error`/`other`/missing termination refused after ONE
+reserved attempt even with valid JSON; missing/empty/wrong-shape/non-object/oversized/truncated answers refused with no
+fallback; real store: body, updatedAt and approved hook untouched and no batch on every refusal, one complete rewrite
+replaces the body once and marks the score stale, `source_changed` and `stale_session` fences intact.
+`ai-provider-expense.test.ts` (+6: real SDK adapter + fetch-level fake → unified classification for
+stop/length/content_filter/unknown/missing with one attempt and `reconcile_ai_expense` carrying tokens/request id);
+`ai-text-bounds.test.ts` (+6); prefix-era assertions in `quality-caller.test.ts`/`ai-evaluation.test.ts` rewritten to the
+whole-input contract. Focused: 12 files / 379 tests; tsc 0; eslint 0 on changed lib/test files (`ai.functions.ts` keeps
+its 3 pre-existing findings); prettier clean on conformant files; `git diff --check` 0; `vite build` 0.
+
+Local UI (harness `.coordination/full-document-harness/`, port 5192; real AppShell, real store, real Milo Score panel,
+REAL Improve producer over a rejectable fake server function; FICTIONAL 22 370-unit draft ending in "## Final heading
+(tail) … TAIL-MARKER"): panel Improve → confirm → the fake receives the whole 22 370-unit body → server refusal →
+error toast with the authored copy, body 22 370 / tail present / updatedAt / batches 0 unchanged, panel idle; panel
+Improve → complete rewrite → body 28 671 with the tail, updatedAt advanced, saved once (server 28 671), success toast;
+375×812 keyboard: Enter on Improve opens the dialog (focus on Cancel), Tab → Improve draft, Enter → request; refusal
+toast 343 px wide inside the viewport, no horizontal overflow, draft untouched. Not production; no provider.

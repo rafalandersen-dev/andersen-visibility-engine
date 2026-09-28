@@ -64,7 +64,14 @@ vi.mock("./ai-usage.server", () => ({
   UsageLimitError: class extends Error {},
   UsageUnavailableError: class extends Error {},
 }));
-vi.mock("./ai-provider-expense.server", () => ({ generateBudgetedText: h.generateBudgetedText }));
+vi.mock("./ai-provider-expense.server", () => ({
+  generateBudgetedText: h.generateBudgetedText,
+  // The whole-input tasks require a positive `stop`; the spied text function keeps the call counts.
+  generateBudgetedTextResult: async (...args: unknown[]) => ({
+    text: await h.generateBudgetedText(...args),
+    finishReason: "stop",
+  }),
+}));
 // Pass-through spies on the word scan, so a test can prove an input was refused BEFORE it was scanned.
 vi.mock("./quality", async (importOriginal) => {
   const actual = await importOriginal<typeof import("./quality")>();
@@ -292,13 +299,18 @@ describe("B — authenticated server evaluator (mocked transport; not live authe
         expect(vi.mocked(hasMinimumWords)).toHaveBeenCalledTimes(1);
       },
     );
-    it("40 words separated by unicode whitespace at the cap: admitted and evaluated (the threshold is unchanged)", async () => {
+    it("40 words separated by unicode whitespace: admitted and evaluated within the prompt-byte contract; padded to the schema cap with 3-byte spaces it is refused BEFORE the claim (UTF-8 overflow, BL)", async () => {
       h.generateBudgetedText.mockResolvedValueOnce(JSON.stringify({ categories: {} }));
       const words = Array.from({ length: MIN_EVALUABLE_WORDS }, (_, i) => `w${i}`).join("\u00a0");
-      const body = words + "\u3000".repeat(CANONICAL_DOCUMENT_MAX_CHARS - words.length);
-      expect(body).toHaveLength(CANONICAL_DOCUMENT_MAX_CHARS);
-      expect((await call(body)).outcome).toBe("model");
+      const small = words + "\u3000".repeat(10_000); // ≈ 30 KB of UTF-8, inside the 64 KiB request
+      expect((await call(small)).outcome).toBe("model");
       expect(h.claimAiUsage).toHaveBeenCalledTimes(1);
+      h.claimAiUsage.mockClear();
+      const body = words + "\u3000".repeat(CANONICAL_DOCUMENT_MAX_CHARS - words.length);
+      expect(body).toHaveLength(CANONICAL_DOCUMENT_MAX_CHARS); // schema-admissible, but ≈ 192 KB of UTF-8
+      await expect((async () => call(body))()).rejects.toThrow("too much source text");
+      expect(h.claimAiUsage).not.toHaveBeenCalled();
+      expect(h.generateBudgetedText).toHaveBeenCalledTimes(1); // only the small document reached the provider
     });
   });
 
@@ -367,9 +379,11 @@ describe("B — authenticated server evaluator (mocked transport; not live authe
       expect(h.claimAiUsage).toHaveBeenCalledTimes(1);
       expect(h.generateBudgetedText).toHaveBeenCalledTimes(1);
     });
-    it("exactly the canonical bound is admitted; one unit more is refused before the scan, the claim and the provider (same client, same assembler)", async () => {
-      // Grow a composed section (the TL;DR) until the assembled document is EXACTLY the bound; the body
-      // stays a maximum generated body throughout.
+    it("the schema bound still admits the document, but the WHOLE-document prompt contract (64 KiB) refuses it BEFORE the claim; one unit more is refused by the schema before the scan (same client, same assembler; BL)", async () => {
+      // Grow a composed section (the TL;DR) until the assembled document is EXACTLY the schema bound; the
+      // body stays a maximum generated body throughout. Since BL the evaluator embeds the WHOLE document,
+      // so a 64 000-unit document plus the prompt's own text exceeds the 65 536-byte request contract and is
+      // refused truthfully before any spend — the explicit remaining gap, not a silent slice.
       const base = canonicalAsset();
       const baseLength = assembleContentAsset(base, project as Project).markdown.length;
       const pad = CANONICAL_DOCUMENT_MAX_CHARS - baseLength;
@@ -377,10 +391,10 @@ describe("B — authenticated server evaluator (mocked transport; not live authe
       const atBound = canonicalAsset({ tldr: base.tldr + " " + "x".repeat(pad - 1) });
       const sentAtBound = await sendThroughClient(atBound);
       expect((sentAtBound.markdown as string).length).toBe(CANONICAL_DOCUMENT_MAX_CHARS);
-      h.generateBudgetedText.mockResolvedValueOnce(JSON.stringify({ categories: {} }));
-      expect((await server(sentAtBound)).outcome).toBe("model");
-      expect(h.claimAiUsage).toHaveBeenCalledTimes(1);
-      expect(h.generateBudgetedText).toHaveBeenCalledTimes(1);
+      await expect((async () => server(sentAtBound))()).rejects.toThrow("too much source text");
+      expect(vi.mocked(hasMinimumWords)).toHaveBeenCalledTimes(1); // scanned (cheap), then refused by bytes
+      expect(h.claimAiUsage).not.toHaveBeenCalled();
+      expect(h.generateBudgetedText).not.toHaveBeenCalled();
 
       const overBound = canonicalAsset({ tldr: base.tldr + " " + "x".repeat(pad) });
       const sentOver = await sendThroughClient(overBound);

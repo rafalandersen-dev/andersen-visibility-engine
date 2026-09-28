@@ -1,4 +1,4 @@
-import { generateText, type LanguageModel } from "ai";
+import { generateText, type FinishReason, type LanguageModel } from "ai";
 
 export const AI_TEXT_PROMPT_MAX_BYTES = 64 * 1024;
 export const AI_TEXT_RESULT_MAX_BYTES = 256 * 1024;
@@ -7,7 +7,8 @@ export const AI_TEXT_TIMEOUT_MS = 60_000;
 
 export class AiTextBoundaryError extends Error {
   constructor(
-    readonly reason: "input_too_large" | "invalid_limits" | "timeout" | "invalid_response",
+    readonly reason:
+      "input_too_large" | "invalid_limits" | "timeout" | "invalid_response" | "incomplete_output",
   ) {
     super(
       {
@@ -18,6 +19,8 @@ export class AiTextBoundaryError extends Error {
           "AI generation timed out. The provider may still have processed the request; Milo did not retry it.",
         invalid_response:
           "The AI service returned an invalid or oversized text response. Milo did not retry it.",
+        incomplete_output:
+          "The AI service did not complete its answer for this whole draft. Milo kept the draft unchanged and did not retry it.",
       }[reason],
     );
     this.name = "AiTextBoundaryError";
@@ -82,6 +85,10 @@ export async function generateBoundedTextResult(
       throw new AiTextBoundaryError("invalid_response");
     return {
       text: result.text,
+      // The SDK's unified termination signal (`stop`, `length`, `content-filter`, `error`, `other`, …)
+      // as reported for this single step; undefined when the adapter reported none. Carried for
+      // callers that require a positive stop; it is not evidence of semantic completeness.
+      finishReason: (result.finishReason as FinishReason | undefined) ?? undefined,
       // Read only explicit raw counters: the compatible SDK substitutes zero
       // for missing fields, which is not evidence of zero supplier usage.
       usage: result.steps?.length === 1 ? result.steps[0].usage?.raw : undefined,

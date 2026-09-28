@@ -7,6 +7,7 @@ import {
   generateBudgetedImage,
   generateBudgetedText,
   planAccountCapMicrousd,
+  generateBudgetedTextResult,
 } from "./ai-provider-expense.server";
 import { PLAN_IDS, PLAN_LIMITS } from "./billing";
 import { OWNER_MULTIPLIER } from "./ai-usage.server";
@@ -44,7 +45,10 @@ const reserved = { data: [{ allowed: true, reason: "reserved", period: "2026-09"
 const unknown = { data: [{ state: "unknown", overrun: false }], error: null };
 const png = Buffer.from([137, 80, 78, 71, 13, 10, 26, 10, 1, 2, 3]);
 
-function completion(usage: unknown = { prompt_tokens: 10, completion_tokens: 5 }) {
+function completion(
+  usage: unknown = { prompt_tokens: 10, completion_tokens: 5 },
+  finishReason: string | null = "stop", // null: the provider sends no finish_reason at all
+) {
   return new Response(
     JSON.stringify({
       id: "synthetic-completion",
@@ -52,7 +56,11 @@ function completion(usage: unknown = { prompt_tokens: 10, completion_tokens: 5 }
       created: 0,
       model: DEFAULT_MODEL_ID,
       choices: [
-        { index: 0, message: { role: "assistant", content: '{"ok":true}' }, finish_reason: "stop" },
+        {
+          index: 0,
+          message: { role: "assistant", content: '{"ok":true}' },
+          ...(finishReason === null ? {} : { finish_reason: finishReason }),
+        },
       ],
       ...(usage === undefined ? {} : { usage }),
     }),
@@ -651,5 +659,39 @@ describe("planAccountCapMicrousd — counts every generateBudgetedText bucket", 
         planAccountCapMicrousd(plan) * OWNER_MULTIPLIER,
       );
     }
+  });
+});
+
+describe("BL: termination evidence through the real SDK adapter and the budget path", () => {
+  it.each([
+    ["stop", "stop"],
+    ["length", "length"],
+    ["content_filter", "content-filter"],
+    ["some_future_reason", "other"],
+    [null, "other"],
+  ])(
+    "provider finish_reason %s → unified %s; one attempt, reserve reconciled with the real usage evidence, valid JSON text returned untouched",
+    async (raw, unified) => {
+      mocks.fetch.mockImplementation(async () =>
+        completion({ prompt_tokens: 10, completion_tokens: 5 }, raw as string | null),
+      );
+      const result = await generateBudgetedTextResult(context, "source", 3000);
+      expect(result.text).toBe('{"ok":true}');
+      expect(result.finishReason, JSON.stringify(result)).toBe(unified);
+      expect(mocks.fetch).toHaveBeenCalledOnce();
+      // Reserve then settle with the authentic counters — recorded regardless of how the answer ended.
+      expect(mocks.rpc.mock.calls[0][0]).toBe("reserve_ai_expense");
+      expect(mocks.rpc.mock.calls[1][0]).toBe("reconcile_ai_expense");
+      expect(mocks.rpc.mock.calls[1][1]).toMatchObject({
+        p_input_tokens: 10,
+        p_output_tokens: 5,
+        p_provider_request: "req_synthetic_text",
+        p_outcome: "succeeded",
+      });
+    },
+  );
+  it("generateBudgetedText keeps its text-only contract for unrelated callers", async () => {
+    mocks.fetch.mockImplementation(async () => completion(undefined, "length"));
+    expect(await generateBudgetedText(context, "source", 3000)).toBe('{"ok":true}');
   });
 });
