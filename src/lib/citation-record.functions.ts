@@ -62,13 +62,25 @@ export const removeCitationFindingFn = createServerFn({ method: "POST" })
 export const saveCitationImprovementFn = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((v: unknown) =>
-    scope.extend(citationImprovementStageSchema.shape).strict().parse(v),
+    scope
+      .extend(citationImprovementStageSchema.shape)
+      .strict()
+      .superRefine(inspectedHeadRefinement)
+      .parse(v),
   )
   .handler(async ({ data, context }) => {
     if (context.userId !== data.expectedOwnerId) throw Error("evidence_owner_changed");
     return (await import("./citation-record.server")).saveCitationImprovement(
       { ownerId: context.userId, projectId: data.projectId },
-      { scope: data.scope, improvement: data.improvement, binding: data.binding },
+      {
+        scope: data.scope,
+        improvement: data.improvement,
+        binding: data.binding,
+        changeBinding: data.changeBinding,
+        expectedVersion: data.expectedVersion ?? null,
+        expectedHeadId: data.expectedHeadId ?? null,
+        expectedFindingRowIds: data.expectedFindingRowIds ?? null,
+      },
     );
   });
 export const readCitationImprovementsFn = createServerFn({ method: "POST" })

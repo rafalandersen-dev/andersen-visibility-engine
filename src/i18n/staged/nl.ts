@@ -29,6 +29,8 @@ import { nlAuthScreen } from "./nl-auth-screen";
 import { nlSharedUi } from "./nl-shared-ui";
 import { nlCitationReview } from "./nl-citation-review";
 import { nlCitationAuthoring } from "./nl-citation-authoring";
+import { nlCitationForward } from "./nl-citation-forward";
+import { nlCitationChange } from "./nl-citation-change";
 
 /** Dutch authoring; never imported by the runtime catalog. */
 export const NL_STAGED_BATCHES = [
@@ -276,7 +278,7 @@ export const NL_STAGED_BATCHES = [
     copy: nlCitationReview,
     namespaces: ["citationReview"],
     sourceRevision: "P4 citation review candidate after bab861c8",
-    sourceHash: "d41949f7901f0d37b4debab152a406f238c34273ed422fe230df34ff41dcb151",
+    sourceHash: "6320ed498d4ce0af5c43d77d46109f8e85cffeebb25d64f16d815eb2332beae4",
   },
   {
     name: "citation authoring",
@@ -284,6 +286,20 @@ export const NL_STAGED_BATCHES = [
     namespaces: ["citationAuthoring"],
     sourceRevision: "citation owner authoring candidate after a392775c",
     sourceHash: "ffb6a332b8756b5467c8e06e740b9829d118f7c6112240a88046298922055c2a",
+  },
+  {
+    name: "citation forward",
+    copy: nlCitationForward,
+    namespaces: ["citationForward"],
+    sourceRevision: "citation forward workflow candidate after 64db7a4b (Codex N1 corrections)",
+    sourceHash: "692652100abfecf97689fd04a6f508d7d66db62417cfd2cfc3dc6f2adf8fcb70",
+  },
+  {
+    name: "citation change",
+    copy: nlCitationChange,
+    namespaces: ["citationChange"],
+    sourceRevision: "citation change evidence candidate 20260928120000 (R/R1/R2)",
+    sourceHash: "576b6f207594745c1c3e082e0bba5d773318eb96241d4d5cf18187b680cdc2d5",
   },
 ] as const;
 export const NL_STAGED_CATALOG: Readonly<Record<string, string>> = Object.freeze(

@@ -6,7 +6,7 @@ export const itCitationReview: Readonly<Record<string, string>> = {
     "Gestisci la seconda revisione indipendente dei rilievi sulle citazioni per questo progetto.",
   "citationReview.loading": "Caricamento…",
   "citationReview.owner.intro":
-    "I tuoi rilievi per questo progetto. Gli stati sono i valori attuali, in tempo reale — un'attestazione del titolare non è mai una prova indipendente o causale. La redazione dei rilievi, il collegamento ai pannelli e l'analisi dei report nativi non fanno parte di questa vista.",
+    "I tuoi rilievi per questo progetto. Gli stati sono i valori attuali, in tempo reale — un'attestazione del titolare non è mai una prova indipendente o causale. La redazione dei rilievi, le attività del Plan, le bozze di Studio, il collegamento dei miglioramenti e l'ispezione del titolare sono disponibili sopra; la prova indipendente alla destinazione e l'analisi dei report nativi restano aperte.",
   "citationReview.owner.empty": "Nessun rilievo sulle citazioni per questo progetto, per ora.",
   "citationReview.owner.version": "v{version}",
   "citationReview.owner.openFinding": "Apri rilievo: {family}",

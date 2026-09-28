@@ -75,6 +75,11 @@ const releasedCitationProtocol = ["20260920190000_citation_protocol.sql"];
 const candidates = [
   "20260920200000_citation_findings_improvements.sql",
   "20260926190000_citation_scope_binding_versions.sql",
+  // Candidate improvement expected-head guard (v3 wrapper the server now calls; unapplied until reviewed).
+  "20260927190000_citation_improvement_head_guard.sql",
+  // Candidate change evidence (R/R1/R2, 2026-09-28): v4 wrappers, artifacts/approvals/receipts, inspector
+  // chains; unapplied until reviewed, additive over v3.
+  "20260928120000_citation_change_evidence.sql",
 ];
 const allowed = async (role: string, fn: string) =>
   (

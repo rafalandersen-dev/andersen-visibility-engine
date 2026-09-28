@@ -306,10 +306,25 @@ const promptDefaults = {
 };
 const attestedImprovement = async (findingId: string, improvementId: string) => {
   const observedAt = await isoAt("- interval '1 hour'");
+  // The CURRENT head ROW of the logical improvement id travels with the save (candidate v3 guard,
+  // 20260927190000), exactly as the forward panel does; the eligibility semantics under test are unchanged.
+  const head = headToken(
+    (
+      await db.query<{ v: number; id: string | null }>(
+        ...headVersionQuery(
+          "ai_citation_improvements",
+          scope.ownerId,
+          scope.projectId,
+          improvementId,
+        ),
+      )
+    ).rows[0],
+  );
   return saveCitationImprovement(
     scope,
     {
       scope: panelScope,
+      ...head,
       improvement: {
         improvementId,
         findingIds: [findingId],
@@ -374,6 +389,10 @@ beforeAll(async () => {
     "20260911020000_project_team_reads.sql",
     "20260911060000_project_team_approval_policy.sql",
     "20260926190000_citation_scope_binding_versions.sql",
+    // Candidate improvement expected-head guard (v3 wrapper the server now calls; unapplied until reviewed).
+    "20260927190000_citation_improvement_head_guard.sql",
+    // Candidate 20260928120000 (UNAPPLIED, R/R1/R2): the v4 wrappers the server now calls; additive over v3.
+    "20260928120000_citation_change_evidence.sql",
   ])
     await db.exec(readFileSync("supabase/migrations/" + name, "utf8"));
   // 20260911060000's invalidation trigger (an UNRELATED release concern) fires on a member/policy UPDATE|DELETE

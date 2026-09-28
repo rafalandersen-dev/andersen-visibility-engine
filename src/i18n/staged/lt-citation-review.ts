@@ -6,7 +6,7 @@ export const ltCitationReview: Readonly<Record<string, string>> = {
     "Tvarkykite nepriklausomą antrąją šio projekto citavimo išvadų peržiūrą.",
   "citationReview.loading": "Įkeliama…",
   "citationReview.owner.intro":
-    "Jūsų šio projekto išvados. Būsenos yra dabartinės, tikralaikės reikšmės — savininko patvirtinimas niekada nėra nepriklausomas ar priežastinis įrodymas. Išvadų rengimas, susiejimas su skydeliu ir vietinių ataskaitų nagrinėjimas nėra šio rodinio dalis.",
+    "Jūsų šio projekto išvados. Būsenos yra dabartinės, tikralaikės reikšmės — savininko patvirtinimas niekada nėra nepriklausomas ar priežastinis įrodymas. Išvadų rengimas, Plan užduotys, Studio juodraščiai, patobulinimų susiejimas ir savininko patikra pasiekiami aukščiau; nepriklausomas įrodymas paskirties vietoje ir vietinių ataskaitų nagrinėjimas lieka atviri.",
   "citationReview.owner.empty": "Šiame projekte citavimo išvadų dar nėra.",
   "citationReview.owner.version": "v{version}",
   "citationReview.owner.openFinding": "Atidaryti išvadą: {family}",

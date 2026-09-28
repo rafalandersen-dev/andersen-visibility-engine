@@ -6,7 +6,7 @@ export const csCitationReview: Readonly<Record<string, string>> = {
     "Spravujte nezávislé druhé posouzení zjištění o citacích pro tento projekt.",
   "citationReview.loading": "Načítání…",
   "citationReview.owner.intro":
-    "Vaše zjištění pro tento projekt. Stavy jsou aktuální živé hodnoty — potvrzení vlastníka nikdy není nezávislým ani příčinným důkazem. Vytváření zjištění, vazba na panel a rozbor nativních přehledů nejsou součástí tohoto zobrazení.",
+    "Vaše zjištění pro tento projekt. Stavy jsou aktuální živé hodnoty — potvrzení vlastníka nikdy není nezávislým ani příčinným důkazem. Vytváření zjištění, úkoly v Plánu, koncepty ve Studiu, vazba zlepšení a kontrola vlastníkem jsou k dispozici výše; nezávislý důkaz z cílového místa a rozbor nativních přehledů zůstávají otevřené.",
   "citationReview.owner.empty": "Pro tento projekt zatím nejsou žádná zjištění o citacích.",
   "citationReview.owner.version": "v. {version}",
   "citationReview.owner.openFinding": "Otevřít zjištění: {family}",

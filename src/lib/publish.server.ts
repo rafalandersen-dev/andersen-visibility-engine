@@ -233,6 +233,7 @@ async function runConnectorPublish(
   project: Project,
   userId: string,
   knownInternalPaths: string[],
+  actor?: { actorId: string; initiator: "interactive" | "scheduler" },
 ) {
   const { assertAssetSourcesCurrent } = await import("./source-publication.server");
   const { assertPublicationApproved } = await import("./publication-approval.server");
@@ -244,6 +245,7 @@ async function runConnectorPublish(
     asset,
     project,
     paths: knownInternalPaths,
+    actor,
     publish: () => runConnectorPublishTransport(asset, project, userId, knownInternalPaths),
     outcome: (r) => ({
       success: true,
@@ -262,6 +264,7 @@ async function runConnectorPublish(
 export async function publishAssetServerSide(
   userId: string,
   assetId: string,
+  options: { actor?: { actorId: string; initiator: "interactive" | "scheduler" } } = {},
 ): Promise<ServerPublishResult> {
   // 1. Read-only pass to decide what to do (no write yet — the connector call
   //    is the slow part and we do not want to hold a rev across it).
@@ -320,7 +323,7 @@ export async function publishAssetServerSide(
       project,
       (row.data.content as ContentAsset[]).filter((c) => c.projectId === project.id),
     );
-    return runConnectorPublish(asset, project, userId, activeInternalPaths);
+    return runConnectorPublish(asset, project, userId, activeInternalPaths, options.actor);
   })();
 
   // 2. Record the outcome under the rev guard (retries on a lost race).

@@ -139,21 +139,52 @@ export interface ReviewerLinkContext {
  * project). No params → owner-management mode (`"owner"`). A partial or malformed reviewer link is REJECTED
  * (`"invalid"`) rather than silently falling back to the reviewer's own project.
  */
+/** An assigned INSPECTOR's deep link: the owner + project + the exact improvement ROW (candidate
+ * 20260928120000). Distinct from a finding review link; both halves of the identity are validated. */
+export interface InspectorLinkContext {
+  ownerId: string;
+  projectId: string;
+  improvementRowId: string;
+}
 export function reviewerLinkContext(search: {
   owner?: string;
   project?: string;
   finding?: string;
-}): { mode: "owner" } | { mode: "reviewer"; context: ReviewerLinkContext } | { mode: "invalid" } {
+  inspection?: string;
+}):
+  | { mode: "owner" }
+  | { mode: "reviewer"; context: ReviewerLinkContext }
+  | { mode: "inspector"; context: InspectorLinkContext }
+  | { mode: "invalid" } {
   const owner = search.owner?.trim() ?? "";
   const project = search.project?.trim() ?? "";
   const finding = search.finding?.trim() ?? "";
-  if (!owner && !project && !finding) return { mode: "owner" };
+  const inspection = search.inspection?.trim() ?? "";
+  if (!owner && !project && !finding && !inspection) return { mode: "owner" };
+  // A link naming BOTH a finding and an inspection is ambiguous → rejected, never a guess.
+  if (finding && inspection) return { mode: "invalid" };
+  if (inspection) {
+    if (!UUID_RE.test(owner) || !PROJECT_RE.test(project) || !UUID_RE.test(inspection))
+      return { mode: "invalid" };
+    return {
+      mode: "inspector",
+      context: { ownerId: owner, projectId: project, improvementRowId: inspection },
+    };
+  }
   if (!UUID_RE.test(owner) || !PROJECT_RE.test(project) || !UUID_RE.test(finding))
     return { mode: "invalid" };
   return {
     mode: "reviewer",
     context: { ownerId: owner, projectId: project, findingRowId: finding },
   };
+}
+export function buildInspectorLink(ctx: InspectorLinkContext): string {
+  const p = new URLSearchParams({
+    owner: ctx.ownerId,
+    project: ctx.projectId,
+    inspection: ctx.improvementRowId,
+  });
+  return `/app/citation-review?${p.toString()}`;
 }
 
 /** Build the copyable, in-app scoped review link PATH the owner shares after granting (no external send). It
@@ -183,6 +214,15 @@ export function absoluteReviewerLink(
   origin: string | null | undefined,
 ): { href: string; absolute: boolean } {
   const path = buildReviewerLink(ctx);
+  const o = origin?.trim() ?? "";
+  if (!ORIGIN_RE.test(o)) return { href: path, absolute: false };
+  return { href: o + path, absolute: true };
+}
+export function absoluteInspectorLink(
+  ctx: InspectorLinkContext,
+  origin: string | null | undefined,
+): { href: string; absolute: boolean } {
+  const path = buildInspectorLink(ctx);
   const o = origin?.trim() ?? "";
   if (!ORIGIN_RE.test(o)) return { href: path, absolute: false };
   return { href: o + path, absolute: true };

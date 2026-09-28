@@ -10,6 +10,16 @@ import { z } from "zod";
 const text = (max: number) => z.string().trim().min(1).max(max);
 const instant = z.string().datetime({ offset: true });
 const uuid = z.string().uuid();
+/**
+ * Plan task identity as ACTUALLY minted by the current callers (27 September 2026 repair): the client store
+ * mints 8-character base-36 ids (`uid()` in store.ts) for Plan opportunities, connector batches mint UUIDs
+ * (`crypto.randomUUID()` in mcp-opportunity-batch.ts) and sample rows carry seed ids. The applied SQL compares
+ * `publication_evidence.snapshot.actionId` with `taskId` as TEXT, so the bounded workspace-id shape already used
+ * for project ids (`/^[A-Za-z0-9_-]{1,64}$/`) is the honest contract; a UUID still matches it. Existing
+ * identities are never rewritten and no UUID alias is fabricated for a short id.
+ */
+export const TASK_ID_PATTERN = /^[A-Za-z0-9_-]{1,64}$/;
+export const taskIdSchema = z.string().regex(TASK_ID_PATTERN);
 export const GAP_FAMILIES = ["citation_source", "recommendation_accuracy"] as const;
 export const SUPPORT_STATES = [
   "supports",
@@ -215,7 +225,7 @@ export const findingSchema = z
     decision: z.enum(["accepted", "dismissed", "needs_second_review"]),
     review: reviewer,
     secondReview: reviewer.nullable(),
-    linkedTaskId: uuid.nullable(),
+    linkedTaskId: taskIdSchema.nullable(),
   })
   .strict()
   .superRefine((f, ctx) => {
@@ -268,7 +278,7 @@ export const improvementSchema = z
   .object({
     improvementId: uuid,
     findingIds: z.array(uuid).min(1).max(20),
-    taskId: uuid,
+    taskId: taskIdSchema,
     /** The approved change and its version-bound approval under existing permissions. */
     change: z
       .object({
@@ -321,8 +331,42 @@ export interface LiveVerifiedImprovement {
   verificationStatus: string;
   /** The immutable owner-authored record — audit history, never accepted as live verification on its own. */
   record: Improvement;
+  /** Live v2 projection (candidate 20260928120000): when the server supplies `verifiedEligible`, that predicate
+   * is authoritative (owner attestation OR a positive independent inspection under the same gates, and NEVER a
+   * disputed delivery). Absent on legacy reads → only the released owner_attested rule applies. */
+  verifiedEligible?: boolean;
+  independentStatus?: string;
+  /** The proof instant (owner verification, or the effective positive independent inspection). */
+  verifiedAt?: string | null;
+}
+/** The instant a live-verified improvement's proof was recorded, for chronology gates. */
+/** The proof instant chronology (readiness, comparable pairs) orders by. For a CURRENT v4 projection
+ * (`verifiedEligible` is a boolean) the server's `verifiedAt` is authoritative — the immutable record may keep
+ * an older owner observation that the live ladder no longer honours (e.g. an approval revoked and re-granted,
+ * with a NEW independent inspection now the effective proof) — and a missing/invalid live instant fails closed
+ * (null → not verified, never a resurrected historical time). Only a released legacy read (no live
+ * projection) falls back to the record's own owner verification. */
+export function liveVerifiedAt(i: LiveVerifiedImprovement): string | null {
+  if (typeof i.verifiedEligible === "boolean") {
+    if (!i.verifiedEligible) return null;
+    const at = i.verifiedAt ?? null;
+    return at !== null && Number.isFinite(Date.parse(at)) ? at : null;
+  }
+  return i.record.verification?.verifiedAt ?? null;
 }
 export function isVerifiedImprovement(i: LiveVerifiedImprovement) {
+  // Candidate v2 projection: the server's single eligibility predicate (product decision, spec §7 — owner
+  // attestation stays eligible; a positive independent inspection qualifies under the same gates; ACTIVE
+  // negative independent evidence excludes the change). Defence in depth: baselines and an orderable instant.
+  if (typeof i.verifiedEligible === "boolean") {
+    if (!i.verifiedEligible || i.independentStatus === "disputed") return false;
+    const at = liveVerifiedAt(i);
+    return (
+      i.record.baselineCaptureIds.length > 0 &&
+      at !== null &&
+      Date.parse(at) >= Date.parse(i.record.change.approvedAt)
+    );
+  }
   // AUTHORITATIVE gate (finding 4063851250): the LIVE status must be owner_attested — the only status that is
   // a proven owner before/after (current approval + a positive structured owner inspection + a resolving
   // scoped baseline, all re-derived server-side). A bare/immutable record NEVER qualifies on its own: after an

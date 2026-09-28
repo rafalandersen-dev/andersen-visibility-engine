@@ -37,6 +37,8 @@ import { logEvidenceCopy } from "./log-evidence";
 import { answerEvidenceCopy } from "./answer-evidence";
 import { citationReviewCopy } from "./citation-review";
 import { citationAuthoringCopy } from "./citation-authoring";
+import { citationForwardCopy } from "./citation-forward";
+import { citationChangeCopy } from "./citation-change";
 import { en } from "./en";
 import { pl } from "./pl";
 import { sv } from "./sv";
@@ -63,6 +65,8 @@ const OVERRIDES: readonly Record<OnboardingLanguage, Dictionary>[] = [
   answerEvidenceCopy,
   citationReviewCopy,
   citationAuthoringCopy,
+  citationForwardCopy,
+  citationChangeCopy,
   logEvidenceCopy,
   outreachIntegrityCopy,
   gscIntegrity,

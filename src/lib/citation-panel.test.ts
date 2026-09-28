@@ -25,6 +25,7 @@ import {
   improvementSchema,
   isCompetitorOnlyCitationGap,
   isVerifiedImprovement,
+  liveVerifiedAt,
   passageAfterAnswer,
   recommendationSchema,
   sourceSupportSchema,
@@ -930,6 +931,53 @@ describe("descriptive counts and comparable pairs (CI11-T19, T20, T21, T38)", ()
     expect(early.missing.find((m) => m.questionId === "SY-D01")?.reason).toBe(
       "follow_up_before_both_improvements",
     );
+  });
+  it("Codex R4/3: for a current live projection the SERVER proof instant orders chronology — an older immutable owner observation never admits an earlier follow-up, and a missing live instant fails closed", () => {
+    const p = panel();
+    const rounds = { baseline: 1, followUp: 4 };
+    // Immutable record: owner observation 09:00 (stale: the approval was revoked and re-granted since); the
+    // live v4 projection: base receipt_recorded, a NEW independent inspection at 12:00 makes it eligible.
+    const stale = verifiedImprovement(90, "2026-09-28T09:00:00Z");
+    const live: LiveVerifiedImprovement = {
+      ...stale,
+      verificationStatus: "receipt_recorded",
+      independentStatus: "independently_inspected",
+      verifiedEligible: true,
+      verifiedAt: "2026-09-28T12:00:00Z",
+    };
+    expect(isVerifiedImprovement(live)).toBe(true);
+    expect(liveVerifiedAt(live)).toBe("2026-09-28T12:00:00Z");
+    // A legacy read (no live projection) still orders by the owner instant.
+    expect(liveVerifiedAt(stale)).toBe("2026-09-28T09:00:00Z");
+    // A current projection that is eligible but carries no orderable instant fails closed (never the old time).
+    for (const bad of [null, undefined, "not-a-date"])
+      expect(liveVerifiedAt({ ...live, verifiedAt: bad as never }), String(bad)).toBeNull();
+    expect(isVerifiedImprovement({ ...live, verifiedAt: null })).toBe(false);
+    expect(liveVerifiedAt({ ...live, verifiedEligible: false })).toBeNull();
+    const second = secondChange(91, "2026-09-21T10:00:00Z");
+    const pairsAt = (followUpAt: string) =>
+      comparablePairs(
+        p,
+        {
+          captures: [
+            captured("SY-D01", 1),
+            captured("SY-D01", 4, { ownCitation: true, capturedAt: followUpAt }),
+          ],
+          findings: scopedFindings,
+          improvements: [live, second],
+        },
+        rounds,
+      );
+    // 10:00 is after the stale owner observation but BEFORE the effective 12:00 proof: not comparable.
+    const early = pairsAt("2026-09-28T10:00:00Z");
+    expect(early.pairs).toEqual([]);
+    expect(early.missing.find((m) => m.questionId === "SY-D01")?.reason).toBe(
+      "follow_up_before_both_improvements",
+    );
+    // 13:00 is after the effective proof: comparable.
+    expect(pairsAt("2026-09-28T13:00:00Z").pairs.map((pair) => pair.questionId)).toEqual([
+      "SY-D01",
+    ]);
   });
   it("refuses duplicate improvements, self-pairing rounds and malformed follow-up chronology", () => {
     const p = panel();

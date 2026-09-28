@@ -422,6 +422,9 @@ export const publishShopifyContentFn = createServerFn({ method: "POST" })
       return await withManualPublicationEvidence({
         ownerId: context.userId,
         ...plan,
+        // Performer provenance (candidate 20260928120000, Codex R4): the server-authenticated interactive
+        // session — never the connector owner or a client payload value.
+        actor: { actorId: context.userId, initiator: "interactive" },
         publish: () => upsertArticle(plan.args, true),
         outcome: (r) => ({
           success: r.success,

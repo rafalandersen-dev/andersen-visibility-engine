@@ -6,7 +6,7 @@ export const skCitationReview: Readonly<Record<string, string>> = {
     "Spravujte nezávislé druhé posúdenie zistení o citáciách pre tento projekt.",
   "citationReview.loading": "Načítava sa…",
   "citationReview.owner.intro":
-    "Vaše zistenia pre tento projekt. Stavy sú aktuálne živé hodnoty — potvrdenie vlastníka nikdy nie je nezávislým ani príčinným dôkazom. Vytváranie zistení, väzba na panel a rozbor natívnych prehľadov nie sú súčasťou tohto zobrazenia.",
+    "Vaše zistenia pre tento projekt. Stavy sú aktuálne živé hodnoty — potvrdenie vlastníka nikdy nie je nezávislým ani príčinným dôkazom. Vytváranie zistení, úlohy v Pláne, koncepty v Studiu, väzba zlepšení a kontrola vlastníkom sú k dispozícii vyššie; nezávislý dôkaz na cieľovom mieste a rozbor natívnych prehľadov zostávajú otvorené.",
   "citationReview.owner.empty": "Pre tento projekt zatiaľ nie sú žiadne zistenia o citáciách.",
   "citationReview.owner.version": "v. {version}",
   "citationReview.owner.openFinding": "Otvoriť zistenie: {family}",

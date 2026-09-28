@@ -8,7 +8,7 @@ import {
   citationFindingSummarySchema,
   citationFindingsStateSchema,
   citationImprovementDetailSchema,
-  citationImprovementStageSchema,
+  citationImprovementStageInputSchema,
   citationImprovementSummarySchema,
   citationImprovementsStateSchema,
 } from "./citation-record";
@@ -27,6 +27,33 @@ const SURFACED_CITATION_ERRORS = new Set([
   "citation_finding_version_conflict",
   "citation_panel_scope_unauthenticated",
   "citation_finding_scope_drift",
+  // Improvement authoring outcomes (forward workflow, 27 September 2026): the same fixed tokens the released
+  // improvement save raises, each resolvable by the owner in the forward panel (reopen the current version,
+  // pick the attempt recorded for THIS task / destination, wait for the current approval, record an inspection,
+  // remove a verification that no positive inspection backs, restore or unpin a deleted finding/baseline). Still
+  // fixed tokens only: no raw database text is ever surfaced.
+  "citation_improvement_version_conflict",
+  "citation_improvement_finding_stale",
+  "citation_improvement_scope_drift",
+  "citation_improvement_finding_unresolved",
+  "citation_improvement_baseline_unresolved",
+  "citation_improvement_binding_unresolved",
+  "citation_improvement_binding_unapproved",
+  "citation_improvement_binding_receipt_stale",
+  "citation_improvement_binding_approval_mismatch",
+  "citation_improvement_binding_task_mismatch",
+  "citation_improvement_binding_destination_mismatch",
+  "citation_improvement_binding_inspection_invalid",
+  "citation_improvement_verification_unbacked",
+  // Change evidence (candidate 20260928120000): owner-resolvable outcomes of the change-kind binding.
+  "citation_improvement_unavailable",
+  "citation_change_unsupported",
+  "citation_change_unavailable",
+  "citation_change_stale",
+  "citation_change_forbidden",
+  "citation_change_unapproved",
+  "citation_change_receipt_invalid",
+  "citation_change_capacity",
 ]);
 function surfacedCitationError(error: unknown): string {
   const message =
@@ -142,16 +169,22 @@ export async function saveCitationImprovement(
   rpc?: KnowledgeRpc,
 ) {
   const s = scope.parse(raw);
-  const input = citationImprovementStageSchema.parse(value);
+  const input = citationImprovementStageInputSchema.parse(value);
+  // v4 (candidate 20260928120000) = v3 for public-URL bindings (unchanged head/reviewed-row guards) or the
+  // explicit change-kind branch; every response carries the live v2 projection.
   return citationImprovementSummarySchema.parse(
     await call(
-      "save_ai_citation_improvement_v2",
+      "save_ai_citation_improvement_v4",
       {
         p_user: s.ownerId,
         p_project: s.projectId,
         p_record: input.improvement,
         p_scope: input.scope,
         p_binding: input.binding ?? null,
+        p_change_binding: input.changeBinding ?? null,
+        p_expected_version: input.expectedVersion ?? null,
+        p_expected_head: input.expectedHeadId ?? null,
+        p_expected_findings: input.expectedFindingRowIds ?? null,
       },
       rpc,
     ),
@@ -161,7 +194,7 @@ export async function readCitationImprovements(raw: z.infer<typeof scope>, rpc?:
   const s = scope.parse(raw);
   return citationImprovementsStateSchema.parse(
     await call(
-      "read_ai_citation_improvements_v2",
+      "read_ai_citation_improvements_v4",
       { p_user: s.ownerId, p_project: s.projectId },
       rpc,
     ),
@@ -175,7 +208,7 @@ export async function getCitationImprovement(
   const s = scope.parse(raw);
   return citationImprovementDetailSchema.parse(
     await call(
-      "read_ai_citation_improvement_v2",
+      "read_ai_citation_improvement_v4",
       { p_user: s.ownerId, p_project: s.projectId, p_id: z.string().uuid().parse(id) },
       rpc,
     ),
