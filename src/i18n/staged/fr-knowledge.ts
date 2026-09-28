@@ -185,7 +185,7 @@ export const frKnowledge: Readonly<Record<string, string>> = {
   "weekly.help":
     "Utilise les jours, l’heure et le fuseau horaire de publication enregistrés pour le projet ci-dessus. Enregistrez d’abord les modifications du projet. Changer de coordinateur conserve le travail existant et exige de résoudre toute exécution active ou incertaine.",
   "weekly.sessionHelp":
-    "La déconnexion ne met pas en pause la préparation en arrière-plan activée ni les publications déjà planifiées. Ces réglages concernent la préparation future ; gérez les publications déjà planifiées dans le Calendrier éditorial.",
+    "Pour mettre en pause la préparation future, désactivez le calendrier de publication enregistré ou sélectionnez Préparation en pause. Gérez séparément les publications déjà planifiées dans le Calendrier éditorial.",
   "weekly.loading": "Chargement de l’état de préparation hebdomadaire…",
   "weekly.unavailable":
     "L’état de préparation hebdomadaire est indisponible. Actualisez pour vérifier à nouveau.",

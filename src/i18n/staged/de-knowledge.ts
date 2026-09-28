@@ -183,7 +183,7 @@ export const deKnowledge: Readonly<Record<string, string>> = {
   "weekly.help":
     "Verwendet die oben gespeicherten Veröffentlichungstage, Uhrzeit und Zeitzone des Projekts. Speichere Projektänderungen zuerst. Ein Wechsel des Koordinators bewahrt bestehende Arbeit und erfordert die Klärung aller aktiven oder ungewissen Ausführungen.",
   "weekly.sessionHelp":
-    "Das Abmelden pausiert weder die aktivierte Hintergrundvorbereitung noch bereits geplante Veröffentlichungen. Diese Einstellungen steuern die künftige Vorbereitung; bereits geplante Veröffentlichungen verwalten Sie im Redaktionskalender.",
+    "Um die künftige Vorbereitung zu pausieren, deaktivieren Sie den gespeicherten Veröffentlichungszeitplan oder wählen Sie Vorbereitung pausiert. Bereits geplante Veröffentlichungen verwalten Sie separat im Redaktionskalender.",
   "weekly.loading": "Wöchentliche Bereitschaft wird geladen…",
   "weekly.unavailable":
     "Wöchentliche Bereitschaft ist nicht verfügbar. Aktualisiere die Ansicht, um erneut zu prüfen.",

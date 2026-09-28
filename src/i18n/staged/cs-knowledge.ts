@@ -59,7 +59,7 @@ export const csKnowledge: Readonly<Record<string, string>> = {
   "weekly.help":
     "Používá výše uložené dny, čas a časové pásmo zveřejňování projektu. Nejprve uložte změny projektu. Změna koordinátora zachová stávající práci a vyžaduje vyřešení každého aktivního běhu nebo běhu s nejistým výsledkem.",
   "weekly.sessionHelp":
-    "Odhlášení nepozastaví zapnutou přípravu na pozadí ani již naplánované publikace. Tato nastavení řídí budoucí přípravu; již naplánované publikace spravujete v Kalendáři obsahu.",
+    "Chcete-li pozastavit budoucí přípravu, vypněte uložený plán publikování nebo zvolte Příprava pozastavena. Již naplánované publikace spravujete samostatně v Kalendáři obsahu.",
   "weekly.loading": "Načítání týdenní připravenosti…",
   "weekly.unavailable": "Týdenní připravenost není dostupná. Obnovte údaje a kontrolu zopakujte.",
   "weekly.engine": "Koordinátor přípravy",

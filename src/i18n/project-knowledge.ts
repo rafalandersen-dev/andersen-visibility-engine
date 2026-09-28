@@ -59,7 +59,7 @@ export const projectKnowledge = {
     "weekly.help":
       "Uses the project’s saved publication days, time and timezone above. Save project changes first. Changing coordinator preserves existing work and requires any active or uncertain run to be resolved.",
     "weekly.sessionHelp":
-      "Signing out does not pause enabled background preparation or publications that are already scheduled. These settings control future preparation; manage already scheduled publications in the Content Calendar.",
+      "To pause future preparation, disable the saved publication schedule or select Preparation paused. Manage already scheduled publications separately in the Content Calendar.",
     "weekly.loading": "Loading weekly readiness…",
     "weekly.unavailable": "Weekly readiness is unavailable. Refresh to check again.",
     "weekly.engine": "Preparation coordinator",
@@ -353,7 +353,7 @@ export const projectKnowledge = {
     "weekly.help":
       "Korzysta z zapisanych powyżej dni, godziny i strefy czasowej publikacji. Najpierw zapisz zmiany projektu. Zmiana koordynatora zachowuje istniejącą pracę i wymaga wyjaśnienia aktywnych lub niepewnych przebiegów.",
     "weekly.sessionHelp":
-      "Wylogowanie nie wstrzymuje włączonego przygotowania w tle ani już zaplanowanych publikacji. Te ustawienia dotyczą przyszłego przygotowania; już zaplanowanymi publikacjami zarządzasz w Kalendarzu treści.",
+      "Aby wstrzymać przyszłe przygotowanie, wyłącz zapisany harmonogram publikacji lub wybierz Przygotowanie wstrzymane. Już zaplanowanymi publikacjami zarządzasz osobno w Kalendarzu treści.",
     "weekly.loading": "Ładowanie gotowości tygodnia…",
     "weekly.unavailable": "Gotowość tygodnia jest niedostępna. Odśwież, aby sprawdzić ponownie.",
     "weekly.engine": "Koordynator przygotowania",
@@ -650,7 +650,7 @@ export const projectKnowledge = {
     "weekly.help":
       "Använder projektets sparade publiceringsdagar, tid och tidszon ovan. Spara projektändringar först. Byte av samordnare bevarar befintligt arbete och kräver att aktiva eller osäkra körningar hanteras.",
     "weekly.sessionHelp":
-      "Utloggning pausar inte aktiverad bakgrundsförberedelse eller redan schemalagda publiceringar. Dessa inställningar styr framtida förberedelse; redan schemalagda publiceringar hanterar du i Innehållskalender.",
+      "För att pausa framtida förberedelse, inaktivera det sparade publiceringsschemat eller välj Förberedelse pausad. Redan schemalagda publiceringar hanterar du separat i Innehållskalender.",
     "weekly.loading": "Läser veckans beredskap…",
     "weekly.unavailable": "Veckans beredskap är inte tillgänglig. Uppdatera för att försöka igen.",
     "weekly.engine": "Samordnare för förberedelse",
@@ -948,7 +948,7 @@ export const projectKnowledge = {
     "weekly.help":
       "Bruger projektets gemte publiceringsdage, tidspunkt og tidszone ovenfor. Gem projektændringer først. Skift af koordinator bevarer eksisterende arbejde og kræver, at aktive eller usikre kørsler afklares.",
     "weekly.sessionHelp":
-      "Log ud sætter ikke aktiveret baggrundsforberedelse eller allerede planlagte publiceringer på pause. Disse indstillinger styrer fremtidig forberedelse; allerede planlagte publiceringer håndterer du i Indholdskalender.",
+      "For at sætte fremtidig forberedelse på pause skal du deaktivere den gemte publiceringstidsplan eller vælge Forberedelse sat på pause. Allerede planlagte publiceringer håndterer du separat i Indholdskalender.",
     "weekly.loading": "Indlæser ugens parathed…",
     "weekly.unavailable": "Ugens parathed er utilgængelig. Opdater for at kontrollere igen.",
     "weekly.engine": "Forberedelseskoordinator",

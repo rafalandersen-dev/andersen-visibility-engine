@@ -61,7 +61,7 @@ export const ptKnowledge: Readonly<Record<string, string>> = {
   "weekly.help":
     "Utiliza os dias, a hora e o fuso horário de publicação guardados no projeto acima. Guarde primeiro as alterações do projeto. Alterar o coordenador preserva o trabalho existente e exige resolver qualquer execução ativa ou incerta.",
   "weekly.sessionHelp":
-    "Terminar sessão não pausa a preparação em segundo plano ativada nem as publicações já agendadas. Estas definições controlam a preparação futura; gira as publicações já agendadas no Calendário de conteúdos.",
+    "Para pausar a preparação futura, desative o calendário de publicação guardado ou selecione Preparação em pausa. Gira as publicações já agendadas separadamente no Calendário de conteúdos.",
   "weekly.loading": "A carregar a preparação semanal…",
   "weekly.unavailable":
     "A preparação semanal está indisponível. Atualize para verificar novamente.",

@@ -183,7 +183,7 @@ export const esKnowledge: Readonly<Record<string, string>> = {
   "weekly.help":
     "Utiliza los días, la hora y la zona horaria de publicación guardados arriba para el proyecto. Guarda primero los cambios del proyecto. Cambiar el coordinador conserva el trabajo existente y exige resolver cualquier ejecución activa o de resultado incierto.",
   "weekly.sessionHelp":
-    "Cerrar sesión no pausa la preparación en segundo plano activada ni las publicaciones ya programadas. Estos ajustes controlan la preparación futura; las publicaciones ya programadas se gestionan en Calendario de contenidos.",
+    "Para pausar la preparación futura, desactiva el calendario de publicación guardado o selecciona Preparación pausada. Las publicaciones ya programadas se gestionan por separado en Calendario de contenidos.",
   "weekly.loading": "Cargando preparación semanal…",
   "weekly.unavailable":
     "La preparación semanal no está disponible. Actualiza para volver a comprobarla.",

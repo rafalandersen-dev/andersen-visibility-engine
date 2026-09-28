@@ -60,7 +60,7 @@ export const itKnowledge: Readonly<Record<string, string>> = {
   "weekly.help":
     "Usa i giorni, l’orario e il fuso orario di pubblicazione del progetto salvati sopra. Salva prima le modifiche al progetto. Cambiare coordinatore conserva il lavoro esistente e richiede di risolvere qualsiasi esecuzione attiva o dall’esito incerto.",
   "weekly.sessionHelp":
-    "La disconnessione non mette in pausa la preparazione in background attivata né le pubblicazioni già programmate. Queste impostazioni controllano la preparazione futura; le pubblicazioni già programmate si gestiscono nel Calendario editoriale.",
+    "Per mettere in pausa la preparazione futura, disattiva il calendario di pubblicazione salvato o seleziona Preparazione in pausa. Le pubblicazioni già programmate si gestiscono separatamente nel Calendario editoriale.",
   "weekly.loading": "Caricamento dello stato di preparazione settimanale…",
   "weekly.unavailable":
     "Lo stato di preparazione settimanale non è disponibile. Aggiorna per ricontrollare.",

@@ -190,7 +190,7 @@ export const PT_STAGED_BATCHES = [
     copy: ptKnowledge,
     namespaces: ["knowledge", "weekly", "approval", "refresh"],
     sourceRevision: "bf3dd15",
-    sourceHash: "9c1b2d76b99219f75955e34c64f01b167151b850a200303f495ed395a5d58cd6",
+    sourceHash: "78a4fd67fd0f878a2a05f99de85ce989e7d57ac84e9abdb74a4bf8e6f4a0ae9d",
   },
   {
     name: "technical",

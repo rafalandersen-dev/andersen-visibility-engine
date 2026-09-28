@@ -63,7 +63,7 @@ export const gaKnowledge: Readonly<Record<string, string>> = {
   "weekly.help":
     "Úsáideann sé laethanta, am agus crios ama foilsithe sábháilte an tionscadail a luaitear thuas. Sábháil athruithe an tionscadail ar dtús. Coinníonn athrú an chomhordaitheora an obair atá ann cheana agus caithfear aon rith gníomhach nó éiginnte a réiteach.",
   "weekly.sessionHelp":
-    "Ní chuireann logáil amach an t-ullmhú cúlra cumasaithe ná na foilseacháin atá sceidealta cheana ar sos. Rialaíonn na socruithe seo ullmhú sa todhchaí; bainistigh foilseacháin atá sceidealta cheana sa Féilire ábhair.",
+    "Chun ullmhú sa todhchaí a chur ar sos, díchumasaigh an sceideal foilsithe sábháilte nó roghnaigh Tá an t-ullmhúchán ar sos. Bainistigh foilseacháin atá sceidealta cheana ar leithligh sa Féilire ábhair.",
   "weekly.loading": "Ullmhacht na seachtaine á lódáil…",
   "weekly.unavailable": "Níl ullmhacht na seachtaine ar fáil. Athnuaigh chun seiceáil arís.",
   "weekly.engine": "Comhordaitheoir ullmhúcháin",

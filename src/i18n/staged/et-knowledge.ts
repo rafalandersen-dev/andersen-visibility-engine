@@ -59,7 +59,7 @@ export const etKnowledge: Readonly<Record<string, string>> = {
   "weekly.help":
     "Kasutab projekti ülal salvestatud avaldamispäevi, kellaaega ja ajavööndit. Salvesta esmalt projekti muudatused. Koordinaatori muutmine säilitab olemasoleva töö ning nõuab aktiivsete või ebakindlate käivituste lahendamist.",
   "weekly.sessionHelp":
-    "Väljalogimine ei peata lubatud taustaettevalmistust ega juba ajastatud avaldamisi. Need seaded juhivad tulevast ettevalmistust; juba ajastatud avaldamisi hallake Sisukalendris.",
+    "Tulevase ettevalmistuse peatamiseks keelake salvestatud avaldamisajakava või valige Ettevalmistus on peatatud. Juba ajastatud avaldamisi hallake eraldi Sisukalendris.",
   "weekly.loading": "Nädala valmisoleku laadimine…",
   "weekly.unavailable": "Nädala valmisolek pole saadaval. Uuesti kontrollimiseks värskenda.",
   "weekly.engine": "Ettevalmistuse koordinaator",

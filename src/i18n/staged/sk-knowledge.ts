@@ -59,7 +59,7 @@ export const skKnowledge: Readonly<Record<string, string>> = {
   "weekly.help":
     "Používa uložené dni, čas a časové pásmo publikovania projektu uvedené vyššie. Najprv uložte zmeny projektu. Zmena koordinátora zachová existujúcu prácu a vyžaduje vyriešenie každého aktívneho alebo neistého behu.",
   "weekly.sessionHelp":
-    "Odhlásenie nepozastaví zapnutú prípravu na pozadí ani už naplánované publikácie. Tieto nastavenia riadia budúcu prípravu; už naplánované publikácie spravujete v Kalendári obsahu.",
+    "Ak chcete pozastaviť budúcu prípravu, vypnite uložený plán publikovania alebo zvoľte Príprava pozastavená. Už naplánované publikácie spravujete samostatne v Kalendári obsahu.",
   "weekly.loading": "Načítavame týždennú pripravenosť…",
   "weekly.unavailable": "Týždenná pripravenosť nie je dostupná. Obnovte ju a skontrolujte znova.",
   "weekly.engine": "Koordinátor prípravy",

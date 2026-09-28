@@ -59,7 +59,7 @@ export const slKnowledge: Readonly<Record<string, string>> = {
   "weekly.help":
     "Uporablja zgoraj shranjene dneve, čas in časovni pas objavljanja projekta. Najprej shranite spremembe projekta. Sprememba koordinatorja ohrani obstoječe delo in zahteva razrešitev vseh aktivnih izvajanj ali izvajanj z negotovim izidom.",
   "weekly.sessionHelp":
-    "Odjava ne zaustavi omogočene priprave v ozadju ali že načrtovanih objav. Te nastavitve upravljajo prihodnjo pripravo; že načrtovane objave upravljate v Vsebinskem koledarju.",
+    "Če želite začasno ustaviti prihodnjo pripravo, onemogočite shranjeni urnik objavljanja ali izberite Priprava začasno ustavljena. Že načrtovane objave upravljate ločeno v Vsebinskem koledarju.",
   "weekly.loading": "Nalaganje tedenske pripravljenosti…",
   "weekly.unavailable": "Tedenska pripravljenost ni na voljo. Osvežite za ponovno preverjanje.",
   "weekly.engine": "Koordinator priprave",

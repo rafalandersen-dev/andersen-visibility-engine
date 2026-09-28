@@ -61,7 +61,7 @@ export const nlKnowledge: Readonly<Record<string, string>> = {
   "weekly.help":
     "Gebruikt de hierboven opgeslagen publicatiedagen, tijd en tijdzone van het project. Sla projectwijzigingen eerst op. De coördinator wijzigen behoudt bestaand werk en vereist dat actieve of onzekere uitvoeringen worden opgelost.",
   "weekly.sessionHelp":
-    "Uitloggen pauzeert de ingeschakelde achtergrondvoorbereiding en al geplande publicaties niet. Deze instellingen sturen toekomstige voorbereiding; al geplande publicaties beheer je in de Contentkalender.",
+    "Om toekomstige voorbereiding te pauzeren, schakel je het opgeslagen publicatieschema uit of kies je Voorbereiding gepauzeerd. Al geplande publicaties beheer je apart in de Contentkalender.",
   "weekly.loading": "Weekgereedheid laden…",
   "weekly.unavailable": "Weekgereedheid is niet beschikbaar. Vernieuw om opnieuw te controleren.",
   "weekly.engine": "Voorbereidingscoördinator",

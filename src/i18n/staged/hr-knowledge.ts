@@ -58,7 +58,7 @@ export const hrKnowledge: Readonly<Record<string, string>> = {
   "weekly.help":
     "Koristi gore spremljene dane objave, vrijeme i vremensku zonu projekta. Najprije spremite promjene projekta. Promjena koordinatora čuva postojeći rad i zahtijeva razrješenje svakog aktivnog ili neizvjesnog pokretanja.",
   "weekly.sessionHelp":
-    "Odjava ne pauzira omogućenu pripremu u pozadini ni već zakazane objave. Ove postavke upravljaju budućom pripremom; već zakazanim objavama upravljate u Kalendaru sadržaja.",
+    "Da biste pauzirali buduću pripremu, onemogućite spremljeni raspored objavljivanja ili odaberite Priprema pauzirana. Već zakazanim objavama upravljate zasebno u Kalendaru sadržaja.",
   "weekly.loading": "Učitavanje tjedne spremnosti…",
   "weekly.unavailable": "Tjedna spremnost nije dostupna. Osvježite za ponovnu provjeru.",
   "weekly.engine": "Koordinator pripreme",

@@ -61,7 +61,7 @@ export const huKnowledge = {
   "weekly.help":
     "A projekt fent mentett közzétételi napjait, időpontját és időzónáját használja. Először mentsd a projekt módosításait. A koordinátor módosítása megőrzi a meglévő munkát, és megköveteli minden aktív vagy bizonytalan kimenetelű futás rendezését.",
   "weekly.sessionHelp":
-    "A kijelentkezés nem szünetelteti az engedélyezett háttér-előkészítést és a már ütemezett közzétételeket. Ezek a beállítások a jövőbeli előkészítést vezérlik; a már ütemezett közzétételeket a Tartalomnaptárban kezeled.",
+    "A jövőbeli előkészítés szüneteltetéséhez tiltsd le a mentett közzétételi ütemtervet, vagy válaszd az Előkészítés szüneteltetve lehetőséget. A már ütemezett közzétételeket külön, a Tartalomnaptárban kezeled.",
   "weekly.loading": "Heti felkészültség betöltése…",
   "weekly.unavailable": "A heti felkészültség nem érhető el. Az újabb ellenőrzéshez frissíts.",
   "weekly.engine": "Előkészítési koordinátor",

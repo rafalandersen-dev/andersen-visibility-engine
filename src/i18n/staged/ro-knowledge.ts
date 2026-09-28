@@ -61,7 +61,7 @@ export const roKnowledge: Readonly<Record<string, string>> = {
   "weekly.help":
     "Folosește zilele, ora și fusul orar de publicare salvate mai sus pentru proiect. Salvați mai întâi modificările proiectului. Schimbarea coordonatorului păstrează lucrările existente și necesită rezolvarea oricărei rulări active sau incerte.",
   "weekly.sessionHelp":
-    "Deconectarea nu întrerupe pregătirea în fundal activată și nici publicările deja programate. Aceste setări controlează pregătirea viitoare; gestionați publicările deja programate în Calendar de conținut.",
+    "Pentru a întrerupe pregătirea viitoare, dezactivați programul de publicare salvat sau selectați Pregătire oprită. Gestionați separat publicările deja programate în Calendar de conținut.",
   "weekly.loading": "Se încarcă pregătirea săptămânală…",
   "weekly.unavailable":
     "Starea pregătirii săptămânale nu este disponibilă. Reîmprospătați pentru a verifica din nou.",

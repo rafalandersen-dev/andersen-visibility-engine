@@ -58,7 +58,7 @@ export const fiKnowledge: Readonly<Record<string, string>> = {
   "weekly.help":
     "Käyttää projektin yllä tallennettuja julkaisupäiviä, aikaa ja aikavyöhykettä. Tallenna projektin muutokset ensin. Koordinaattorin vaihtaminen säilyttää nykyisen työn ja edellyttää aktiivisen tai epävarman ajon selvittämistä.",
   "weekly.sessionHelp":
-    "Uloskirjautuminen ei keskeytä käytössä olevaa taustavalmistelua eikä jo ajoitettuja julkaisuja. Nämä asetukset ohjaavat tulevaa valmistelua; jo ajoitettuja julkaisuja hallitaan Sisältökalenterissa.",
+    "Jos haluat keskeyttää tulevan valmistelun, poista tallennettu julkaisuaikataulu käytöstä tai valitse Valmistelu tauolla. Jo ajoitettuja julkaisuja hallitaan erikseen Sisältökalenterissa.",
   "weekly.loading": "Ladataan viikkovalmiutta…",
   "weekly.unavailable": "Viikkovalmius ei ole saatavilla. Päivitä tarkistaaksesi uudelleen.",
   "weekly.engine": "Valmistelun koordinaattori",
