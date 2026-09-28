@@ -101,6 +101,8 @@ export const mtCitationChange: Readonly<Record<string, string>> = {
     "Il-mument iddikjarat huwa qabel l-approvazzjoni jew fil-futur.",
   "citationChange.error.capacity":
     "Intlaħqet il-kapaċità ta’ artefatti ta’ bidla għal dan il-proġett.",
+  "citationChange.error.receiptCapacity":
+    "Il-kapaċità tad-dikjarazzjonijiet għal dan l-artefatt intlaħqet; neħħi dikjarazzjoni li m'għadekx bżonn biex tirreġistra oħra.",
   "citationChange.error.inspectionInvalid":
     "L-ispezzjoni mhix valida (mument, referenza jew stat).",
   "citationChange.error.notIndependent":
@@ -109,6 +111,10 @@ export const mtCitationChange: Readonly<Record<string, string>> = {
     "L-identità ta’ min wettaq jew tal-approvatur mhix disponibbli; l-ispezzjoni indipendenti hija rrifjutata.",
   "citationChange.error.inspectionConflict":
     "Il-katina tal-ispezzjonijiet tiegħek inbidlet; erġa’ għabbi u rreġistra mill-ġdid.",
+  "citationChange.error.inspectionQuota":
+    "Ġew irreġistrati wisq spezzjonijiet għal dan il-proġett fl-aħħar siegħa; xejn ma ġie rreġistrat — stenna, imbagħad irreġistra mill-ġdid.",
+  "citationChange.error.inspectionCapacity":
+    "L-istorja tal-ispezzjonijiet ta' dan it-titjib jew proġett hija mimlija; l-osservazzjoni ma ġietx irreġistrata u l-evidenza eżistenti tinżamm.",
   "citationChange.error.generic": "L-azzjoni fuq l-evidenza tal-bidla ma setgħetx titlesta.",
   "citationChange.artifact.fieldKey": "Qasam",
   "citationChange.artifact.addField": "Żid qasam",

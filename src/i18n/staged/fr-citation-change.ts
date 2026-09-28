@@ -105,6 +105,8 @@ export const frCitationChange: Readonly<Record<string, string>> = {
     "L’instant déclaré précède l’approbation ou se situe dans le futur.",
   "citationChange.error.capacity":
     "La capacité d’artefacts de modification de ce projet est atteinte.",
+  "citationChange.error.receiptCapacity":
+    "La capacité de déclarations de cet artefact est atteinte ; supprimez une déclaration inutile pour en enregistrer une autre.",
   "citationChange.error.inspectionInvalid":
     "L’inspection n’est pas valide (instant, référence ou état).",
   "citationChange.error.notIndependent":
@@ -113,6 +115,10 @@ export const frCitationChange: Readonly<Record<string, string>> = {
     "L’identité de l’exécutant ou de l’approbateur n’est pas disponible ; l’inspection indépendante est refusée.",
   "citationChange.error.inspectionConflict":
     "Votre chaîne d’inspections a changé ; rechargez et enregistrez à nouveau.",
+  "citationChange.error.inspectionQuota":
+    "Trop d'inspections ont été enregistrées pour ce projet au cours de la dernière heure ; rien n'a été enregistré — attendez, puis enregistrez à nouveau.",
+  "citationChange.error.inspectionCapacity":
+    "L'historique d'inspection de cette amélioration ou de ce projet est plein ; l'observation n'a pas été enregistrée et les preuves existantes sont conservées.",
   "citationChange.error.generic":
     "L’action sur les preuves de modification n’a pas pu être effectuée.",
   "citationChange.artifact.fieldKey": "Champ",

@@ -756,6 +756,17 @@ BEGIN
   dg := encode(sha256(convert_to(jsonb_build_array(art.artifact_sha256,p_actor,to_char(p_performed_at AT TIME ZONE 'UTC','YYYY-MM-DD"T"HH24:MI:SS.US"Z"'))::text,'UTF8')),'hex');
   SELECT id INTO existing FROM public.ai_citation_change_receipts WHERE user_id=p_owner AND project_id=p_project AND digest=dg;
   IF existing IS NULL THEN
+    -- Capacity (finding 4126249230): read_ai_citation_change_artifacts aggregates EVERY undeleted receipt of an
+    -- artifact and the client state schema reads at most 1000 per artifact, so a NEW distinct declaration is
+    -- refused once this artifact already holds 1000 readable receipts — the same population the read
+    -- aggregates (artifact_deleted_at IS NULL), decided under the owner lock, AFTER the idempotent lookup above
+    -- (a frozen retry of an existing declaration still returns its receipt at capacity). Nothing is truncated or
+    -- auto-deleted: the owner's explicit receipt removal frees a slot. Other artifacts/projects/owners are
+    -- unaffected. A distinct terminal code (the artifact capacity keeps citation_change_capacity) so the owner
+    -- surface names the artifact's declarations and the removal that recovers a slot.
+    IF (SELECT count(*) FROM public.ai_citation_change_receipts WHERE user_id=p_owner AND project_id=p_project AND artifact_id=p_artifact AND artifact_deleted_at IS NULL)>=1000 THEN
+      RAISE EXCEPTION 'citation_change_receipt_capacity' USING ERRCODE='22023';
+    END IF;
     -- U: the digest (artifact digest + actor + declared instant) is unchanged, so a lost-response retry of a
     -- declaration still returns ITS receipt — stamped with the revision it was recorded under. After a later
     -- approval decision that receipt is no longer valid and a retry never manufactures a new one: the owner
@@ -898,6 +909,38 @@ BEGIN
   SELECT * INTO imp FROM public.ai_citation_improvements WHERE user_id=p_owner AND project_id=p_project AND id=p_row;
   IF imp.id IS NULL THEN RAISE EXCEPTION 'citation_improvement_unavailable' USING ERRCODE='22023'; END IF;
   IF imp.record_sha256 <> p_expected_sha THEN RAISE EXCEPTION 'citation_inspection_stale' USING ERRCODE='40001'; END IF;
+  -- R1/3: the request identity is the caller's FROZEN reviewed head (never the live head), so a lost-response
+  -- retry of a withdrawal — whose own write moved the head — replays its receipt instead of conflicting; a fresh
+  -- inspection after renewed authority names the current head and therefore gets a NEW digest/receipt. Pure in
+  -- the request, so it is computed once here and reused under the lock.
+  dg := encode(sha256(convert_to(jsonb_build_array(p_row,p_actor,p_check,
+    CASE WHEN p_observed_at IS NULL THEN NULL ELSE to_char(p_observed_at AT TIME ZONE 'UTC','YYYY-MM-DD"T"HH24:MI:SS.US"Z"') END,
+    coalesce(p_expected_version,0),p_expected_head)::text,'UTF8')),'hex');
+  -- WRITE ADMISSION POLICY (finding 4126284415), optimistic lock-free copy — re-run authoritatively under the
+  -- lock below. An authorized, assigned inspector may otherwise append a new chain head on every distinct
+  -- request. Finite limits, all measured by the SERVER clock (created_at; caller timestamps never drive them):
+  --   quota   — at most 60 new heads per inspector per owner/project per rolling hour, and 300 per owner/project
+  --             per rolling hour across all inspectors (citation_inspection_quota: wait, then record again);
+  --   capacity — retained history per improvement ROW (all inspectors) at most 1000 heads and per owner/project
+  --             at most 10 000; a NEW observation is admitted only below 900 / 9 000, the last 10 % is reserved
+  --             for WITHDRAWALS so an inspector can always retire their own head truthfully and dissent can
+  --             still be resolved (citation_inspection_capacity: permanent for that row/project; existing
+  --             evidence is kept, nothing is deleted, truncated or replaced).
+  -- Every count is an index-prefix scan bounded by the project capacity. A lost-response retry of an EXISTING
+  -- declaration (its digest already recorded) is never counted against a limit and never refused here or below:
+  -- the locked section returns its original receipt. Owners, projects, rows and inspectors are isolated by the
+  -- keys of each count. Rows bound to the owner read (citationImprovementDetailSchema.inspections ≤ 10 000) and
+  -- the inspector read (myInspections ≤ 10 000) stay parseable by construction.
+  IF NOT EXISTS(SELECT 1 FROM public.ai_citation_improvement_inspections WHERE user_id=p_owner AND project_id=p_project AND digest=dg) THEN
+    IF (SELECT count(*) FROM public.ai_citation_improvement_inspections WHERE user_id=p_owner AND project_id=p_project AND inspector_id=p_actor AND created_at>=clock_timestamp()-interval '1 hour')>=60
+       OR (SELECT count(*) FROM public.ai_citation_improvement_inspections WHERE user_id=p_owner AND project_id=p_project AND created_at>=clock_timestamp()-interval '1 hour')>=300 THEN
+      RAISE EXCEPTION 'citation_inspection_quota' USING ERRCODE='22023';
+    END IF;
+    IF (SELECT count(*) FROM public.ai_citation_improvement_inspections WHERE user_id=p_owner AND project_id=p_project AND improvement_row_id=p_row)>=(CASE WHEN p_check='withdrawn' THEN 1000 ELSE 900 END)
+       OR (SELECT count(*) FROM public.ai_citation_improvement_inspections WHERE user_id=p_owner AND project_id=p_project)>=(CASE WHEN p_check='withdrawn' THEN 10000 ELSE 9000 END) THEN
+      RAISE EXCEPTION 'citation_inspection_capacity' USING ERRCODE='22023';
+    END IF;
+  END IF;
   -- Serialize under the OWNER workspace + account locks; every admission above is repeated authoritatively.
   PERFORM public.assert_knowledge_project(p_owner,p_project,true);
   PERFORM public.citation_lock_account(p_owner);
@@ -926,17 +969,24 @@ BEGIN
     WHERE user_id=p_owner AND project_id=p_project AND improvement_row_id=p_row AND inspector_id=p_actor ORDER BY version DESC LIMIT 1;
   IF current_head IS NULL THEN current_version := 0; END IF;
   IF p_check='withdrawn' AND current_version=0 THEN RAISE EXCEPTION 'citation_inspection_invalid' USING ERRCODE='22023'; END IF;
-  -- R1/3: the request identity is the caller's FROZEN reviewed head (never the live head), so a lost-response
-  -- retry of a withdrawal — whose own write moved the head — replays its receipt instead of conflicting; a fresh
-  -- inspection after renewed authority names the current head and therefore gets a NEW digest/receipt.
-  dg := encode(sha256(convert_to(jsonb_build_array(p_row,p_actor,p_check,
-    CASE WHEN p_observed_at IS NULL THEN NULL ELSE to_char(p_observed_at AT TIME ZONE 'UTC','YYYY-MM-DD"T"HH24:MI:SS.US"Z"') END,
-    coalesce(p_expected_version,0),p_expected_head)::text,'UTF8')),'hex');
   SELECT id INTO existing FROM public.ai_citation_improvement_inspections WHERE user_id=p_owner AND project_id=p_project AND digest=dg;
   IF existing IS NOT NULL THEN
     RETURN (SELECT jsonb_build_object('id',id,'improvementRowId',improvement_row_id,'inspectorId',inspector_id,'version',version,'supersedesId',supersedes_id,
         'checkResult',check_result,'observedAt',CASE WHEN observed_at IS NULL THEN NULL ELSE to_char(observed_at AT TIME ZONE 'UTC','YYYY-MM-DD"T"HH24:MI:SS.US"Z"') END,'createdAt',created_at)
       FROM public.ai_citation_improvement_inspections WHERE user_id=p_owner AND project_id=p_project AND id=existing);
+  END IF;
+  -- AUTHORITATIVE write-admission re-check under the lock (same quota/capacity policy as the optimistic copy
+  -- above): heads committed by other sessions after the optimistic reads are counted here, so concurrent
+  -- admission can never overshoot a limit; an existing declaration already returned above is never counted.
+  IF true THEN
+    IF (SELECT count(*) FROM public.ai_citation_improvement_inspections WHERE user_id=p_owner AND project_id=p_project AND inspector_id=p_actor AND created_at>=clock_timestamp()-interval '1 hour')>=60
+       OR (SELECT count(*) FROM public.ai_citation_improvement_inspections WHERE user_id=p_owner AND project_id=p_project AND created_at>=clock_timestamp()-interval '1 hour')>=300 THEN
+      RAISE EXCEPTION 'citation_inspection_quota' USING ERRCODE='22023';
+    END IF;
+    IF (SELECT count(*) FROM public.ai_citation_improvement_inspections WHERE user_id=p_owner AND project_id=p_project AND improvement_row_id=p_row)>=(CASE WHEN p_check='withdrawn' THEN 1000 ELSE 900 END)
+       OR (SELECT count(*) FROM public.ai_citation_improvement_inspections WHERE user_id=p_owner AND project_id=p_project)>=(CASE WHEN p_check='withdrawn' THEN 10000 ELSE 9000 END) THEN
+      RAISE EXCEPTION 'citation_inspection_capacity' USING ERRCODE='22023';
+    END IF;
   END IF;
   IF coalesce(p_expected_version,0) <> current_version OR p_expected_head IS DISTINCT FROM current_head THEN
     RAISE EXCEPTION 'citation_inspection_version_conflict' USING ERRCODE='40001';

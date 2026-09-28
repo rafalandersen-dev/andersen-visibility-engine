@@ -102,6 +102,8 @@ export const roCitationChange: Readonly<Record<string, string>> = {
     "Momentul declarat este înainte de aprobare sau în viitor.",
   "citationChange.error.capacity":
     "S-a atins capacitatea de artefacte de modificare pentru acest proiect.",
+  "citationChange.error.receiptCapacity":
+    "Capacitatea de declarații pentru acest artefact a fost atinsă; eliminați o declarație de care nu mai aveți nevoie pentru a înregistra alta.",
   "citationChange.error.inspectionInvalid":
     "Inspecția nu este validă (moment, referință sau stare).",
   "citationChange.error.notIndependent":
@@ -110,6 +112,10 @@ export const roCitationChange: Readonly<Record<string, string>> = {
     "Identitatea executantului sau a aprobatorului nu este disponibilă; inspecția independentă este refuzată.",
   "citationChange.error.inspectionConflict":
     "Lanțul dumneavoastră de inspecții s-a schimbat; reîncărcați și înregistrați din nou.",
+  "citationChange.error.inspectionQuota":
+    "Au fost înregistrate prea multe inspecții pentru acest proiect în ultima oră; nimic nu a fost înregistrat — așteptați, apoi înregistrați din nou.",
+  "citationChange.error.inspectionCapacity":
+    "Istoricul inspecțiilor pentru această îmbunătățire sau proiect este plin; observația nu a fost înregistrată, iar dovezile existente sunt păstrate.",
   "citationChange.error.generic": "Acțiunea asupra dovezilor modificării nu a putut fi finalizată.",
   "citationChange.artifact.fieldKey": "Câmp",
   "citationChange.artifact.addField": "Adăugați câmp",

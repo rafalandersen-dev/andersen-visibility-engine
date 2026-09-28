@@ -300,12 +300,15 @@ export const CHANGE_ERROR_KEYS: Readonly<Record<string, string>> = {
   citation_change_unapproved: "citationChange.error.unapproved",
   citation_change_receipt_invalid: "citationChange.error.receiptInvalid",
   citation_change_capacity: "citationChange.error.capacity",
+  citation_change_receipt_capacity: "citationChange.error.receiptCapacity",
   citation_inspection_invalid: "citationChange.error.inspectionInvalid",
   citation_inspection_forbidden: "citationChange.error.forbidden",
   citation_inspection_stale: "citationChange.error.stale",
   citation_inspection_not_independent: "citationChange.error.notIndependent",
   citation_inspection_identity_unavailable: "citationChange.error.identityUnavailable",
   citation_inspection_version_conflict: "citationChange.error.inspectionConflict",
+  citation_inspection_quota: "citationChange.error.inspectionQuota",
+  citation_inspection_capacity: "citationChange.error.inspectionCapacity",
   citation_improvement_unavailable: "citationChange.error.unavailable",
 };
 export function changeErrorKey(code: string): string {

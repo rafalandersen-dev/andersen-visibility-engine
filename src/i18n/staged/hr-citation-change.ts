@@ -100,6 +100,8 @@ export const hrCitationChange: Readonly<Record<string, string>> = {
   "citationChange.error.unapproved": "Ova verzija trenutno nije odobrena.",
   "citationChange.error.receiptInvalid": "Izjavljeni trenutak je prije odobrenja ili u budućnosti.",
   "citationChange.error.capacity": "Dosegnut je kapacitet artefakata promjena za ovaj projekt.",
+  "citationChange.error.receiptCapacity":
+    "Dosegnut je kapacitet izjava za ovaj artefakt; uklonite nepotrebnu izjavu kako biste zabilježili novu.",
   "citationChange.error.inspectionInvalid":
     "Provjera nije valjana (trenutak, referenca ili stanje).",
   "citationChange.error.notIndependent":
@@ -108,6 +110,10 @@ export const hrCitationChange: Readonly<Record<string, string>> = {
     "Identitet izvođača ili odobravatelja nije dostupan; neovisna provjera je odbijena.",
   "citationChange.error.inspectionConflict":
     "Vaš lanac provjera se promijenio; ponovno učitajte i ponovno zabilježite.",
+  "citationChange.error.inspectionQuota":
+    "U posljednjih sat vremena zabilježeno je previše inspekcija za ovaj projekt; ništa nije zabilježeno — pričekajte pa zabilježite ponovno.",
+  "citationChange.error.inspectionCapacity":
+    "Povijest inspekcija ovog poboljšanja ili projekta je puna; opažanje nije zabilježeno, a postojeći dokazi su sačuvani.",
   "citationChange.error.generic": "Radnju nad dokazima promjene nije bilo moguće dovršiti.",
   "citationChange.artifact.fieldKey": "Polje",
   "citationChange.artifact.addField": "Dodaj polje",

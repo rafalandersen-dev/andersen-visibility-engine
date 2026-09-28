@@ -102,6 +102,8 @@ export const ltCitationChange: Readonly<Record<string, string>> = {
   "citationChange.error.receiptInvalid":
     "Deklaruotas momentas yra prieš patvirtinimą arba ateityje.",
   "citationChange.error.capacity": "Pasiekta šio projekto pakeitimų artefaktų talpa.",
+  "citationChange.error.receiptCapacity":
+    "Pasiektas šio artefakto deklaracijų limitas; pašalinkite nereikalingą deklaraciją, kad įrašytumėte naują.",
   "citationChange.error.inspectionInvalid":
     "Patikrinimas negalioja (momentas, nuoroda arba būsena).",
   "citationChange.error.notIndependent":
@@ -110,6 +112,10 @@ export const ltCitationChange: Readonly<Record<string, string>> = {
     "Vykdytojo arba tvirtintojo tapatybė nepasiekiama; nepriklausomas patikrinimas atmestas.",
   "citationChange.error.inspectionConflict":
     "Jūsų patikrinimų grandinė pasikeitė; įkelkite iš naujo ir užfiksuokite dar kartą.",
+  "citationChange.error.inspectionQuota":
+    "Per pastarąją valandą šiam projektui įrašyta per daug patikrų; niekas neįrašyta — palaukite ir įrašykite dar kartą.",
+  "citationChange.error.inspectionCapacity":
+    "Šio patobulinimo ar projekto patikrų istorija pilna; stebėjimas neįrašytas, o esami įrodymai išsaugomi.",
   "citationChange.error.generic": "Pakeitimo įrodymų veiksmo nepavyko užbaigti.",
   "citationChange.artifact.fieldKey": "Laukas",
   "citationChange.artifact.addField": "Pridėti lauką",

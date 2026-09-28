@@ -101,6 +101,8 @@ export const lvCitationChange: Readonly<Record<string, string>> = {
   "citationChange.error.unapproved": "Šī versija pašlaik nav apstiprināta.",
   "citationChange.error.receiptInvalid": "Deklarētais brīdis ir pirms apstiprinājuma vai nākotnē.",
   "citationChange.error.capacity": "Sasniegta šī projekta izmaiņu artefaktu ietilpība.",
+  "citationChange.error.receiptCapacity":
+    "Šī artefakta deklarāciju ietilpība ir sasniegta; noņemiet nevajadzīgu deklarāciju, lai reģistrētu jaunu.",
   "citationChange.error.inspectionInvalid": "Pārbaude nav derīga (brīdis, atsauce vai stāvoklis).",
   "citationChange.error.notIndependent":
     "Jūs veicāt vai apstiprinājāt šīs izmaiņas, tāpēc nevarat tās pārbaudīt neatkarīgi.",
@@ -108,6 +110,10 @@ export const lvCitationChange: Readonly<Record<string, string>> = {
     "Izpildītāja vai apstiprinātāja identitāte nav pieejama; neatkarīgā pārbaude noraidīta.",
   "citationChange.error.inspectionConflict":
     "Jūsu pārbaužu ķēde mainījās; pārlādējiet un reģistrējiet vēlreiz.",
+  "citationChange.error.inspectionQuota":
+    "Pēdējās stundas laikā šim projektam reģistrēts pārāk daudz pārbaužu; nekas netika reģistrēts — uzgaidiet un reģistrējiet vēlreiz.",
+  "citationChange.error.inspectionCapacity":
+    "Šī uzlabojuma vai projekta pārbaužu vēsture ir pilna; novērojums netika reģistrēts, un esošie pierādījumi tiek saglabāti.",
   "citationChange.error.generic": "Darbību ar izmaiņu pierādījumiem nevarēja pabeigt.",
   "citationChange.artifact.fieldKey": "Lauks",
   "citationChange.artifact.addField": "Pievienot lauku",

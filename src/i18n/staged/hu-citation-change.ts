@@ -102,6 +102,8 @@ export const huCitationChange: Readonly<Record<string, string>> = {
   "citationChange.error.receiptInvalid":
     "A nyilatkozott időpont a jóváhagyás előtt vagy a jövőben van.",
   "citationChange.error.capacity": "Elérte a projekt módosítási artefaktumainak kapacitását.",
+  "citationChange.error.receiptCapacity":
+    "Ennek az artefaktumnak a nyilatkozataira vonatkozó kapacitás betelt; töröljön egy szükségtelen nyilatkozatot, hogy újat rögzíthessen.",
   "citationChange.error.inspectionInvalid":
     "Az ellenőrzés nem érvényes (időpont, hivatkozás vagy állapot).",
   "citationChange.error.notIndependent":
@@ -110,6 +112,10 @@ export const huCitationChange: Readonly<Record<string, string>> = {
     "A végrehajtó vagy a jóváhagyó személyazonossága nem érhető el; a független ellenőrzés elutasítva.",
   "citationChange.error.inspectionConflict":
     "Az ellenőrzési lánca megváltozott; töltse be újra, és rögzítse újra.",
+  "citationChange.error.inspectionQuota":
+    "Az elmúlt órában túl sok ellenőrzést rögzítettek ehhez a projekthez; semmi nem lett rögzítve — várjon, majd rögzítse újra.",
+  "citationChange.error.inspectionCapacity":
+    "Ennek a fejlesztésnek vagy projektnek az ellenőrzési előzményei megteltek; a megfigyelés nem lett rögzítve, a meglévő bizonyítékok megmaradnak.",
   "citationChange.error.generic":
     "A módosítási bizonyítékokkal kapcsolatos műveletet nem sikerült végrehajtani.",
   "citationChange.artifact.fieldKey": "Mező",

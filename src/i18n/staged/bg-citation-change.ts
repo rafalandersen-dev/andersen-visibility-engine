@@ -101,6 +101,8 @@ export const bgCitationChange: Readonly<Record<string, string>> = {
   "citationChange.error.receiptInvalid": "Декларираният момент е преди одобрението или в бъдещето.",
   "citationChange.error.capacity":
     "Достигнат е капацитетът за артефакти на промени за този проект.",
+  "citationChange.error.receiptCapacity":
+    "Достигнат е капацитетът за декларации за този артефакт; премахнете ненужна декларация, за да запишете нова.",
   "citationChange.error.inspectionInvalid":
     "Проверката не е валидна (момент, референция или състояние).",
   "citationChange.error.notIndependent":
@@ -109,6 +111,10 @@ export const bgCitationChange: Readonly<Record<string, string>> = {
     "Самоличността на изпълнителя или одобряващия не е налична; независимата проверка е отказана.",
   "citationChange.error.inspectionConflict":
     "Веригата ви от проверки се е променила; презаредете и запишете отново.",
+  "citationChange.error.inspectionQuota":
+    "През последния час са записани твърде много инспекции за този проект; нищо не е записано — изчакайте и запишете отново.",
+  "citationChange.error.inspectionCapacity":
+    "Историята на инспекциите за това подобрение или проект е пълна; наблюдението не е записано, а съществуващите доказателства се запазват.",
   "citationChange.error.generic":
     "Действието с доказателствата за промяна не можа да бъде завършено.",
   "citationChange.artifact.fieldKey": "Поле",

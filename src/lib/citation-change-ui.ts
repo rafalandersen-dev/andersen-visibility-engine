@@ -82,6 +82,7 @@ export const TERMINAL_CHANGE_CODES: ReadonlySet<string> = new Set([
   "citation_change_unapproved",
   "citation_change_receipt_invalid",
   "citation_change_capacity",
+  "citation_change_receipt_capacity",
 ]);
 export const isTerminalChangeCode = (code: string) => TERMINAL_CHANGE_CODES.has(code);
 

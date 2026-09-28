@@ -395,3 +395,125 @@ Reviewed the three RPC deltas against ad1daad: actor eligibility and scoped targ
 Independent local checks: 6 SQL suites / 302 tests passed; TypeScript and diff whitespace checks passed. The regenerated release guard embeds source SHA256 `4b69028e42bb576e9c472ab2d6506510aea069ed5e4c42a3a0c307f79da77e6e` exactly twice. Independent in-memory PGlite rehearsal passed prerequisite-absent, mismatched journal, partial candidate, 39 preflight checks, application/journal identity, 61 postflight checks, no client-executable definer functions, and refused replay without loss of the journal.
 
 This establishes local ordering/guard behavior, not real multi-connection lock contention or production acceptance. No remote database was contacted or migrated. Migration O and this migration remain unapplied; PR156 release remains a prerequisite. New exact-head external code/security reviews remain required.
+
+## BE addendum (28 September 2026): receipt writes bounded to the readable per-artifact capacity
+
+Finding 4126249230 (code review 5343655677 on `74f01283`), reproduced by Codex with 1001 real local PGlite save
+RPCs: `read_ai_citation_change_artifacts` aggregates every undeleted receipt of an artifact while the client state
+schema reads at most 1000 per artifact, and `save_ai_citation_change_receipt` admitted unlimited distinct
+declarations — the 1001st made every artifact of the project unreadable. Fix (candidate `20260928120000`, now
+`1ec6df6076a7881d8d883b444281f4e865aaa377ceb47ec60b79a6a196ab6a1d`, 101 899 bytes, UNAPPLIED; only the receipt
+RPC body differs from `4b69028e…`): inside the locked section, AFTER the idempotent digest lookup and before the
+insert, a new distinct declaration is refused with the new terminal code `citation_change_receipt_capacity` once the
+artifact already holds 1000 readable receipts (the read's own population: `artifact_deleted_at IS NULL`, same
+owner/project/artifact). A frozen retry of an existing declaration still returns its receipt at capacity; nothing
+is truncated or auto-deleted; the owner's existing explicit receipt removal frees a slot; other artifacts, projects
+and owners are unaffected; the BB authorization-before-locks order, live approval/revoke/re-approval, the U
+approval-revision rule and idempotence are unchanged. The artifact capacity keeps `citation_change_capacity`.
+
+Owner surface (existing mechanism only): the new code is mapped in `CHANGE_ERROR_KEYS` to
+`citationChange.error.receiptCapacity` ("Declaration capacity reached for this artifact; remove a declaration you
+no longer need to record another.") and listed in `TERMINAL_CHANGE_CODES` so a frozen receipt request is dropped
+rather than retried; the copy was added to the four active languages and the 20 staged machine-authored locales
+(no activation, no fluency claim), the "citation change" fingerprint re-pinned `db673688… → 3710dc58…` in its 20
+registrations and the staged counts `4474 → 4475`. No new control: the existing per-receipt removal is the recovery.
+
+Regression (`citation-change-evidence-migration.test.ts`, +1 → 26; 60 s budget, ran in ~0.7 s): 1000 distinct real
+delegate writes read and parse through `changeArtifactsStateSchema`; the 1001st distinct declaration (delegate AND
+owner) is refused with no extra row and the state still parses; a frozen retry at capacity returns its original
+receipt; revoke → all receipts read `current:false`; re-approve → a new declaration is still refused (history never
+truncated) while the frozen retry replays; a second artifact and another owner's artifact accept declarations; the
+owner's removal frees one slot → a fresh declaration succeeds and the state parses at 1000 → the next distinct one
+is refused; at capacity a revoked member and a stranger are refused before the owner locks (missing-workspace
+tripwire) while an admitted declaration reaches the lock. Against the pushed `4b69028e…` source the test fails
+(the 1001st resolves); Codex's reproduction now fails at its 1001st write with the new code. Focused: 34 files /
+833 tests (all staged/active locale contracts, migration suite, change UI/functions) and the 10 chain suites / 350
+tests; tsc 0; eslint 0; prettier clean; `git diff --check` 0. Guard S regenerated from the new bytes
+(`citation-change-proof-guarded-apply-20260928.sql` `545e0a248dbaae3e1c246d42490419850390a4b521cc513ec038ce2b61600cfa`,
+journal identity `1ec6df60…`; postflight re-pinned; preflight unchanged) and rehearsed locally in PGlite (PASS,
+UNEXECUTED; the BB set kept under `superseded-be-20260928/`). O `20260927190000` untouched and UNAPPLIED.
+
+## BF addendum (28 September 2026): inspection writes admitted under finite quota and retained capacity
+
+Finding 4126284415 (security summary 5863169764 on `74f01283`): `save_ai_citation_improvement_inspection` let a
+currently authorized, assigned inspector append a new chain head on every distinct request (only the per-chain
+version bound of 10 000 applied), and the owner read (`read_ai_citation_improvement_inspections`, all inspectors of
+a row) and the inspector read (`myInspections`) aggregate complete retained chains, so nothing bounded the total
+per row. Separate from BE (receipts). Fix (candidate `20260928120000`, now
+`6663f295d644a1a1f99984d17f6eb00734e30d9ec241009c9591684b579de7fa`, 106 089 bytes, UNAPPLIED; only the inspection
+RPC differs from the BE bytes `1ec6df60…`): a documented WRITE ADMISSION POLICY measured by the server clock
+(`created_at`; caller instants never drive it) — quota: at most 60 new heads per inspector per owner/project per
+rolling hour and 300 per owner/project per rolling hour across inspectors (`citation_inspection_quota`, wait then
+record again); capacity: at most 1 000 retained heads per improvement row (all inspectors) and 10 000 per
+owner/project, a NEW observation admitted only below 900 / 9 000 with the last 10 % reserved for WITHDRAWALS so an
+inspector can normally still retire their own head truthfully and dissent can still be resolved — a FINITE reserve
+(at most 100 further heads per row and 1 000 per project), not a universal guarantee: the hourly quota and the hard
+bound can still refuse a withdrawal (BH correction of the earlier "always")
+(`citation_inspection_capacity`, permanent for that row/project; nothing deleted, truncated, replaced or
+resurrected). The request digest is computed once before the locks; a lost-response retry of an EXISTING
+declaration is never counted or refused (the locked section returns its receipt). Checks run lock-free after the
+BB authorization/assignment/target admission (an exhausted quota or capacity refuses before any owner lock) and
+again AUTHORITATIVELY under the locks after the existing-receipt lookup, so heads committed in between can never
+overshoot a limit. Counts are index-prefix scans keyed by owner/project(/inspector/row) and bounded by the project
+capacity; owners, projects, rows and inspectors are isolated by those keys. The chain version bound (10 000) and
+the owner/inspector read schemas (≤ 10 000 per row) are unchanged and stay parseable by construction (a row holds
+≤ 1 000 heads). Owner/inspector surface: both codes are mapped in `CHANGE_ERROR_KEYS` to new copy
+(`citationChange.error.inspectionQuota`: "Too many inspections were recorded for this project in the last hour;
+nothing was recorded — wait, then record again."; `citationChange.error.inspectionCapacity`: "The inspection
+history for this improvement or project is full; the observation was not recorded and existing evidence is
+kept.") in the four active languages and the 20 staged machine-authored locales; fingerprint re-pinned
+`3710dc58… → 576b6f20…` (20 registrations), staged counts `4475 → 4477`. Inspection requests are not frozen
+client-side (only approvals/receipts are), so no terminal-code change was needed.
+
+Regression (`citation-change-evidence-migration.test.ts`, +4 → 30, own rollback-proof sequence probes on the two
+lock functions plus an injection point at the account lock, restored byte-for-byte): (1) actor quota — 60 real
+heads, the 61st refused before the locks with no row, the frozen retry of the 60th replays under the locks with
+nothing spent, another assigned inspector still records, a revoked member is refused before the locks, ageing the
+heads past the hour (server clock) admits again; (2) project quota — 300 heads across five inspectors, a sixth
+inspector's first head refused before the locks, the other owner's project (its own accepted finding, artifact,
+receipt, improvement and assignment) records unaffected, ageing out resets; (3) under-lock re-check — with 59 heads,
+a 60th head injected at the account lock makes the admitted request refuse under the locks (probe shows both
+locks; the refused statement rolls back its own injected head, so the count stays 59 and never overshoots — a
+deterministic single-connection model, not multi-session load); (4) capacity — row 0 filled to 900 with real
+writes (rows 1–9 carry 900 schema-valid retained heads each, inserted directly, so the project reaches 9 000
+without 8 100 more round trips), a new observation on the full row refused before the locks for both inspectors,
+the frozen retry of the last real head replays, a withdrawal is admitted on the full row, an 11th empty row is
+refused at project capacity, the pre-capacity `does_not_show` head still disputes the row and is effective in the
+owner and inspector reads (901 rows parse through `citationImprovementDetailSchema` / `inspectionViewSchema`), its
+withdrawal is admitted at project capacity and clears the dispute (902 parse), and every pre-capacity head is
+still present. Must-fail: all four fail on the pushed `4b69028e…` source. BE (1 000 receipts), BB admission,
+R1–R5/T/U chronology, approval epoch and negative-evidence tests still pass (30/30, ~5 s). Chain + change UI
+suites: 12 files / 363 tests; locale contracts 33 files / 807 tests; tsc 0; eslint 0; prettier clean;
+`git diff --check` 0. Guard S regenerated from the new bytes against the BE base
+(`citation-change-proof-guarded-apply-20260928.sql`
+`431ba5349b8a8f7f0111947b33594309f48075778038fecab6ee1fe2db61b543`, journal identity `6663f295…`; postflight
+re-pinned; preflight unchanged) and rehearsed locally in PGlite (PASS, UNEXECUTED; the BE set kept under
+`superseded-bf-20260928/`). O `20260927190000` untouched and UNAPPLIED.
+
+## BH addendum (28 September 2026): deterministic receipt chronology in the capacity regression; finite reserve
+
+Codex's independent run (29 suites, 1 070 passed, 1 failed) exposed a fixture defect, not a product defect: the BE
+1 000-receipt regression derived every declared instant from the test's wall clock (`Date.now() + 1000 + i ms`),
+so after a revoke → re-approve the "frozen retry" of an old declaration could fall BEFORE the renewed approval
+instant whenever the run took long enough, and `save_ai_citation_change_receipt` correctly refused it
+(`citation_change_receipt_invalid`: chronology admission precedes the digest lookup). Fast runs merely hid it.
+Correction (test only; `src/lib/citation-change-evidence-migration.test.ts`; no SQL, guard or app change): every
+instant is now derived from the approval instant it must follow, read back from `ai_citation_change_approvals.updated_at`
+(millisecond precision, "approval + N ms"), never from the wall clock; the 1 000 declarations are 1.000–1.998 s
+after the first approval plus ONE deliberately skewed declaration 2 minutes after it (a permitted clock-skew
+instant); after the re-approval the renewed approval instant is PINNED by an explicit fixture timestamp to exactly
+first approval + 30 s (documented: the real re-approval would land an unpredictable few seconds later, which was
+the flakiness), so the fixture proves three distinct outcomes deterministically — the old declaration (before the
+renewed approval) is refused by chronology with no row; the skewed declaration still passes chronology and returns
+only its OLD stamped receipt (same id, approval revision 1) which reads `current:false` and never becomes current
+or mints a receipt; a genuinely new declaration at a fresh eligible instant is still refused at capacity. The
+second artifact, the other owner's artifact and the recovery after the owner's removal each declare after their
+OWN approval instant; the recovered declaration reads `current:true`. All 1 000/1 001 bounds, schema parsing,
+owner/delegate/isolation and revoked-actor/tripwire assertions are unchanged. Three consecutive runs: 30/30.
+
+Finite withdrawal reserve, stated precisely: the BF policy admits a withdrawal while the row holds fewer than
+1 000 heads and the project fewer than 10 000 AND the hourly quotas (60 per inspector, 300 per project) are not
+exhausted. The migration's inline comment still says an inspector "can always retire their own head"; that
+wording is imprecise (the reserve is finite and quota-bound) and is corrected HERE rather than in the SQL, because
+editing the comment would change the candidate bytes (`6663f295…`) and invalidate the regenerated, rehearsed guard
+(`431ba534…`) for wording alone. Source and guard are unchanged by BH.

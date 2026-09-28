@@ -103,6 +103,8 @@ export const nlCitationChange: Readonly<Record<string, string>> = {
     "Het verklaarde moment ligt vóór de goedkeuring of in de toekomst.",
   "citationChange.error.capacity":
     "De capaciteit voor wijzigingsartefacten van dit project is bereikt.",
+  "citationChange.error.receiptCapacity":
+    "De capaciteit voor verklaringen van dit artefact is bereikt; verwijder een verklaring die u niet meer nodig hebt om een nieuwe vast te leggen.",
   "citationChange.error.inspectionInvalid":
     "De inspectie is niet geldig (moment, referentie of toestand).",
   "citationChange.error.notIndependent":
@@ -111,6 +113,10 @@ export const nlCitationChange: Readonly<Record<string, string>> = {
     "De identiteit van de uitvoerder of goedkeurder is niet beschikbaar; de onafhankelijke inspectie wordt geweigerd.",
   "citationChange.error.inspectionConflict":
     "Uw inspectieketen is gewijzigd; herlaad en leg opnieuw vast.",
+  "citationChange.error.inspectionQuota":
+    "Er zijn het afgelopen uur te veel inspecties vastgelegd voor dit project; er is niets vastgelegd — wacht en leg opnieuw vast.",
+  "citationChange.error.inspectionCapacity":
+    "De inspectiegeschiedenis van deze verbetering of dit project is vol; de observatie is niet vastgelegd en bestaand bewijs blijft bewaard.",
   "citationChange.error.generic": "De actie op het wijzigingsbewijs kon niet worden voltooid.",
   "citationChange.artifact.fieldKey": "Veld",
   "citationChange.artifact.addField": "Veld toevoegen",

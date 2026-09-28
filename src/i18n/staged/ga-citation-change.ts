@@ -101,6 +101,8 @@ export const gaCitationChange: Readonly<Record<string, string>> = {
   "citationChange.error.receiptInvalid":
     "Tá an nóiméad dearbhaithe roimh an gceadú nó san am atá le teacht.",
   "citationChange.error.capacity": "Baineadh acmhainn déantán athraithe an tionscadail seo amach.",
+  "citationChange.error.receiptCapacity":
+    "Tá cumas dearbhuithe na déantúsáin seo sroichte; bain dearbhú nach bhfuil uait a thuilleadh chun ceann eile a thaifeadadh.",
   "citationChange.error.inspectionInvalid": "Níl an t-iniúchadh bailí (nóiméad, tagairt nó staid).",
   "citationChange.error.notIndependent":
     "Rinne tú nó cheadaigh tú an t-athrú seo, mar sin ní féidir leat é a iniúchadh go neamhspleách.",
@@ -108,6 +110,10 @@ export const gaCitationChange: Readonly<Record<string, string>> = {
     "Níl céannacht an fheidhmitheora ná an cheadaitheora ar fáil; diúltaítear don iniúchadh neamhspleách.",
   "citationChange.error.inspectionConflict":
     "D’athraigh do shlabhra iniúchta; athlódáil agus taifead arís.",
+  "citationChange.error.inspectionQuota":
+    "Taifeadadh an iomarca iniúchtaí don tionscadal seo le huair an chloig anuas; níor taifeadadh aon rud — fan, ansin taifead arís.",
+  "citationChange.error.inspectionCapacity":
+    "Tá stair iniúchta an fheabhsúcháin nó an tionscadail seo lán; níor taifeadadh an bhreathnóireacht agus coinnítear an fhianaise atá ann.",
   "citationChange.error.generic":
     "Níorbh fhéidir an gníomh ar fhianaise an athraithe a chur i gcrích.",
   "citationChange.artifact.fieldKey": "Réimse",

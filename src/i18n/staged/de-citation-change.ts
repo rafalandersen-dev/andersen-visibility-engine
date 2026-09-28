@@ -106,6 +106,8 @@ export const deCitationChange: Readonly<Record<string, string>> = {
     "Der erklärte Zeitpunkt liegt vor der Genehmigung oder in der Zukunft.",
   "citationChange.error.capacity":
     "Die Kapazität für Änderungsartefakte dieses Projekts ist erreicht.",
+  "citationChange.error.receiptCapacity":
+    "Die Kapazität für Erklärungen dieses Artefakts ist erreicht; entfernen Sie eine nicht mehr benötigte Erklärung, um eine weitere zu erfassen.",
   "citationChange.error.inspectionInvalid":
     "Die Prüfung ist nicht gültig (Zeitpunkt, Referenz oder Zustand).",
   "citationChange.error.notIndependent":
@@ -114,6 +116,10 @@ export const deCitationChange: Readonly<Record<string, string>> = {
     "Die Identität des Ausführenden oder Genehmigers ist nicht verfügbar; die unabhängige Prüfung wird abgelehnt.",
   "citationChange.error.inspectionConflict":
     "Ihre Prüfungskette hat sich geändert; laden Sie neu und erfassen Sie erneut.",
+  "citationChange.error.inspectionQuota":
+    "In der letzten Stunde wurden für dieses Projekt zu viele Prüfungen erfasst; nichts wurde erfasst — warten Sie und erfassen Sie erneut.",
+  "citationChange.error.inspectionCapacity":
+    "Der Prüfungsverlauf dieser Verbesserung oder dieses Projekts ist voll; die Beobachtung wurde nicht erfasst, vorhandene Nachweise bleiben erhalten.",
   "citationChange.error.generic":
     "Die Aktion zu den Änderungsnachweisen konnte nicht abgeschlossen werden.",
   "citationChange.artifact.fieldKey": "Feld",

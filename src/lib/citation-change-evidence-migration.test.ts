@@ -15,6 +15,8 @@ import { saveCitationFinding } from "./citation-record.server";
 import { importAnswerEvidence, saveEvidencePrompt } from "./answer-evidence.server";
 import { lockedPanelInsert } from "./citation-panel-fixture";
 import type { KnowledgeRpc } from "./project-knowledge.server";
+import { changeArtifactsStateSchema, inspectionViewSchema } from "./citation-change";
+import { citationImprovementDetailSchema } from "./citation-record";
 
 let db: PGlite;
 const user = "00000000-0000-4000-8000-000000000001";
@@ -2525,6 +2527,747 @@ describe("BB (PR157 finding 4125916509): actor and target admission precede the 
     ).toBe("ok");
     expect(await probe()).toEqual(BOTH);
   });
+});
+
+describe("BE (finding 4126249230): receipt writes are bounded to the readable per-artifact capacity", () => {
+  const readState = () =>
+    call("read_ai_citation_change_artifacts", { p_user: user, p_project: "p" });
+  const receiptsOf = async (artifactId: string, owner = user) =>
+    (
+      await db.query<{ n: number }>(
+        "SELECT count(*)::int n FROM ai_citation_change_receipts WHERE user_id=$1 AND artifact_id=$2 AND artifact_deleted_at IS NULL",
+        [owner, artifactId],
+      )
+    ).rows[0].n;
+  /** The approval instant the receipt chronology is measured against (approvals.updated_at, server clock). */
+  const approvalAt = async (artifactId: string, owner = user) =>
+    new Date(
+      (
+        await db.query<{ t: string }>(
+          "SELECT to_char(updated_at AT TIME ZONE 'UTC','YYYY-MM-DD\"T\"HH24:MI:SS.MS\"Z\"') t FROM ai_citation_change_approvals WHERE user_id=$1 AND artifact_id=$2",
+          [owner, artifactId],
+        )
+      ).rows[0].t,
+    );
+  /** A declared instant `ms` after a given approval instant (millisecond precision, always after it). */
+  const after = (base: Date, ms: number) => new Date(base.getTime() + ms).toISOString();
+  it("1000 distinct declarations read and parse; the 1001st is refused without a row; a frozen retry, revoke/re-approve chronology, the owner's removal, a second artifact and another owner behave as designed", async () => {
+    // DETERMINISTIC CHRONOLOGY (BH): every declared instant is derived from the approval instant it must follow
+    // (read back from the database), never from the test's wall clock, so the admission rule
+    // `performed_at >= approvals.updated_at` holds by construction however long the run takes. Instants stay far
+    // below the +5-minute upper bound (at most approval + 2 minutes; the whole test runs in seconds).
+    await seedTeam();
+    const a = await artifact();
+    const sha = String(a.artifactSha256);
+    await approve(user, String(a.id), sha);
+    const appr1 = await approvalAt(String(a.id));
+    // 999 distinct instants 1.000–1.998 s after the approval, plus ONE deliberately skewed declaration (index 999)
+    // 2 minutes after it — a permitted clock-skew instant that will still satisfy chronology after a later
+    // re-approval and therefore replays its OLD stamped receipt (the U rule: stamped revision, never current).
+    const instant = (i: number) => (i === 999 ? after(appr1, 120_000) : after(appr1, 1000 + i));
+    const ids: string[] = [];
+    for (let i = 0; i < 1000; i++)
+      ids.push(String((await receipt(delegate, String(a.id), instant(i))).id));
+    expect(new Set(ids).size).toBe(1000);
+    expect(await receiptsOf(String(a.id))).toBe(1000);
+    const state = await readState();
+    const target = (state.artifacts as Array<{ id: string; receipts: unknown[] }>).find(
+      (x) => x.id === a.id,
+    )!;
+    expect(target.receipts).toHaveLength(1000);
+    expect(changeArtifactsStateSchema.safeParse(state).success).toBe(true);
+    // The 1001st DISTINCT declaration — delegate or owner, fresh eligible instants — is refused at capacity with
+    // no extra row, and the state stays readable.
+    await expect(receipt(delegate, String(a.id), after(appr1, 3000))).rejects.toThrow(
+      "citation_change_receipt_capacity",
+    );
+    await expect(receipt(user, String(a.id), after(appr1, 3001))).rejects.toThrow(
+      "citation_change_receipt_capacity",
+    );
+    expect(await receiptsOf(String(a.id))).toBe(1000);
+    expect(changeArtifactsStateSchema.safeParse(await readState()).success).toBe(true);
+    // A frozen (lost-response) retry of an existing declaration at full capacity, under the UNCHANGED approval,
+    // returns ITS receipt unchanged.
+    expect(String((await receipt(delegate, String(a.id), instant(500))).id)).toBe(ids[500]);
+    expect(await receiptsOf(String(a.id))).toBe(1000);
+    // Live approval semantics are untouched: revoke → every receipt reads as not current.
+    await approve(user, String(a.id), sha, false);
+    const revoked = (
+      (await readState()).artifacts as Array<{ id: string; receipts: Array<{ current: boolean }> }>
+    ).find((x) => x.id === a.id)!;
+    expect(revoked.receipts).toHaveLength(1000);
+    expect(revoked.receipts.every((r) => r.current === false)).toBe(true);
+    // Re-approve, then PIN the renewed approval instant to exactly 30 s after the first one (an explicit fixture
+    // timestamp: the re-approval's real server instant would fall an unpredictable few seconds after appr1, which
+    // is what made the old wall-clock chronology flaky). Every ordinary instant (≤ appr1 + 2 s) is now BEFORE the
+    // renewed approval; only the skewed one (appr1 + 120 s) is after it.
+    await approve(user, String(a.id), sha, true);
+    await db.query(
+      "UPDATE ai_citation_change_approvals SET updated_at=$2::timestamptz WHERE user_id=$1 AND artifact_id=$3",
+      [user, after(appr1, 30_000), a.id],
+    );
+    const appr2 = await approvalAt(String(a.id));
+    expect(appr2.getTime()).toBe(appr1.getTime() + 30_000);
+    // (a) The old declaration's instant is before the renewed approval: its retry is refused by chronology
+    //     admission — before the digest lookup — with no row, exactly as a fresh out-of-window declaration.
+    await expect(receipt(delegate, String(a.id), instant(500))).rejects.toThrow(
+      "citation_change_receipt_invalid",
+    );
+    expect(await receiptsOf(String(a.id))).toBe(1000);
+    // (b) The permitted clock-skew declaration still passes chronology and returns only its OLD stamped receipt
+    //     (same id, the first approval revision), which reads as NOT current under the renewed approval; it never
+    //     becomes current and never mints a new receipt.
+    const skew = await receipt(delegate, String(a.id), instant(999));
+    expect(String(skew.id)).toBe(ids[999]);
+    expect(await receiptsOf(String(a.id))).toBe(1000);
+    const skewRow = (
+      await db.query<{ approval_revision: number }>(
+        "SELECT approval_revision::int FROM ai_citation_change_receipts WHERE id=$1",
+        [ids[999]],
+      )
+    ).rows[0];
+    expect(skewRow.approval_revision).toBe(1);
+    const renewed = (
+      (await readState()).artifacts as Array<{
+        id: string;
+        receipts: Array<{ id: string; current: boolean }>;
+      }>
+    ).find((x) => x.id === a.id)!;
+    expect(renewed.receipts.find((r) => r.id === ids[999])?.current).toBe(false);
+    expect(renewed.receipts.every((r) => r.current === false)).toBe(true);
+    // (c) A genuinely NEW declaration under the renewed approval (fresh eligible instant) is still refused at
+    //     capacity — history is never truncated.
+    await expect(receipt(delegate, String(a.id), after(appr2, 1000))).rejects.toThrow(
+      "citation_change_receipt_capacity",
+    );
+    // A second artifact of the same project and another owner's artifact are unaffected (each declared after
+    // its OWN approval instant).
+    const b = await artifact({ p_reference: "google-business-profile:acme-lund" });
+    await approve(user, String(b.id), String(b.artifactSha256));
+    expect(
+      (await receipt(delegate, String(b.id), after(await approvalAt(String(b.id)), 1000)))
+        .artifactId,
+    ).toBe(b.id);
+    const foreign = await call("save_ai_citation_change_artifact", {
+      p_user: other,
+      p_project: "p",
+      p_kind: "listing",
+      p_reference: "google-business-profile:other",
+      p_fields: LISTING_FIELDS,
+    });
+    await call("set_ai_citation_change_approval", {
+      p_actor: other,
+      p_owner: other,
+      p_project: "p",
+      p_artifact: foreign.id,
+      p_expected_sha: foreign.artifactSha256,
+      p_approved: true,
+      p_expected_revision: 0,
+      p_request: crypto.randomUUID(),
+    });
+    expect(
+      (
+        await call("save_ai_citation_change_receipt", {
+          p_actor: other,
+          p_owner: other,
+          p_project: "p",
+          p_artifact: foreign.id,
+          p_performed_at: after(await approvalAt(String(foreign.id), other), 1000),
+        })
+      ).artifactId,
+    ).toBe(foreign.id);
+    expect(await receiptsOf(String(a.id))).toBe(1000);
+    // The owner's existing explicit removal frees ONE slot: a fresh distinct declaration under the current
+    // (renewed) approval succeeds, the state parses again at 1000, and the next distinct one is refused again.
+    await call("remove_ai_citation_change_receipt", { p_user: user, p_project: "p", p_id: ids[0] });
+    expect(await receiptsOf(String(a.id))).toBe(999);
+    const fresh = await receipt(delegate, String(a.id), after(appr2, 2000));
+    expect(ids).not.toContain(String(fresh.id));
+    expect(await receiptsOf(String(a.id))).toBe(1000);
+    const recovered = (
+      (await readState()).artifacts as Array<{
+        id: string;
+        receipts: Array<{ id: string; current: boolean }>;
+      }>
+    ).find((x) => x.id === a.id)!;
+    expect(recovered.receipts.find((r) => r.id === fresh.id)?.current).toBe(true);
+    expect(changeArtifactsStateSchema.safeParse(await readState()).success).toBe(true);
+    await expect(receipt(delegate, String(a.id), after(appr2, 3000))).rejects.toThrow(
+      "citation_change_receipt_capacity",
+    );
+    // BB admission is intact at capacity: a revoked member is refused BEFORE the owner locks (missing-workspace
+    // tripwire: the lock would fail with citation_record_unavailable if it were reached), and so is a stranger.
+    await db.query(
+      "UPDATE project_team_members SET active=false,revision=revision+1 WHERE actor_id=$1",
+      [delegate],
+    );
+    await db.query("DELETE FROM workspace_meta WHERE user_id=$1", [user]);
+    await expect(receipt(delegate, String(a.id), after(appr2, 4000))).rejects.toThrow(
+      "citation_change_forbidden",
+    );
+    await expect(receipt(stranger, String(a.id), after(appr2, 4000))).rejects.toThrow(
+      "citation_change_forbidden",
+    );
+    // …while an ADMITTED distinct declaration at capacity reaches the lock (refused there by the tripwire, not
+    // silently accepted) — the capacity decision itself lives under the lock.
+    await expect(receipt(user, String(a.id), after(appr2, 5000))).rejects.toThrow(
+      "citation_record_unavailable",
+    );
+    expect(await receiptsOf(String(a.id))).toBe(1000);
+  }, 60000);
+});
+
+describe("BF (finding 4126284415): inspection writes are admitted under finite quota and retained capacity", () => {
+  // Rollback-proof lock probes (sequences survive a refused statement) and an injection point at the account
+  // lock, as in the BB block; PGlite is one connection, so the "concurrent" head is injected deterministically at
+  // the lock — this proves the authoritative re-check, not real multi-session load.
+  const saved: Array<{ name: string; def: string }> = [];
+  const counters = async () => {
+    const r = await db.query<{ a: string; c: string }>(
+      "SELECT (SELECT CASE WHEN is_called THEN last_value ELSE 0 END FROM public.bf_probe_workspace_lock) a, (SELECT CASE WHEN is_called THEN last_value ELSE 0 END FROM public.bf_probe_account_lock) c",
+    );
+    return { a: Number(r.rows[0].a), c: Number(r.rows[0].c) };
+  };
+  let base = { a: 0, c: 0 };
+  const probe = async () => {
+    const now = await counters();
+    const out: Record<string, number> = {};
+    if (now.a - base.a) out.assert_knowledge_project = now.a - base.a;
+    if (now.c - base.c) out.citation_lock_account = now.c - base.c;
+    return out;
+  };
+  const clearProbe = async () => {
+    await db.exec("DELETE FROM bf_lock_injection;");
+    base = await counters();
+  };
+  const NONE = {};
+  const BOTH = { assert_knowledge_project: 1, citation_lock_account: 1 };
+  const raw = async (name: string, args: Record<string, unknown>) => {
+    try {
+      await call(name, args);
+      return "ok";
+    } catch (e) {
+      return String((e as Error).message);
+    }
+  };
+  const extra = Array.from({ length: 5 }, (_, i) => `00000000-0000-4000-8000-0000000000b${i + 1}`);
+  const heads = new Map<string, { version: number; id: string | null }>();
+  const key = (actor: string, row: string) => `${actor}|${row}`;
+  /** One real inspection write against the actor's tracked chain head; tracks the new head on success. */
+  const record = async (
+    actor: string,
+    row: string,
+    sha: string,
+    check: string,
+    observedAt: string | null,
+  ) => {
+    const h = heads.get(key(actor, row)) ?? { version: 0, id: null };
+    const r = await call(
+      "save_ai_citation_improvement_inspection",
+      inspectArgs(actor, row, sha, check, observedAt, h),
+    );
+    heads.set(key(actor, row), { version: Number(r.version), id: String(r.id) });
+    return r;
+  };
+  const inspectArgs = (
+    actor: string,
+    row: string,
+    sha: string,
+    check: string,
+    observedAt: string | null,
+    h = heads.get(key(actor, row)) ?? { version: 0, id: null },
+  ) => ({
+    p_actor: actor,
+    p_owner: user,
+    p_project: "p",
+    p_row: row,
+    p_expected_sha: sha,
+    p_check: check,
+    p_observed_at: observedAt,
+    p_expected_version: h.version,
+    p_expected_head: h.id,
+  });
+  const count = async (where: string, params: unknown[]) =>
+    (
+      await db.query<{ n: number }>(
+        `SELECT count(*)::int n FROM ai_citation_improvement_inspections WHERE user_id=$1 AND project_id='p' AND ${where}`,
+        [user, ...params],
+      )
+    ).rows[0].n;
+  /** Moves every inspection of the owner's project out of the rolling hour (server-clock quota reset). */
+  const ageOut = () =>
+    db.query(
+      "UPDATE ai_citation_improvement_inspections SET created_at=created_at - interval '2 hours' WHERE user_id=$1 AND project_id='p' AND created_at > clock_timestamp() - interval '1 hour'",
+      [user],
+    );
+  /** Owner-approved and owner-performed artifact bound to N improvement rows; every inspector assigned. */
+  const rows = async (n: number, inspectors: string[]) => {
+    const a = await artifact();
+    await approve(user, String(a.id), String(a.artifactSha256));
+    const r = await receipt(user, String(a.id), await isoAt("+ interval '1 second'"));
+    const out: Array<{ id: string; sha: string }> = [];
+    for (let i = 0; i < n; i++) {
+      const v = await saveChange(
+        changeRecord(a as never, user, {
+          improvementId: `70000000-0000-4000-8000-0000000000${(10 + i).toString(16).padStart(2, "0")}`,
+        }),
+        {
+          artifactId: a.id,
+          artifactSha256: a.artifactSha256,
+          receiptId: r.id,
+          ownerInspection: null,
+        },
+      );
+      const id = String(v.id);
+      for (const insp of inspectors) await grant(id, insp);
+      out.push({ id, sha: await recordSha(id) });
+    }
+    return out;
+  };
+  beforeAll(async () => {
+    await db.query(
+      `INSERT INTO auth.users(id) VALUES ${extra.map((_, i) => `($${i + 1})`).join(",")} ON CONFLICT DO NOTHING`,
+      extra,
+    );
+    await db.exec(
+      "CREATE SEQUENCE public.bf_probe_workspace_lock; CREATE SEQUENCE public.bf_probe_account_lock; CREATE TABLE public.bf_lock_injection(sql text NOT NULL);",
+    );
+    for (const sig of [
+      "assert_knowledge_project(uuid,text,boolean)",
+      "citation_lock_account(uuid)",
+    ]) {
+      const def = (
+        await db.query<{ d: string }>(`SELECT pg_get_functiondef('public.${sig}'::regprocedure) d`)
+      ).rows[0].d;
+      saved.push({ name: sig, def });
+    }
+    const wrap = (def: string, prologue: string, declare = "") => {
+      const marker = "AS $function$\nBEGIN\n";
+      expect(def.split(marker)).toHaveLength(2);
+      return def.replace(marker, `AS $function$\n${declare}BEGIN\n${prologue}`);
+    };
+    await db.exec(
+      wrap(
+        saved[0].def,
+        "  IF p_lock THEN PERFORM nextval('public.bf_probe_workspace_lock'); END IF;\n",
+      ),
+    );
+    await db.exec(
+      wrap(
+        saved[1].def,
+        "  PERFORM nextval('public.bf_probe_account_lock');\n  FOR inj IN DELETE FROM public.bf_lock_injection RETURNING sql LOOP EXECUTE inj.sql; END LOOP;\n",
+        "DECLARE inj record;\n",
+      ),
+    );
+  });
+  afterAll(async () => {
+    for (const s of saved) await db.exec(s.def);
+    for (const s of saved)
+      expect(
+        (
+          await db.query<{ d: string }>(
+            `SELECT pg_get_functiondef('public.${s.name}'::regprocedure) d`,
+          )
+        ).rows[0].d,
+      ).toBe(s.def);
+    await db.exec(
+      "DROP SEQUENCE public.bf_probe_workspace_lock; DROP SEQUENCE public.bf_probe_account_lock; DROP TABLE public.bf_lock_injection;",
+    );
+  });
+  beforeEach(async () => {
+    heads.clear();
+    await clearProbe();
+  });
+
+  it("actor quota: 60 heads in an hour, the 61st refused BEFORE the locks; a frozen retry replays at quota; another inspector is unaffected; a revoked actor is refused; ageing out resets", async () => {
+    await seedTeam([
+      [delegate, "reviewer"],
+      [inspector2, "reviewer"],
+    ]);
+    const [{ id: row, sha }] = await rows(1, [delegate, inspector2]);
+    const at = await isoAt("+ interval '2 seconds'");
+    const ids: string[] = [];
+    for (let i = 0; i < 60; i++)
+      ids.push(
+        String(
+          (await record(delegate, row, sha, i % 2 ? "inconclusive" : "shows_approved_content", at))
+            .id,
+        ),
+      );
+    expect(await count("inspector_id=$2", [delegate])).toBe(60);
+    // 61st distinct head: refused lock-free, no row, no lock.
+    await clearProbe();
+    const next = inspectArgs(delegate, row, sha, "inconclusive", at);
+    expect(await raw("save_ai_citation_improvement_inspection", next)).toBe(
+      "citation_inspection_quota",
+    );
+    expect(await probe()).toEqual(NONE);
+    expect(await count("inspector_id=$2", [delegate])).toBe(60);
+    // Frozen retry of the 60th declaration (its recorded head as the request identity): the original receipt,
+    // decided under the locks, no new row, nothing spent.
+    await clearProbe();
+    const sixtieth = inspectArgs(delegate, row, sha, "inconclusive", at, {
+      version: 59,
+      id: ids[58],
+    });
+    expect(String((await call("save_ai_citation_improvement_inspection", sixtieth)).id)).toBe(
+      ids[59],
+    );
+    expect(await probe()).toEqual(BOTH);
+    expect(await count("inspector_id=$2", [delegate])).toBe(60);
+    // Actor isolation: another assigned inspector still records (project quota not reached).
+    await clearProbe();
+    expect((await record(inspector2, row, sha, "does_not_show", at)).version).toBe(1);
+    expect(await probe()).toEqual(BOTH);
+    // Revoked member at quota: refused as forbidden before the locks (authorization precedes admission).
+    await db.query(
+      "UPDATE project_team_members SET active=false,revision=revision+1 WHERE actor_id=$1",
+      [delegate],
+    );
+    await clearProbe();
+    expect(await raw("save_ai_citation_improvement_inspection", next)).toBe(
+      "citation_inspection_forbidden",
+    );
+    expect(await probe()).toEqual(NONE);
+    await db.query(
+      "UPDATE project_team_members SET active=true,revision=revision+1 WHERE actor_id=$1",
+      [delegate],
+    );
+    // Server-clock reset: once the earlier heads are older than an hour the same request is admitted.
+    await ageOut();
+    await clearProbe();
+    expect((await record(delegate, row, sha, "inconclusive", at)).version).toBe(61);
+    expect(await probe()).toEqual(BOTH);
+  });
+
+  it("project quota: 300 heads across five inspectors in an hour, a sixth inspector's first head refused before the locks; another owner's project unaffected; ageing out resets", async () => {
+    const five = extra;
+    await seedTeam([
+      [delegate, "reviewer"],
+      ...five.map((x) => [x, "reviewer"] as [string, string]),
+    ]);
+    const [{ id: row, sha }] = await rows(1, [delegate, ...five]);
+    const at = await isoAt("+ interval '2 seconds'");
+    for (const insp of five)
+      for (let i = 0; i < 60; i++)
+        await record(insp, row, sha, i % 2 ? "inconclusive" : "shows_approved_content", at);
+    expect(await count("true", [])).toBe(300);
+    await clearProbe();
+    expect(
+      await raw(
+        "save_ai_citation_improvement_inspection",
+        inspectArgs(delegate, row, sha, "inconclusive", at),
+      ),
+    ).toBe("citation_inspection_quota");
+    expect(await probe()).toEqual(NONE);
+    expect(await count("true", [])).toBe(300);
+    // Tenant isolation: the other owner's project counts nothing of this one (a member of other's project records
+    // against other's own accepted finding).
+    const scopeOther = { ownerId: other, projectId: "p" };
+    await saveEvidencePrompt(
+      scopeOther,
+      PROMPT,
+      0,
+      {
+        prompt: "Where can I book a massage in Lund?",
+        intent: "discovery",
+        source: "manual" as const,
+        market: "Sweden",
+        language: "sv-SE",
+        brand: "Other Massage",
+        websiteUrl: "https://other.example.com/",
+        competitorUrls: [] as string[],
+        active: true,
+      },
+      rpc,
+    );
+    const answerOther = await importAnswerEvidence(
+      scopeOther,
+      {
+        promptId: PROMPT,
+        promptRevision: 1,
+        surface: "ChatGPT web",
+        mode: "search" as const,
+        method: "manual consumer session",
+        modelVersion: null,
+        capturedAt: "2024-03-01T00:00:00Z",
+        status: "complete" as const,
+        rawAnswer: "Other Massage in Lund is a good option to book.",
+        citations: [] as string[],
+        citationsComplete: true,
+        failure: null,
+        reportedCostUsd: null,
+        sourceUrl: null,
+        supersedesId: null,
+      },
+      rpc,
+    );
+    const baselineOther = await importAnswerEvidence(
+      scopeOther,
+      {
+        promptId: PROMPT,
+        promptRevision: 1,
+        surface: "ChatGPT web",
+        mode: "search" as const,
+        method: "manual consumer session",
+        modelVersion: null,
+        capturedAt: "2024-04-01T00:00:00Z",
+        status: "complete" as const,
+        rawAnswer: "Other Massage in Lund is worth comparing.",
+        citations: [] as string[],
+        citationsComplete: true,
+        failure: null,
+        reportedCostUsd: null,
+        sourceUrl: null,
+        supersedesId: null,
+      },
+      rpc,
+    );
+    await saveCitationFinding(
+      scopeOther,
+      {
+        scope: panelScope,
+        finding: {
+          ...finding(),
+          evidence: [{ kind: "answer" as const, id: answerOther }],
+          review: { reviewer: other, reviewedAt: now },
+        },
+        expectedVersion: 0,
+        expectedHeadId: null,
+      },
+      rpc,
+    );
+    await db.query(
+      "INSERT INTO project_team_approval_policy(owner_id,project_id,mode,revision) VALUES($1::uuid,'p','separate_reviewers',4)",
+      [other],
+    );
+    await db.query(
+      "INSERT INTO project_team_members(owner_id,project_id,actor_id,role,revision,active,expires_at) VALUES($1::uuid,'p',$2::uuid,'reviewer',2,true,NULL)",
+      [other, delegate],
+    );
+    const fa = await call("save_ai_citation_change_artifact", {
+      p_user: other,
+      p_project: "p",
+      p_kind: "listing",
+      p_reference: "google-business-profile:other",
+      p_fields: LISTING_FIELDS,
+    });
+    await call("set_ai_citation_change_approval", {
+      p_actor: other,
+      p_owner: other,
+      p_project: "p",
+      p_artifact: fa.id,
+      p_expected_sha: fa.artifactSha256,
+      p_approved: true,
+      p_expected_revision: 0,
+      p_request: crypto.randomUUID(),
+    });
+    const fr = await call("save_ai_citation_change_receipt", {
+      p_actor: other,
+      p_owner: other,
+      p_project: "p",
+      p_artifact: fa.id,
+      p_performed_at: await isoAt("+ interval '1 second'"),
+    });
+    const fv = await call("save_ai_citation_improvement_v4", {
+      p_user: other,
+      p_project: "p",
+      p_record: changeRecord(fa as never, other, { baselineCaptureIds: [baselineOther] }),
+      p_scope: panelScope,
+      p_binding: null,
+      p_change_binding: {
+        artifactId: fa.id,
+        artifactSha256: fa.artifactSha256,
+        receiptId: fr.id,
+        ownerInspection: null,
+      },
+      p_expected_version: 0,
+      p_expected_head: null,
+      p_expected_findings: null,
+    });
+    await call("grant_ai_citation_inspection_assignment", {
+      p_owner: other,
+      p_project: "p",
+      p_row: fv.id,
+      p_inspector: delegate,
+    });
+    const fsha = (
+      await db.query<{ s: string }>(
+        "SELECT record_sha256 s FROM ai_citation_improvements WHERE id=$1",
+        [fv.id],
+      )
+    ).rows[0].s;
+    expect(
+      (
+        await call("save_ai_citation_improvement_inspection", {
+          ...inspectArgs(delegate, String(fv.id), fsha, "inconclusive", at, {
+            version: 0,
+            id: null,
+          }),
+          p_owner: other,
+        })
+      ).version,
+    ).toBe(1);
+    await ageOut();
+    await clearProbe();
+    expect((await record(delegate, row, sha, "inconclusive", at)).version).toBe(1);
+    expect(await probe()).toEqual(BOTH);
+  });
+
+  it("under-lock re-check: a head committed between the optimistic admission and the lock (injected at the account lock) makes the admitted request refuse at quota with no overshoot", async () => {
+    await seedTeam([[delegate, "reviewer"]]);
+    const [{ id: row, sha }] = await rows(1, [delegate]);
+    const at = await isoAt("+ interval '2 seconds'");
+    for (let i = 0; i < 59; i++)
+      await record(delegate, row, sha, i % 2 ? "inconclusive" : "shows_approved_content", at);
+    const h = heads.get(key(delegate, row))!;
+    // The "other session's" 60th head, inserted at the lock with a fresh digest and the next version.
+    await clearProbe();
+    await db.query("INSERT INTO bf_lock_injection(sql) VALUES($1)", [
+      `INSERT INTO public.ai_citation_improvement_inspections(user_id,project_id,improvement_row_id,improvement_sha256,inspector_id,inspector_role,policy_mode,policy_revision,membership_revision,assignment_revision,version,supersedes_id,expected_version,expected_head,check_result,observed_at,observed_reference,digest) VALUES('${user}','p','${row}','${sha}','${delegate}','reviewer','separate_reviewers',4,2,1,60,'${h.id}',59,'${h.id}','inconclusive',clock_timestamp(),'x',encode(sha256(convert_to('${crypto.randomUUID()}','UTF8')),'hex'))`,
+    ]);
+    expect(
+      await raw(
+        "save_ai_citation_improvement_inspection",
+        inspectArgs(delegate, row, sha, "shows_approved_content", at),
+      ),
+    ).toBe("citation_inspection_quota");
+    expect(await probe()).toEqual(BOTH);
+    // The refused statement rolls back — including the head injected inside it (a real other session's head
+    // would be its own committed transaction) — so 59 remain and the 60th slot was never overshot to 61.
+    expect(await count("inspector_id=$2", [delegate])).toBe(59);
+    await db.exec("DELETE FROM bf_lock_injection"); // the rolled-back DELETE left the injection row; clear it
+  });
+
+  it("row and project capacity: observations stop at 900 per row and 9000 per project while withdrawals keep the reserved 10 %; dissent, heads and the owner/inspector reads stay intact and parseable", async () => {
+    await seedTeam([
+      [delegate, "reviewer"],
+      [inspector2, "reviewer"],
+    ]);
+    const ten = await rows(10, [delegate, inspector2]);
+    const at = await isoAt("+ interval '2 seconds'");
+    // Active dissent on the first row, recorded before capacity.
+    const dissent = await record(inspector2, ten[0].id, ten[0].sha, "does_not_show", at);
+    // Row 0 is filled with REAL writes by the delegate to exactly 900 heads (every 60 writes the hour is aged
+    // out so only capacity gates); rows 1..9 carry schema-valid retained history inserted directly (900 delegate
+    // heads each, older than an hour) so the project reaches 9000 without 8100 more RPC round trips.
+    for (let i = 1, n = 0; i < 900; i++) {
+      if (n++ % 60 === 0) await ageOut();
+      await record(
+        delegate,
+        ten[0].id,
+        ten[0].sha,
+        i % 2 ? "inconclusive" : "shows_approved_content",
+        at,
+      );
+    }
+    expect(await count("improvement_row_id=$2", [ten[0].id])).toBe(900);
+    for (const { id, sha } of ten.slice(1))
+      await db.query(
+        `INSERT INTO ai_citation_improvement_inspections(user_id,project_id,improvement_row_id,improvement_sha256,inspector_id,inspector_role,policy_mode,policy_revision,membership_revision,assignment_revision,version,expected_version,expected_head,check_result,observed_at,observed_reference,digest,created_at)
+         SELECT $1::uuid,'p',$2::uuid,$3::text,$4::uuid,'reviewer','separate_reviewers',4,2,1,v,v-1,NULL,CASE WHEN v%2=0 THEN 'inconclusive' ELSE 'shows_approved_content' END,$5::timestamptz,'x',encode(sha256(convert_to($2::text||':'||v,'UTF8')),'hex'),clock_timestamp()-interval '2 hours' FROM generate_series(1,900) v`,
+        [user, id, sha, delegate, at],
+      );
+    expect(await count("true", [])).toBe(9000);
+    await ageOut();
+    // Row capacity: a new observation on the full row 0 (delegate AND inspector2) is refused before the locks;
+    // the frozen retry of the delegate's last real head still replays under the locks.
+    await clearProbe();
+    expect(
+      await raw(
+        "save_ai_citation_improvement_inspection",
+        inspectArgs(delegate, ten[0].id, ten[0].sha, "inconclusive", at),
+      ),
+    ).toBe("citation_inspection_capacity");
+    expect(
+      await raw(
+        "save_ai_citation_improvement_inspection",
+        inspectArgs(inspector2, ten[0].id, ten[0].sha, "inconclusive", at),
+      ),
+    ).toBe("citation_inspection_capacity");
+    expect(await probe()).toEqual(NONE);
+    const last = heads.get(key(delegate, ten[0].id))!;
+    const prev = (
+      await db.query<{ id: string }>(
+        "SELECT supersedes_id id FROM ai_citation_improvement_inspections WHERE id=$1",
+        [last.id],
+      )
+    ).rows[0].id;
+    await clearProbe();
+    expect(
+      String(
+        (
+          await call(
+            "save_ai_citation_improvement_inspection",
+            inspectArgs(
+              delegate,
+              ten[0].id,
+              ten[0].sha,
+              last.version % 2 ? "inconclusive" : "shows_approved_content",
+              at,
+              { version: last.version - 1, id: prev },
+            ),
+          )
+        ).id,
+      ),
+    ).toBe(last.id);
+    expect(await probe()).toEqual(BOTH);
+    expect(await count("improvement_row_id=$2", [ten[0].id])).toBe(900);
+    // Withdrawal reserve: the delegate can still retire their head on the full row (and full project).
+    await clearProbe();
+    expect((await record(delegate, ten[0].id, ten[0].sha, "withdrawn", null)).checkResult).toBe(
+      "withdrawn",
+    );
+    expect(await probe()).toEqual(BOTH);
+    expect(await count("improvement_row_id=$2", [ten[0].id])).toBe(901);
+    // Project capacity: an 11th, empty row refuses a new observation at 9001 project heads (lock-free)…
+    const a11 = await artifact({ p_reference: "google-business-profile:acme-eleven" });
+    await approve(user, String(a11.id), String(a11.artifactSha256));
+    const r11 = await receipt(user, String(a11.id), await isoAt("+ interval '1 second'"));
+    const v11 = await saveChange(
+      changeRecord(a11 as never, user, { improvementId: "70000000-0000-4000-8000-0000000000ee" }),
+      {
+        artifactId: a11.id,
+        artifactSha256: a11.artifactSha256,
+        receiptId: r11.id,
+        ownerInspection: null,
+      },
+    );
+    await grant(String(v11.id), delegate);
+    await clearProbe();
+    expect(
+      await raw(
+        "save_ai_citation_improvement_inspection",
+        inspectArgs(delegate, String(v11.id), await recordSha(String(v11.id)), "inconclusive", at),
+      ),
+    ).toBe("citation_inspection_capacity");
+    expect(await probe()).toEqual(NONE);
+    // …while the dissenting inspector's active negative head is still effective and disputes row 0, the owner
+    // and inspector reads parse in full, and the dissent can still be withdrawn truthfully at project capacity
+    // (reserve), after which the dispute clears. Nothing recorded before capacity was deleted or replaced.
+    const detail = citationImprovementDetailSchema.parse(await readRow(ten[0].id));
+    expect(detail.independentStatus).toBe("disputed");
+    expect(detail.inspections).toHaveLength(901);
+    expect(detail.inspections!.find((i) => i.id === dissent.id)).toMatchObject({ effective: true });
+    const view = await call("read_ai_citation_improvement_for_inspection", {
+      p_actor: inspector2,
+      p_owner: user,
+      p_project: "p",
+      p_row: ten[0].id,
+    });
+    expect(inspectionViewSchema.parse(view).myHead).toMatchObject({
+      id: dissent.id,
+      effective: true,
+    });
+    await record(inspector2, ten[0].id, ten[0].sha, "withdrawn", null);
+    const after = citationImprovementDetailSchema.parse(await readRow(ten[0].id));
+    expect(after.independentStatus).not.toBe("disputed");
+    expect(after.inspections).toHaveLength(902);
+    expect(await count("true", [])).toBe(9002);
+    expect(await count("improvement_row_id=$2 AND check_result<>'withdrawn'", [ten[0].id])).toBe(
+      900,
+    );
+  }, 180000);
 });
 
 describe("privileges", () => {

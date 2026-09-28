@@ -103,6 +103,8 @@ export const elCitationChange: Readonly<Record<string, string>> = {
     "Η δηλωμένη στιγμή είναι πριν από την έγκριση ή στο μέλλον.",
   "citationChange.error.capacity":
     "Συμπληρώθηκε η χωρητικότητα τεχνουργημάτων αλλαγής για αυτό το έργο.",
+  "citationChange.error.receiptCapacity":
+    "Η χωρητικότητα δηλώσεων για αυτό το τεχνούργημα εξαντλήθηκε· αφαιρέστε μια δήλωση που δεν χρειάζεστε για να καταγράψετε άλλη.",
   "citationChange.error.inspectionInvalid":
     "Η επιθεώρηση δεν είναι έγκυρη (στιγμή, αναφορά ή κατάσταση).",
   "citationChange.error.notIndependent":
@@ -111,6 +113,10 @@ export const elCitationChange: Readonly<Record<string, string>> = {
     "Η ταυτότητα του εκτελεστή ή του εγκρίνοντος δεν είναι διαθέσιμη· η ανεξάρτητη επιθεώρηση απορρίπτεται.",
   "citationChange.error.inspectionConflict":
     "Η αλυσίδα επιθεωρήσεών σας άλλαξε· φορτώστε ξανά και καταγράψτε ξανά.",
+  "citationChange.error.inspectionQuota":
+    "Καταγράφηκαν πάρα πολλές επιθεωρήσεις για αυτό το έργο την τελευταία ώρα· δεν καταγράφηκε τίποτα — περιμένετε και καταγράψτε ξανά.",
+  "citationChange.error.inspectionCapacity":
+    "Το ιστορικό επιθεωρήσεων αυτής της βελτίωσης ή του έργου είναι πλήρες· η παρατήρηση δεν καταγράφηκε και τα υπάρχοντα στοιχεία διατηρούνται.",
   "citationChange.error.generic":
     "Δεν ήταν δυνατή η ολοκλήρωση της ενέργειας στα στοιχεία αλλαγής.",
   "citationChange.artifact.fieldKey": "Πεδίο",

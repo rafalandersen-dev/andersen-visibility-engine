@@ -100,6 +100,8 @@ export const fiCitationChange: Readonly<Record<string, string>> = {
   "citationChange.error.receiptInvalid":
     "Ilmoitettu hetki on ennen hyväksyntää tai tulevaisuudessa.",
   "citationChange.error.capacity": "Tämän projektin muutosartefaktien kapasiteetti on täynnä.",
+  "citationChange.error.receiptCapacity":
+    "Tämän artefaktin ilmoitusten kapasiteetti on täynnä; poista tarpeeton ilmoitus kirjataksesi uuden.",
   "citationChange.error.inspectionInvalid": "Tarkastus ei ole kelvollinen (hetki, viite tai tila).",
   "citationChange.error.notIndependent":
     "Suoritit tai hyväksyit tämän muutoksen, joten et voi tarkastaa sitä riippumattomasti.",
@@ -107,6 +109,10 @@ export const fiCitationChange: Readonly<Record<string, string>> = {
     "Suorittajan tai hyväksyjän henkilöllisyys ei ole saatavilla; riippumaton tarkastus hylätään.",
   "citationChange.error.inspectionConflict":
     "Tarkastusketjusi muuttui; lataa uudelleen ja kirjaa uudelleen.",
+  "citationChange.error.inspectionQuota":
+    "Tälle projektille on kirjattu liian monta tarkastusta viimeisen tunnin aikana; mitään ei kirjattu — odota ja kirjaa uudelleen.",
+  "citationChange.error.inspectionCapacity":
+    "Tämän parannuksen tai projektin tarkastushistoria on täynnä; havaintoa ei kirjattu ja olemassa oleva näyttö säilytetään.",
   "citationChange.error.generic": "Muutostodisteisiin liittyvää toimintoa ei voitu suorittaa.",
   "citationChange.artifact.fieldKey": "Kenttä",
   "citationChange.artifact.addField": "Lisää kenttä",

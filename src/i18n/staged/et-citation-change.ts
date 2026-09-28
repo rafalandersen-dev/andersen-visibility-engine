@@ -99,6 +99,8 @@ export const etCitationChange: Readonly<Record<string, string>> = {
   "citationChange.error.unapproved": "See versioon ei ole praegu kinnitatud.",
   "citationChange.error.receiptInvalid": "Deklareeritud hetk on enne kinnitust või tulevikus.",
   "citationChange.error.capacity": "Selle projekti muudatuse artefaktide maht on täis.",
+  "citationChange.error.receiptCapacity":
+    "Selle artefakti deklaratsioonide maht on täis; eemaldage mittevajalik deklaratsioon, et uus salvestada.",
   "citationChange.error.inspectionInvalid": "Kontroll ei ole kehtiv (hetk, viide või olek).",
   "citationChange.error.notIndependent":
     "Te teostasite või kinnitasite selle muudatuse, seega ei saa te seda sõltumatult kontrollida.",
@@ -106,6 +108,10 @@ export const etCitationChange: Readonly<Record<string, string>> = {
     "Teostaja või kinnitaja identiteet pole saadaval; sõltumatu kontroll lükatakse tagasi.",
   "citationChange.error.inspectionConflict":
     "Teie kontrollide ahel muutus; laadige uuesti ja salvestage uuesti.",
+  "citationChange.error.inspectionQuota":
+    "Viimase tunni jooksul on selle projekti jaoks salvestatud liiga palju ülevaatusi; midagi ei salvestatud — oodake ja salvestage uuesti.",
+  "citationChange.error.inspectionCapacity":
+    "Selle parenduse või projekti ülevaatuste ajalugu on täis; tähelepanekut ei salvestatud ja olemasolevad tõendid säilitatakse.",
   "citationChange.error.generic": "Muudatuse tõendite toimingut ei saanud lõpule viia.",
   "citationChange.artifact.fieldKey": "Väli",
   "citationChange.artifact.addField": "Lisa väli",

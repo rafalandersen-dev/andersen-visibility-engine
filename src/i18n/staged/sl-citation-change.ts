@@ -99,6 +99,8 @@ export const slCitationChange: Readonly<Record<string, string>> = {
   "citationChange.error.receiptInvalid":
     "Izjavljeni trenutek je pred odobritvijo ali v prihodnosti.",
   "citationChange.error.capacity": "Dosežena je zmogljivost artefaktov sprememb za ta projekt.",
+  "citationChange.error.receiptCapacity":
+    "Zmogljivost izjav za ta artefakt je dosežena; odstranite nepotrebno izjavo, da zabeležite novo.",
   "citationChange.error.inspectionInvalid": "Pregled ni veljaven (trenutek, sklic ali stanje).",
   "citationChange.error.notIndependent":
     "To spremembo ste izvedli ali odobrili, zato je ne morete neodvisno pregledati.",
@@ -106,6 +108,10 @@ export const slCitationChange: Readonly<Record<string, string>> = {
     "Identiteta izvajalca ali odobritelja ni na voljo; neodvisni pregled je zavrnjen.",
   "citationChange.error.inspectionConflict":
     "Vaša veriga pregledov se je spremenila; znova naložite in znova zabeležite.",
+  "citationChange.error.inspectionQuota":
+    "V zadnji uri je bilo za ta projekt zabeleženih preveč pregledov; nič ni bilo zabeleženo — počakajte in zabeležite znova.",
+  "citationChange.error.inspectionCapacity":
+    "Zgodovina pregledov te izboljšave ali projekta je polna; opažanje ni bilo zabeleženo, obstoječi dokazi so ohranjeni.",
   "citationChange.error.generic": "Dejanja z dokazi o spremembi ni bilo mogoče dokončati.",
   "citationChange.artifact.fieldKey": "Polje",
   "citationChange.artifact.addField": "Dodaj polje",

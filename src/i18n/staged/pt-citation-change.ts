@@ -102,6 +102,8 @@ export const ptCitationChange: Readonly<Record<string, string>> = {
     "O instante declarado é anterior à aprovação ou está no futuro.",
   "citationChange.error.capacity":
     "A capacidade de artefactos de alteração deste projeto foi atingida.",
+  "citationChange.error.receiptCapacity":
+    "A capacidade de declarações deste artefacto foi atingida; remova uma declaração desnecessária para registar outra.",
   "citationChange.error.inspectionInvalid":
     "A inspeção não é válida (instante, referência ou estado).",
   "citationChange.error.notIndependent":
@@ -110,6 +112,10 @@ export const ptCitationChange: Readonly<Record<string, string>> = {
     "A identidade do executante ou do aprovador não está disponível; a inspeção independente é recusada.",
   "citationChange.error.inspectionConflict":
     "A sua cadeia de inspeções mudou; recarregue e registe novamente.",
+  "citationChange.error.inspectionQuota":
+    "Foram registadas demasiadas inspeções para este projeto na última hora; nada foi registado — aguarde e registe novamente.",
+  "citationChange.error.inspectionCapacity":
+    "O histórico de inspeções desta melhoria ou projeto está cheio; a observação não foi registada e as provas existentes são mantidas.",
   "citationChange.error.generic": "Não foi possível concluir a ação sobre as provas da alteração.",
   "citationChange.artifact.fieldKey": "Campo",
   "citationChange.artifact.addField": "Adicionar campo",

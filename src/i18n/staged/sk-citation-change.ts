@@ -98,6 +98,8 @@ export const skCitationChange: Readonly<Record<string, string>> = {
   "citationChange.error.receiptInvalid":
     "Deklarovaný okamih je pred schválením alebo v budúcnosti.",
   "citationChange.error.capacity": "Bola dosiahnutá kapacita artefaktov zmien pre tento projekt.",
+  "citationChange.error.receiptCapacity":
+    "Kapacita vyhlásení pre tento artefakt je vyčerpaná; odstráňte nepotrebné vyhlásenie, aby ste mohli zaznamenať ďalšie.",
   "citationChange.error.inspectionInvalid": "Kontrola nie je platná (okamih, odkaz alebo stav).",
   "citationChange.error.notIndependent":
     "Túto zmenu ste vykonali alebo schválili, preto ju nemôžete nezávisle skontrolovať.",
@@ -105,6 +107,10 @@ export const skCitationChange: Readonly<Record<string, string>> = {
     "Identita vykonávateľa alebo schvaľovateľa nie je k dispozícii; nezávislá kontrola je odmietnutá.",
   "citationChange.error.inspectionConflict":
     "Váš reťazec kontrol sa zmenil; načítajte znova a zaznamenajte znova.",
+  "citationChange.error.inspectionQuota":
+    "Za poslednú hodinu bolo pre tento projekt zaznamenaných priveľa kontrol; nič sa nezaznamenalo — počkajte a zaznamenajte znova.",
+  "citationChange.error.inspectionCapacity":
+    "História kontrol tohto zlepšenia alebo projektu je plná; pozorovanie sa nezaznamenalo a existujúce dôkazy zostávajú zachované.",
   "citationChange.error.generic": "Akciu s dôkazmi o zmene sa nepodarilo dokončiť.",
   "citationChange.artifact.fieldKey": "Pole",
   "citationChange.artifact.addField": "Pridať pole",

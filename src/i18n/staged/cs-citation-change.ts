@@ -99,6 +99,8 @@ export const csCitationChange: Readonly<Record<string, string>> = {
   "citationChange.error.receiptInvalid":
     "Deklarovaný okamžik je před schválením nebo v budoucnosti.",
   "citationChange.error.capacity": "Byla dosažena kapacita artefaktů změn pro tento projekt.",
+  "citationChange.error.receiptCapacity":
+    "Kapacita prohlášení pro tento artefakt je vyčerpána; odstraňte nepotřebné prohlášení, abyste mohli zaznamenat další.",
   "citationChange.error.inspectionInvalid": "Kontrola není platná (okamžik, odkaz nebo stav).",
   "citationChange.error.notIndependent":
     "Tuto změnu jste provedli nebo schválili, proto ji nemůžete nezávisle zkontrolovat.",
@@ -106,6 +108,10 @@ export const csCitationChange: Readonly<Record<string, string>> = {
     "Identita provádějícího nebo schvalovatele není k dispozici; nezávislá kontrola je odmítnuta.",
   "citationChange.error.inspectionConflict":
     "Váš řetězec kontrol se změnil; načtěte znovu a zaznamenejte znovu.",
+  "citationChange.error.inspectionQuota":
+    "Za poslední hodinu bylo pro tento projekt zaznamenáno příliš mnoho kontrol; nic nebylo zaznamenáno — počkejte a zaznamenejte znovu.",
+  "citationChange.error.inspectionCapacity":
+    "Historie kontrol tohoto zlepšení nebo projektu je plná; pozorování nebylo zaznamenáno a stávající důkazy zůstávají zachovány.",
   "citationChange.error.generic": "Akci s důkazy o změně nelze dokončit.",
   "citationChange.artifact.fieldKey": "Pole",
   "citationChange.artifact.addField": "Přidat pole",
