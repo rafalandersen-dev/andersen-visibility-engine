@@ -2800,6 +2800,18 @@ describe("BF (finding 4126284415): inspection writes are admitted under finite q
       "UPDATE ai_citation_improvement_inspections SET created_at=created_at - interval '2 hours' WHERE user_id=$1 AND project_id='p' AND created_at > clock_timestamp() - interval '1 hour'",
       [user],
     );
+  /** BO: a subject's observation instant is derived from THAT subject's own chronology — the later of its receipt
+   * anchor and current approval, read back from the database at microsecond precision — never from an instant the
+   * test captured earlier. `isoAt` is whole seconds and 300 sequential writes exceeded its 2 s lead on CI, so an
+   * instant captured before a subject was created predated that subject's anchor/approval and the applied guard
+   * (`observed_at < greatest(anchor_at, approval_at)`) rightly refused it. */
+  const subjectAt = async (owner: string, row: string, delta = "") =>
+    (
+      await db.query<{ t: string }>(
+        `SELECT to_char((greatest(anchor_at,approval_at) ${delta}) AT TIME ZONE 'UTC','YYYY-MM-DD"T"HH24:MI:SS.US"Z"') t FROM citation_improvement_actors($1::uuid,'p',$2::uuid)`,
+        [owner, row],
+      )
+    ).rows[0].t;
   /** Owner-approved and owner-performed artifact bound to N improvement rows; every inspector assigned. */
   const rows = async (n: number, inspectors: string[]) => {
     const a = await artifact();
@@ -3097,10 +3109,40 @@ describe("BF (finding 4126284415): inspection writes are admitted under finite q
         [fv.id],
       )
     ).rows[0].s;
+    // BO: this subject was created AFTER `at`, so its observation instant must follow ITS OWN anchor and approval
+    // (server clock) and is derived from the subject, not reused from the earlier capture. Deterministic
+    // regression, independent of host speed: an instant one second before that subject's chronology — what the
+    // earlier capture became on a slow host — is refused under the locks as citation_inspection_invalid with no
+    // row; the derived instant is admitted.
+    const otherAt = await subjectAt(other, String(fv.id));
+    const otherCount = async () =>
+      (
+        await db.query<{ n: number }>(
+          "SELECT count(*)::int n FROM ai_citation_improvement_inspections WHERE user_id=$1",
+          [other],
+        )
+      ).rows[0].n;
+    await clearProbe();
+    expect(
+      await raw("save_ai_citation_improvement_inspection", {
+        ...inspectArgs(
+          delegate,
+          String(fv.id),
+          fsha,
+          "inconclusive",
+          await subjectAt(other, String(fv.id), "- interval '1 second'"),
+          { version: 0, id: null },
+        ),
+        p_owner: other,
+      }),
+    ).toBe("citation_inspection_invalid");
+    expect(await probe()).toEqual(BOTH);
+    expect(await otherCount()).toBe(0);
+    await clearProbe();
     expect(
       (
         await call("save_ai_citation_improvement_inspection", {
-          ...inspectArgs(delegate, String(fv.id), fsha, "inconclusive", at, {
+          ...inspectArgs(delegate, String(fv.id), fsha, "inconclusive", otherAt, {
             version: 0,
             id: null,
           }),
@@ -3108,6 +3150,9 @@ describe("BF (finding 4126284415): inspection writes are admitted under finite q
         })
       ).version,
     ).toBe(1);
+    expect(await probe()).toEqual(BOTH);
+    expect(await otherCount()).toBe(1);
+    expect(await count("true", [])).toBe(300);
     await ageOut();
     await clearProbe();
     expect((await record(delegate, row, sha, "inconclusive", at)).version).toBe(1);

@@ -12,7 +12,25 @@ import {
 } from "@/components/ui/alert-dialog";
 import { useT } from "@/i18n";
 import { evaluateContentQuality, improveContentDraft } from "@/lib/mock-ai";
+import { aiRefusalMessage } from "@/lib/ai-refusal-messages";
 import { producerErrorMessage } from "@/lib/producer-session";
+
+/**
+ * The toast text for a failed quality/Improve action: a producer outcome first (session/source/save meanings are
+ * never masked), then a known refusal in the interface language (BM), then the received message, then the
+ * generic fallback. Exported for tests.
+ */
+export function qualityActionFailureMessage(
+  error: unknown,
+  t: (key: string, vars?: Record<string, string | number>) => string,
+  fallbackKey = "quality.error",
+): string {
+  return (
+    producerErrorMessage(error, t) ??
+    aiRefusalMessage(error, t) ??
+    (error instanceof Error && error.message ? error.message : t(fallbackKey))
+  );
+}
 import { QUALITY_CATEGORY_ORDER, draftWordCount } from "@/lib/quality";
 import { classifyCategoryExplanation } from "@/lib/quality-explanation";
 import type { ContentAsset, QualityStatus, PublishingRecommendation } from "@/lib/types";
@@ -61,9 +79,7 @@ export function MiloScorePanel({
     try {
       await evaluateContentQuality(asset.id);
     } catch (e) {
-      toast.error(
-        producerErrorMessage(e, t) ?? (e instanceof Error ? e.message : t("quality.error")),
-      );
+      toast.error(qualityActionFailureMessage(e, t, "quality.error"));
     } finally {
       setBusy(null);
     }
@@ -77,9 +93,7 @@ export function MiloScorePanel({
       await improveContentDraft(asset.id);
       toast.success(t("quality.improved"));
     } catch (e) {
-      toast.error(
-        producerErrorMessage(e, t) ?? (e instanceof Error ? e.message : t("quality.error")),
-      );
+      toast.error(qualityActionFailureMessage(e, t, "quality.error"));
     } finally {
       setBusy(null);
     }

@@ -15,6 +15,7 @@ import { useStore, addAiEvaluationRun, updateAiEvaluationRun, uid } from "@/lib/
 import { useT } from "@/i18n";
 import { contentLangToProjectLanguage } from "@/lib/onboarding";
 import { runModelComparison, frozenAssetInput, frozenContentLanguage, qualityInputEligible, type FrozenEvaluationInput, type SideResult } from "@/lib/ai-evaluation";
+import { aiRefusalText } from "@/lib/ai-refusal-messages";
 import {
   getAiRouterStatusFn,
   generateContentFn,
@@ -285,7 +286,7 @@ function AiEvaluationPage() {
 
 /** Exported for static render tests. A spinner appears only while an attempt is in flight; every finished
  * side (success, error, notConfigured, skipped, notRun) renders a terminal state. */
-export function ResultCard({ title, result, side, running, t }: { title: string; result: SideResult | null; side: "existing" | "candidate"; running: boolean; t: (k: string) => string }) {
+export function ResultCard({ title, result, side, running, t }: { title: string; result: SideResult | null; side: "existing" | "candidate"; running: boolean; t: (k: string, vars?: Record<string, string | number>) => string }) {
   return (
     <div className="rounded-lg border border-border bg-card p-4" data-result-card={side}>
       <div className="flex items-center justify-between gap-2">
@@ -297,7 +298,7 @@ export function ResultCard({ title, result, side, running, t }: { title: string;
         ) : null}
       </div>
       {result?.status === "error" ? (
-        <p className="mt-2 text-sm text-destructive inline-flex items-start gap-1.5"><AlertTriangle className="h-3.5 w-3.5 mt-0.5" />{result.error}</p>
+        <p className="mt-2 text-sm text-destructive inline-flex items-start gap-1.5"><AlertTriangle className="h-3.5 w-3.5 mt-0.5" />{aiRefusalText(result.error, t) ?? result.error}</p>
       ) : result?.status === "notConfigured" ? (
         <p className="mt-2 text-sm text-muted-foreground">{t("aiEval.notConfigured")}</p>
       ) : result?.status === "skipped" ? (

@@ -44,7 +44,7 @@ const render = (
       result,
       side,
       running,
-      t: (k: string) => translate(lang, k),
+      t: (k: string, vars?: Record<string, string | number>) => translate(lang, k, vars),
     }),
   );
 const badge = (html: string) => html.match(/tracking-\[0\.12em\][^>]*>([^<]+)</)?.[1] ?? null;
@@ -100,5 +100,41 @@ describe("ResultCard terminal presentation", () => {
     const nr = render({ status: "notRun", cause: "existingSkipped" }, "candidate", false, "pl");
     expect(badge(nr)).toBe("Nie uruchomiono");
     expect(nr).toContain("model kandydujący nie został wywołany");
+  });
+});
+
+describe("BM: a known refusal in the result card is shown in the interface language; unknown text stays as received", () => {
+  const incomplete =
+    "The AI service did not complete its answer for this whole draft. Milo kept the draft unchanged and did not retry it.";
+  it("Polish copy for the incomplete-answer refusal, English copy in English, raw text otherwise", () => {
+    const plHtml = render(
+      { status: "error", error: incomplete, latencyMs: 12 },
+      "existing",
+      false,
+      "pl",
+    );
+    expect(plHtml).toContain(translate("pl", "quality.refusal.incompleteOutput"));
+    expect(plHtml).not.toContain(incomplete);
+    expect(
+      render({ status: "error", error: incomplete, latencyMs: 12 }, "existing", false, "en"),
+    ).toContain(incomplete);
+    const raw = render(
+      { status: "error", error: "Custom failure text", latencyMs: 12 },
+      "candidate",
+      false,
+      "pl",
+    );
+    expect(raw).toContain("Custom failure text");
+  });
+  it("the before-spend refusal (input too large) is translated with its meaning intact", () => {
+    const tooLarge =
+      "There is too much source text for one AI request. Reduce the input and try again.";
+    const html = render(
+      { status: "error", error: tooLarge, latencyMs: 1 },
+      "existing",
+      false,
+      "pl",
+    );
+    expect(html).toContain(translate("pl", "quality.refusal.inputTooLarge"));
   });
 });
