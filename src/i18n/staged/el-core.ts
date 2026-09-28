@@ -181,6 +181,15 @@ export const elCore: Readonly<Record<string, string>> = {
   "shell.signOutDialog.errorTitle": "Η αποσύνδεση δεν ολοκληρώθηκε",
   "shell.signOutDialog.errorBody":
     "Είστε ακόμη συνδεδεμένοι. Μπορείτε να δοκιμάσετε ξανά ή να παραμείνετε συνδεδεμένοι.",
+  "shell.producer.notReady":
+    "Ο χώρος εργασίας δεν είναι έτοιμος ακόμη. Δοκιμάστε ξανά μόλις φορτωθεί.",
+  "shell.producer.staleSession":
+    "Η συνεδρία του χώρου εργασίας άλλαξε. Το αποτέλεσμα δεν εφαρμόστηκε.",
+  "shell.producer.sourceChanged": "Το περιεχόμενο άλλαξε ενώ αυτό εκτελούνταν. Εκτελέστε το ξανά.",
+  "shell.producer.signingOut": "Η αποσύνδεση βρίσκεται σε εξέλιξη. Αυτή η ενέργεια δεν ξεκίνησε.",
+  "shell.signOutDialog.pendingTitle": "Η εργασία βρίσκεται ακόμη σε εξέλιξη",
+  "shell.signOutDialog.pendingBody":
+    "{count} αποτέλεσμα(τα) αυτής της συνεδρίας δημιουργούνται ακόμη και δεν διατηρούνται στον διακομιστή. Αν αποσυνδεθείτε τώρα, ενδέχεται να χαθούν. Μπορείτε να παραμείνετε και να περιμένετε ή να αποσυνδεθείτε ούτως ή άλλως.",
   "shell.footerBuiltBy": "Milo Growth — δημιουργήθηκε από την Andersen Innovations",
   "shell.language": "Γλώσσα διεπαφής",
   "shell.languageProjectDefault": "Προεπιλογή έργου",

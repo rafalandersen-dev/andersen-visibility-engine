@@ -179,6 +179,15 @@ export const gaCore: Readonly<Record<string, string>> = {
   "shell.signOutDialog.errorTitle": "Níor cuireadh an logáil amach i gcrích",
   "shell.signOutDialog.errorBody":
     "Tá tú fós logáilte isteach. Is féidir leat triail eile a bhaint as nó fanacht logáilte isteach.",
+  "shell.producer.notReady":
+    "Níl an spás oibre réidh fós. Bain triail eile as nuair a bheidh sé lódáilte.",
+  "shell.producer.staleSession":
+    "D’athraigh seisiún an spáis oibre. Níor cuireadh an toradh i bhfeidhm.",
+  "shell.producer.sourceChanged": "D’athraigh an t-ábhar le linn an ruda seo. Rith arís é.",
+  "shell.producer.signingOut": "Tá logáil amach ar siúl. Níor cuireadh tús leis an ngníomh seo.",
+  "shell.signOutDialog.pendingTitle": "Tá obair fós ar siúl",
+  "shell.signOutDialog.pendingBody":
+    "Tá {count} toradh/torthaí don seisiún seo á nginiúint fós agus ní choinnítear ar an bhfreastalaí iad. Má logálann tú amach anois, d’fhéadfaí iad a chailleadh. Is féidir leat fanacht agus feitheamh, nó logáil amach mar sin féin.",
   "shell.footerBuiltBy": "Milo Growth — tógtha ag Andersen Innovations",
   "shell.language": "Teanga na comhéadaine",
   "shell.languageProjectDefault": "Réamhshocrú an tionscadail",

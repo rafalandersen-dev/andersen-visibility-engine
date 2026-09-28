@@ -180,6 +180,16 @@ export const esCore: Readonly<Record<string, string>> = {
   "shell.signOutDialog.errorTitle": "No se completó el cierre de sesión",
   "shell.signOutDialog.errorBody":
     "Sigues conectado. Puedes intentarlo de nuevo o seguir conectado.",
+  "shell.producer.notReady":
+    "El espacio de trabajo aún no está listo. Inténtalo de nuevo cuando se haya cargado.",
+  "shell.producer.staleSession":
+    "La sesión del espacio de trabajo cambió. El resultado no se aplicó.",
+  "shell.producer.sourceChanged":
+    "El contenido cambió mientras esto se ejecutaba. Ejecútalo de nuevo.",
+  "shell.producer.signingOut": "El cierre de sesión está en curso. Esta acción no se inició.",
+  "shell.signOutDialog.pendingTitle": "El trabajo sigue en curso",
+  "shell.signOutDialog.pendingBody":
+    "{count} resultado(s) de esta sesión aún se están generando y no se conservan en el servidor. Si cierras sesión ahora, podrían perderse. Puedes quedarte y esperar, o cerrar sesión de todos modos.",
   "shell.footerBuiltBy": "Milo Growth — creado por Andersen Innovations",
   "shell.language": "Idioma de la interfaz",
   "shell.languageProjectDefault": "Idioma predeterminado del proyecto",

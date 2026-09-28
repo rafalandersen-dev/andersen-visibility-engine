@@ -178,6 +178,14 @@ export const csCore: Readonly<Record<string, string>> = {
   "shell.signOutDialog.errorTitle": "Odhlášení nebylo dokončeno",
   "shell.signOutDialog.errorBody":
     "Stále jste přihlášeni. Můžete to zkusit znovu nebo zůstat přihlášeni.",
+  "shell.producer.notReady":
+    "Pracovní prostor ještě není připraven. Zkuste to znovu po jeho načtení.",
+  "shell.producer.staleSession": "Relace pracovního prostoru se změnila. Výsledek nebyl použit.",
+  "shell.producer.sourceChanged": "Obsah se během běhu změnil. Spusťte to znovu.",
+  "shell.producer.signingOut": "Probíhá odhlašování. Tato akce nebyla spuštěna.",
+  "shell.signOutDialog.pendingTitle": "Práce stále probíhá",
+  "shell.signOutDialog.pendingBody":
+    "{count} výsledek/výsledky této relace se stále generují a nejsou uloženy na serveru. Pokud se nyní odhlásíte, mohou být ztraceny. Můžete zůstat a počkat, nebo se přesto odhlásit.",
   "shell.footerBuiltBy": "Milo Growth — vytvořila společnost Andersen Innovations",
   "shell.language": "Jazyk rozhraní",
   "shell.languageProjectDefault": "Výchozí jazyk projektu",

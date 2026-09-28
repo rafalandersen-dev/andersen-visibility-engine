@@ -178,6 +178,14 @@ export const skCore: Readonly<Record<string, string>> = {
   "shell.signOutDialog.errorTitle": "Odhlásenie sa nedokončilo",
   "shell.signOutDialog.errorBody":
     "Stále ste prihlásení. Môžete to skúsiť znova alebo zostať prihlásení.",
+  "shell.producer.notReady":
+    "Pracovný priestor ešte nie je pripravený. Skúste znova po jeho načítaní.",
+  "shell.producer.staleSession": "Relácia pracovného priestoru sa zmenila. Výsledok sa nepoužil.",
+  "shell.producer.sourceChanged": "Obsah sa počas behu zmenil. Spustite to znova.",
+  "shell.producer.signingOut": "Prebieha odhlasovanie. Táto akcia sa nespustila.",
+  "shell.signOutDialog.pendingTitle": "Práca stále prebieha",
+  "shell.signOutDialog.pendingBody":
+    "{count} výsledok/výsledky tejto relácie sa ešte generujú a nie sú uložené na serveri. Ak sa teraz odhlásite, môžu sa stratiť. Môžete zostať a počkať, alebo sa aj tak odhlásiť.",
   "shell.footerBuiltBy": "Milo Growth — vytvorila spoločnosť Andersen Innovations",
   "shell.language": "Jazyk rozhrania",
   "shell.languageProjectDefault": "Predvolený jazyk projektu",

@@ -15,7 +15,8 @@ import type { SignOutFlowState } from "@/lib/sign-out-flow";
  * Safe sign-out dialog (AS). Opens only when signing out could leave workspace changes that are
  * not confirmed as saved, or when the sign-out itself was refused. Explicit non-submit choices:
  * Stay (default focus; also cancels a pending pre-sign-out save), Retry save, Sign out anyway
- * (unconfirmed state only) and Try again (error state: re-checks the workspace first).
+ * (unconfirmed state only), Try again (error state: re-checks the workspace first) and, while
+ * unretained producer results of this session are still pending (AY), Stay/wait vs Sign out anyway.
  * Only an in-flight auth sign-out cannot be cancelled. The copy says changes MAY be missing from the
  * server; it never asserts loss and never mentions technical causes.
  *
@@ -32,6 +33,7 @@ export function SignOutDialog({
   onRetry,
   onLeave,
   onRetryAuth,
+  onLeavePending,
   t,
 }: {
   state: SignOutFlowState;
@@ -42,7 +44,9 @@ export function SignOutDialog({
   onLeave: () => void;
   /** Error state: try the sign-out again (the workspace is re-checked and saved first if needed). */
   onRetryAuth: () => void;
-  t: (key: string) => string;
+  /** Pending-work gate: leave although pending unretained results may be lost. */
+  onLeavePending: () => void;
+  t: (key: string, vars?: Record<string, string | number>) => string;
 }) {
   const open = state.kind !== "idle";
   const busy = state.kind === "saving" || state.kind === "signingOut";
@@ -105,17 +109,21 @@ export function SignOutDialog({
             {t(
               state.kind === "error"
                 ? "shell.signOutDialog.errorTitle"
-                : "shell.signOutDialog.title",
+                : state.kind === "pendingWork"
+                  ? "shell.signOutDialog.pendingTitle"
+                  : "shell.signOutDialog.title",
             )}
           </AlertDialogTitle>
           <AlertDialogDescription>
-            {state.kind === "saving"
-              ? t("shell.signOutDialog.saving")
-              : state.kind === "signingOut"
-                ? t("shell.signOutDialog.signingOut")
-                : state.kind === "error"
-                  ? t("shell.signOutDialog.errorBody")
-                  : t("shell.signOutDialog.body")}
+            {state.kind === "pendingWork"
+              ? t("shell.signOutDialog.pendingBody", { count: state.count })
+              : state.kind === "saving"
+                ? t("shell.signOutDialog.saving")
+                : state.kind === "signingOut"
+                  ? t("shell.signOutDialog.signingOut")
+                  : state.kind === "error"
+                    ? t("shell.signOutDialog.errorBody")
+                    : t("shell.signOutDialog.body")}
           </AlertDialogDescription>
         </AlertDialogHeader>
         {busy ? (
@@ -154,6 +162,16 @@ export function SignOutDialog({
               variant="destructive"
               onClick={onLeave}
               data-sign-out-leave="unconfirmed"
+            >
+              {t("shell.signOutDialog.leave")}
+            </Button>
+          ) : null}
+          {state.kind === "pendingWork" ? (
+            <Button
+              type="button"
+              variant="destructive"
+              onClick={onLeavePending}
+              data-sign-out-leave="pendingWork"
             >
               {t("shell.signOutDialog.leave")}
             </Button>

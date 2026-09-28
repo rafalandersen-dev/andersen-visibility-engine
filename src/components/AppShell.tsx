@@ -42,6 +42,13 @@ import {
 import { useAuth } from "@/lib/auth";
 import { hasUnconfirmedWorkspaceChanges } from "@/lib/workspace-save-status";
 import { createSignOutFlow, type SignOutFlowState } from "@/lib/sign-out-flow";
+import {
+  acquireClosingLease,
+  getPendingProducerWork,
+  isSessionAuthPending,
+  usePendingProducerWork,
+  useSessionAuthPending,
+} from "@/lib/producer-session";
 import { WorkspaceSaveStatusBar } from "@/components/WorkspaceSaveStatus";
 import { SignOutDialog } from "@/components/SignOutDialog";
 import { useAppLanguage, useT, getUiLocaleOverride, setUiLocaleOverride } from "@/i18n";
@@ -267,9 +274,21 @@ export function AppShell({
         signOut: () => signOutRef.current(),
         onState: setSignOutState,
         onSignedOut: () => navigateRef.current({ to: "/", replace: true }),
+        pendingUnretained: () => getPendingProducerWork().unretained,
+        acquireClosing: acquireClosingLease,
+        authPending: isSessionAuthPending,
       }),
     [],
   );
+  // AY: pending unretained producer work of this session gates the sign-out with an explicit choice.
+  const pendingWork = usePendingProducerWork();
+  useEffect(() => {
+    void signOutFlow.pendingChanged();
+  }, [signOutFlow, pendingWork.unretained]);
+  const sessionAuthPending = useSessionAuthPending();
+  useEffect(() => {
+    signOutFlow.reconcileAttempt(); // an observed request of another attempt settled
+  }, [signOutFlow, sessionAuthPending]);
   useEffect(() => {
     signOutFlow.attach();
     return () => signOutFlow.detach();
@@ -346,6 +365,7 @@ export function AppShell({
           onRetry={() => void signOutFlow.retry()}
           onLeave={() => void signOutFlow.leave()}
           onRetryAuth={() => void signOutFlow.retryAuth()}
+          onLeavePending={() => void signOutFlow.leavePending()}
           t={t}
         />
         {/* Print pages at paper width fall below the lg breakpoint, so without

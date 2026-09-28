@@ -178,6 +178,13 @@ export const fiCore: Readonly<Record<string, string>> = {
   "shell.signOutDialog.errorTitle": "Uloskirjautuminen ei onnistunut",
   "shell.signOutDialog.errorBody":
     "Olet yhä kirjautuneena. Voit yrittää uudelleen tai pysyä kirjautuneena.",
+  "shell.producer.notReady": "Työtila ei ole vielä valmis. Yritä uudelleen, kun se on latautunut.",
+  "shell.producer.staleSession": "Työtilan istunto muuttui. Tulosta ei otettu käyttöön.",
+  "shell.producer.sourceChanged": "Sisältö muuttui tämän ollessa käynnissä. Suorita se uudelleen.",
+  "shell.producer.signingOut": "Uloskirjautuminen on kesken. Tätä toimintoa ei aloitettu.",
+  "shell.signOutDialog.pendingTitle": "Työ on vielä kesken",
+  "shell.signOutDialog.pendingBody":
+    "{count} tämän istunnon tulosta on vielä kesken, eikä niitä säilytetä palvelimella. Jos kirjaudut ulos nyt, ne voivat kadota. Voit jäädä odottamaan tai kirjautua ulos silti.",
   "shell.footerBuiltBy": "Milo Growth — kehittäjä Andersen Innovations",
   "shell.language": "Käyttöliittymän kieli",
   "shell.languageProjectDefault": "Projektin oletus",

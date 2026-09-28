@@ -178,6 +178,14 @@ export const slCore: Readonly<Record<string, string>> = {
   "shell.signOutDialog.errorTitle": "Odjava ni bila dokončana",
   "shell.signOutDialog.errorBody":
     "Še vedno ste prijavljeni. Lahko poskusite znova ali ostanete prijavljeni.",
+  "shell.producer.notReady": "Delovni prostor še ni pripravljen. Poskusite znova, ko se naloži.",
+  "shell.producer.staleSession":
+    "Seja delovnega prostora se je spremenila. Rezultat ni bil uporabljen.",
+  "shell.producer.sourceChanged": "Vsebina se je med izvajanjem spremenila. Zaženite znova.",
+  "shell.producer.signingOut": "Odjava poteka. To dejanje ni bilo zagnano.",
+  "shell.signOutDialog.pendingTitle": "Delo še poteka",
+  "shell.signOutDialog.pendingBody":
+    "{count} rezultat(ov) te seje se še ustvarja in se ne hrani na strežniku. Če se zdaj odjavite, se lahko izgubijo. Lahko ostanete in počakate ali se vseeno odjavite.",
   "shell.footerBuiltBy": "Milo Growth — razvilo podjetje Andersen Innovations",
   "shell.language": "Jezik vmesnika",
   "shell.languageProjectDefault": "Privzeto za projekt",

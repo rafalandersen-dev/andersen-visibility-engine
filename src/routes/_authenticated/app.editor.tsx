@@ -46,6 +46,7 @@ import {
   publishContentLive,
   validateAssetSources,
 } from "@/lib/mock-ai";
+import { producerErrorMessage } from "@/lib/producer-session";
 import { isControlledImageOrigin } from "@/lib/images";
 import { hasPublishSecret, hasShopifyAdminToken, hasWordPressAppPassword } from "@/lib/launch";
 import { normalizeSourceUrl } from "@/lib/sources";
@@ -967,7 +968,10 @@ function Editor({ asset, onRequestDelete }: { asset: ContentAsset; onRequestDele
         }),
       );
     } catch (e) {
-      toast.error(e instanceof Error ? e.message : t("editorScreen.regenerationFailed"));
+      toast.error(
+        producerErrorMessage(e, t) ??
+          (e instanceof Error ? e.message : t("editorScreen.regenerationFailed")),
+      );
     } finally {
       setBusy(null);
     }

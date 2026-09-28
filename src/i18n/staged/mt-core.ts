@@ -179,6 +179,15 @@ export const mtCore: Readonly<Record<string, string>> = {
   "shell.signOutDialog.leave": "Oħroġ xorta waħda",
   "shell.signOutDialog.errorTitle": "Il-ħruġ ma tlestiex",
   "shell.signOutDialog.errorBody": "Għadek imdaħħal. Tista’ terġa’ tipprova jew tibqa’ mdaħħal.",
+  "shell.producer.notReady":
+    "L-ispazju tax-xogħol għadu mhux lest. Erġa’ pprova ladarba jkun tgħabba.",
+  "shell.producer.staleSession":
+    "Is-sessjoni tal-ispazju tax-xogħol inbidlet. Ir-riżultat ma ġiex applikat.",
+  "shell.producer.sourceChanged": "Il-kontenut inbidel waqt li dan kien għaddej. Erġa’ ħaddmu.",
+  "shell.producer.signingOut": "Il-ħruġ għaddej. Din l-azzjoni ma nbdietx.",
+  "shell.signOutDialog.pendingTitle": "Ix-xogħol għadu għaddej",
+  "shell.signOutDialog.pendingBody":
+    "{count} riżultat(i) għal din is-sessjoni għadhom qed jiġu ġġenerati u ma jinżammux fuq is-server. Jekk toħroġ issa, jistgħu jintilfu. Tista’ tibqa’ u tistenna, jew toħroġ xorta waħda.",
   "shell.footerBuiltBy": "Milo Growth — żviluppat minn Andersen Innovations",
   "shell.language": "Lingwa tal-interfaċċja",
   "shell.languageProjectDefault": "Default tal-proġett",

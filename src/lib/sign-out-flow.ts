@@ -19,9 +19,12 @@
  */
 import type { WorkspaceSaveContext } from "./discovery-save-recovery";
 import type { WorkspaceSaveStatus } from "./workspace-save-status";
+import type { ClosingLease } from "./producer-session";
 
 export type SignOutFlowState =
   | { kind: "idle" }
+  /** Unretained producer results of this session are still pending (AY): Stay/wait or leave. */
+  | { kind: "pendingWork"; count: number }
   | { kind: "saving" }
   | { kind: "unconfirmed"; status: WorkspaceSaveStatus["kind"] }
   | { kind: "signingOut" }
@@ -37,6 +40,13 @@ export interface SignOutFlowDeps {
   onState: (state: SignOutFlowState) => void;
   /** Runs once after a successful sign-out (e.g. navigate home). */
   onSignedOut: () => void;
+  /** Number of pending UNRETAINED producer results for the current session (AY). */
+  pendingUnretained: () => number;
+  /** Acquires the closing lease for the current session: no new producer work is admitted until
+   * the lease is released by THIS flow after the sign-out attempt's actual outcome (AY/AZ). */
+  acquireClosing: () => ClosingLease;
+  /** True while a supplier sign-out request of this session is issued and unsettled (any attempt). */
+  authPending: () => boolean;
 }
 
 const sameSession = (a: WorkspaceSaveContext, b: WorkspaceSaveContext) =>
@@ -66,33 +76,63 @@ export function createSignOutFlow(deps: SignOutFlowDeps) {
   };
   const nothingToLose = (s: WorkspaceSaveStatus) => s.kind === "saved" || s.kind === "notReady";
   /** The bound action is over: close its dialog without applying any outcome. */
+  let rechecked = false; // one final live re-check at the auth boundary per activation
+  let lease: ClosingLease | null = null; // owned closing lease of the current activation
+  let authInFlight = false; // an auth request has been issued and has not settled yet
+  let waitingOnOther = false; // another attempt's request is pending: this one shows it, never duplicates it
+  const releaseLease = () => {
+    lease?.release();
+    lease = null;
+  };
   const retire = () => {
     generation += 1;
     busy = false;
     token = null;
+    releaseLease();
     emit({ kind: "idle" });
   };
+  /** After the pending-work gate: the ordinary save-then-auth decision. */
+  async function proceed(gen: number) {
+    if (nothingToLose(deps.status())) {
+      await doSignOut(gen);
+      return;
+    }
+    await attemptThenDecide(gen);
+  }
   const relation = () => relateSession(token, deps.context());
 
   async function doSignOut(gen: number) {
     if (gen !== generation || relation() !== "original") return;
     emit({ kind: "signingOut" });
+    if (deps.authPending()) {
+      // A sign-out request of this session is already in flight (e.g. issued before a remount).
+      // It cannot be cancelled and must not be duplicated: show the truthful state and observe.
+      waitingOnOther = true;
+      return;
+    }
     let ok = true;
+    authInFlight = true;
+    lease?.markIssued();
     try {
       await deps.signOut();
     } catch {
       ok = false;
     }
+    authInFlight = false;
+    lease?.markSettled(); // the request is over; the lease (admission) stays until this attempt ends
     const live = !disposed && gen === generation; // this dialog instance still owns the action
     const rel = relation();
     if (!ok) {
-      if (!live) return; // a detached or cancelled view never shows the old error
+      if (!live) {
+        releaseLease(); // the attempt is over; a detached view keeps no admission block behind
+        return; // a detached or cancelled view never shows the old error
+      }
       if (rel !== "original") {
         retire(); // a replaced/cleared session never shows the old error
         return;
       }
       busy = false;
-      emit({ kind: "error" }); // still signed in; nothing navigated
+      emit({ kind: "error" }); // still signed in; nothing navigated; the lease stays until Stay/retry
       return;
     }
     if (rel === "replaced") {
@@ -100,11 +140,16 @@ export function createSignOutFlow(deps: SignOutFlowDeps) {
       // while the user stayed signed in: the supplier may have signed out, but this UI must not
       // navigate or mutate anything for the new context.
       if (live) retire();
+      else releaseLease();
       return;
     }
     // "original": the same session still holds. "signedOutCleanup": the auth event already reset
     // the store (no user) — the ordinary successful path, which may unmount this view first.
-    if (rel === "original" && !live) return;
+    if (rel === "original" && !live) {
+      releaseLease();
+      return;
+    }
+    releaseLease();
     if (live) {
       busy = false;
       token = null;
@@ -131,6 +176,14 @@ export function createSignOutFlow(deps: SignOutFlowDeps) {
       await doSignOut(gen);
       return;
     }
+    // Live re-check at the auth boundary: work that completed while the save ran may have left
+    // NEW unsaved changes (not a failure). One bounded extra attempt saves them before the auth
+    // request; a failed/unknown/conflicting save still ends in the explicit choice.
+    if ((s.kind === "unsaved" || s.kind === "saving") && !rechecked) {
+      rechecked = true;
+      await attemptThenDecide(gen);
+      return;
+    }
     emit({ kind: "unconfirmed", status: s.kind });
   }
 
@@ -142,11 +195,38 @@ export function createSignOutFlow(deps: SignOutFlowDeps) {
       busy = true;
       token = deps.context();
       const gen = ++generation;
-      if (nothingToLose(deps.status())) {
-        await doSignOut(gen);
+      rechecked = false;
+      lease = deps.acquireClosing(); // no new producer work is admitted while this sign-out is active
+      const count = deps.pendingUnretained();
+      if (count > 0) {
+        emit({ kind: "pendingWork", count }); // explicit choice: wait, or leave and possibly lose them
         return;
       }
-      await attemptThenDecide(gen);
+      await proceed(gen);
+    },
+    /** Pending-work count changed (reactive): re-evaluate while the gate is showing. */
+    pendingChanged: async () => {
+      if (state.kind !== "pendingWork") return;
+      if (relation() !== "original") {
+        retire();
+        return;
+      }
+      const count = deps.pendingUnretained();
+      if (count > 0) {
+        if (count !== state.count) emit({ kind: "pendingWork", count });
+        return;
+      }
+      await proceed(generation); // the work settled: whatever it left unsaved is saved first
+    },
+    /** From the pending-work gate: leave although pending results may be lost (this consent
+     * covers the work pending now; new work is not admitted while signing out). */
+    leavePending: async () => {
+      if (state.kind !== "pendingWork") return;
+      if (relation() !== "original") {
+        retire();
+        return;
+      }
+      await proceed(generation);
     },
     /** From the dialog: one more save attempt of the CURRENT workspace changes. */
     retry: async () => {
@@ -159,7 +239,8 @@ export function createSignOutFlow(deps: SignOutFlowDeps) {
     },
     /** From the dialog: stay signed in; any pending settlement is ignored. */
     stay: () => {
-      retire();
+      waitingOnOther = false;
+      retire(); // releases only THIS attempt's lease
     },
     /** From the unconfirmed dialog ONLY: the explicit choice to sign out although changes are not
      * confirmed as saved. */
@@ -183,12 +264,9 @@ export function createSignOutFlow(deps: SignOutFlowDeps) {
         return;
       }
       busy = true;
-      const gen = generation;
-      if (nothingToLose(deps.status())) {
-        await doSignOut(gen);
-        return;
-      }
-      await attemptThenDecide(gen);
+      rechecked = false;
+      if (!lease?.isActive()) lease = deps.acquireClosing();
+      await proceed(generation);
     },
     /** Called when the store session changes while the shell stays mounted: drop a stale dialog. */
     reconcile: () => {
@@ -200,11 +278,26 @@ export function createSignOutFlow(deps: SignOutFlowDeps) {
       disposed = false;
     },
     /** The owning view unmounted: any in-flight settlement is dropped, nothing may happen. */
+    /** Registry changed (reactive): an attempt that was only observing another request settles. */
+    reconcileAttempt: () => {
+      if (!waitingOnOther || deps.authPending()) return;
+      waitingOnOther = false;
+      if (disposed) return;
+      if (relation() !== "original") {
+        retire(); // the other request succeeded: its cleanup/navigation already happened
+        return;
+      }
+      busy = false; // the other request was refused: still signed in, same choice as an own refusal
+      emit({ kind: "error" });
+    },
     detach: () => {
       disposed = true;
       generation += 1;
       busy = false;
       token = null;
+      waitingOnOther = false;
+      // An issued auth request keeps its admission block until it settles; otherwise release now.
+      if (!authInFlight) releaseLease();
     },
   };
 }

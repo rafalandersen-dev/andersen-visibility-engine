@@ -170,7 +170,7 @@ export const SL_STAGED_BATCHES = [
       "pipeline",
     ],
     sourceRevision: "ddee742",
-    sourceHash: "a322abae3bd44bd04fd2a647a7dcae1f41ab75ecfb367e8cc050490f7c702bbb",
+    sourceHash: "8476f0a4138861b0b333d132799933037eda17dbd2d1ba4207b7cc4e0c9337d1",
   },
   {
     name: "setup screen",

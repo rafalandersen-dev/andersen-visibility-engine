@@ -177,6 +177,16 @@ export const bgCore: Readonly<Record<string, string>> = {
   "shell.signOutDialog.errorTitle": "Излизането не беше завършено",
   "shell.signOutDialog.errorBody":
     "Все още сте в профила си. Можете да опитате отново или да останете.",
+  "shell.producer.notReady":
+    "Работното пространство още не е готово. Опитайте отново, след като се зареди.",
+  "shell.producer.staleSession":
+    "Сесията на работното пространство се промени. Резултатът не беше приложен.",
+  "shell.producer.sourceChanged":
+    "Съдържанието се промени, докато това се изпълняваше. Стартирайте го отново.",
+  "shell.producer.signingOut": "Излизането е в ход. Това действие не беше стартирано.",
+  "shell.signOutDialog.pendingTitle": "Работата все още продължава",
+  "shell.signOutDialog.pendingBody":
+    "{count} резултат(а) за тази сесия все още се генерират и не се съхраняват на сървъра. Ако излезете сега, те може да бъдат изгубени. Можете да останете и да изчакате или да излезете въпреки това.",
   "shell.footerBuiltBy": "Milo Growth — създадено от Andersen Innovations",
   "shell.language": "Език на интерфейса",
   "shell.languageProjectDefault": "По подразбиране за проекта",

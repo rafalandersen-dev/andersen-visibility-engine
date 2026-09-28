@@ -177,6 +177,15 @@ export const roCore: Readonly<Record<string, string>> = {
   "shell.signOutDialog.errorTitle": "Deconectarea nu s-a finalizat",
   "shell.signOutDialog.errorBody":
     "Sunteți încă conectat. Puteți încerca din nou sau puteți rămâne conectat.",
+  "shell.producer.notReady":
+    "Spațiul de lucru nu este încă pregătit. Reîncercați după ce s-a încărcat.",
+  "shell.producer.staleSession":
+    "Sesiunea spațiului de lucru s-a schimbat. Rezultatul nu a fost aplicat.",
+  "shell.producer.sourceChanged": "Conținutul s-a schimbat în timpul rulării. Rulați din nou.",
+  "shell.producer.signingOut": "Deconectarea este în curs. Această acțiune nu a fost pornită.",
+  "shell.signOutDialog.pendingTitle": "Lucrul este încă în desfășurare",
+  "shell.signOutDialog.pendingBody":
+    "{count} rezultat(e) pentru această sesiune se generează încă și nu sunt păstrate pe server. Dacă vă deconectați acum, s-ar putea pierde. Puteți rămâne și aștepta sau vă puteți deconecta oricum.",
   "shell.footerBuiltBy": "Milo Growth — creat de Andersen Innovations",
   "shell.language": "Limba interfeței",
   "shell.languageProjectDefault": "Implicit pentru proiect",

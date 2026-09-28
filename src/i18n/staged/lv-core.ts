@@ -178,6 +178,13 @@ export const lvCore: Readonly<Record<string, string>> = {
   "shell.signOutDialog.errorTitle": "Izrakstīšanās netika pabeigta",
   "shell.signOutDialog.errorBody":
     "Jūs joprojām esat pierakstījies. Varat mēģināt vēlreiz vai palikt pierakstīts.",
+  "shell.producer.notReady": "Darbvieta vēl nav gatava. Mēģiniet vēlreiz, kad tā ir ielādēta.",
+  "shell.producer.staleSession": "Darbvietas sesija mainījās. Rezultāts netika piemērots.",
+  "shell.producer.sourceChanged": "Saturs mainījās izpildes laikā. Palaidiet to vēlreiz.",
+  "shell.producer.signingOut": "Notiek izrakstīšanās. Šī darbība netika sākta.",
+  "shell.signOutDialog.pendingTitle": "Darbs joprojām turpinās",
+  "shell.signOutDialog.pendingBody":
+    "{count} šīs sesijas rezultāts(-i) joprojām tiek ģenerēti un netiek glabāti serverī. Ja tagad izrakstīsieties, tie var tikt zaudēti. Varat palikt un pagaidīt vai tomēr izrakstīties.",
   "shell.footerBuiltBy": "Milo Growth — izstrādājis Andersen Innovations",
   "shell.language": "Saskarnes valoda",
   "shell.languageProjectDefault": "Projekta noklusējums",

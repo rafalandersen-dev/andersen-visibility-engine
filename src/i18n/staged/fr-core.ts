@@ -182,6 +182,15 @@ export const frCore: Readonly<Record<string, string>> = {
   "shell.signOutDialog.errorTitle": "La déconnexion n’a pas abouti",
   "shell.signOutDialog.errorBody":
     "Vous êtes toujours connecté. Vous pouvez réessayer ou rester connecté.",
+  "shell.producer.notReady":
+    "L’espace de travail n’est pas encore prêt. Réessayez une fois qu’il est chargé.",
+  "shell.producer.staleSession":
+    "La session de l’espace de travail a changé. Le résultat n’a pas été appliqué.",
+  "shell.producer.sourceChanged": "Le contenu a changé pendant l’exécution. Relancez l’opération.",
+  "shell.producer.signingOut": "La déconnexion est en cours. Cette action n’a pas été lancée.",
+  "shell.signOutDialog.pendingTitle": "Un travail est encore en cours",
+  "shell.signOutDialog.pendingBody":
+    "{count} résultat(s) de cette session sont encore en cours de génération et ne sont pas conservés sur le serveur. Si vous vous déconnectez maintenant, ils peuvent être perdus. Vous pouvez rester et attendre, ou vous déconnecter quand même.",
   "shell.footerBuiltBy": "Milo Growth — créé par Andersen Innovations",
   "shell.language": "Langue de l’interface",
   "shell.languageProjectDefault": "Valeur par défaut du projet",

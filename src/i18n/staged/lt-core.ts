@@ -179,6 +179,13 @@ export const ltCore: Readonly<Record<string, string>> = {
   "shell.signOutDialog.errorTitle": "Atsijungimas nebaigtas",
   "shell.signOutDialog.errorBody":
     "Vis dar esate prisijungę. Galite bandyti dar kartą arba likti prisijungę.",
+  "shell.producer.notReady": "Darbo sritis dar neparuošta. Bandykite dar kartą, kai ji įkelta.",
+  "shell.producer.staleSession": "Darbo srities seansas pasikeitė. Rezultatas nebuvo pritaikytas.",
+  "shell.producer.sourceChanged": "Turinys pasikeitė vykdymo metu. Paleiskite dar kartą.",
+  "shell.producer.signingOut": "Vyksta atsijungimas. Šis veiksmas nebuvo pradėtas.",
+  "shell.signOutDialog.pendingTitle": "Darbas vis dar vyksta",
+  "shell.signOutDialog.pendingBody":
+    "{count} šio seanso rezultatas (-ai) vis dar generuojami ir nėra saugomi serveryje. Jei atsijungsite dabar, jie gali būti prarasti. Galite likti ir palaukti arba vis tiek atsijungti.",
   "shell.footerBuiltBy": "Milo Growth — sukūrė Andersen Innovations",
   "shell.language": "Sąsajos kalba",
   "shell.languageProjectDefault": "Projekto numatytoji",

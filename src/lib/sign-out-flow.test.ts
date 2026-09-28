@@ -42,6 +42,15 @@ import {
   getWorkspaceSaveContext,
 } from "./store";
 import { createSignOutFlow, type SignOutFlowState } from "./sign-out-flow";
+import {
+  beginProducerWork,
+  getPendingProducerWork,
+  acquireClosingLease,
+  isSessionAuthPending,
+  isSessionClosing,
+  ProducerSessionError,
+  resetProducerSessionsForTests,
+} from "./producer-session";
 
 const DOC = {
   projects: [{ id: "p1", name: "Project" }],
@@ -78,6 +87,9 @@ function makeFlow(auth: { fail?: boolean; defer?: boolean; resetsStore?: boolean
     onSignedOut: () => {
       calls.signedOut += 1;
     },
+    pendingUnretained: () => getPendingProducerWork().unretained,
+    acquireClosing: acquireClosingLease,
+    authPending: isSessionAuthPending,
   });
   return { flow, states, calls, releaseSignOut: () => releaseSignOut?.() };
 }
@@ -90,6 +102,7 @@ beforeEach(async () => {
   h.backend.state.doc = structuredClone(DOC);
   h.backend.state.rev = 3;
   resetStore();
+  resetProducerSessionsForTests();
   await hydrateForUser("user1");
 });
 afterEach(() => vi.unstubAllGlobals());
@@ -482,5 +495,288 @@ describe("AV — late edits around a refused auth sign-out", () => {
     expect(f.calls.signOut).toBe(1);
     expect(h.backend.state.batches).toHaveLength(0);
     expect(f.flow.state().kind).toBe("idle");
+  });
+});
+
+describe("AY — pending unretained producer work gates the sign-out", () => {
+  const serverTitle = () =>
+    (h.backend.state.doc as { opportunities: { title: string }[] }).opportunities[0].title;
+
+  it("pending work → explicit choice; Stay clears the closing mark; new work is refused while closing", async () => {
+    const work = beginProducerWork("meta:o1", "unretained");
+    const f = makeFlow();
+    await f.flow.start();
+    expect(f.flow.state()).toEqual({ kind: "pendingWork", count: 1 });
+    expect(isSessionClosing()).toBe(true);
+    expect(() => beginProducerWork("faq:o1", "unretained")).toThrow(ProducerSessionError);
+    expect(f.calls.signOut).toBe(0);
+    f.flow.stay();
+    expect(f.flow.state().kind).toBe("idle");
+    expect(isSessionClosing()).toBe(false);
+    expect(beginProducerWork("faq:o1", "unretained").operation).toBe("faq:o1"); // admitted again
+    work.release();
+  });
+
+  it("wait: when the pending work settles and left unsaved changes, they are saved, then one auth request", async () => {
+    const work = beginProducerWork("meta:o1", "unretained");
+    const f = makeFlow({ resetsStore: true });
+    await f.flow.start();
+    expect(f.flow.state().kind).toBe("pendingWork");
+    edit("Late result applied by the producer");
+    work.release();
+    await f.flow.pendingChanged();
+    expect(h.backend.state.batches).toHaveLength(1);
+    expect(serverTitle()).toBe("Late result applied by the producer");
+    expect(f.calls).toEqual({ signOut: 1, signedOut: 1 });
+    expect(f.states.map((s) => s.kind)).toEqual(["pendingWork", "saving", "signingOut", "idle"]);
+  });
+
+  it("Leave from the pending gate: proceeds with the ordinary path; the pending work is not awaited", async () => {
+    const work = beginProducerWork("meta:o1", "unretained");
+    const f = makeFlow({ resetsStore: true });
+    await f.flow.start();
+    await f.flow.leavePending();
+    expect(f.calls).toEqual({ signOut: 1, signedOut: 1 });
+    expect(h.backend.state.batches).toHaveLength(0);
+    // The old work settles afterwards into a signed-out shell: its own session check would refuse the write.
+    work.release();
+    expect(getPendingProducerWork().unretained).toBe(0);
+  });
+
+  it("final live re-check at the auth boundary saves changes produced after the pre-sign-out save", async () => {
+    let injected = false;
+    const f = makeFlow({ resetsStore: true });
+    const original = f.flow;
+    // Wrap: after the first real save completes, a producer completes and leaves a new edit.
+    const flow = createSignOutFlow({
+      status: getWorkspaceSaveStatus,
+      context: getWorkspaceSaveContext,
+      save: async () => {
+        await saveWorkspaceNow();
+        if (!injected) {
+          injected = true;
+          edit("Produced during the pre-sign-out save");
+        }
+      },
+      signOut: async () => {
+        f.calls.signOut += 1;
+        resetStore();
+      },
+      onState: (s) => f.states.push(s),
+      onSignedOut: () => {
+        f.calls.signedOut += 1;
+      },
+      pendingUnretained: () => 0,
+      acquireClosing: acquireClosingLease,
+      authPending: isSessionAuthPending,
+    });
+    void original;
+    edit("First edit");
+    await flow.start();
+    expect(h.backend.state.batches).toHaveLength(2); // first save, then the re-check save
+    expect(serverTitle()).toBe("Produced during the pre-sign-out save");
+    expect(f.calls).toEqual({ signOut: 1, signedOut: 1 });
+  });
+
+  it("work finishing during a refused auth: the retry saves what it left before the next auth request", async () => {
+    const work = beginProducerWork("meta:o1", "unretained");
+    const auth = { fail: true, resetsStore: true };
+    const f = makeFlow(auth);
+    await f.flow.start();
+    expect(f.flow.state().kind).toBe("pendingWork");
+    await f.flow.leavePending(); // clean workspace → auth request → refused
+    expect(f.flow.state().kind).toBe("error");
+    expect(f.calls.signOut).toBe(1);
+    edit("Result applied while the auth was being retried"); // the pending work finishes now
+    work.release();
+    auth.fail = false;
+    await f.flow.retryAuth();
+    expect(h.backend.state.batches).toHaveLength(1);
+    expect(serverTitle()).toBe("Result applied while the auth was being retried");
+    expect(f.calls).toEqual({ signOut: 2, signedOut: 1 });
+  });
+
+  it("a replacement session retires the pending gate without acting", async () => {
+    beginProducerWork("meta:o1", "unretained");
+    const f = makeFlow();
+    await f.flow.start();
+    expect(f.flow.state().kind).toBe("pendingWork");
+    resetStore();
+    await hydrateForUser("user2");
+    await f.flow.pendingChanged();
+    expect(f.flow.state().kind).toBe("idle");
+    expect(f.calls.signOut).toBe(0);
+    expect(isSessionClosing()).toBe(false);
+  });
+});
+
+describe("AZ — the closing lease is owned by the sign-out attempt", () => {
+  it("detach while the auth request is pending keeps admission closed until the request settles", async () => {
+    const f = makeFlow({ defer: true, resetsStore: true });
+    const p = f.flow.start();
+    await flush();
+    expect(isSessionClosing()).toBe(true);
+    f.flow.detach(); // e.g. the route unmounts while the supplier request is in flight
+    expect(isSessionClosing()).toBe(true); // no new unretained work can slip in and be lost
+    expect(() => beginProducerWork("new-ai", "unretained")).toThrow(ProducerSessionError);
+    f.releaseSignOut();
+    await p;
+    expect(getWorkspaceSaveContext().userId).toBeNull(); // ordinary cleanup ran
+    expect(f.calls.signedOut).toBe(1); // signedOutCleanup path still navigates once
+    // The old session's lease no longer matters; a fresh session is open for work.
+    await hydrateForUser("user1");
+    expect(isSessionClosing()).toBe(false);
+    expect(() => beginProducerWork("new-ai", "unretained")).not.toThrow();
+  });
+
+  it("detach while the auth request is pending and the request is then refused releases the lease (no deadlock)", async () => {
+    const f = makeFlow({ defer: true, fail: true });
+    const p = f.flow.start();
+    await flush();
+    f.flow.detach();
+    expect(isSessionClosing()).toBe(true);
+    f.releaseSignOut();
+    await p;
+    expect(isSessionClosing()).toBe(false); // settled: the detached attempt keeps no block behind
+    expect(f.states.map((s) => s.kind)).not.toContain("error");
+  });
+
+  it("an old detached flow cannot clear a replacement session's closing lease", async () => {
+    const first = makeFlow({ defer: true });
+    const p1 = first.flow.start();
+    await flush();
+    resetStore();
+    await hydrateForUser("user2");
+    const next = makeFlow({ defer: true });
+    const p2 = next.flow.start();
+    await flush();
+    expect(isSessionClosing()).toBe(true);
+    first.flow.detach();
+    expect(isSessionClosing()).toBe(true); // user2's gate is intact
+    expect(() => beginProducerWork("new-ai", "unretained")).toThrow(ProducerSessionError);
+    first.releaseSignOut();
+    next.releaseSignOut();
+    await Promise.all([p1, p2]);
+    expect(next.calls).toEqual({ signOut: 1, signedOut: 1 });
+    expect(first.calls.signedOut).toBe(0);
+  });
+
+  it("detach without an issued auth request releases the lease immediately; Stay and a refused live auth also release it", async () => {
+    const work = beginProducerWork("meta:o1", "unretained");
+    const f = makeFlow();
+    await f.flow.start();
+    expect(f.flow.state().kind).toBe("pendingWork");
+    expect(isSessionClosing()).toBe(true);
+    f.flow.detach();
+    expect(isSessionClosing()).toBe(false); // nothing issued: no reason to keep blocking
+    work.release();
+    const g = makeFlow({ fail: true });
+    await g.flow.start();
+    expect(g.flow.state().kind).toBe("error");
+    expect(isSessionClosing()).toBe(true); // the attempt is still open in the dialog
+    g.flow.stay();
+    expect(isSessionClosing()).toBe(false);
+  });
+});
+
+describe("BA — overlapping sign-out attempts of the SAME session", () => {
+  it("a remounted second attempt's Stay ends only its own choice; the first issued request keeps admission closed; new work is refused; success resets once", async () => {
+    const preexisting = beginProducerWork("old-meta", "unretained");
+    const first = makeFlow({ defer: true, resetsStore: true });
+    await first.flow.start();
+    expect(first.flow.state().kind).toBe("pendingWork");
+    const auth = first.flow.leavePending();
+    await flush();
+    expect(first.calls.signOut).toBe(1);
+    first.flow.detach(); // remount: the issued request stays pending
+    expect(isSessionClosing()).toBe(true);
+    expect(isSessionAuthPending()).toBe(true);
+    const remounted = makeFlow();
+    await remounted.flow.start();
+    expect(remounted.flow.state().kind).toBe("pendingWork");
+    remounted.flow.stay();
+    expect(isSessionClosing()).toBe(true); // the first attempt's barrier survives the second Stay
+    expect(() => beginProducerWork("new-meta", "unretained")).toThrow(ProducerSessionError);
+    expect(getPendingProducerWork().unretained).toBe(1);
+    first.releaseSignOut();
+    await auth;
+    expect(getWorkspaceSaveContext().userId).toBeNull(); // ordinary cleanup
+    expect(first.calls.signedOut).toBe(1);
+    expect(remounted.calls).toEqual({ signOut: 0, signedOut: 0 }); // no duplicate request, no second navigation
+    preexisting.release();
+  });
+
+  it("second attempt chooses Leave while the first request is pending: shows signing-out, issues NO duplicate; first refusal → second shows the error", async () => {
+    const preexisting = beginProducerWork("old-meta", "unretained");
+    const first = makeFlow({ defer: true, fail: true });
+    await first.flow.start();
+    const auth = first.flow.leavePending();
+    await flush();
+    first.flow.detach();
+    const second = makeFlow({ defer: true });
+    await second.flow.start();
+    await second.flow.leavePending();
+    expect(second.flow.state().kind).toBe("signingOut"); // truthful: a sign-out is already in progress
+    expect(second.calls.signOut).toBe(0);
+    expect(isSessionAuthPending()).toBe(true);
+    first.releaseSignOut();
+    await auth; // refused
+    expect(isSessionAuthPending()).toBe(false);
+    second.flow.reconcileAttempt(); // what the shell's effect does when the registry changes
+    expect(second.flow.state().kind).toBe("error"); // still signed in; Try again / Stay available
+    expect(isSessionClosing()).toBe(true); // the second attempt still holds its own lease while its dialog is open
+    second.flow.stay();
+    expect(isSessionClosing()).toBe(false);
+    expect(() => beginProducerWork("new-meta", "unretained")).not.toThrow();
+    preexisting.release();
+  });
+
+  it("second attempt waiting on the first request: first succeeds → second retires silently, navigation once", async () => {
+    const preexisting = beginProducerWork("old-meta", "unretained");
+    const first = makeFlow({ defer: true, resetsStore: true });
+    await first.flow.start();
+    const auth = first.flow.leavePending();
+    await flush();
+    first.flow.detach();
+    const second = makeFlow();
+    await second.flow.start();
+    await second.flow.leavePending();
+    expect(second.flow.state().kind).toBe("signingOut");
+    first.releaseSignOut();
+    await auth;
+    second.flow.reconcileAttempt();
+    expect(second.flow.state().kind).toBe("idle");
+    expect(first.calls.signedOut + second.calls.signedOut).toBe(1);
+    expect(second.calls.signOut).toBe(0);
+    preexisting.release();
+  });
+
+  it("second attempt detaches while only observing: its own lease is released, the first request's barrier stays", async () => {
+    const preexisting = beginProducerWork("old-meta", "unretained");
+    const first = makeFlow({ defer: true, fail: true });
+    await first.flow.start();
+    const auth = first.flow.leavePending();
+    await flush();
+    first.flow.detach();
+    const second = makeFlow();
+    await second.flow.start();
+    await second.flow.leavePending();
+    second.flow.detach();
+    expect(isSessionClosing()).toBe(true);
+    expect(isSessionAuthPending()).toBe(true);
+    first.releaseSignOut();
+    await auth;
+    expect(isSessionClosing()).toBe(false); // both attempts over: no deadlock
+    preexisting.release();
+  });
+
+  it("no request issued: cancelling the only attempt releases admission immediately (unchanged)", async () => {
+    const work = beginProducerWork("old-meta", "unretained");
+    const f = makeFlow();
+    await f.flow.start();
+    expect(isSessionAuthPending()).toBe(false);
+    f.flow.stay();
+    expect(isSessionClosing()).toBe(false);
+    work.release();
   });
 });

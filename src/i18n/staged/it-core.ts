@@ -178,6 +178,16 @@ export const itCore: Readonly<Record<string, string>> = {
   "shell.signOutDialog.leave": "Esci comunque",
   "shell.signOutDialog.errorTitle": "Uscita non completata",
   "shell.signOutDialog.errorBody": "Sei ancora connesso. Puoi riprovare o restare connesso.",
+  "shell.producer.notReady":
+    "L’area di lavoro non è ancora pronta. Riprova quando è stata caricata.",
+  "shell.producer.staleSession":
+    "La sessione dell’area di lavoro è cambiata. Il risultato non è stato applicato.",
+  "shell.producer.sourceChanged":
+    "Il contenuto è cambiato durante l’esecuzione. Eseguila di nuovo.",
+  "shell.producer.signingOut": "La disconnessione è in corso. Questa azione non è stata avviata.",
+  "shell.signOutDialog.pendingTitle": "Il lavoro è ancora in corso",
+  "shell.signOutDialog.pendingBody":
+    "{count} risultato/i di questa sessione sono ancora in generazione e non vengono conservati sul server. Se esci ora, potrebbero andare persi. Puoi restare e attendere, oppure uscire comunque.",
   "shell.footerBuiltBy": "Milo Growth — realizzato da Andersen Innovations",
   "shell.language": "Lingua dell’interfaccia",
   "shell.languageProjectDefault": "Lingua predefinita del progetto",

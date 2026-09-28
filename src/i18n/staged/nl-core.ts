@@ -179,6 +179,15 @@ export const nlCore: Readonly<Record<string, string>> = {
   "shell.signOutDialog.errorTitle": "Uitloggen is niet voltooid",
   "shell.signOutDialog.errorBody":
     "Je bent nog ingelogd. Je kunt het opnieuw proberen of ingelogd blijven.",
+  "shell.producer.notReady":
+    "De werkruimte is nog niet klaar. Probeer het opnieuw zodra deze is geladen.",
+  "shell.producer.staleSession":
+    "De werkruimtesessie is gewijzigd. Het resultaat is niet toegepast.",
+  "shell.producer.sourceChanged": "De inhoud is gewijzigd terwijl dit liep. Voer het opnieuw uit.",
+  "shell.producer.signingOut": "Uitloggen is bezig. Deze actie is niet gestart.",
+  "shell.signOutDialog.pendingTitle": "Er is nog werk bezig",
+  "shell.signOutDialog.pendingBody":
+    "{count} resultaat/resultaten van deze sessie worden nog gegenereerd en worden niet op de server bewaard. Als je nu uitlogt, kunnen ze verloren gaan. Je kunt blijven en wachten, of toch uitloggen.",
   "shell.footerBuiltBy": "Milo Growth — gemaakt door Andersen Innovations",
   "shell.language": "Interfacetaal",
   "shell.languageProjectDefault": "Projectstandaard",

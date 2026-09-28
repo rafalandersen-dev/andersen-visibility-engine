@@ -181,6 +181,16 @@ export const deCore: Readonly<Record<string, string>> = {
   "shell.signOutDialog.errorTitle": "Abmeldung nicht abgeschlossen",
   "shell.signOutDialog.errorBody":
     "Sie sind weiterhin angemeldet. Sie können es erneut versuchen oder angemeldet bleiben.",
+  "shell.producer.notReady":
+    "Der Arbeitsbereich ist noch nicht bereit. Versuchen Sie es erneut, sobald er geladen ist.",
+  "shell.producer.staleSession":
+    "Die Arbeitsbereichssitzung hat sich geändert. Das Ergebnis wurde nicht übernommen.",
+  "shell.producer.sourceChanged":
+    "Der Inhalt hat sich während der Ausführung geändert. Führen Sie sie erneut aus.",
+  "shell.producer.signingOut": "Die Abmeldung läuft. Diese Aktion wurde nicht gestartet.",
+  "shell.signOutDialog.pendingTitle": "Arbeit läuft noch",
+  "shell.signOutDialog.pendingBody":
+    "{count} Ergebnis(se) dieser Sitzung werden noch erzeugt und nicht auf dem Server aufbewahrt. Wenn Sie sich jetzt abmelden, können sie verloren gehen. Sie können bleiben und warten oder sich trotzdem abmelden.",
   "shell.footerBuiltBy": "Milo Growth — entwickelt von Andersen Innovations",
   "shell.language": "Oberflächensprache",
   "shell.languageProjectDefault": "Projektstandard",

@@ -176,6 +176,13 @@ export const etCore: Readonly<Record<string, string>> = {
   "shell.signOutDialog.errorTitle": "Väljalogimine ei õnnestunud",
   "shell.signOutDialog.errorBody":
     "Oled endiselt sisse logitud. Võid uuesti proovida või sisselogituks jääda.",
+  "shell.producer.notReady": "Tööruum pole veel valmis. Proovi uuesti, kui see on laaditud.",
+  "shell.producer.staleSession": "Tööruumi seanss muutus. Tulemust ei rakendatud.",
+  "shell.producer.sourceChanged": "Sisu muutus selle töö ajal. Käivita see uuesti.",
+  "shell.producer.signingOut": "Väljalogimine on pooleli. Seda toimingut ei alustatud.",
+  "shell.signOutDialog.pendingTitle": "Töö on veel pooleli",
+  "shell.signOutDialog.pendingBody":
+    "Selle seansi {count} tulemus(t) genereeritakse veel ja neid ei hoita serveris. Kui logid nüüd välja, võivad need kaduda. Võid jääda ja oodata või siiski välja logida.",
   "shell.footerBuiltBy": "Milo Growth — loonud Andersen Innovations",
   "shell.language": "Liidese keel",
   "shell.languageProjectDefault": "Projekti vaikekeel",

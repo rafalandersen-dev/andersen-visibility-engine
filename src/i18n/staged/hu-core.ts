@@ -178,6 +178,14 @@ export const huCore: Readonly<Record<string, string>> = {
   "shell.signOutDialog.errorTitle": "A kijelentkezés nem fejeződött be",
   "shell.signOutDialog.errorBody":
     "Továbbra is be van jelentkezve. Újra próbálhatja, vagy bejelentkezve maradhat.",
+  "shell.producer.notReady": "A munkaterület még nem áll készen. Próbálja újra, ha betöltődött.",
+  "shell.producer.staleSession":
+    "A munkaterület munkamenete megváltozott. Az eredmény nem lett alkalmazva.",
+  "shell.producer.sourceChanged": "A tartalom megváltozott a futás közben. Futtassa újra.",
+  "shell.producer.signingOut": "Kijelentkezés folyamatban. Ez a művelet nem indult el.",
+  "shell.signOutDialog.pendingTitle": "A munka még folyamatban van",
+  "shell.signOutDialog.pendingBody":
+    "Ennek a munkamenetnek {count} eredménye még készül, és nincs a szerveren tárolva. Ha most kijelentkezik, elveszhetnek. Maradhat és várhat, vagy kijelentkezhet ennek ellenére.",
   "shell.footerBuiltBy": "Milo Growth — készítette: Andersen Innovations",
   "shell.language": "Felület nyelve",
   "shell.languageProjectDefault": "Projekt alapértelmezése",
