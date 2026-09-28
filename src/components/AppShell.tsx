@@ -1,6 +1,6 @@
 import { Sheet, SheetContent, SheetTitle } from "@/components/ui/sheet";
 import { Link, useNavigate, useRouterState } from "@tanstack/react-router";
-import { useState, useRef, type ReactNode } from "react";
+import { useEffect, useMemo, useState, useRef, type ReactNode } from "react";
 import {
   Bell,
   Briefcase,
@@ -31,8 +31,26 @@ import {
   UsersThree,
   X,
 } from "@phosphor-icons/react";
-import { useStore, setActiveProject } from "@/lib/store";
+import {
+  useStore,
+  setActiveProject,
+  useWorkspaceSaveStatus,
+  getWorkspaceSaveStatus,
+  getWorkspaceSaveContext,
+  saveWorkspaceNow,
+} from "@/lib/store";
 import { useAuth } from "@/lib/auth";
+import { hasUnconfirmedWorkspaceChanges } from "@/lib/workspace-save-status";
+import { createSignOutFlow, type SignOutFlowState } from "@/lib/sign-out-flow";
+import {
+  acquireClosingLease,
+  getPendingProducerWork,
+  isSessionAuthPending,
+  usePendingProducerWork,
+  useSessionAuthPending,
+} from "@/lib/producer-session";
+import { WorkspaceSaveStatusBar } from "@/components/WorkspaceSaveStatus";
+import { SignOutDialog } from "@/components/SignOutDialog";
 import { useAppLanguage, useT, getUiLocaleOverride, setUiLocaleOverride } from "@/i18n";
 import { MAX_PROJECTS_PER_USER } from "@/lib/billing";
 import { countPendingForBadge } from "@/lib/pending-actions.ui";
@@ -212,9 +230,77 @@ export function AppShell({
   const [mobileOpen, setMobileOpen] = useState(false);
   const menuButton = useRef<HTMLButtonElement>(null);
 
-  async function handleSignOut() {
-    await signOut();
-    navigate({ to: "/", replace: true });
+  // AS: global workspace persistence status (whole document; page-local forms keep their own).
+  const saveStatus = useWorkspaceSaveStatus();
+  const [retrying, setRetrying] = useState(false);
+  const retryingRef = useRef(false);
+  async function retryWorkspaceSave() {
+    if (retryingRef.current) return; // overlapping UI retries coalesce; the store still serializes
+    retryingRef.current = true;
+    setRetrying(true);
+    try {
+      await saveWorkspaceNow(); // current whole-workspace diff only; outcome reported by the status
+    } catch {
+      /* reported through the workspace status, never as raw text */
+    } finally {
+      retryingRef.current = false;
+      setRetrying(false);
+    }
+  }
+  // Generic browser prompt only while actual workspace changes are not confirmed as saved.
+  const guardUnload = hasUnconfirmedWorkspaceChanges(saveStatus);
+  useEffect(() => {
+    if (!guardUnload) return;
+    const warn = (event: BeforeUnloadEvent) => {
+      event.preventDefault();
+      event.returnValue = "";
+    };
+    window.addEventListener("beforeunload", warn);
+    return () => window.removeEventListener("beforeunload", warn);
+  }, [guardUnload]);
+
+  // AS: safe sign-out — at most one save attempt, then an explicit choice if not confirmed.
+  const [signOutState, setSignOutState] = useState<SignOutFlowState>({ kind: "idle" });
+  const signOutRef = useRef(signOut);
+  signOutRef.current = signOut;
+  const navigateRef = useRef(navigate);
+  navigateRef.current = navigate;
+  const signOutFlow = useMemo(
+    () =>
+      createSignOutFlow({
+        status: getWorkspaceSaveStatus,
+        context: getWorkspaceSaveContext,
+        save: saveWorkspaceNow,
+        signOut: () => signOutRef.current(),
+        onState: setSignOutState,
+        onSignedOut: () => navigateRef.current({ to: "/", replace: true }),
+        pendingUnretained: () => getPendingProducerWork().unretained,
+        acquireClosing: acquireClosingLease,
+        authPending: isSessionAuthPending,
+      }),
+    [],
+  );
+  // AY: pending unretained producer work of this session gates the sign-out with an explicit choice.
+  const pendingWork = usePendingProducerWork();
+  useEffect(() => {
+    void signOutFlow.pendingChanged();
+  }, [signOutFlow, pendingWork.unretained]);
+  const sessionAuthPending = useSessionAuthPending();
+  useEffect(() => {
+    signOutFlow.reconcileAttempt(); // an observed request of another attempt settled
+  }, [signOutFlow, sessionAuthPending]);
+  useEffect(() => {
+    signOutFlow.attach();
+    return () => signOutFlow.detach();
+  }, [signOutFlow]);
+  const sessionUserId = useStore((state) => state.userId);
+  const sessionHydrated = useStore((state) => state.hydrated);
+  useEffect(() => {
+    signOutFlow.reconcile(); // a replaced session retires a stale sign-out dialog
+  }, [signOutFlow, sessionUserId, sessionHydrated]);
+
+  function handleSignOut() {
+    void signOutFlow.start();
   }
 
   const sidebar = (
@@ -267,6 +353,21 @@ export function AppShell({
       </Sheet>
 
       <main className="min-w-0 flex-1">
+        <WorkspaceSaveStatusBar
+          status={saveStatus}
+          retrying={retrying}
+          onRetry={retryWorkspaceSave}
+          t={t}
+        />
+        <SignOutDialog
+          state={signOutState}
+          onStay={signOutFlow.stay}
+          onRetry={() => void signOutFlow.retry()}
+          onLeave={() => void signOutFlow.leave()}
+          onRetryAuth={() => void signOutFlow.retryAuth()}
+          onLeavePending={() => void signOutFlow.leavePending()}
+          t={t}
+        />
         {/* Print pages at paper width fall below the lg breakpoint, so without
             print:hidden this bar would top every printed report page. */}
         <div className="flex h-14 items-center justify-between border-b border-border bg-background px-4 backdrop-blur lg:hidden print:hidden">

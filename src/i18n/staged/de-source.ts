@@ -3,7 +3,7 @@ export const DE_AUTHORING_SOURCE_REVISION = "5a9416d74f532b65f78c0f19b89d221c6b2
 export const DE_AUTHORING_SOURCE_HASHES: Readonly<Record<string, string>> = {
   // Conversation source is the specialist-evidence chat candidate after ff9b085, recorded on its batch.
   conversation: "d37f66e7435e11e49b2e69c75ace0f494c1d288b7c4e4b1d3f3c110a1274649b",
-  core: "845b2b1ade4a0935ab924dcc4bdc27d72a7a120388740354bd69a697aa1c7ff2",
+  core: "8476f0a4138861b0b333d132799933037eda17dbd2d1ba4207b7cc4e0c9337d1",
   authentication: "f0d4cd1cdcf0283517e3a90abea9abdbc8528a76d9a15c10c7cad3ef84729dc8",
   "shared controls": "678278d00a51f6b4df582627cce0d38b176e65972d6ac578682f8e2e247d9de5",
   "setup screen": "565b0bcd89f346fd85f3b87d4e44716826a65bee54fd60eaa3b677c4d732a5ca",

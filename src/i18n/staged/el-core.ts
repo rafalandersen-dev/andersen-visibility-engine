@@ -164,6 +164,32 @@ export const elCore: Readonly<Record<string, string>> = {
   "shell.account": "Λογαριασμός",
   "shell.manageSubscription": "Διαχείριση ή ακύρωση συνδρομής",
   "shell.signOut": "Αποσύνδεση",
+  "shell.workspaceSave.saved": "Ο χώρος εργασίας αποθηκεύτηκε.",
+  "shell.workspaceSave.unsaved": "Μη αποθηκευμένες αλλαγές στον χώρο εργασίας…",
+  "shell.workspaceSave.saving": "Αποθήκευση χώρου εργασίας…",
+  "shell.workspaceSave.saveNow": "Αποθήκευση τώρα",
+  "shell.workspaceSave.conflict":
+    "Αυτός ο χώρος εργασίας άλλαξε σε άλλη συνεδρία. Οι τοπικές σας αλλαγές είναι ακόμη εδώ και δεν έχουν επιβεβαιωθεί ως αποθηκευμένες.",
+  "shell.signOutDialog.title":
+    "Οι αλλαγές στον χώρο εργασίας δεν έχουν επιβεβαιωθεί ως αποθηκευμένες",
+  "shell.signOutDialog.body":
+    "Αν αποσυνδεθείτε τώρα, ορισμένες αλλαγές ενδέχεται να λείπουν από τον διακομιστή. Μπορείτε να παραμείνετε και να δοκιμάσετε ξανά την αποθήκευση ή να αποσυνδεθείτε ούτως ή άλλως.",
+  "shell.signOutDialog.saving": "Αποθήκευση του χώρου εργασίας πριν από την αποσύνδεση…",
+  "shell.signOutDialog.signingOut": "Αποσύνδεση…",
+  "shell.signOutDialog.stay": "Παραμονή συνδεδεμένου",
+  "shell.signOutDialog.leave": "Αποσύνδεση ούτως ή άλλως",
+  "shell.signOutDialog.errorTitle": "Η αποσύνδεση δεν ολοκληρώθηκε",
+  "shell.signOutDialog.errorBody":
+    "Είστε ακόμη συνδεδεμένοι. Μπορείτε να δοκιμάσετε ξανά ή να παραμείνετε συνδεδεμένοι.",
+  "shell.producer.notReady":
+    "Ο χώρος εργασίας δεν είναι έτοιμος ακόμη. Δοκιμάστε ξανά μόλις φορτωθεί.",
+  "shell.producer.staleSession":
+    "Η συνεδρία του χώρου εργασίας άλλαξε. Το αποτέλεσμα δεν εφαρμόστηκε.",
+  "shell.producer.sourceChanged": "Το περιεχόμενο άλλαξε ενώ αυτό εκτελούνταν. Εκτελέστε το ξανά.",
+  "shell.producer.signingOut": "Η αποσύνδεση βρίσκεται σε εξέλιξη. Αυτή η ενέργεια δεν ξεκίνησε.",
+  "shell.signOutDialog.pendingTitle": "Η εργασία βρίσκεται ακόμη σε εξέλιξη",
+  "shell.signOutDialog.pendingBody":
+    "{count} αποτέλεσμα(τα) αυτής της συνεδρίας δημιουργούνται ακόμη και δεν διατηρούνται στον διακομιστή. Αν αποσυνδεθείτε τώρα, ενδέχεται να χαθούν. Μπορείτε να παραμείνετε και να περιμένετε ή να αποσυνδεθείτε ούτως ή άλλως.",
   "shell.footerBuiltBy": "Milo Growth — δημιουργήθηκε από την Andersen Innovations",
   "shell.language": "Γλώσσα διεπαφής",
   "shell.languageProjectDefault": "Προεπιλογή έργου",

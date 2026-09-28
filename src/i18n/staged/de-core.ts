@@ -165,6 +165,32 @@ export const deCore: Readonly<Record<string, string>> = {
   "shell.account": "Konto",
   "shell.manageSubscription": "Abonnement verwalten oder kündigen",
   "shell.signOut": "Abmelden",
+  "shell.workspaceSave.saved": "Arbeitsbereich gespeichert.",
+  "shell.workspaceSave.unsaved": "Ungespeicherte Änderungen im Arbeitsbereich…",
+  "shell.workspaceSave.saving": "Arbeitsbereich wird gespeichert…",
+  "shell.workspaceSave.saveNow": "Jetzt speichern",
+  "shell.workspaceSave.conflict":
+    "Dieser Arbeitsbereich wurde in einer anderen Sitzung geändert. Ihre lokalen Änderungen sind weiterhin hier und nicht als gespeichert bestätigt.",
+  "shell.signOutDialog.title": "Änderungen im Arbeitsbereich sind nicht als gespeichert bestätigt",
+  "shell.signOutDialog.body":
+    "Wenn Sie sich jetzt abmelden, fehlen möglicherweise einige Änderungen auf dem Server. Sie können angemeldet bleiben und das Speichern erneut versuchen oder sich trotzdem abmelden.",
+  "shell.signOutDialog.saving": "Ihr Arbeitsbereich wird vor der Abmeldung gespeichert…",
+  "shell.signOutDialog.signingOut": "Abmeldung läuft…",
+  "shell.signOutDialog.stay": "Angemeldet bleiben",
+  "shell.signOutDialog.leave": "Trotzdem abmelden",
+  "shell.signOutDialog.errorTitle": "Abmeldung nicht abgeschlossen",
+  "shell.signOutDialog.errorBody":
+    "Sie sind weiterhin angemeldet. Sie können es erneut versuchen oder angemeldet bleiben.",
+  "shell.producer.notReady":
+    "Der Arbeitsbereich ist noch nicht bereit. Versuchen Sie es erneut, sobald er geladen ist.",
+  "shell.producer.staleSession":
+    "Die Arbeitsbereichssitzung hat sich geändert. Das Ergebnis wurde nicht übernommen.",
+  "shell.producer.sourceChanged":
+    "Der Inhalt hat sich während der Ausführung geändert. Führen Sie sie erneut aus.",
+  "shell.producer.signingOut": "Die Abmeldung läuft. Diese Aktion wurde nicht gestartet.",
+  "shell.signOutDialog.pendingTitle": "Arbeit läuft noch",
+  "shell.signOutDialog.pendingBody":
+    "{count} Ergebnis(se) dieser Sitzung werden noch erzeugt und nicht auf dem Server aufbewahrt. Wenn Sie sich jetzt abmelden, können sie verloren gehen. Sie können bleiben und warten oder sich trotzdem abmelden.",
   "shell.footerBuiltBy": "Milo Growth — entwickelt von Andersen Innovations",
   "shell.language": "Oberflächensprache",
   "shell.languageProjectDefault": "Projektstandard",

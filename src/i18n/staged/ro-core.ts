@@ -161,6 +161,31 @@ export const roCore: Readonly<Record<string, string>> = {
   "shell.account": "Cont",
   "shell.manageSubscription": "Gestionați sau anulați abonamentul",
   "shell.signOut": "Deconectați-vă",
+  "shell.workspaceSave.saved": "Spațiul de lucru a fost salvat.",
+  "shell.workspaceSave.unsaved": "Modificări nesalvate în spațiul de lucru…",
+  "shell.workspaceSave.saving": "Se salvează spațiul de lucru…",
+  "shell.workspaceSave.saveNow": "Salvează acum",
+  "shell.workspaceSave.conflict":
+    "Acest spațiu de lucru a fost modificat în altă sesiune. Modificările dvs. locale sunt încă aici și nu sunt confirmate ca salvate.",
+  "shell.signOutDialog.title": "Modificările spațiului de lucru nu sunt confirmate ca salvate",
+  "shell.signOutDialog.body":
+    "Dacă vă deconectați acum, unele modificări pot lipsi de pe server. Puteți rămâne și reîncerca salvarea sau vă puteți deconecta oricum.",
+  "shell.signOutDialog.saving": "Se salvează spațiul de lucru înainte de deconectare…",
+  "shell.signOutDialog.signingOut": "Deconectare…",
+  "shell.signOutDialog.stay": "Rămâneți conectat",
+  "shell.signOutDialog.leave": "Deconectare oricum",
+  "shell.signOutDialog.errorTitle": "Deconectarea nu s-a finalizat",
+  "shell.signOutDialog.errorBody":
+    "Sunteți încă conectat. Puteți încerca din nou sau puteți rămâne conectat.",
+  "shell.producer.notReady":
+    "Spațiul de lucru nu este încă pregătit. Reîncercați după ce s-a încărcat.",
+  "shell.producer.staleSession":
+    "Sesiunea spațiului de lucru s-a schimbat. Rezultatul nu a fost aplicat.",
+  "shell.producer.sourceChanged": "Conținutul s-a schimbat în timpul rulării. Rulați din nou.",
+  "shell.producer.signingOut": "Deconectarea este în curs. Această acțiune nu a fost pornită.",
+  "shell.signOutDialog.pendingTitle": "Lucrul este încă în desfășurare",
+  "shell.signOutDialog.pendingBody":
+    "{count} rezultat(e) pentru această sesiune se generează încă și nu sunt păstrate pe server. Dacă vă deconectați acum, s-ar putea pierde. Puteți rămâne și aștepta sau vă puteți deconecta oricum.",
   "shell.footerBuiltBy": "Milo Growth — creat de Andersen Innovations",
   "shell.language": "Limba interfeței",
   "shell.languageProjectDefault": "Implicit pentru proiect",
