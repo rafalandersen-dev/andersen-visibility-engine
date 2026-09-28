@@ -13,8 +13,12 @@ import {
  */
 import { createServerFn, createServerOnlyFn } from "@tanstack/react-start";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
-import { AiTextBoundaryError } from "./ai-text-bounds.server";
-import { generateBudgetedText, type NativeExpenseContext } from "./ai-provider-expense.server";
+import { AiTextBoundaryError, validateTextRequest } from "./ai-text-bounds.server";
+import {
+  generateBudgetedText,
+  generateBudgetedTextResult,
+  type NativeExpenseContext,
+} from "./ai-provider-expense.server";
 import { AiExpenseUnavailableError } from "./ai-expense.server";
 import { z } from "zod";
 import { AiProviderConfigurationError } from "./ai-provider.server";
@@ -1104,6 +1108,25 @@ async function generateJsonText(
 ) {
   const text = await generateBudgetedText(context, prompt, maxOutputTokens, modelId);
   return parseJsonFromText(text);
+}
+
+/**
+ * Whole-input tasks (quality score, draft improvement) require a POSITIVE completion: the provider must
+ * report `stop`. A `length`, `content-filter`, `error`, `other` or missing termination is refused at this
+ * boundary — even when the text happens to parse as JSON — because a partial answer would be stored as a
+ * whole-document score or a whole-body rewrite. The attempt is reserved, dispatched and reconciled exactly
+ * like a complete one (generateBudgetedTextResult records usage evidence and the monetary reservation
+ * before this check), and it is not retried. A positive stop is not proof of semantic quality.
+ */
+async function generateCompleteJsonText(
+  context: NativeExpenseContext,
+  prompt: string,
+  maxOutputTokens: number,
+  modelId?: string,
+) {
+  const result = await generateBudgetedTextResult(context, prompt, maxOutputTokens, modelId);
+  if (result.finishReason !== "stop") throw new AiTextBoundaryError("incomplete_output");
+  return parseJsonFromText(result.text);
 }
 
 function mapGatewayError(e: unknown): Error {
@@ -2700,16 +2723,14 @@ export const evaluateContentQualityFn = createServerFn({ method: "POST" })
     if (!hasMinimumWords(data.markdown, MIN_EVALUABLE_WORDS)) {
       return { outcome: "skipped", reason: "tooShort", score: tooShortScore(new Date().toISOString()) };
     }
-    // Spend limit, claimed before any model call so a refusal costs nothing.
-    await claimAiUsage({ userId: context.userId as string, bucket: "miloScore" });
     const project = data.project as Project;
     const services = data.services as ServiceItem[];
     const brief = projectBrief(project, services);
-
-    try {
-      const payload = await generateJsonText(
-        { userId: context.userId as string, operation: "evaluateContentQualityFn" },
-        `You are a careful content reviewer for a small-business website. Evaluate the DRAFT below and produce a practical PUBLISHING READINESS assessment — NOT an SEO ranking guarantee. Be conservative: do not inflate scores, and never imply guaranteed Google or AI rankings.
+    // The WHOLE canonical document is judged (no prefix): the exact final prompt is admitted against the
+    // fixed request contract (65 536 UTF-8 bytes, 4 000 completion tokens) BEFORE the usage claim, the
+    // monetary reservation and the provider, so an inadmissible document costs nothing and is never
+    // silently sliced, truncated or partitioned into a partial-document score.
+    const prompt = `You are a careful content reviewer for a small-business website. Evaluate the DRAFT below and produce a practical PUBLISHING READINESS assessment — NOT an SEO ranking guarantee. Be conservative: do not inflate scores, and never imply guaranteed Google or AI rankings.
 
 Score each of these 8 categories from 0–100 with a one-sentence explanation and up to 3 concrete suggestions:
 - structure: clear title, logical H2/H3 sections, intro, conclusion/next step, scannable formatting.
@@ -2742,9 +2763,21 @@ ${brief}
 
 DRAFT (markdown):
 """
-${data.markdown.slice(0, 12000)}
+${data.markdown}
 """
-${sharedRules}`,
+${sharedRules}`;
+    try {
+      validateTextRequest(prompt, 4000);
+    } catch (e) {
+      throw mapGatewayError(e);
+    }
+    // Spend limit, claimed before any model call so a refusal costs nothing.
+    await claimAiUsage({ userId: context.userId as string, bucket: "miloScore" });
+
+    try {
+      const payload = await generateCompleteJsonText(
+        { userId: context.userId as string, operation: "evaluateContentQualityFn" },
+        prompt,
         4000,
         data.modelOverride,
       );
@@ -2767,7 +2800,10 @@ export const improveContentDraftFn = createServerFn({ method: "POST" })
         project: z.any(),
         services: z.array(z.any()).default([]),
         title: z.string().default(""),
-        markdown: z.string().default(""),
+        // The raw body is bounded by the generator's own body limit (CONTENT_BODY_MAX_CHARS UTF-16 code
+        // units) BEFORE anything reads it: a larger manual body is refused by input validation, never
+        // sliced into a partial rewrite.
+        markdown: z.string().max(CONTENT_BODY_MAX_CHARS).default(""),
         assetType: z.string().default("article"),
         contentLanguage: z.string().default("English"),
         suggestions: z.array(z.string()).default([]),
@@ -2776,8 +2812,6 @@ export const improveContentDraftFn = createServerFn({ method: "POST" })
       .parse(input),
   )
   .handler(async ({ data, context }) => {
-    // Spend limit, claimed before any model call so a refusal costs nothing.
-    await claimAiUsage({ userId: context.userId as string, bucket: "improveDraft" });
     const project = data.project as Project;
     const services = data.services as ServiceItem[];
     const brief = projectBrief(project, services);
@@ -2786,11 +2820,11 @@ export const improveContentDraftFn = createServerFn({ method: "POST" })
       .slice(0, 12)
       .map((s) => `- ${s}`)
       .join("\n");
-
-    try {
-      const payload = await generateJsonText(
-        { userId: context.userId as string, operation: "improveContentDraftFn" },
-        `Improve the DRAFT below using the improvement suggestions. Keep the same topic, intent and language (${data.contentLanguage}). Keep the heading structure but improve clarity, structure, answer-readiness and a clear next step. Do NOT invent statistics, prices, guarantees or fake citations. Do NOT add exaggerated SEO/AI ranking claims. If the business context includes a Brand Intelligence block, follow it: improve tone to match the brand voice, remove any forbidden claims and avoid-list wording, add required caveats where appropriate, use the preferred CTA, prefer the listed internal link targets where relevant, and never invent proof points. Return ONLY the improved markdown body.
+    // The WHOLE raw body is rewritten (no prefix): the exact final prompt is admitted against the fixed
+    // request contract (65 536 UTF-8 bytes, 8 000 completion tokens) BEFORE the usage claim, the monetary
+    // reservation and the provider. A body whose complete rewrite does not fit the unchanged completion
+    // budget is refused after one attempt (incomplete termination below) — never rewritten in part.
+    const prompt = `Improve the DRAFT below using the improvement suggestions. Keep the same topic, intent and language (${data.contentLanguage}). Keep the heading structure but improve clarity, structure, answer-readiness and a clear next step. Do NOT invent statistics, prices, guarantees or fake citations. Do NOT add exaggerated SEO/AI ranking claims. If the business context includes a Brand Intelligence block, follow it: improve tone to match the brand voice, remove any forbidden claims and avoid-list wording, add required caveats where appropriate, use the preferred CTA, prefer the listed internal link targets where relevant, and never invent proof points. Return ONLY the improved markdown body.
 
 Improvement suggestions:
 ${suggestionList || "- Improve overall clarity, structure and a clear call to action."}
@@ -2807,14 +2841,31 @@ ${internalLinkRule(project)}
 
 CURRENT DRAFT (markdown):
 """
-${data.markdown.slice(0, 12000)}
+${data.markdown}
 """
-${sharedRules}`,
+${sharedRules}`;
+    try {
+      validateTextRequest(prompt, 8000);
+    } catch (e) {
+      throw mapGatewayError(e);
+    }
+    // Spend limit, claimed before any model call so a refusal costs nothing.
+    await claimAiUsage({ userId: context.userId as string, bucket: "improveDraft" });
+
+    try {
+      const payload = await generateCompleteJsonText(
+        { userId: context.userId as string, operation: "improveContentDraftFn" },
+        prompt,
         8000,
         data.modelOverride,
       );
-      const item = isRecord(payload) ? payload : {};
-      const markdown = pickString(item, ["markdown", "content", "body", "draft"], data.markdown);
+      // The promised shape only: a non-empty `markdown` string within the body limit. No alias keys and
+      // no fallback to the original body — a missing, empty, wrong-shaped or oversized answer is refused
+      // here, before any client store mutation, and is not retried.
+      const markdown =
+        isRecord(payload) && typeof payload.markdown === "string" ? payload.markdown : "";
+      if (!markdown.trim() || markdown.length > CONTENT_BODY_MAX_CHARS)
+        throw new AiTextBoundaryError("invalid_response");
       return { markdown };
     } catch (e) {
       throw mapGatewayError(e);

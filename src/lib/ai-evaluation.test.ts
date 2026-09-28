@@ -35,7 +35,14 @@ vi.mock("./ai-usage.server", () => ({
   UsageLimitError: class extends Error {},
   UsageUnavailableError: class extends Error {},
 }));
-vi.mock("./ai-provider-expense.server", () => ({ generateBudgetedText: h.generateBudgetedText }));
+vi.mock("./ai-provider-expense.server", () => ({
+  generateBudgetedText: h.generateBudgetedText,
+  // The whole-input tasks require a positive `stop`; the spied text function keeps the call counts.
+  generateBudgetedTextResult: async (...args: unknown[]) => ({
+    text: await h.generateBudgetedText(...args),
+    finishReason: "stop",
+  }),
+}));
 vi.mock("@/integrations/supabase/client.server", () => ({ supabaseAdmin: {} }));
 
 import { evaluateContentQualityFn, improveContentDraftFn } from "./ai.functions";
@@ -531,13 +538,15 @@ describe("BJ: the improve comparison declares the selected article's language to
       expect(p).not.toContain("Danish");
     }
   });
-  it("the improve prompt's 12 000-unit body prefix stays explicit: a longer raw body is embedded only up to that prefix", async () => {
+  it("the WHOLE raw body is embedded in the improve prompt (no 12 000-unit prefix): a tail marker after 13 000 units reaches both sides", async () => {
     const long = asset({ markdown: words(60) + " " + "z".repeat(13_000) + " TAIL-MARKER" });
     h.generateBudgetedText.mockResolvedValue(JSON.stringify({ markdown: "improved" }));
     await runModelComparison(attempt(long), realDeps());
-    for (const p of prompts()) {
-      expect(p).toContain(long.markdown.slice(0, 12_000));
-      expect(p).not.toContain("TAIL-MARKER");
+    const ps = prompts();
+    expect(ps).toHaveLength(2);
+    for (const p of ps) {
+      expect(p).toContain(long.markdown);
+      expect(p).toContain("TAIL-MARKER");
     }
   });
 });
