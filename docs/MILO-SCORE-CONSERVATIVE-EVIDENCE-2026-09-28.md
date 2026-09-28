@@ -329,7 +329,11 @@ Local UI (harnesses `.coordination/quality-refusal-harness/` port 5193 and `.coo
 port 5194; real AppShell, store, Milo Score panel and evaluation ResultCard over rejectable fake server functions;
 fictional data; no provider): pl/sv/da evaluate refusals (too large) → localized toast, body/score/batches unchanged;
 pl Improve → confirm → incomplete refusal → Polish toast, body 22 370 with tail and updatedAt unchanged; pl usage-limit
-→ "Wykorzystano wszystkie 20 uruchomienia Milo Score…"; da Improve invalid-response → Danish; evaluation view pl/sv →
+→ localized toast — the INITIAL BM observation read "Wykorzystano wszystkie 20 uruchomienia Milo Score…" (ungrammatical
+for a fixed bucket label, corrected by BN); the FINAL catalog renders "Wykorzystano miesięczny limit Twojego planu.
+Uruchomienia Milo Score: 20. Limit odnawia się 1. dnia miesiąca — lub podnieś plan, aby uzyskać więcej." (author-verified
+at desktop and Codex-verified at 375 px with body 22 370/tail/updatedAt/score 55/batches 0 unchanged; local fake-boundary
+browser proof, not production or provider proof); da Improve invalid-response → Danish; evaluation view pl/sv →
 both ResultCards show the localized incomplete sentence with the localized error badge. 375×812 keyboard (pl): Enter on
 "Oceń ponownie" → refusal toast 343 px inside the viewport, `scrollWidth === innerWidth`, score 55/batches 0 unchanged;
 Tab → "Ulepsz szkic" → Enter → dialog 375 px (focus Cancel) → Tab → Enter → incomplete refusal → Polish toast, body
