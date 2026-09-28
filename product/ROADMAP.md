@@ -2,7 +2,7 @@
 
 **Status:** Canonical execution plan; delivery and release remain evidence-gated
 
-**Last updated:** 2026-09-09
+**Last updated:** 2026-09-28 (current-checkpoint pointer only; plan content unchanged)
 
 **Product Lead / Outcome Owner:** Rafal Andersen
 
@@ -25,7 +25,9 @@ This plan consolidates the August strategy and September 5–9 launch, redesign,
 
 A primary chat interface for individual users and agencies is now explicit: users give Milo tasks, Milo assigns suitable specialists, and specialists can take over replies within the same continuous conversation. Add real conversational routing, persisted context, visible client/project and role identity, actionable results and existing permission enforcement to R01/R02/R04/R07/R08 acceptance. The specialist cards and weekly executor do not establish completion of this interface. See [DECISIONS.md](DECISIONS.md), 13 September. Finish Hungarian before the already requested single-successor handoff; the successor must assess this requirement in the full implementation and prioritization review. Older progress percentages remain dated, not revalidated against this clarification.
 
-## Current checkpoint — 9 September
+## Current checkpoint — 9 September (historical)
+
+> **Current checkpoint (28 September 2026):** production is PR #158 `94cc2edd…` (build `1790588904187`) on top of PR #151 `64db7a4b…`; migration `20260926190000` is APPLIED once; PR #156/#157 and their migrations `20260927190000`/`20260928120000` are candidates, UNAPPLIED. See [RELEASE_CHECKPOINT_2026_09_28.md](./RELEASE_CHECKPOINT_2026_09_28.md). The dated 9–13 September statements below are historical where they conflict.
 
 Repository main is #105 (`064a6d8b7233f86b29e19f097ac0e63bd283d253`). The last runtime verification recorded by this task is #104; #105 deployment was not checked in this planning update. Generation quota receipts are released; durable result recovery is unfinished in its separate worktree. The owner now explicitly includes specialist agents with faces, optional brand-guidelines setup, isolated project knowledge and weekly preparation with freshness checks. These are planned capabilities, not shipped features. See [current state](CURRENT_STATE.md) and the [specialist/knowledge/weekly specification](AGENT_WEEKLY_PLAN_2026_09_09.md). The older weighted progress estimate predates this expanded specification and is historical. Compound outcomes below remain unchecked until fully accepted.
 

@@ -2,7 +2,7 @@
 
 **Status:** Canonical operating record; configuration presence not reverified
 
-**Last updated:** 2026-09-09
+**Last updated:** 2026-09-28 (current-checkpoint pointer only; configuration presence not reverified)
 
 **Product Lead / incident owner:** Rafal Andersen
 
@@ -12,6 +12,7 @@ Do not store secret values or customer data in this file. Read [CURRENT_STATE.md
 
 | Item | Recorded state |
 | --- | --- |
+| Current checkpoint (28 September 2026) | Production `main` `94cc2edd…` / build `1790588904187` (PR #158 on PR #151); migration `20260926190000` applied once; PR #156/#157 migrations unapplied; see [RELEASE_CHECKPOINT_2026_09_28.md](./RELEASE_CHECKPOINT_2026_09_28.md). The rows below are the 9 September record and are historical where they conflict |
 | Source | `rafalandersen-dev/andersen-visibility-engine`, application baseline main `c99a398177b55828e2e8e642a59304fd85421859` (#98), rechecked 9 September |
 | Public domain | `https://milogrowth.com`; build `1788901947226` and #98 fingerprint rechecked 9 September; see CURRENT_STATE.md |
 | App/platform | Lovable-connected application; Vercel deployment status also exists. Verify actual routing/build identity before production assertions |
