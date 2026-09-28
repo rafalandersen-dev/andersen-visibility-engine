@@ -350,3 +350,48 @@ its retired receipt and creates nothing. Copy for the four stale keys now states
 receipt recovery) on the real chain; 21 tests in the file. Guard S regenerated for the new bytes and rehearsed
 (PASS, UNEXECUTED). tsc 0 · eslint 0 · prettier clean · `git diff --check` 0 · full Vitest 412 files / 7052
 tests · `vite build` success. No browser run for U (server-side rule; the mock mirrors it).
+
+## BB addendum (28 September 2026): actor and target admission before the owner locks
+
+Packet `codex-security-two-candidates-bb-20260928.md`, finding 4125916509 (PR157 discussion): the three actor
+write RPCs `set_ai_citation_change_approval`, `save_ai_citation_change_receipt` and
+`save_ai_citation_improvement_inspection` took the client-named owner's workspace lock
+(`assert_knowledge_project(...,true)`, FOR UPDATE) and account lock (`citation_lock_account`) BEFORE checking the
+actor's eligibility, the row assignment or the target, so any authenticated session naming an arbitrary owner
+could queue work behind that owner's locks. Fix (candidate `20260928120000`, now
+`4b69028e42bb576e9c472ab2d6506510aea069ed5e4c42a3a0c307f79da77e6e`, 100 858 bytes, UNAPPLIED; only those three
+function bodies differ from `f1984efb…`): each RPC now mirrors `save_ai_citation_finding_review` — OPTIMISTIC,
+lock-free admission first (delegate paths: `citation_review_authorized`, then the FOR SHARE NOWAIT account probes;
+inspection additionally `citation_inspection_assigned`, failing closed with the same
+`citation_improvement_unavailable` as a missing row), then lock-free target admission with the locked section's
+own errors (artifact/row existence, digest, current approval and the declared-instant window for receipts), and
+only then the two owner locks, under which EVERY check is repeated authoritatively exactly as before. The
+under-lock section, the owner-vs-delegate semantics, history replay (R2/1 order), receipt approval-revision (U),
+independence and idempotence are unchanged; no error code was added. The owner's own approval/receipt locks only
+the owner's own workspace, so the owner path gains target admission only.
+
+Regression (`citation-change-evidence-migration.test.ts`, +4 → 25): the two owner-lock functions are wrapped for
+that block with rollback-proof sequence counters (a refused call cannot lose its probe) and an injection point at
+the account lock; the originals are restored and compared byte-for-byte. Proven: a stranger, another owner, a
+revoked/expired/banned/deleted member, a disabled policy, a foreign project or an unknown owner reaches NEITHER
+lock (forbidden, the same refusal for a random artifact/row id); an admitted actor with a random/foreign/stale
+target, an unapproved artifact, an out-of-window instant, no assignment or a revoked assignment is refused before
+the locks with the locked section's own errors, and the missing-workspace tripwire agrees; valid owner and
+delegate mutations, frozen replays and identical declarations still take both locks; authority revoked BETWEEN
+the optimistic admission and the locked check (membership revoke, account ban, assignment revoke, injected at the
+account lock) is caught under the lock with nothing recorded, and the restored authority succeeds. Against the
+frozen `f1984efb…` source the two admission-order tests fail (must-fail verified). PGlite is one connection: the
+injection models the interleaving at the exact point; no real concurrent wait is exercised. The 10 suites that
+load the candidate chain: 349 tests passed; tsc 0; eslint 0; prettier clean; `git diff --check` 0. Guard S
+regenerated from the new bytes (`citation-change-proof-guarded-apply-20260928.sql`
+`a0af1e5839b9e1c97cd0e70d30638f91ebcb68b97d03781e966a5c1d2db3f14d`, journal identity `4b69028e…`; postflight
+re-pinned; preflight unchanged) and rehearsed locally in PGlite (PASS, UNEXECUTED; previous set kept under
+`superseded-bb-20260928/`). O `20260927190000` untouched and UNAPPLIED; R still depends on O/PR156.
+
+## Codex independent BB actor-admission verification — 28 September 2026
+
+Reviewed the three RPC deltas against ad1daad: actor eligibility and scoped target checks now precede the owner workspace lock; authoritative authorization, account/assignment revision and target checks remain under the original locks before mutation. The admission tests use rollback-surviving sequence probes, restore the wrapped function definitions, and cover invalid actors/targets, admitted owner/delegate/retries and a modeled revocation between admission and lock.
+
+Independent local checks: 6 SQL suites / 302 tests passed; TypeScript and diff whitespace checks passed. The regenerated release guard embeds source SHA256 `4b69028e42bb576e9c472ab2d6506510aea069ed5e4c42a3a0c307f79da77e6e` exactly twice. Independent in-memory PGlite rehearsal passed prerequisite-absent, mismatched journal, partial candidate, 39 preflight checks, application/journal identity, 61 postflight checks, no client-executable definer functions, and refused replay without loss of the journal.
+
+This establishes local ordering/guard behavior, not real multi-connection lock contention or production acceptance. No remote database was contacted or migrated. Migration O and this migration remain unapplied; PR156 release remains a prerequisite. New exact-head external code/security reviews remain required.

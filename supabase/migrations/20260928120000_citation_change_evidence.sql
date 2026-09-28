@@ -621,6 +621,27 @@ BEGIN
      OR p_expected_sha !~ '^[a-f0-9]{64}$' OR (p_expected_revision IS NOT NULL AND (p_expected_revision<0 OR p_expected_revision>1000000)) THEN
     RAISE EXCEPTION 'citation_change_unsupported' USING ERRCODE='22023';
   END IF;
+  -- OPTIMISTIC actor admission BEFORE any lock (finding 4125916509, mirroring save_ai_citation_finding_review):
+  -- p_owner is client-supplied, so a non-member / revoked / expired / banned session naming an arbitrary victim
+  -- owner is refused HERE (citation_review_authorized is lock-free) and never queues on that owner's workspace
+  -- lock; the account probes are FOR SHARE NOWAIT (fail-fast, never a wait, not the workspace lock). The owner's
+  -- own approval locks only the owner's own workspace, so it needs no delegate admission.
+  IF p_actor <> p_owner THEN
+    SELECT * INTO auth FROM public.citation_review_authorized(p_actor,p_owner,p_project);
+    IF NOT auth.allowed THEN RAISE EXCEPTION 'citation_change_forbidden' USING ERRCODE='22023'; END IF;
+    PERFORM public.assert_project_team_account(p_owner);
+    PERFORM public.assert_project_team_account(p_actor);
+  END IF;
+  -- OPTIMISTIC target admission BEFORE the lock: a schema-valid but RANDOM/foreign artifact id or a STALE digest
+  -- is refused with the SAME errors the locked section raises (no new oracle: authority was admitted first), so
+  -- no bogus request enqueues behind the owner lock. Nothing trusts this lock-free state for the mutation — every
+  -- check is re-run AUTHORITATIVELY under the locks below.
+  SELECT * INTO art FROM public.ai_citation_change_artifacts WHERE user_id=p_owner AND project_id=p_project AND id=p_artifact;
+  IF art.id IS NULL THEN RAISE EXCEPTION 'citation_change_unavailable' USING ERRCODE='22023'; END IF;
+  IF art.artifact_sha256 <> p_expected_sha THEN RAISE EXCEPTION 'citation_change_stale' USING ERRCODE='40001'; END IF;
+  -- Serialize the MUTATION under the OWNER workspace + account locks (each wait bounded by lock_timeout); every
+  -- admission above is repeated AUTHORITATIVELY below, so a revocation, deletion or account change landing after
+  -- the optimistic reads is caught before any write.
   PERFORM public.assert_knowledge_project(p_owner,p_project,true);
   PERFORM public.citation_lock_account(p_owner);
   SELECT * INTO art FROM public.ai_citation_change_artifacts WHERE user_id=p_owner AND project_id=p_project AND id=p_artifact;
@@ -696,6 +717,25 @@ BEGIN
   IF p_actor IS NULL OR p_owner IS NULL OR p_project IS NULL OR p_artifact IS NULL OR p_performed_at IS NULL OR NOT isfinite(p_performed_at) THEN
     RAISE EXCEPTION 'citation_change_receipt_invalid' USING ERRCODE='22023';
   END IF;
+  -- OPTIMISTIC actor admission BEFORE any lock (finding 4125916509; see set_ai_citation_change_approval): a
+  -- non-eligible session naming an arbitrary owner never reaches that owner's workspace lock.
+  IF p_actor <> p_owner THEN
+    SELECT * INTO auth FROM public.citation_review_authorized(p_actor,p_owner,p_project);
+    IF NOT auth.allowed THEN RAISE EXCEPTION 'citation_change_forbidden' USING ERRCODE='22023'; END IF;
+    PERFORM public.assert_project_team_account(p_owner);
+    PERFORM public.assert_project_team_account(p_actor);
+  END IF;
+  -- OPTIMISTIC target admission BEFORE the lock: a random/foreign artifact, an artifact without a CURRENT
+  -- approval, or a declared instant outside the permitted window is refused lock-free with the locked section's
+  -- own errors. Re-run authoritatively under the locks below; nothing here is trusted for the write.
+  SELECT * INTO art FROM public.ai_citation_change_artifacts WHERE user_id=p_owner AND project_id=p_project AND id=p_artifact;
+  IF art.id IS NULL THEN RAISE EXCEPTION 'citation_change_unavailable' USING ERRCODE='22023'; END IF;
+  IF NOT public.citation_change_approval_current(p_owner,p_project,p_artifact) THEN RAISE EXCEPTION 'citation_change_unapproved' USING ERRCODE='22023'; END IF;
+  SELECT updated_at INTO appr_at FROM public.ai_citation_change_approvals WHERE user_id=p_owner AND project_id=p_project AND artifact_id=p_artifact;
+  IF p_performed_at < appr_at OR p_performed_at > clock_timestamp() + interval '5 minutes' THEN
+    RAISE EXCEPTION 'citation_change_receipt_invalid' USING ERRCODE='22023';
+  END IF;
+  -- Serialize under the OWNER workspace + account locks; every admission above is repeated authoritatively.
   PERFORM public.assert_knowledge_project(p_owner,p_project,true);
   PERFORM public.citation_lock_account(p_owner);
   SELECT * INTO art FROM public.ai_citation_change_artifacts WHERE user_id=p_owner AND project_id=p_project AND id=p_artifact;
@@ -843,6 +883,22 @@ BEGIN
     RAISE EXCEPTION 'citation_inspection_invalid' USING ERRCODE='22023';
   END IF;
   IF p_actor = p_owner THEN RAISE EXCEPTION 'citation_inspection_forbidden' USING ERRCODE='22023'; END IF;
+  -- OPTIMISTIC actor admission BEFORE any lock (finding 4125916509, mirroring save_ai_citation_finding_review):
+  -- team eligibility (lock-free), then the owner's row-scoped assignment — an unassigned member fails closed with
+  -- the SAME citation_improvement_unavailable as a missing/foreign row (no existence oracle) — then the fail-fast
+  -- account probes. A session that fails any of these never queues on the owner's workspace lock.
+  SELECT * INTO auth FROM public.citation_review_authorized(p_actor,p_owner,p_project);
+  IF NOT auth.allowed THEN RAISE EXCEPTION 'citation_inspection_forbidden' USING ERRCODE='22023'; END IF;
+  IF NOT public.citation_inspection_assigned(p_owner,p_project,p_row,p_actor) THEN RAISE EXCEPTION 'citation_improvement_unavailable' USING ERRCODE='22023'; END IF;
+  PERFORM public.assert_project_team_account(p_owner);
+  PERFORM public.assert_project_team_account(p_actor);
+  -- OPTIMISTIC target admission BEFORE the lock: a missing row or a STALE digest is refused lock-free with the
+  -- locked section's own errors. Everything above is re-run AUTHORITATIVELY under the locks below (the assignment
+  -- revision the receipt is bound to is read ONLY under the lock).
+  SELECT * INTO imp FROM public.ai_citation_improvements WHERE user_id=p_owner AND project_id=p_project AND id=p_row;
+  IF imp.id IS NULL THEN RAISE EXCEPTION 'citation_improvement_unavailable' USING ERRCODE='22023'; END IF;
+  IF imp.record_sha256 <> p_expected_sha THEN RAISE EXCEPTION 'citation_inspection_stale' USING ERRCODE='40001'; END IF;
+  -- Serialize under the OWNER workspace + account locks; every admission above is repeated authoritatively.
   PERFORM public.assert_knowledge_project(p_owner,p_project,true);
   PERFORM public.citation_lock_account(p_owner);
   PERFORM public.assert_project_team_account(p_owner);

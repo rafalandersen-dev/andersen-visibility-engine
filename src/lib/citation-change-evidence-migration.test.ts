@@ -2051,6 +2051,482 @@ describe("T2 (PR157 exact-head finding 4118473980): a performed receipt never ou
   });
 });
 
+describe("BB (PR157 finding 4125916509): actor and target admission precede the owner locks", () => {
+  // The two owner locks (assert_knowledge_project(...,true) → workspace FOR UPDATE; citation_lock_account →
+  // account FOR UPDATE) are wrapped, for THIS block only, with a probe that records every locking call and can
+  // run an injected statement at the account lock — i.e. AFTER the optimistic admission and BEFORE the
+  // authoritative re-checks. PGlite is one connection, so a genuinely concurrent revoke cannot be scheduled; the
+  // injection models the interleaving at the exact point where it matters. The original definitions are restored
+  // and verified byte-for-byte afterwards. This proves ORDER (what is reached), not production lock waits.
+  const saved: Array<{ name: string; def: string }> = [];
+  // Sequences, not rows: a refused RPC rolls its statement back, and a probe row would vanish with it, whereas
+  // nextval() is never rolled back — so the counters truthfully show the locks a FAILING call reached.
+  const counters = async () => {
+    const r = await db.query<{ a: string; c: string }>(
+      "SELECT (SELECT CASE WHEN is_called THEN last_value ELSE 0 END FROM public.bb_probe_workspace_lock) a, (SELECT CASE WHEN is_called THEN last_value ELSE 0 END FROM public.bb_probe_account_lock) c",
+    );
+    return { a: Number(r.rows[0].a), c: Number(r.rows[0].c) };
+  };
+  let base = { a: 0, c: 0 };
+  const probe = async () => {
+    const now = await counters();
+    const out: Record<string, number> = {};
+    if (now.a - base.a) out.assert_knowledge_project = now.a - base.a;
+    if (now.c - base.c) out.citation_lock_account = now.c - base.c;
+    return out;
+  };
+  const clearProbe = async () => {
+    await db.exec("DELETE FROM bb_lock_injection;");
+    base = await counters();
+  };
+  const inject = (sql: string) => db.query("INSERT INTO bb_lock_injection(sql) VALUES($1)", [sql]);
+  const raw = async (name: string, args: Record<string, unknown>) => {
+    try {
+      await call(name, args);
+      return "ok";
+    } catch (e) {
+      return String((e as Error).message);
+    }
+  };
+  const NONE = {};
+  const BOTH = { assert_knowledge_project: 1, citation_lock_account: 1 };
+  const approveArgs = (actor: string, artifactId: string, sha: string, approved = true) => ({
+    p_actor: actor,
+    p_owner: user,
+    p_project: "p",
+    p_artifact: artifactId,
+    p_expected_sha: sha,
+    p_approved: approved,
+    p_expected_revision: 1,
+    p_request: crypto.randomUUID(),
+  });
+  const receiptArgs = (actor: string, artifactId: string, performedAt: string) => ({
+    p_actor: actor,
+    p_owner: user,
+    p_project: "p",
+    p_artifact: artifactId,
+    p_performed_at: performedAt,
+  });
+  const inspectArgs = (actor: string, rowId: string, sha: string, observedAt: string) => ({
+    p_actor: actor,
+    p_owner: user,
+    p_project: "p",
+    p_row: rowId,
+    p_expected_sha: sha,
+    p_check: "shows_approved_content",
+    p_observed_at: observedAt,
+    p_expected_version: 0,
+    p_expected_head: null,
+  });
+  /** Owner-approved and owner-performed artifact bound to an improvement row; the delegate is assigned. */
+  const delivered = async () => {
+    await seedTeam();
+    const a = await artifact();
+    const sha = String(a.artifactSha256);
+    await approve(user, String(a.id), sha);
+    const r = await receipt(user, String(a.id), await isoAt("+ interval '1 second'"));
+    const v1 = await saveChange(changeRecord(a as never, user), {
+      artifactId: a.id,
+      artifactSha256: a.artifactSha256,
+      receiptId: r.id,
+      ownerInspection: null,
+    });
+    const rowSha = await recordSha(String(v1.id));
+    await grant(String(v1.id), delegate);
+    const observedAt = await isoAt("+ interval '2 seconds'");
+    return { a, sha, rowId: String(v1.id), rowSha, observedAt };
+  };
+  beforeAll(async () => {
+    await db.exec(
+      "CREATE SEQUENCE public.bb_probe_workspace_lock; CREATE SEQUENCE public.bb_probe_account_lock; CREATE TABLE public.bb_lock_injection(sql text NOT NULL);",
+    );
+    for (const sig of [
+      "assert_knowledge_project(uuid,text,boolean)",
+      "citation_lock_account(uuid)",
+    ]) {
+      const def = (
+        await db.query<{ d: string }>(`SELECT pg_get_functiondef('public.${sig}'::regprocedure) d`)
+      ).rows[0].d;
+      saved.push({ name: sig, def });
+    }
+    const wrap = (def: string, prologue: string, declare = "") => {
+      const marker = "AS $function$\nBEGIN\n";
+      expect(def.split(marker)).toHaveLength(2);
+      return def.replace(marker, `AS $function$\n${declare}BEGIN\n${prologue}`);
+    };
+    // Same bodies as released, plus the probe (and, for the account lock, the injected interleaving).
+    await db.exec(
+      wrap(
+        saved[0].def,
+        "  IF p_lock THEN PERFORM nextval('public.bb_probe_workspace_lock'); END IF;\n",
+      ),
+    );
+    await db.exec(
+      wrap(
+        saved[1].def,
+        "  PERFORM nextval('public.bb_probe_account_lock');\n  FOR inj IN DELETE FROM public.bb_lock_injection RETURNING sql LOOP EXECUTE inj.sql; END LOOP;\n",
+        "DECLARE inj record;\n",
+      ),
+    );
+  });
+  afterAll(async () => {
+    for (const s of saved) await db.exec(s.def);
+    for (const s of saved)
+      expect(
+        (
+          await db.query<{ d: string }>(
+            `SELECT pg_get_functiondef('public.${s.name}'::regprocedure) d`,
+          )
+        ).rows[0].d,
+      ).toBe(s.def);
+    await db.exec(
+      "DROP SEQUENCE public.bb_probe_workspace_lock; DROP SEQUENCE public.bb_probe_account_lock; DROP TABLE public.bb_lock_injection;",
+    );
+  });
+  beforeEach(clearProbe);
+
+  it("positive control: valid owner and delegate mutations, frozen replays and identical declarations still take BOTH owner locks and are re-checked there", async () => {
+    const { a, sha, rowId, rowSha, observedAt } = await delivered();
+    // Assigned inspector (while the owner is still the approver and performer): admitted lock-free, receipt
+    // written under the locks.
+    await clearProbe();
+    expect(
+      await call(
+        "save_ai_citation_improvement_inspection",
+        inspectArgs(delegate, rowId, rowSha, observedAt),
+      ),
+    ).toMatchObject({ version: 1, checkResult: "shows_approved_content" });
+    expect(await probe()).toEqual(BOTH);
+    // Owner approval (a real mutation: approve → revoke) reaches both locks.
+    await clearProbe();
+    const revoke = approveArgs(user, String(a.id), sha, false);
+    await call("set_ai_citation_change_approval", revoke);
+    expect(await probe()).toEqual(BOTH);
+    // Frozen replay of that decision: the historical result, decided UNDER the locks as before (no pre-lock
+    // idempotency was added — the R2/1 live-authorization-before-replay order is untouched).
+    await clearProbe();
+    expect(await call("set_ai_citation_change_approval", revoke)).toMatchObject({
+      approved: false,
+      replayed: true,
+    });
+    expect(await probe()).toEqual(BOTH);
+    // Delegate re-approval at the new head: admitted lock-free, then serialized and stamped under the locks.
+    await clearProbe();
+    const again = await call("set_ai_citation_change_approval", {
+      ...approveArgs(delegate, String(a.id), sha, true),
+      p_expected_revision: 2,
+    });
+    expect(again).toMatchObject({ approved: true, approverKind: "delegate", revision: 3 });
+    expect(await probe()).toEqual(BOTH);
+    // Delegate performed declaration, and its identical (lost-response) retry: one receipt, locks taken twice.
+    const performedAt = await isoAt("+ interval '3 seconds'");
+    await clearProbe();
+    const r1 = await call(
+      "save_ai_citation_change_receipt",
+      receiptArgs(delegate, String(a.id), performedAt),
+    );
+    expect(r1).toMatchObject({ performerKind: "delegate" });
+    expect(await probe()).toEqual(BOTH);
+    await clearProbe();
+    expect(
+      (
+        await call(
+          "save_ai_citation_change_receipt",
+          receiptArgs(delegate, String(a.id), performedAt),
+        )
+      ).id,
+    ).toBe(r1.id);
+    expect(await probe()).toEqual(BOTH);
+  });
+
+  it("a non-member, another owner, a revoked/expired/banned/deleted member, a disabled policy, a foreign project or an unknown owner never reach either owner lock (forbidden, no oracle)", async () => {
+    const { a, sha, rowId, rowSha, observedAt } = await delivered();
+    const withOver = (args: Record<string, unknown>, over: Record<string, unknown>) => ({
+      ...args,
+      ...Object.fromEntries(Object.entries(over).filter(([k]) => k in args)),
+    });
+    const attempt = async (actor: string, over: Record<string, unknown> = {}) => {
+      await clearProbe();
+      const ap = await raw(
+        "set_ai_citation_change_approval",
+        withOver(approveArgs(actor, String(a.id), sha, false), over),
+      );
+      expect(await probe()).toEqual(NONE);
+      const rc = await raw(
+        "save_ai_citation_change_receipt",
+        withOver(receiptArgs(actor, String(a.id), await isoAt("+ interval '1 second'")), over),
+      );
+      expect(await probe()).toEqual(NONE);
+      const ins = await raw(
+        "save_ai_citation_improvement_inspection",
+        withOver(inspectArgs(actor, rowId, rowSha, observedAt), over),
+      );
+      expect(await probe()).toEqual(NONE);
+      return [ap, rc, ins];
+    };
+    const FORBIDDEN = [
+      "citation_change_forbidden",
+      "citation_change_forbidden",
+      "citation_inspection_forbidden",
+    ];
+    expect(await attempt(stranger)).toEqual(FORBIDDEN);
+    expect(await attempt(other)).toEqual(FORBIDDEN);
+    // The SAME refusal for a random artifact/row id from a non-member: existence is never disclosed.
+    expect(
+      await attempt(stranger, { p_artifact: crypto.randomUUID(), p_row: crypto.randomUUID() }),
+    ).toEqual(FORBIDDEN);
+    // An unknown owner id / a project the actor is not a member of.
+    expect(await attempt(delegate, { p_owner: "00000000-0000-4000-8000-0000000000ff" })).toEqual(
+      FORBIDDEN,
+    );
+    expect(await attempt(delegate, { p_project: "q" })).toEqual(FORBIDDEN);
+    // Revoked, expired, banned, deleted, policy disabled — each refused lock-free, each restored after.
+    await db.query(
+      "UPDATE project_team_members SET active=false,revision=revision+1 WHERE actor_id=$1",
+      [delegate],
+    );
+    expect(await attempt(delegate)).toEqual(FORBIDDEN);
+    await db.query(
+      "UPDATE project_team_members SET active=true,expires_at=clock_timestamp() - interval '1 second',revision=revision+1 WHERE actor_id=$1",
+      [delegate],
+    );
+    expect(await attempt(delegate)).toEqual(FORBIDDEN);
+    await db.query(
+      "UPDATE project_team_members SET expires_at=NULL,revision=revision+1 WHERE actor_id=$1",
+      [delegate],
+    );
+    await db.query(
+      "UPDATE auth.users SET banned_until=clock_timestamp() + interval '1 day' WHERE id=$1",
+      [delegate],
+    );
+    expect(await attempt(delegate)).toEqual(FORBIDDEN);
+    await db.query(
+      "UPDATE auth.users SET banned_until=NULL,deleted_at=clock_timestamp() WHERE id=$1",
+      [delegate],
+    );
+    expect(await attempt(delegate)).toEqual(FORBIDDEN);
+    await db.query("UPDATE auth.users SET deleted_at=NULL WHERE id=$1", [delegate]);
+    await db.query(
+      "UPDATE project_team_approval_policy SET mode='disabled',revision=revision+1 WHERE owner_id=$1",
+      [user],
+    );
+    expect(await attempt(delegate)).toEqual(FORBIDDEN);
+    await db.query(
+      "UPDATE project_team_approval_policy SET mode='separate_reviewers',revision=revision+1 WHERE owner_id=$1",
+      [user],
+    );
+    // Restored authority: the same delegate is admitted again and the locks are reached (control).
+    await clearProbe();
+    expect(
+      await raw("set_ai_citation_change_approval", approveArgs(delegate, String(a.id), sha, false)),
+    ).toBe("ok");
+    expect(await probe()).toEqual(BOTH);
+  });
+
+  it("an admitted actor with a random/foreign/stale target, an unapproved artifact, an out-of-window instant or no row assignment is refused BEFORE the locks with the locked section's own errors", async () => {
+    const { a, sha, rowId, rowSha, observedAt } = await delivered();
+    const refused = async (name: string, args: Record<string, unknown>, error: string) => {
+      await clearProbe();
+      expect(await raw(name, args)).toMatch(error);
+      expect(await probe()).toEqual(NONE);
+    };
+    const random = crypto.randomUUID();
+    // Approval: unknown artifact (delegate AND owner), foreign owner's artifact id, stale digest.
+    await refused(
+      "set_ai_citation_change_approval",
+      approveArgs(delegate, random, sha, false),
+      "citation_change_unavailable",
+    );
+    await refused(
+      "set_ai_citation_change_approval",
+      approveArgs(user, random, sha, false),
+      "citation_change_unavailable",
+    );
+    const foreign = await call("save_ai_citation_change_artifact", {
+      p_user: other,
+      p_project: "p",
+      p_kind: "listing",
+      p_reference: "google-business-profile:other",
+      p_fields: LISTING_FIELDS,
+    });
+    await refused(
+      "set_ai_citation_change_approval",
+      approveArgs(delegate, String(foreign.id), String(foreign.artifactSha256), false),
+      "citation_change_unavailable",
+    );
+    await refused(
+      "set_ai_citation_change_approval",
+      approveArgs(delegate, String(a.id), "b".repeat(64), false),
+      "citation_change_stale",
+    );
+    // Receipt: unknown artifact, an artifact that was never approved, an instant before the approval, an instant
+    // too far in the future.
+    const t = await isoAt("+ interval '1 second'");
+    await refused(
+      "save_ai_citation_change_receipt",
+      receiptArgs(delegate, random, t),
+      "citation_change_unavailable",
+    );
+    const unapproved = await artifact({ p_reference: "google-business-profile:acme-lund" });
+    await refused(
+      "save_ai_citation_change_receipt",
+      receiptArgs(delegate, String(unapproved.id), t),
+      "citation_change_unapproved",
+    );
+    await refused(
+      "save_ai_citation_change_receipt",
+      receiptArgs(delegate, String(a.id), "2020-01-01T00:00:00Z"),
+      "citation_change_receipt_invalid",
+    );
+    await refused(
+      "save_ai_citation_change_receipt",
+      receiptArgs(delegate, String(a.id), await isoAt("+ interval '1 hour'")),
+      "citation_change_receipt_invalid",
+    );
+    // Inspection: an eligible member WITHOUT an assignment, an assigned member on a random row (same error), a
+    // stale digest, and a revoked assignment.
+    await refused(
+      "save_ai_citation_improvement_inspection",
+      inspectArgs(inspector2, rowId, rowSha, observedAt),
+      "citation_improvement_unavailable",
+    );
+    await refused(
+      "save_ai_citation_improvement_inspection",
+      inspectArgs(delegate, random, rowSha, observedAt),
+      "citation_improvement_unavailable",
+    );
+    await refused(
+      "save_ai_citation_improvement_inspection",
+      inspectArgs(delegate, rowId, "c".repeat(64), observedAt),
+      "citation_inspection_stale",
+    );
+    await call("revoke_ai_citation_inspection_assignment", {
+      p_owner: user,
+      p_project: "p",
+      p_row: rowId,
+      p_inspector: delegate,
+    });
+    await refused(
+      "save_ai_citation_improvement_inspection",
+      inspectArgs(delegate, rowId, rowSha, observedAt),
+      "citation_improvement_unavailable",
+    );
+    // Missing-workspace tripwire (the established convention): with the owner's account row gone, a refused
+    // request still fails with ITS error, while an admitted mutation fails at the (now unavailable) lock.
+    await db.query("DELETE FROM workspace_meta WHERE user_id=$1", [user]);
+    await refused(
+      "set_ai_citation_change_approval",
+      approveArgs(stranger, String(a.id), sha, false),
+      "citation_change_forbidden",
+    );
+    await clearProbe();
+    expect(
+      await raw("set_ai_citation_change_approval", approveArgs(delegate, String(a.id), sha, false)),
+    ).toMatch("citation_record_unavailable");
+    expect(await probe()).toEqual(BOTH);
+  });
+
+  it("authority revoked BETWEEN the optimistic admission and the locked check is caught under the lock: membership revoke, account ban and assignment revoke each refuse the write with nothing recorded", async () => {
+    const { a, sha, rowId, rowSha, observedAt } = await delivered();
+    const decisions = async () =>
+      (
+        await db.query<{ n: number }>(
+          "SELECT count(*)::int n FROM ai_citation_change_approval_decisions WHERE artifact_id=$1",
+          [a.id],
+        )
+      ).rows[0].n;
+    const receipts = async () =>
+      (
+        await db.query<{ n: number }>(
+          "SELECT count(*)::int n FROM ai_citation_change_receipts WHERE artifact_id=$1",
+          [a.id],
+        )
+      ).rows[0].n;
+    const inspections = async () =>
+      (
+        await db.query<{ n: number }>(
+          "SELECT count(*)::int n FROM ai_citation_improvement_inspections WHERE improvement_row_id=$1",
+          [rowId],
+        )
+      ).rows[0].n;
+    const before = { d: await decisions(), r: await receipts(), i: await inspections() };
+    // 1. Membership revoked at the lock: the delegate's approval was admitted optimistically, reached BOTH locks,
+    //    and was refused by the authoritative re-check — no decision, no approval change.
+    await clearProbe();
+    await inject(
+      "UPDATE public.project_team_members SET active=false,revision=revision+1 WHERE actor_id='" +
+        delegate +
+        "'",
+    );
+    expect(
+      await raw("set_ai_citation_change_approval", approveArgs(delegate, String(a.id), sha, false)),
+    ).toMatch("citation_change_forbidden");
+    expect(await probe()).toEqual(BOTH);
+    expect(await decisions()).toBe(before.d);
+    expect(await provenance(String(a.id))).toMatchObject({
+      approved: true,
+      approverKind: "owner",
+      revision: 1,
+    });
+    await db.query(
+      "UPDATE project_team_members SET active=true,revision=revision+1 WHERE actor_id=$1",
+      [delegate],
+    );
+    // 2. Actor banned at the lock: the receipt was admitted optimistically and refused by the FOR SHARE probe
+    //    under the lock — no receipt.
+    await clearProbe();
+    await inject(
+      "UPDATE auth.users SET banned_until=clock_timestamp() + interval '1 day' WHERE id='" +
+        delegate +
+        "'",
+    );
+    expect(
+      await raw(
+        "save_ai_citation_change_receipt",
+        receiptArgs(delegate, String(a.id), await isoAt("+ interval '1 second'")),
+      ),
+    ).toMatch(/team_project_unavailable|citation_change_forbidden/);
+    expect(await probe()).toEqual(BOTH);
+    expect(await receipts()).toBe(before.r);
+    await db.query("UPDATE auth.users SET banned_until=NULL WHERE id=$1", [delegate]);
+    // 3. Assignment revoked at the lock: the inspection was admitted optimistically and refused by the
+    //    authoritative assignment read — no inspection receipt.
+    await clearProbe();
+    await inject(
+      "UPDATE public.ai_citation_inspection_assignments SET active=false,revoked_at=clock_timestamp() WHERE improvement_row_id='" +
+        rowId +
+        "' AND inspector_id='" +
+        delegate +
+        "'",
+    );
+    expect(
+      await raw(
+        "save_ai_citation_improvement_inspection",
+        inspectArgs(delegate, rowId, rowSha, observedAt),
+      ),
+    ).toMatch("citation_improvement_unavailable");
+    expect(await probe()).toEqual(BOTH);
+    expect(await inspections()).toBe(before.i);
+    // A refused call rolls the injection's DELETE back too, so the row is cleared explicitly; with the authority
+    // restored the same requests succeed (control).
+    await clearProbe();
+    await grant(rowId, delegate);
+    await clearProbe();
+    expect(
+      await raw(
+        "save_ai_citation_improvement_inspection",
+        inspectArgs(delegate, rowId, rowSha, observedAt),
+      ),
+    ).toBe("ok");
+    expect(await probe()).toEqual(BOTH);
+    await clearProbe();
+    expect(
+      await raw("set_ai_citation_change_approval", approveArgs(delegate, String(a.id), sha, false)),
+    ).toBe("ok");
+    expect(await probe()).toEqual(BOTH);
+  });
+});
+
 describe("privileges", () => {
   it("every new RPC is service_role-only; the predicates are granted to no role", async () => {
     const rows = await db.query<{
