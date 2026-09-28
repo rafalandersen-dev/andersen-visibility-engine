@@ -43,6 +43,7 @@ import { MIN_EVALUABLE_WORDS, QUALITY_CATEGORY_KEYS } from "./quality";
 import {
   canonicalQualityMarkdown,
   frozenAssetInput,
+  frozenContentLanguage,
   qualityInputEligible,
   runModelComparison,
   type EvaluationDeps,
@@ -50,6 +51,7 @@ import {
 } from "./ai-evaluation";
 import { assembleContentAsset } from "./content-assembler";
 import { draftWordCount } from "./quality";
+import { contentLangToProjectLanguage } from "./onboarding";
 import type { AiEvaluationRun, ContentAsset, Project } from "./types";
 
 const words = (n: number) => Array.from({ length: n }, (_, i) => `word${i}`).join(" ");
@@ -348,5 +350,97 @@ describe("BG (finding 4126458968): eligibility and the frozen quality payload us
     expect(d.improveDraft).toHaveBeenCalledTimes(2);
     for (const call of (d.improveDraft as ReturnType<typeof vi.fn>).mock.calls)
       expect((call[0] as { markdown: string }).markdown).toBe(a.markdown);
+  });
+});
+
+describe("BI: the quality comparison declares the selected asset's content language (production's rule), frozen for both sides", () => {
+  const polishProject = {
+    ...project,
+    primaryContentLanguage: "pl",
+    appLanguage: "pl",
+  } as unknown as Project;
+  const POLISH = contentLangToProjectLanguage("pl");
+  const asset = (over: Partial<ContentAsset> = {}): ContentAsset =>
+    ({
+      id: "a1",
+      projectId: "p1",
+      title: "T",
+      slug: "t",
+      markdown: words(60),
+      assetType: "article",
+      updatedAt: "2026-09-28T00:00:00.000Z",
+      ...over,
+    }) as ContentAsset;
+  const prompts = () => h.generateBudgetedText.mock.calls.map((c) => String(c[1]));
+  const attempt = (a: ContentAsset, task: FrozenEvaluationInput["task"] = "contentQualityScore") =>
+    frozen(frozenAssetInput(task, a, polishProject).markdown, {
+      task,
+      project: polishProject,
+      contentLanguage: frozenContentLanguage(task, a, polishProject),
+      explanationLanguage: contentLangToProjectLanguage("pl"),
+    });
+
+  it("a Swedish asset in a Polish-primary project: both model calls declare Swedish content while explanations stay in the app language", async () => {
+    const a = asset({ language: "Swedish" as ContentAsset["language"] });
+    expect(frozenContentLanguage("contentQualityScore", a, polishProject)).toBe("Swedish");
+    h.generateBudgetedText.mockResolvedValue(modelPayload);
+    const result = await runModelComparison(attempt(a), deps());
+    expect(result.kind).toBe("recorded");
+    const ps = prompts();
+    expect(ps).toHaveLength(2);
+    for (const p of ps) {
+      expect(p).toContain("The draft content is written in Swedish.");
+      expect(p).toContain(
+        `Write all explanations, suggestions, topIssues, quickWins and summary in ${POLISH}.`,
+      );
+    }
+  });
+  it("an asset without a language label falls back to the project's primary content language, exactly like production", async () => {
+    const a = asset();
+    expect(a.language).toBeUndefined();
+    expect(frozenContentLanguage("contentQualityScore", a, polishProject)).toBe(POLISH);
+    h.generateBudgetedText.mockResolvedValue(modelPayload);
+    await runModelComparison(attempt(a), deps());
+    for (const p of prompts()) expect(p).toContain(`The draft content is written in ${POLISH}.`);
+  });
+  it("supported legacy labels pass through unchanged (English, Danish) and a project without a primary language falls back to English", () => {
+    for (const label of ["English", "Danish", "Polish"])
+      expect(
+        frozenContentLanguage(
+          "contentQualityScore",
+          asset({ language: label as ContentAsset["language"] }),
+          polishProject,
+        ),
+      ).toBe(label);
+    const bare = { ...project, primaryContentLanguage: undefined } as unknown as Project;
+    expect(frozenContentLanguage("contentQualityScore", asset(), bare)).toBe(
+      contentLangToProjectLanguage("en"),
+    );
+  });
+  it("selection changes use the current asset and project; a frozen attempt keeps its declaration even if the asset's label changes mid-comparison", async () => {
+    const sv = asset({ language: "Swedish" as ContentAsset["language"] });
+    const da = asset({ id: "a2", language: "Danish" as ContentAsset["language"] });
+    expect(frozenContentLanguage("contentQualityScore", sv, polishProject)).toBe("Swedish");
+    expect(frozenContentLanguage("contentQualityScore", da, polishProject)).toBe("Danish");
+    expect(frozenContentLanguage("contentQualityScore", sv, project)).toBe("Swedish");
+    const input = attempt(sv);
+    sv.language = "Danish" as ContentAsset["language"]; // an edit landing after the freeze
+    h.generateBudgetedText.mockResolvedValue(modelPayload);
+    await runModelComparison(input, deps());
+    const ps = prompts();
+    expect(ps).toHaveLength(2);
+    for (const p of ps) {
+      expect(p).toContain("written in Swedish.");
+      expect(p).not.toContain("Danish");
+    }
+  });
+  it("other task contracts are unchanged: contentImprove still declares the project's primary content language", async () => {
+    const sv = asset({ language: "Swedish" as ContentAsset["language"] });
+    expect(frozenContentLanguage("contentImprove", sv, polishProject)).toBe(POLISH);
+    expect(frozenContentLanguage("authorityGeneration", undefined, polishProject)).toBe(POLISH);
+    const d = deps();
+    await runModelComparison(attempt(sv, "contentImprove"), d);
+    for (const call of (d.improveDraft as ReturnType<typeof vi.fn>).mock.calls)
+      expect((call[0] as { contentLanguage: string }).contentLanguage).toBe(POLISH);
   });
 });

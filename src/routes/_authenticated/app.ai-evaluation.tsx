@@ -14,7 +14,7 @@ import {
 import { useStore, addAiEvaluationRun, updateAiEvaluationRun, uid } from "@/lib/store";
 import { useT } from "@/i18n";
 import { contentLangToProjectLanguage } from "@/lib/onboarding";
-import { runModelComparison, frozenAssetInput, qualityInputEligible, type FrozenEvaluationInput, type SideResult } from "@/lib/ai-evaluation";
+import { runModelComparison, frozenAssetInput, frozenContentLanguage, qualityInputEligible, type FrozenEvaluationInput, type SideResult } from "@/lib/ai-evaluation";
 import {
   getAiRouterStatusFn,
   generateContentFn,
@@ -75,7 +75,9 @@ function AiEvaluationPage() {
     );
   }
 
-  const contentLanguage = contentLangToProjectLanguage(project.primaryContentLanguage ?? "en");
+  // The app explanation language is the project's app language; the CONTENT language of a quality comparison is
+  // frozen per attempt from the selected asset (its own label, else the project's primary content language —
+  // production's rule), see frozenContentLanguage below.
   const explanationLanguage = contentLangToProjectLanguage(project.appLanguage ?? "en");
 
   const selectedAsset = assets.find((x) => x.id === assetId);
@@ -112,7 +114,7 @@ function AiEvaluationPage() {
       opportunity: opp,
       asset: a ? frozenAssetInput(task, a, p) : undefined,
       livePages: assets.filter((c) => c.livePublishStatus === "published" && c.liveUrl).map((c) => c.liveUrl as string),
-      contentLanguage,
+      contentLanguage: frozenContentLanguage(task, a, p),
       explanationLanguage,
       existingModel: status?.defaultModel.model ?? "existing",
       candidateModel: status?.candidateModel ?? null,

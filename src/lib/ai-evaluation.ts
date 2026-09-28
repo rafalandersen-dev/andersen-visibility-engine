@@ -18,6 +18,7 @@ import type {
 } from "./types";
 import { MIN_EVALUABLE_WORDS, hasMinimumWords, type QualityEvaluationResult } from "./quality";
 import { assembleContentAsset } from "./content-assembler";
+import { contentLangToProjectLanguage } from "./onboarding";
 
 export type SkipReason = Extract<QualityEvaluationResult, { outcome: "skipped" }>["reason"];
 
@@ -90,6 +91,24 @@ export function frozenAssetInput(
     metaDescription: asset.metaDescription ?? "",
     quickWins: asset.qualityScore?.quickWins ?? [],
   };
+}
+
+/**
+ * The content language production's quality caller declares for an asset (`evaluateContentQuality` in
+ * mock-ai.ts: `languageLabel(a.language, contentLangToProjectLanguage(project.primaryContentLanguage ?? "en"))`):
+ * the asset's own language label when it has one, else the project's primary content language. Frozen once per
+ * attempt from the CURRENT asset and project, so both model sides receive the same declaration. Other tasks keep
+ * the comparison's existing project-language contract (contentImprove is not changed here).
+ */
+export function frozenContentLanguage(
+  task: AiTaskType,
+  asset: ContentAsset | undefined,
+  project: Project,
+): string {
+  const projectLanguage = contentLangToProjectLanguage(project.primaryContentLanguage ?? "en");
+  return task === "contentQualityScore" && asset
+    ? (asset.language ?? projectLanguage)
+    : projectLanguage;
 }
 
 export interface EvaluationDeps {

@@ -167,3 +167,30 @@ draft Run is enabled, both stubbed requests receive the identical 45-word canoni
 hook, one run is recorded; with the canonical-short draft Run is disabled with the hint and no call or
 history is added; switching back re-enables Run. With the frozen route file temporarily restored the same
 harness shows the defect (hooked draft disabled with the hint). No production or provider call.
+
+## Addendum (BI, 28 September 2026) — the comparison declares the selected article's content language
+
+After BG the comparison still declared the PROJECT's primary content language for every quality attempt, while
+production's caller declares `languageLabel(asset.language, contentLangToProjectLanguage(project.primaryContentLanguage
+?? "en"))` — a Swedish asset inside a Polish-primary project received Polish guidance in the comparison but Swedish in
+production (multilingual scope R17/D02). Correction: `frozenContentLanguage(task, asset, project)` in
+`src/lib/ai-evaluation.ts` applies production's rule for contentQualityScore — the asset's own language label when it
+has one, else the project's primary content language — and the route freezes it once per attempt from the current
+selected asset and project at click time, so both model sides receive the same declaration. The app explanation
+language stays the project's app language, independently. contentImprove and the other tasks keep the comparison's
+existing project-language contract (production's improve caller also prefers the asset label; aligning that is a
+separate decision, stated, not made here). Canonical assembled markdown eligibility/payload, the 64 000-unit
+canonical bound, short-skip/no-history, producer/save/usage constraints are untouched.
+
+Tests (`ai-evaluation.test.ts`, +5; real input construction through the real server function under the mocked
+boundaries): Swedish asset in a Polish-primary project → both provider prompts say "The draft content is written in
+Swedish." while explanations are requested in Polish (app language); an asset without a label → the project's
+Polish fallback in both prompts; legacy labels (English, Danish, Polish) pass through unchanged and a project without a
+primary language falls back to English; selection changes use the current asset/project (Swedish vs Danish asset,
+same asset in another project) and a frozen attempt keeps "Swedish" in both prompts even when the asset's label is
+changed to Danish mid-comparison; contentImprove (and authority) still declare the project language and both improve
+calls receive it. Local UI (harness on 5185, real route and orchestration; fixture project now Polish-primary with an
+English app language, the hooked draft labelled Swedish; the stub records the declared languages): running the hooked
+draft sends `contentLanguage: "Swedish"` / `explanationLanguage: "English"` to BOTH stubbed requests on the identical
+45-word canonical body; running the unlabelled 60-word draft sends `"Polish"` / `"English"` to both. No production or
+provider call.
