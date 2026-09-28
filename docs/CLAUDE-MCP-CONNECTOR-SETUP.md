@@ -1,92 +1,107 @@
-# Claude Connector (MCP) — Setup
+# Milo MCP connector — setup (Claude, ChatGPT and other MCP clients)
 
-Milo Growth exposes a **read-only MCP server** so you can work with your Milo
-data from inside Claude (Claude Code and Claude Desktop). You generate a
-connection token in Milo and add it to your Claude MCP client.
+_Last reconciled with the implementation at main `f639ecae` and the official client documentation on 28 September 2026. Earlier versions of this page described a "read-only v1" with OAuth "deferred"; that is no longer the implementation — see "What the connector can do" below. What has actually been exercised live, and when, is recorded in the [evidence matrix](MCP-CLIENT-EVIDENCE-2026-09-28.md); nothing on this page is a live-compatibility claim for a client that matrix marks untested._
+
+Milo Growth exposes one **MCP server** so you can work with your Milo data from inside an MCP-capable AI client.
 
 - **Endpoint:** `https://milogrowth.com/api/mcp`
-- **Transport:** MCP over HTTP (JSON-RPC 2.0)
-- **Auth:** `Authorization: Bearer <token>` (token generated in Milo)
-- **Access:** read-only, scoped to the token owner's workspace
+- **Transport:** MCP JSON-RPC 2.0 over HTTP (`POST`; `GET` returns a small description). Implementation: [`src/routes/api.mcp.ts`](../src/routes/api.mcp.ts), [`src/lib/mcp.server.ts`](../src/lib/mcp.server.ts).
+- **Authentication:** either **OAuth 2.1** (PKCE `S256`, refresh tokens, dynamic client registration at `/api/oauth/register`, RFC 8414 metadata at `/.well-known/oauth-authorization-server`, RFC 9728 resource metadata at `/.well-known/oauth-protected-resource`) or a **Milo connection token** sent as `Authorization: Bearer …` (for clients that let you set a header, such as Claude Code). Implementation: [`src/lib/oauth.server.ts`](../src/lib/oauth.server.ts).
+- **Scope:** always the token owner's workspace; every tool is bound to the caller's own account and projects.
 
-## 1. Generate a connection token in Milo
-1. Open **Project Setup** (`/app/setup`) → **Claude connector (MCP)**.
-2. (Optional) add a label, e.g. "My laptop".
-3. Click **Generate connection token**.
-4. **Copy the token now — it is shown only once.** Milo stores just a hash and
-   can never show it again. If you lose it, revoke it and generate a new one.
+## What the connector can do (current implementation)
 
-The connection is **account-level**: one token gives Claude read-only access to
-every project in that workspace.
+| Capability                                                                                                                                                                                              | How it is granted                                                                                                                                                                                                                                                                                                                                                                                                        | Notes                                                                                                                                                                                                                                |
+| ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| **Reads** — `list_projects`, `get_project_brief`, `get_project_readiness`, `list_opportunities`, `list_content`, `get_content`, `get_latest_audit`, `get_gsc_summary`, `list_authority_opportunities`   | Milo connection token (all reads, never writes), or OAuth read scopes `milo.projects.read`, `milo.content.read`, `milo.insights.read`, `milo.authority.read` (the default OAuth grant)                                                                                                                                                                                                                                   | Never modifies Milo data                                                                                                                                                                                                             |
+| **Draft / proposal tools** — profile fill, opportunity batch, growth task, project recommendation, content draft create/update, image attach to an unpublished draft, pending actions (create/list/get) | **OAuth only**, and only while Milo's operator has the write feature switched on in the deployment (`MCP_WRITE_TOOLS_ENABLED`, a deployment environment flag — there is no per-workspace toggle in the Milo UI); each tool needs an explicit write or propose scope (`milo.projects.write`, `milo.content.write`, `milo.tasks.write`, `milo.actions.propose`). Proposals land as items the owner approves in the Milo UI | Never available to a connection token. While the flag is off (the last recorded July 2026 smoke state; current deployment state unverified), these tools are not listed, the scopes are not issued, and the OAuth grant is read-only |
+| **Publishing, deleting, settings, billing**                                                                                                                                                             | **Not available through the connector**                                                                                                                                                                                                                                                                                                                                                                                  | `milo.content.publish` is defined but never issuable; publishing stays in Milo's own approval flow                                                                                                                                   |
 
-## 2a. Add to Claude Code (CLI)
+Tokens and OAuth grants are stored hashed / server-side only, shown once, never logged, and revocable at any time. A tool called without its scope returns JSON-RPC error `-32002` ("Insufficient scope for this tool.").
+
+## Claude
+
+### Claude.ai, Claude Desktop, Cowork — custom connector (OAuth, no token needed; requires OAuth enabled on the deployment)
+
+> **Deployment prerequisite.** The OAuth route exists only while the deployment sets `MCP_OAUTH_ENABLED=true` (exact value). When it is off or unset, the metadata, registration, authorize and token endpoints return 404 and the MCP endpoint only issues a plain `Bearer` challenge, so a client cannot complete these steps. The Milo setup page reads this status through the authenticated status call and shows the instructions only when the deployment reported the flag on; "not verified" means the status has not loaded or the request failed. The production flag state was **not** verified in this review, and existing cards under Connected apps do not prove it is on.
+
+Official route: [Get started with custom connectors using remote MCP](https://support.claude.com/en/articles/11175166-get-started-with-custom-connectors-using-remote-mcp) (Claude Help Center, 11 August 2026): custom connectors are available on Claude, Cowork and Claude Desktop for Free (one connector), Pro, Max, Team and Enterprise; on Team/Enterprise only Owners add them, then members connect individually. Authentication is OAuth. The Milo setup page shows the same steps above the token generator, so you never need to generate a connection token for this route.
+
+1. **Settings → Connectors → Add custom connector.**
+2. Enter `https://milogrowth.com/api/mcp` and click **Add**. Leave the advanced OAuth client id/secret empty: Milo supports dynamic client registration and PKCE (`S256`), so Claude registers itself.
+3. Sign in to Milo when the browser window opens and **Allow access**. The grant is read-only by default; write/propose scopes are only offered while the operator deployment flag described above is on.
+4. The connector then appears under **Project Setup → Claude connector (MCP) → Connected apps**, where you can see its scopes and revoke it.
+
+> `claude_desktop_config.json` (Settings → Developer → Edit Config) is Claude Desktop's mechanism for **local** MCP servers that Desktop launches itself (`command` / `args`): [Connect to local MCP servers](https://modelcontextprotocol.io/docs/2026-07-28/develop/connect-local-servers). Remote servers reach Desktop through Connectors, as above: [Connect to remote MCP servers](https://modelcontextprotocol.io/docs/2026-07-28/develop/connect-remote-servers). A `url` + `headers` entry in that file is not a documented route, and the Milo setup page no longer shows one.
+
+### Claude Code (CLI)
+
+Official route: [Connect Claude Code to tools via MCP](https://code.claude.com/docs/en/mcp) — HTTP transport with a custom header, or OAuth.
+
+With a Milo connection token (generate it under **Project Setup → Claude connector (MCP)**; it is shown once, and the CLI line the page shows contains it — run it in your own shell, do not paste it into a shared file):
+
 ```bash
 claude mcp add --transport http milo-growth https://milogrowth.com/api/mcp \
-  --header "Authorization: Bearer YOUR_TOKEN"
+  --header "Authorization: Bearer PLACEHOLDER_TOKEN"
 ```
-Then in a Claude Code session, the `milo-growth` tools become available.
 
-## 2b. Add to Claude Desktop
-Edit `claude_desktop_config.json` (Settings → Developer → Edit config):
+Project-shared configuration (`.mcp.json`, checked in **without** the secret — Claude Code expands `${VAR}` from the environment; the Milo setup page shows this snippet with the placeholder before any token exists):
+
 ```json
 {
   "mcpServers": {
     "milo-growth": {
+      "type": "http",
       "url": "https://milogrowth.com/api/mcp",
-      "headers": { "Authorization": "Bearer YOUR_TOKEN" }
+      "headers": { "Authorization": "Bearer ${MILO_MCP_TOKEN}" }
     }
   }
 }
 ```
-Restart Claude Desktop. (The exact `mcpServers` HTTP shape depends on your
-Claude Desktop version; use its remote/HTTP MCP option and supply the URL +
-Authorization header.)
 
-## 3. Available tools (read-only)
-| Tool | Returns |
-|---|---|
-| `list_projects` | All projects (id, business, website, connector, market, language). |
-| `get_project_brief` | Brand brief: audience, tone, services, Brand Intelligence, connector. |
-| `list_opportunities` | SEO/content opportunities for a project. |
-| `list_content` | Content assets with status, Milo Score and publish/live status. |
-| `get_content` | One asset in full: meta, outline, markdown, FAQ + full Milo Score. |
-| `get_latest_audit` | Latest AI Visibility Readiness audit: scores, fixes, findings. |
-| `get_gsc_summary` | Latest Search Console import (CSV or API): totals, top queries/pages. |
-| `list_authority_opportunities` | Authority Builder items with status and targets. |
+Or, on a deployment with OAuth enabled (see the prerequisite above), with OAuth instead of a token: `claude mcp add --transport http milo-growth https://milogrowth.com/api/mcp`, then run `/mcp` inside Claude Code (or `claude mcp login milo-growth`) and complete the browser sign-in.
 
-Most tools take an optional `projectId` (from `list_projects`); with a single
-project it is inferred. `get_content` takes a `contentId` from `list_content`.
+## ChatGPT (custom MCP connector, Developer mode)
 
-Example prompts in Claude once connected:
-- "List my Milo projects."
-- "Show the Milo Score and top issues for my latest draft."
-- "Summarize my latest AI Visibility audit and the top 3 fixes."
-- "What are my best-performing Search Console queries this period?"
+Official sources: [ChatGPT Developer mode](https://developers.openai.com/api/docs/guides/developer-mode.md) and [Building MCP servers for ChatGPT](https://developers.openai.com/api/docs/mcp.md) (OpenAI developer docs, read 28 September 2026).
 
-## 4. Disconnect
-In **Project Setup → Claude connector (MCP)**, click the trash icon next to a
-token to **revoke** it. Also remove the server from your Claude client config.
-Revoking is immediate — the token stops working on the next request.
+- Eligibility as documented: "Available to Pro, Plus, Business, Enterprise, and Education accounts on the web." The OpenAI Help Center states that on Business/Enterprise/Edu a workspace admin must first enable Developer mode (that page could not be retrieved directly here; see the evidence matrix).
+- Transports as documented: "Supported MCP protocols: SSE and streaming HTTP." Milo serves plain JSON-RPC over HTTP `POST` and does not implement SSE streaming; whether ChatGPT's streaming-HTTP client accepts Milo's responses has **not** been tested, and the missing SSE is not by itself proof of incompatibility.
+- Authentication: OAuth or no-auth; "Dynamic client registration remains supported when configured." Milo's registration endpoint is implemented and served only while the deployment has OAuth enabled; on such a deployment ChatGPT can register itself.
+- Writes: "Write actions by default require confirmation." ChatGPT can remember an approve/deny choice per conversation. With Milo's write flag off, no write tool is listed anyway.
 
-## Security
-- **Read-only.** The v1 tools never modify Milo data, never publish, and never
-  touch billing.
-- Tokens are stored **hashed** (SHA-256) in a service-role-only table; the
-  plaintext is shown once and never logged.
-- Each token is scoped to its owner's workspace — it cannot read other accounts.
-- Treat the token like a password. Revoke and regenerate if exposed.
+Steps, as documented:
 
-## Troubleshooting
-| Symptom | Fix |
-|---|---|
-| `401 Unauthorized` | Token missing/wrong/revoked. Regenerate in Milo and update the client config. |
-| Tools don't appear | Confirm the client points at `https://milogrowth.com/api/mcp` and sends the `Authorization: Bearer` header. |
-| Empty results | The workspace has no data yet for that project, or the wrong `projectId`. |
+1. In ChatGPT, open **Settings → Security and login** and turn on **Developer mode** (Business/Enterprise/Edu: after the admin has enabled it).
+2. Go to [chatgpt.com/plugins](https://chatgpt.com/plugins), select the **plus** button and create a **developer-mode app** for the remote MCP server, URL `https://milogrowth.com/api/mcp`, authentication **OAuth**; complete the Milo sign-in.
+3. In a conversation, select the app in the composer's **Developer mode** tool.
+4. ChatGPT's _deep research_ and _company knowledge_ modes require servers to implement `search` and `fetch` tools. Milo does not expose those two tools, so this limits deep research and company knowledge only; normal chat use of Milo's tools is not affected by it.
 
-## Deferred (roadmap)
-- **claude.ai one-click custom connector.** claude.ai's hosted connectors
-  require an OAuth 2.1 authorization server with dynamic client registration on
-  Milo's side. v1 uses Bearer tokens (Claude Code / Desktop / any header-auth
-  MCP client). OAuth is the planned upgrade to enable claude.ai's connector UI.
-- **Write actions** (e.g. generate an opportunity/draft, send to a connector)
-  are intentionally out of v1; the current tool set is read-only.
+## Other MCP clients
+
+Documented custom-connector routes. "Documented route" is what the vendor's page says on 28 September 2026; it is not a Milo compatibility claim, and no live exercise of any of these against Milo was verified in this review (see the [evidence matrix](MCP-CLIENT-EVIDENCE-2026-09-28.md)).
+
+| Client                                                                                                  | Route as documented                                                                                                    | Authentication as documented                                                                           | Conditions as documented                                                                                                                                                                                                                               |
+| ------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Gemini (web app) — [Google help](https://support.google.com/gemini/answer/17209137)                     | Settings → Connected apps → Custom apps → MCP server URL                                                               | OAuth; credentials entered manually if the server lacks dynamic client registration (Milo supports it) | "Be 18 or over and in the US."; personal Google Account only; "Have Keep Activity on. Custom apps are unavailable when this setting is off."; "For now, custom Connected Apps are: Only available in English."; write actions need manual confirmation |
+| Mistral **Work** — [MCP connectors](https://docs.mistral.ai/vibe/work/connectors/mcp-connectors)        | Custom Connectors: "Custom Connectors let you connect Work to any MCP-compatible server."                              | Detected automatically: no auth, HTTP Bearer/Basic, or OAuth 2.1 with dynamic client registration      | "This is an administrator-only feature. On Free, Pro, and Student plans, the account owner is the administrator by default."                                                                                                                           |
+| Grok (grok.com) — [xAI docs](https://docs.x.ai/grok/connectors)                                         | grok.com/connectors → New Connector → Custom → MCP server URL + authentication                                         | Completes the server's authentication                                                                  | "Your MCP server must be reachable over the public internet."; "For Grok Business and Enterprise users, a team admin must first provision a connector in the cloud console…"                                                                           |
+| Microsoft Copilot Studio ([learn.microsoft.com](https://learn.microsoft.com/microsoft-copilot-studio/)) | Add tool → Model Context Protocol → server URL + auth (from search summaries only; the page was not read in full here) | Configured in Copilot Studio (search summary only)                                                     | Copilot Studio (maker experience), not the consumer Copilot app (search summary only)                                                                                                                                                                  |
+| Perplexity                                                                                              | Help Center articles on custom remote connectors exist, but returned HTTP 403 to this check                            | Not verified                                                                                           | Not verified                                                                                                                                                                                                                                           |
+| DeepSeek                                                                                                | **Unknown.** No official consumer-app custom-MCP route was found; `deepseekdocs.com` is a community site, not DeepSeek | Unknown                                                                                                | Unknown                                                                                                                                                                                                                                                |
+
+## Disconnect / revoke
+
+- **Connection tokens:** Project Setup → Claude connector (MCP) → trash icon → revoke (immediate). Also remove the server from the client.
+- **OAuth grants:** Project Setup → Claude connector (MCP) → Connected apps → revoke; and remove the connector in the client.
+
+## Troubleshooting (check state first; do not churn credentials)
+
+| Symptom                                       | What to check first                                                                                                                                                                                                                                                                                                  | Then                                                                                                                                                                                                                                                                                                                                          |
+| --------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `401 Unauthorized` (OAuth client)             | The client's own connection state: most clients refresh an expired access token silently with the refresh token. A generic 401 is **not** a reason to generate a new connection token or revoke anything. Check **Connected apps** in Milo: an app listed as active with a recent "last used" time is still granted. | Only if the client reports that re-authentication is needed, or the app shows as revoked in Milo, reconnect from the client (it re-registers and asks you to allow access again).                                                                                                                                                             |
+| `401 Unauthorized` (connection token)         | Whether the header reaches Milo unchanged (`Authorization: Bearer milo_mcp_…`, no extra quotes or line breaks; for `.mcp.json`, that `MILO_MCP_TOKEN` is set in the environment Claude Code runs in) and whether the token is still listed under **Active tokens**.                                                  | If the token is still listed and the header looks right, inspect the actual response and the client's log before deciding on a cause: a client configuration problem, a server or deployment issue, or a revocation that raced the request are all possible. Generate a new token only if the old one is no longer listed or was never saved. |
+| Connected app shows **Expired**               | This label alone is not proof the grant is unusable: the access token expires on a short timer and the client refreshes it on next use.                                                                                                                                                                              | Use the connector once from the client; if it then reports a sign-in requirement, reconnect from the client. Revoke only what you intend to stop using.                                                                                                                                                                                       |
+| Tools missing                                 | The client must point at `https://milogrowth.com/api/mcp`. Draft/proposal tools appear only for an OAuth grant that holds the matching scope while the operator deployment flag is on; connection tokens never list them.                                                                                            | Nothing to regenerate; this is expected while the flag is off.                                                                                                                                                                                                                                                                                |
+| "Insufficient scope for this tool" (`-32002`) | The grant lacks that tool's scope.                                                                                                                                                                                                                                                                                   | Use a read tool, or reconnect after the flag is on so the write/propose scopes are offered and approved.                                                                                                                                                                                                                                      |
+| Empty results                                 | The workspace has no data for that project yet, or the wrong `projectId`.                                                                                                                                                                                                                                            | —                                                                                                                                                                                                                                                                                                                                             |

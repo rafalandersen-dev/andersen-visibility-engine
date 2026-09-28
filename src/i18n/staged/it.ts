@@ -160,7 +160,7 @@ export const IT_STAGED_BATCHES = [
     copy: itConfiguration,
     namespaces: ["brand", "wp", "shopify", "claude", "connect", "connections", "coverage"],
     sourceRevision: "ebfca0a",
-    sourceHash: "0e11ebfcac212ec85d91c8734430e0cd661dc727057c565c1cfcd33f59a1aa60",
+    sourceHash: "c60d43a37be661079475896eeebe2c3cd1337a321e05df01b27a0e803ac823cc",
   },
   {
     name: "public pricing",
