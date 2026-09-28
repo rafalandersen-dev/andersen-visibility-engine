@@ -113,12 +113,33 @@ export const citationPublicationBindingSchema = z
   })
   .strict();
 export type CitationPublicationBinding = z.infer<typeof citationPublicationBindingSchema>;
+/** Change-kind binding (listing/configuration): the intended-change artifact, the performed receipt and an
+ * optional owner inspection of the listing/configuration as displayed. Stored beside the row; never free text. */
+export const citationChangeBindingSchema = z
+  .object({
+    artifactId: uuid,
+    artifactSha256: z.string().regex(/^[a-f0-9]{64}$/),
+    receiptId: uuid,
+    ownerInspection: z
+      .object({
+        observedAt: z.string().datetime({ offset: true }),
+        checkResult: z.enum(["shows_approved_content", "does_not_show", "inconclusive"]),
+        /** Must equal the artifact's reference; the server rejects any other. */
+        observedReference: text(1500),
+      })
+      .strict()
+      .nullable(),
+  })
+  .strict();
+export type CitationChangeBinding = z.infer<typeof citationChangeBindingSchema>;
 export const citationImprovementStageSchema = z
   .object({
     scope: citationPanelScopeSchema,
     improvement: boundedImprovement,
     /** Optional; a bound improvement carries this, an unbound draft omits it (or sends null). */
     binding: citationPublicationBindingSchema.nullish(),
+    /** Change-kind binding (candidate 20260928120000); exclusive with `binding`. */
+    changeBinding: citationChangeBindingSchema.nullish(),
     /** The head ROW of the logical improvement id the owner inspected before this save (0/null + null for a
      * brand-new improvement id): the same expected-head contract as findings — the candidate RPC
      * `save_ai_citation_improvement_v3` (20260927190000, unapplied until reviewed) refuses a new version minted
@@ -132,8 +153,16 @@ export const citationImprovementStageSchema = z
     expectedFindingRowIds: z.array(uuid).max(20).nullable().optional(),
   })
   .strict();
-export const citationImprovementStageInputSchema =
-  citationImprovementStageSchema.superRefine(inspectedHeadRefinement);
+export const citationImprovementStageInputSchema = citationImprovementStageSchema
+  .superRefine(inspectedHeadRefinement)
+  .superRefine((v, ctx) => {
+    if (v.binding && v.changeBinding)
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["changeBinding"],
+        message: "a publication binding and a change binding are exclusive",
+      });
+  });
 /** Server-attributed finding view (metadata only in the list). `actorId`/`reviewerId`, `version`,
  * `supersedesId`, `predecessorDeleted`, `createdAt`, `sourceAvailable` and `accuracyStatus` are
  * set/derived by the server and validated back here, never imported. `sourceAvailable` is false once a
@@ -251,7 +280,27 @@ export const CITATION_VERIFICATION_STATUSES = [
   "unverified",
   "approval_bound",
   "connector_receipt",
+  /** Change kinds (listing/configuration, candidate 20260928120000): a performed declaration by an authenticated
+   * owner/member exists for the currently approved artifact — a declaration, not destination proof. */
+  "receipt_recorded",
   "owner_attested",
+] as const;
+/** The SEPARATE independent-inspection fold (candidate 20260928120000), per improvement ROW, over the chain
+ * HEAD of every currently assigned/authorized inspector: `disputed` = an active negative (excludes the change
+ * from verified readiness even when the owner attested), `independently_inspected` = an active positive on/after
+ * the current approval and no active negative, `inconclusive` = only inconclusive receipts (never affirmative),
+ * `none`. Human inspection by another authenticated person — never automated verification or causal proof. */
+export const CITATION_INDEPENDENT_STATUSES = [
+  "none",
+  "inconclusive",
+  "disputed",
+  "independently_inspected",
+] as const;
+export const CITATION_INSPECTION_RESULTS = [
+  "shows_approved_content",
+  "does_not_show",
+  "inconclusive",
+  "withdrawn",
 ] as const;
 /** The SEPARATE before/after baseline axis (never silently folded into the delivery ladder above), derived
  * live on every read: `baseline_absent` (no verification block recorded), `baseline_missing` (a
@@ -284,9 +333,58 @@ export const citationImprovementSummarySchema = z
     evidenceStatus: z.enum(CITATION_EVIDENCE_STATUSES),
     /** Persisted enforcement stamp (see `scopeBinding`); null = legacy owner-declared scope. */
     scopeEnforcedAt: z.string().nullable(),
+    /** Live v2 projection (candidate 20260928120000, v4 reads). Absent on legacy/fixture reads: then nothing is
+     * assumed and only the released owner_attested rule applies. */
+    independentStatus: z.enum(CITATION_INDEPENDENT_STATUSES).optional(),
+    /** THE verified-eligibility predicate every counting consumer uses: not disputed AND (owner_attested, or a
+     * positive independent inspection over a delivered/receipted change with resolving baselines and an open
+     * finding gate). Server-derived on every read. */
+    verifiedEligible: z.boolean().optional(),
+    /** The proof instant used for chronology: the owner's derived verification, or the effective positive
+     * independent inspection. Null when not eligible. */
+    verifiedAt: z.string().nullable().optional(),
   })
   .strict();
 export type CitationImprovementSummary = z.infer<typeof citationImprovementSummarySchema>;
+export const citationChangeBindingViewSchema = citationChangeBindingSchema
+  .extend({
+    kind: z.enum(["listing", "configuration"]),
+    reference: text(1500),
+    artifactDeleted: z.boolean(),
+  })
+  .strict();
+export const citationInspectionReceiptSchema = z
+  .object({
+    id: uuid,
+    inspectorId: uuid,
+    version: z.number().int().min(1),
+    supersedesId: uuid.nullable(),
+    checkResult: z.enum(CITATION_INSPECTION_RESULTS),
+    observedAt: z.string().nullable(),
+    createdAt: z.string(),
+    isHead: z.boolean(),
+    /** Server-derived validity: bound to the assignment/membership/policy revisions the receipt was submitted
+     * under plus live independence; a negative head stays effective regardless of owner-side gates. */
+    effective: z.boolean(),
+    ineffectiveReason: z
+      .enum(["superseded", "withdrawn", "account", "assignment", "authority", "independence"])
+      .nullable(),
+  })
+  .strict();
+/** Provenance of live dissent about THIS delivered change (same artifact digest + performed receipt, or the same
+ * publication attempt + version), possibly recorded on an earlier row of the correction chain. */
+export const citationDissentSchema = z
+  .object({ receiptId: uuid, improvementRowId: uuid, inspectorId: uuid, observedAt: z.string() })
+  .strict();
+export const citationInspectionAssignmentSchema = z
+  .object({
+    inspectorId: uuid,
+    active: z.boolean(),
+    grantedAt: z.string(),
+    revokedAt: z.string().nullable(),
+    effective: z.boolean(),
+  })
+  .strict();
 /** The DETAIL read additionally returns the exact pinned dependency identity so the owner can audit/export
  * what the improvement is bound to: the resolved finding version row ids and the stored structured binding
  * (which carries no secret/provider material). The list read stays metadata-only. */
@@ -295,6 +393,10 @@ export const citationImprovementDetailSchema = citationImprovementSummarySchema
     record: improvementSchema,
     boundFindingRowIds: z.array(uuid),
     publicationBinding: citationPublicationBindingSchema.nullable(),
+    changeBinding: citationChangeBindingViewSchema.nullable().optional(),
+    assignments: z.array(citationInspectionAssignmentSchema).max(1000).optional(),
+    inspections: z.array(citationInspectionReceiptSchema).max(10000).optional(),
+    dissent: z.array(citationDissentSchema).max(10000).optional(),
   })
   .strict();
 export const citationImprovementsStateSchema = z

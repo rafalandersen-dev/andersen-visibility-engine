@@ -3,6 +3,7 @@ import { answerEvidenceSchema } from "./answer-evidence";
 import {
   countDistinctSubstantiveChanges,
   isVerifiedImprovement,
+  liveVerifiedAt,
   type Improvement,
   type LiveVerifiedImprovement,
 } from "./citation-finding";
@@ -867,6 +868,7 @@ export function comparablePairs(
   // captures, then keep only those verified strictly after every baseline capture they improve
   // on. Foreign, missing or duplicated references are rejected outright.
   const bound: Improvement[] = [];
+  const boundAt = new Map<Improvement, number>();
   for (const live of improvements) {
     // Only a LIVE owner_attested improvement is counted; a downgraded status (approval revoked, baseline
     // deleted, finding dismissed/dissented, source forgotten) drops it here even though its immutable record
@@ -894,7 +896,8 @@ export function comparablePairs(
         );
       return Date.parse(capture.capturedAt);
     });
-    const verifiedAt = Date.parse(imp.verification!.verifiedAt);
+    const verifiedAtIso = liveVerifiedAt(live);
+    const verifiedAt = verifiedAtIso === null ? Number.NaN : Date.parse(verifiedAtIso);
     // A verified improvement must be verified after every baseline capture it claims to improve
     // on; an unorderable or pre-baseline verification is not a proven change against that baseline.
     if (
@@ -903,6 +906,7 @@ export function comparablePairs(
     )
       continue;
     bound.push(imp);
+    boundAt.set(imp, verifiedAt);
   }
   const totalDistinctChanges = countDistinctSubstantiveChanges(bound);
   // The number of DISTINCT substantive changes verified strictly before a given instant. A
@@ -914,7 +918,7 @@ export function comparablePairs(
   // never lets the follow-up meet the gate.
   const distinctChangesVerifiedBefore = (instant: number) =>
     countDistinctSubstantiveChanges(
-      bound.filter((imp) => Date.parse(imp.verification!.verifiedAt) < instant),
+      bound.filter((imp) => (boundAt.get(imp) ?? Number.NaN) < instant),
     );
   const sameRound = rounds.baseline === rounds.followUp;
   const pairs: Array<{ questionId: string; baseline: ReviewedCapture; followUp: ReviewedCapture }> =

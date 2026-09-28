@@ -76,6 +76,7 @@ export const saveCitationImprovementFn = createServerFn({ method: "POST" })
         scope: data.scope,
         improvement: data.improvement,
         binding: data.binding,
+        changeBinding: data.changeBinding,
         expectedVersion: data.expectedVersion ?? null,
         expectedHeadId: data.expectedHeadId ?? null,
         expectedFindingRowIds: data.expectedFindingRowIds ?? null,

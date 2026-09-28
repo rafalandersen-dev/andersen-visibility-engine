@@ -227,6 +227,8 @@ beforeAll(async () => {
     "20260926190000_citation_scope_binding_versions.sql",
     // The candidate under test, applied last exactly as production would.
     "20260927190000_citation_improvement_head_guard.sql",
+    // Candidate 20260928120000 (UNAPPLIED, R/R1/R2): the v4 wrappers the server now calls; additive over v3.
+    "20260928120000_citation_change_evidence.sql",
   ])
     await db.exec(readFileSync("supabase/migrations/" + name, "utf8"));
 }, 30000);

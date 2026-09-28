@@ -42,6 +42,7 @@ import { ltSharedUi } from "./lt-shared-ui";
 import { ltCitationReview } from "./lt-citation-review";
 import { ltCitationAuthoring } from "./lt-citation-authoring";
 import { ltCitationForward } from "./lt-citation-forward";
+import { ltCitationChange } from "./lt-citation-change";
 /** Lithuanian authoring in progress; never imported by the runtime catalog. */
 export const LT_STAGED_BATCHES = [
   {
@@ -309,6 +310,13 @@ export const LT_STAGED_BATCHES = [
     namespaces: ["citationForward"],
     sourceRevision: "citation forward workflow candidate after 64db7a4b (Codex N1 corrections)",
     sourceHash: "692652100abfecf97689fd04a6f508d7d66db62417cfd2cfc3dc6f2adf8fcb70",
+  },
+  {
+    name: "citation change",
+    copy: ltCitationChange,
+    namespaces: ["citationChange"],
+    sourceRevision: "citation change evidence candidate 20260928120000 (R/R1/R2)",
+    sourceHash: "9d524198e991d34317b960ac5f970e0ca02ff270ed6dc8b5dba425091a7791c1",
   },
 ] as const;
 export const LT_STAGED_CATALOG: Readonly<Record<string, string>> = Object.freeze(

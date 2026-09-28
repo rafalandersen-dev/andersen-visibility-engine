@@ -42,6 +42,7 @@ import { roSharedUi } from "./ro-shared-ui";
 import { roCitationReview } from "./ro-citation-review";
 import { roCitationAuthoring } from "./ro-citation-authoring";
 import { roCitationForward } from "./ro-citation-forward";
+import { roCitationChange } from "./ro-citation-change";
 /** Romanian authoring in progress; never imported by the runtime catalog. */
 export const RO_STAGED_BATCHES = [
   {
@@ -309,6 +310,13 @@ export const RO_STAGED_BATCHES = [
     namespaces: ["citationForward"],
     sourceRevision: "citation forward workflow candidate after 64db7a4b (Codex N1 corrections)",
     sourceHash: "692652100abfecf97689fd04a6f508d7d66db62417cfd2cfc3dc6f2adf8fcb70",
+  },
+  {
+    name: "citation change",
+    copy: roCitationChange,
+    namespaces: ["citationChange"],
+    sourceRevision: "citation change evidence candidate 20260928120000 (R/R1/R2)",
+    sourceHash: "9d524198e991d34317b960ac5f970e0ca02ff270ed6dc8b5dba425091a7791c1",
   },
 ] as const;
 export const RO_STAGED_CATALOG: Readonly<Record<string, string>> = Object.freeze(

@@ -44,6 +44,15 @@ const SURFACED_CITATION_ERRORS = new Set([
   "citation_improvement_binding_destination_mismatch",
   "citation_improvement_binding_inspection_invalid",
   "citation_improvement_verification_unbacked",
+  // Change evidence (candidate 20260928120000): owner-resolvable outcomes of the change-kind binding.
+  "citation_improvement_unavailable",
+  "citation_change_unsupported",
+  "citation_change_unavailable",
+  "citation_change_stale",
+  "citation_change_forbidden",
+  "citation_change_unapproved",
+  "citation_change_receipt_invalid",
+  "citation_change_capacity",
 ]);
 function surfacedCitationError(error: unknown): string {
   const message =
@@ -160,16 +169,18 @@ export async function saveCitationImprovement(
 ) {
   const s = scope.parse(raw);
   const input = citationImprovementStageInputSchema.parse(value);
-  // v3 = the unchanged v2 save wrapped in the expected-head guard (candidate migration 20260927190000).
+  // v4 (candidate 20260928120000) = v3 for public-URL bindings (unchanged head/reviewed-row guards) or the
+  // explicit change-kind branch; every response carries the live v2 projection.
   return citationImprovementSummarySchema.parse(
     await call(
-      "save_ai_citation_improvement_v3",
+      "save_ai_citation_improvement_v4",
       {
         p_user: s.ownerId,
         p_project: s.projectId,
         p_record: input.improvement,
         p_scope: input.scope,
         p_binding: input.binding ?? null,
+        p_change_binding: input.changeBinding ?? null,
         p_expected_version: input.expectedVersion ?? null,
         p_expected_head: input.expectedHeadId ?? null,
         p_expected_findings: input.expectedFindingRowIds ?? null,
@@ -182,7 +193,7 @@ export async function readCitationImprovements(raw: z.infer<typeof scope>, rpc?:
   const s = scope.parse(raw);
   return citationImprovementsStateSchema.parse(
     await call(
-      "read_ai_citation_improvements_v2",
+      "read_ai_citation_improvements_v4",
       { p_user: s.ownerId, p_project: s.projectId },
       rpc,
     ),
@@ -196,7 +207,7 @@ export async function getCitationImprovement(
   const s = scope.parse(raw);
   return citationImprovementDetailSchema.parse(
     await call(
-      "read_ai_citation_improvement_v2",
+      "read_ai_citation_improvement_v4",
       { p_user: s.ownerId, p_project: s.projectId, p_id: z.string().uuid().parse(id) },
       rpc,
     ),

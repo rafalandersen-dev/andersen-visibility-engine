@@ -30,6 +30,7 @@ import { dePlanScreen } from "./de-plan-screen";
 import { deCitationReview } from "./de-citation-review";
 import { deCitationAuthoring } from "./de-citation-authoring";
 import { deCitationForward } from "./de-citation-forward";
+import { deCitationChange } from "./de-citation-change";
 
 /** Complete German catalog authoring, staged for review. This registry never registers a runtime language.
  * Source fingerprints and full catalog parity must pass before integration. */
@@ -136,6 +137,7 @@ export const DE_STAGED_BATCHES = [
   { name: "citation review", copy: deCitationReview, namespaces: ["citationReview"] },
   { name: "citation authoring", copy: deCitationAuthoring, namespaces: ["citationAuthoring"] },
   { name: "citation forward", copy: deCitationForward, namespaces: ["citationForward"] },
+  { name: "citation change", copy: deCitationChange, namespaces: ["citationChange"] },
 ] as const;
 export const DE_STAGED_CATALOG: Readonly<Record<string, string>> = Object.assign(
   {},

@@ -5,6 +5,9 @@ import { Button } from "./ui/button";
 import { readAnswerEvidenceFn } from "@/lib/answer-evidence.functions";
 import { readPublicationApprovalProvenanceFn } from "@/lib/citation-approval.functions";
 import { readProjectTeamRosterFn } from "@/lib/project-team.functions";
+import { readChangeArtifactsFn } from "@/lib/citation-change.functions";
+import { CitationChangeArtifacts } from "./CitationChangeArtifacts";
+import { CitationInspectionAssignments } from "./CitationInspectionAssignments";
 import {
   readPublicationEvidenceFn,
   readPublicationSnapshotFn,
@@ -32,6 +35,7 @@ import {
   createTaskFromFinding,
   currentImprovementHeads,
   eligibleBaselines,
+  evidenceLabelKey,
   findingLink,
   findingSourceRef,
   forwardErrorKey,
@@ -44,10 +48,12 @@ import {
   pinnedRowsOf,
   pinnedTasks,
   publishedAttemptsForTask,
+  readinessDetailIds,
   retestReadiness,
   tasksForFinding,
   taskStatus,
   type AttestedDetail,
+  type ChangeArtifact,
   type CitationImprovementDetail,
   type ForwardState,
   type InspectionRequest,
@@ -73,6 +79,12 @@ function Notice({
 }
 const chip =
   "inline-flex items-center rounded-full border border-border px-2 py-0.5 text-[11px] text-muted-foreground";
+/** Status labels: the released ladder lives in the forward namespace; the change-kind `receipt_recorded` rung
+ * (candidate 20260928120000) in the change namespace. */
+const statusKey = (status: string) =>
+  status === "receipt_recorded"
+    ? "citationChange.status.receipt_recorded"
+    : `citationForward.improvement.status.${status}`;
 const TASK_NOTES = {
   created: "citationForward.task.created",
   duplicate: "citationForward.task.duplicate",
@@ -142,6 +154,14 @@ export function CitationForwardPanel({
     staleTime: 0,
     retry: false,
   });
+  // Listing/configuration change artifacts (candidate 20260928120000): the owner's intended changes with their
+  // live approval and performed declarations — the change-kind counterpart of the published attempts.
+  const artifacts = useQuery({
+    queryKey: ["citation-change-artifacts", ownerId, projectId],
+    queryFn: () => readChangeArtifactsFn({ data: scope }),
+    staleTime: 0,
+    retry: false,
+  });
   // Whole-array selectors (stable references) filtered in memo: the selector cache keys on the snapshot, so a
   // fresh `filter` result per render would re-render endlessly.
   const allOpportunities = useStore((s) => s.opportunities);
@@ -175,6 +195,17 @@ export function CitationForwardPanel({
   const attemptsForDraft = draft ? publishedAttemptsForTask(attempts, draft.taskId) : [];
   const draftAttempt = draft?.publicationId
     ? (attemptsForDraft.find((a) => a.id === draft.publicationId) ?? null)
+    : null;
+  // Binding kind of the open draft: a published attempt (public URL) or a listing/configuration change; the two
+  // halves of the draft are exclusive and the switch clears the other half plus the baseline choice.
+  const [bindingKind, setBindingKind] = useState<"public" | "change">("public");
+  const changeMode = bindingKind === "change";
+  const draftArtifact =
+    changeMode && draft?.changeArtifactId
+      ? (artifacts.data?.artifacts.find((a) => a.id === draft.changeArtifactId) ?? null)
+      : null;
+  const draftReceipt = draftArtifact
+    ? (draftArtifact.receipts.find((r) => r.id === draft?.changeReceiptId) ?? null)
     : null;
   const provenance = useQuery({
     queryKey: [
@@ -282,6 +313,8 @@ export function CitationForwardPanel({
     void qc.invalidateQueries({
       queryKey: ["publication-approval-provenance", ownerId, projectId],
     });
+    void qc.invalidateQueries({ queryKey: ["citation-change-artifacts", ownerId, projectId] });
+    setBindingKind("public");
     const d = newImprovementDraft(crypto.randomUUID(), task.id, ownerId);
     // Pre-select only pins that are still the current head; a superseded/deleted/dismissed pin needs an
     // explicit choice of the current version in the form (R4: the pin itself never moves).
@@ -294,7 +327,13 @@ export function CitationForwardPanel({
     if (!draft) return;
     dispatch({
       type: "review",
-      result: buildImprovementPayload(draft, { rows, attempts, answers: answerRows, approvals }),
+      result: buildImprovementPayload(draft, {
+        rows,
+        attempts,
+        answers: answerRows,
+        approvals,
+        artifacts: artifacts.data?.artifacts,
+      }),
     });
   }
   async function save() {
@@ -309,6 +348,7 @@ export function CitationForwardPanel({
           scope: reviewed.scope,
           improvement: reviewed.improvement,
           binding: reviewed.binding,
+          changeBinding: reviewed.changeBinding,
           expectedVersion: draft.expectedVersion,
           expectedHeadId: draft.expectedHeadId,
           expectedFindingRowIds: reviewed.expectedFindingRowIds,
@@ -345,7 +385,9 @@ export function CitationForwardPanel({
   }
   const baselineOptions = draftAttempt
     ? eligibleBaselines(answerRows, draftAttempt.finishedAt ?? draftAttempt.startedAt)
-    : [];
+    : draftReceipt
+      ? eligibleBaselines(answerRows, draftReceipt.performedAt)
+      : [];
   const draftTask = draft ? (opportunities.find((o) => o.id === draft.taskId) ?? null) : null;
   const draftPins = draftTask ? pinnedRowsOf(draftTask, rows) : [];
   const toggleRow = (rowId: string, on: boolean) =>
@@ -669,68 +711,127 @@ export function CitationForwardPanel({
                   );
                 })}
               </fieldset>
-              <label className="block space-y-1">
-                <span className="font-medium text-foreground/70">
-                  {t("citationForward.improvement.publication")}
-                </span>
-                {evidence.isError ? (
-                  <Notice tone="error">{t("citationForward.error.loadEvidence")}</Notice>
-                ) : evidence.isPending ? (
-                  <Notice tone="info">{t("citationForward.common.loading")}</Notice>
-                ) : attemptsForDraft.length === 0 ? (
-                  <Notice tone="empty">{t("citationForward.improvement.publicationNone")}</Notice>
-                ) : (
-                  <select
-                    className="block w-full rounded-md border border-border bg-background px-2 py-1 text-sm"
-                    value={draft.publicationId ?? ""}
-                    onChange={(e) =>
-                      dispatch({
-                        type: "edit",
-                        patch: { publicationId: e.target.value || null, baselineCaptureIds: [] },
-                      })
-                    }
-                  >
-                    <option value="">{t("citationForward.improvement.publication")}</option>
-                    {attemptsForDraft.map((a) => (
-                      <option key={a.id} value={a.id}>
-                        {t("citationForward.improvement.publicationOption", {
-                          finished: (a.finishedAt ?? a.startedAt).slice(0, 16),
-                          version: a.versionHash.slice(0, 12),
-                          url: a.outcomeData?.liveUrl ?? "",
+              <fieldset className="space-y-1">
+                <legend className="font-medium text-foreground/70">
+                  {t("citationChange.binding.kind")}
+                </legend>
+                {(["public", "change"] as const).map((k) => (
+                  <label key={k} className="flex items-center gap-2">
+                    <input
+                      type="radio"
+                      name="binding-kind"
+                      value={k}
+                      checked={bindingKind === k}
+                      onChange={() => {
+                        setBindingKind(k);
+                        dispatch({
+                          type: "edit",
+                          patch: {
+                            publicationId: null,
+                            changeArtifactId: null,
+                            changeReceiptId: null,
+                            baselineCaptureIds: [],
+                          },
+                        });
+                      }}
+                    />
+                    <span>{t(`citationChange.binding.${k}`)}</span>
+                  </label>
+                ))}
+              </fieldset>
+              {changeMode ? (
+                <CitationChangeArtifacts
+                  projectId={projectId}
+                  ownerId={ownerId}
+                  artifacts={artifacts.data?.artifacts}
+                  isError={artifacts.isError}
+                  isPending={artifacts.isPending}
+                  selectedArtifactId={draft.changeArtifactId}
+                  selectedReceiptId={draft.changeReceiptId}
+                  onSelect={(artifactId, receiptId) =>
+                    dispatch({
+                      type: "edit",
+                      patch: {
+                        changeArtifactId: artifactId,
+                        changeReceiptId: receiptId,
+                        baselineCaptureIds: [],
+                      },
+                    })
+                  }
+                />
+              ) : (
+                <>
+                  <label className="block space-y-1">
+                    <span className="font-medium text-foreground/70">
+                      {t("citationForward.improvement.publication")}
+                    </span>
+                    {evidence.isError ? (
+                      <Notice tone="error">{t("citationForward.error.loadEvidence")}</Notice>
+                    ) : evidence.isPending ? (
+                      <Notice tone="info">{t("citationForward.common.loading")}</Notice>
+                    ) : attemptsForDraft.length === 0 ? (
+                      <Notice tone="empty">
+                        {t("citationForward.improvement.publicationNone")}
+                      </Notice>
+                    ) : (
+                      <select
+                        className="block w-full rounded-md border border-border bg-background px-2 py-1 text-sm"
+                        value={draft.publicationId ?? ""}
+                        onChange={(e) =>
+                          dispatch({
+                            type: "edit",
+                            patch: {
+                              publicationId: e.target.value || null,
+                              baselineCaptureIds: [],
+                            },
+                          })
+                        }
+                      >
+                        <option value="">{t("citationForward.improvement.publication")}</option>
+                        {attemptsForDraft.map((a) => (
+                          <option key={a.id} value={a.id}>
+                            {t("citationForward.improvement.publicationOption", {
+                              finished: (a.finishedAt ?? a.startedAt).slice(0, 16),
+                              version: a.versionHash.slice(0, 12),
+                              url: a.outcomeData?.liveUrl ?? "",
+                            })}
+                          </option>
+                        ))}
+                      </select>
+                    )}
+                    {evidence.data && !evidence.data.complete ? (
+                      <span className="text-destructive">
+                        {t("citationForward.improvement.publicationPartial", {
+                          loaded: evidence.data.items.length,
+                          total: evidence.data.total,
                         })}
-                      </option>
-                    ))}
-                  </select>
-                )}
-                {evidence.data && !evidence.data.complete ? (
-                  <span className="text-destructive">
-                    {t("citationForward.improvement.publicationPartial", {
-                      loaded: evidence.data.items.length,
-                      total: evidence.data.total,
-                    })}
-                  </span>
-                ) : null}
-              </label>
-              <div className="space-y-1">
-                <span className="font-medium text-foreground/70">
-                  {t("citationForward.improvement.approvedBy")}
-                </span>
-                {!draftAttempt ? null : provenance.isError ? (
-                  <Notice tone="error">{t("citationForward.issue.approval_unknown")}</Notice>
-                ) : !provenance.data ? (
-                  <p className="text-muted-foreground">{t("citationForward.common.loading")}</p>
-                ) : !provenance.data.approved ? (
-                  <Notice tone="error">{t("citationForward.improvement.approvalNone")}</Notice>
-                ) : provenance.data.approverKind === "owner" ? (
-                  <p data-approver="owner">{t("citationForward.improvement.approvedByOwner")}</p>
-                ) : (
-                  <p data-approver="delegate">
-                    {t("citationForward.improvement.approvalDelegate", {
-                      email: delegateEmail ?? (roster.isError ? "?" : "…"),
-                    })}
-                  </p>
-                )}
-              </div>
+                      </span>
+                    ) : null}
+                  </label>
+                  <div className="space-y-1">
+                    <span className="font-medium text-foreground/70">
+                      {t("citationForward.improvement.approvedBy")}
+                    </span>
+                    {!draftAttempt ? null : provenance.isError ? (
+                      <Notice tone="error">{t("citationForward.issue.approval_unknown")}</Notice>
+                    ) : !provenance.data ? (
+                      <p className="text-muted-foreground">{t("citationForward.common.loading")}</p>
+                    ) : !provenance.data.approved ? (
+                      <Notice tone="error">{t("citationForward.improvement.approvalNone")}</Notice>
+                    ) : provenance.data.approverKind === "owner" ? (
+                      <p data-approver="owner">
+                        {t("citationForward.improvement.approvedByOwner")}
+                      </p>
+                    ) : (
+                      <p data-approver="delegate">
+                        {t("citationForward.improvement.approvalDelegate", {
+                          email: delegateEmail ?? (roster.isError ? "?" : "…"),
+                        })}
+                      </p>
+                    )}
+                  </div>
+                </>
+              )}
               <label className="block space-y-1">
                 <span className="font-medium text-foreground/70">
                   {t("citationForward.improvement.description")}
@@ -749,7 +850,7 @@ export function CitationForwardPanel({
                 <legend className="font-medium text-foreground/70">
                   {t("citationForward.improvement.baselines")}
                 </legend>
-                {!draftAttempt ? null : baselineOptions.length === 0 ? (
+                {!draftAttempt && !draftReceipt ? null : baselineOptions.length === 0 ? (
                   <p className="text-muted-foreground">
                     {t("citationForward.improvement.baselinesNone")}
                   </p>
@@ -819,6 +920,11 @@ export function CitationForwardPanel({
         rows={rows}
         opportunities={opportunities}
         initialOpen={initialOpenImprovementId ?? null}
+        artifacts={{
+          data: artifacts.data?.artifacts,
+          isError: artifacts.isError,
+          isPending: artifacts.isPending,
+        }}
       />
     </section>
   );
@@ -833,6 +939,7 @@ function ImprovementList({
   rows,
   opportunities,
   initialOpen,
+  artifacts,
 }: {
   projectId: string;
   ownerId: string;
@@ -842,6 +949,9 @@ function ImprovementList({
   rows: Parameters<typeof findingLink>[1];
   opportunities: Parameters<typeof taskStatus>[0];
   initialOpen: string | null;
+  /** The owner-scoped artifact read (Codex R5): the EXACT bound artifact (id + digest) supplies the approved
+   * before/after fields the owner compares against; anything else fails visibly. */
+  artifacts: { data: ChangeArtifact[] | undefined; isError: boolean; isPending: boolean };
 }) {
   const t = useT();
   const qc = useQueryClient();
@@ -867,9 +977,9 @@ function ImprovementList({
   // Readiness reads CURRENT heads only (R3): an earlier positive version never counts once a later version exists.
   const heads = useMemo(() => currentImprovementHeads(list), [list]);
   const headIds = useMemo(() => new Set(heads.map((s) => s.id)), [heads]);
-  const attestedIds = heads
-    .filter((s) => s.verificationStatus === "owner_attested")
-    .map((s) => s.id);
+  // Owner-attested heads AND heads the server marks eligible through an independent inspection (candidate
+  // 20260928120000): both need the fresh detail before they count.
+  const attestedIds = readinessDetailIds(list);
   const attested = useQuery({
     queryKey: ["citation-improvement-attested", ownerId, projectId, attestedIds.join(",")],
     // Codex N2/S2: keep the WHOLE fresh detail (its own live status), not only the immutable record; readiness
@@ -890,6 +1000,24 @@ function ImprovementList({
   const d = open ? detail.data : undefined;
   const liveUrl =
     d?.record.destination.kind === "public_url" ? d.record.destination.reference : null;
+  // Codex R5: the owner's approved-content view for a change row is the EXACT bound artifact (same id AND same
+  // digest) from the owner-scoped read; a deleted/changed/unloadable artifact is reported visibly and a
+  // positive attestation is disabled (negative/inconclusive stay recordable). Public-URL rows keep the snapshot.
+  const ownerContent: {
+    state: "none" | "loading" | "fields" | "unavailable";
+    fields: Record<string, { before?: string | null; after: string }>;
+  } = (() => {
+    const cb = d?.changeBinding;
+    if (!cb) return { state: "none", fields: {} };
+    if (cb.artifactDeleted || artifacts.isError) return { state: "unavailable", fields: {} };
+    if (artifacts.isPending || artifacts.data === undefined)
+      return { state: "loading", fields: {} };
+    const exact = artifacts.data.find(
+      (a) => a.id === cb.artifactId && a.artifactSha256 === cb.artifactSha256,
+    );
+    return exact ? { state: "fields", fields: exact.fields } : { state: "unavailable", fields: {} };
+  })();
+  const positiveAllowed = !d?.changeBinding || ownerContent.state === "fields";
   const [showSnapshot, setShowSnapshot] = useState(false);
   const snapshot = useQuery({
     queryKey: [
@@ -1006,12 +1134,18 @@ function ImprovementList({
                 <span className={chip}>
                   {t("citationForward.improvement.version", { version: s.version })}
                 </span>{" "}
-                <span className={chip}>
-                  {t(`citationForward.improvement.status.${s.verificationStatus}`)}
-                </span>{" "}
-                <span className={chip}>
-                  {t(`citationForward.improvement.evidence.${s.evidenceStatus}`)}
+                <span className={chip}>{t(statusKey(s.verificationStatus))}</span>{" "}
+                <span className={chip} data-evidence={s.evidenceStatus}>
+                  {t(evidenceLabelKey(s))}
                 </span>
+                {s.independentStatus && s.independentStatus !== "none" ? (
+                  <>
+                    {" "}
+                    <span className={chip} data-independent={s.independentStatus}>
+                      {t(`citationChange.independent.${s.independentStatus}`)}
+                    </span>
+                  </>
+                ) : null}
                 {!headIds.has(s.id) ? (
                   <>
                     {" "}
@@ -1041,11 +1175,9 @@ function ImprovementList({
         ) : (
           <div className="space-y-3 rounded-lg border border-border p-4 text-xs">
             <div className="flex flex-wrap gap-2">
-              <span className={chip}>
-                {t(`citationForward.improvement.status.${d.verificationStatus}`)}
-              </span>
-              <span className={chip}>
-                {t(`citationForward.improvement.evidence.${d.evidenceStatus}`)}
+              <span className={chip}>{t(statusKey(d.verificationStatus))}</span>
+              <span className={chip} data-evidence={d.evidenceStatus}>
+                {t(evidenceLabelKey(d))}
               </span>
               <span className={chip}>
                 {t("citationForward.improvement.version", { version: d.version })}
@@ -1095,17 +1227,87 @@ function ImprovementList({
                 })}
               </ul>
             </div>
-            {d.publicationBinding && liveUrl ? (
+            {d.changeBinding ? (
+              <div className="space-y-1 rounded-md border border-border p-3" data-change-binding>
+                <h5 className="font-medium">{t("citationChange.detail.changeTitle")}</h5>
+                <p>
+                  {t(`citationChange.artifact.kind.${d.changeBinding.kind}`)} ·{" "}
+                  {d.changeBinding.reference}
+                </p>
+                <p>
+                  <span className="font-medium text-foreground/70">
+                    {t("citationChange.detail.artifactVersion")}:{" "}
+                  </span>
+                  {d.changeBinding.artifactSha256.slice(0, 16)}
+                </p>
+                <p>
+                  <span className="font-medium text-foreground/70">
+                    {t("citationChange.binding.receipt")}:{" "}
+                  </span>
+                  {d.changeBinding.receiptId.slice(0, 8)}
+                </p>
+                {d.changeBinding.artifactDeleted ? (
+                  <Notice tone="error">{t("citationChange.binding.deleted")}</Notice>
+                ) : null}
+              </div>
+            ) : null}
+            {(d.publicationBinding && liveUrl) ||
+            (d.changeBinding && !d.changeBinding.artifactDeleted) ? (
               <div className="space-y-2 rounded-md border border-border p-3">
                 <h5 className="font-medium">{t("citationForward.inspection.title")}</h5>
-                <p className="text-muted-foreground">{t("citationForward.inspection.intro")}</p>
+                <p className="text-muted-foreground">
+                  {d.changeBinding
+                    ? t("citationChange.inspect.ownerIntro")
+                    : t("citationForward.inspection.intro")}
+                </p>
+                {d.changeBinding ? (
+                  ownerContent.state === "loading" ? (
+                    <p className="text-muted-foreground" data-owner-content="loading">
+                      {t("citationForward.common.loading")}
+                    </p>
+                  ) : ownerContent.state === "fields" ? (
+                    <table className="w-full max-w-full text-[11px]" data-owner-content="fields">
+                      <thead>
+                        <tr className="text-left text-muted-foreground">
+                          <th className="pr-2">{t("citationChange.artifact.fieldKey")}</th>
+                          <th className="pr-2">{t("citationChange.artifact.before")}</th>
+                          <th>{t("citationChange.artifact.after")}</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {Object.entries(ownerContent.fields).map(([k, v]) => (
+                          <tr key={k}>
+                            <td className="pr-2 align-top">{k}</td>
+                            <td className="pr-2 align-top break-words">{v.before ?? "—"}</td>
+                            <td className="align-top break-words">{v.after}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  ) : (
+                    <Notice tone="error">
+                      <span data-owner-content="unavailable">
+                        {t("citationChange.inspect.contentUnavailable")}
+                      </span>
+                    </Notice>
+                  )
+                ) : null}
                 <div className="flex flex-wrap gap-2">
-                  <a className="underline" href={liveUrl} target="_blank" rel="noopener noreferrer">
-                    {t("citationForward.inspection.open")}
-                  </a>
-                  <Button size="sm" variant="outline" onClick={() => setShowSnapshot((v) => !v)}>
-                    {t("citationForward.inspection.snapshot")}
-                  </Button>
+                  {liveUrl ? (
+                    <a
+                      className="underline"
+                      href={liveUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                    >
+                      {t("citationForward.inspection.open")}
+                    </a>
+                  ) : null}
+                  {d.publicationBinding ? (
+                    <Button size="sm" variant="outline" onClick={() => setShowSnapshot((v) => !v)}>
+                      {t("citationForward.inspection.snapshot")}
+                    </Button>
+                  ) : null}
                 </div>
                 {showSnapshot ? (
                   snapshot.isError ? (
@@ -1134,7 +1336,9 @@ function ImprovementList({
                               name="inspection-result"
                               value={r}
                               checked={checkResult === r}
-                              disabled={busy}
+                              disabled={
+                                busy || (r === "shows_approved_content" && !positiveAllowed)
+                              }
                               onChange={() => {
                                 setCheckResult(r);
                                 setPending(null);
@@ -1151,7 +1355,11 @@ function ImprovementList({
                     </p>
                     <Button
                       size="sm"
-                      disabled={!checkResult || busy}
+                      disabled={
+                        !checkResult ||
+                        busy ||
+                        (checkResult === "shows_approved_content" && !positiveAllowed)
+                      }
                       onClick={() => void recordInspection(d)}
                     >
                       {pending && pending.detailId === d.id
@@ -1166,6 +1374,14 @@ function ImprovementList({
                 {t("citationForward.improvement.detailNoBinding")}
               </p>
             )}
+            {d.publicationBinding || d.changeBinding ? (
+              <CitationInspectionAssignments
+                projectId={projectId}
+                ownerId={ownerId}
+                detail={d}
+                isHead={headIds.has(d.id)}
+              />
+            ) : null}
             <div className="flex flex-wrap gap-2">
               <Button size="sm" variant="ghost" disabled={busy} onClick={() => void remove(d.id)}>
                 {t("citationForward.improvement.remove")}
@@ -1194,13 +1410,28 @@ function ImprovementList({
           <p className="text-muted-foreground">{t("citationForward.common.loading")}</p>
         ) : (
           <>
-            <p>
-              {t("citationForward.readiness.verified", {
+            <p data-readiness="verified">
+              {t("citationChange.readiness.verified", {
                 count: readiness.distinctVerified,
                 required: readiness.required,
               })}
             </p>
+            <p data-readiness="sources">
+              {t("citationChange.readiness.sources", {
+                owner: readiness.attested,
+                independent: readiness.independentlyInspected,
+              })}
+            </p>
             <p>{t("citationForward.readiness.receipts", { count: readiness.connectorReceipts })}</p>
+            <p>{t("citationChange.readiness.receipts", { count: readiness.receiptsRecorded })}</p>
+            <p data-readiness="independent">
+              {t("citationChange.readiness.independent", {
+                count: readiness.independentlyInspected,
+              })}
+            </p>
+            <p data-readiness="disputed">
+              {t("citationChange.readiness.disputed", { count: readiness.disputed })}
+            </p>
             <p>
               {t("citationForward.readiness.approvalBound", { count: readiness.approvalBound })}
             </p>

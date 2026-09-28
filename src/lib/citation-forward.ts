@@ -19,12 +19,15 @@ import {
   type Improvement,
 } from "./citation-finding";
 import type {
+  CitationChangeBinding,
   CitationFindingSummary,
   CitationImprovementSummary,
   CitationPanelScope,
   CitationPublicationBinding,
   citationImprovementDetailSchema,
 } from "./citation-record";
+import { changeErrorKey } from "./citation-change";
+import type { changeArtifactSchema } from "./citation-change";
 import { citationPublicationBindingSchema } from "./citation-record";
 import type { evidenceRowSchema } from "./publication-evidence";
 import type { ApprovalProvenance } from "./citation-approval.server";
@@ -33,6 +36,7 @@ import { assetTypeForContentType } from "./asset-type-for-content";
 import type { ContentAsset, Language, Opportunity, OpportunitySourceRef, Priority } from "./types";
 
 export type EvidenceRow = z.infer<typeof evidenceRowSchema>;
+export type ChangeArtifact = z.infer<typeof changeArtifactSchema>;
 export type CitationImprovementDetail = z.infer<typeof citationImprovementDetailSchema>;
 
 /** `OpportunitySourceRef.sourceType` for a finding-derived task; `sourceRecordId` is the exact finding ROW id. */
@@ -224,6 +228,10 @@ export interface ImprovementDraft {
   findingRowIds: string[];
   taskId: string;
   publicationId: string | null;
+  /** Change-kind binding (listing/configuration): the approved artifact and the performed receipt the owner
+   * chose; exclusive with `publicationId`. */
+  changeArtifactId: string | null;
+  changeReceiptId: string | null;
   approvedBy: string;
   description: string;
   baselineCaptureIds: string[];
@@ -241,6 +249,8 @@ export function newImprovementDraft(
     findingRowIds: [],
     taskId,
     publicationId: null,
+    changeArtifactId: null,
+    changeReceiptId: null,
     approvedBy: ownerId,
     description: "",
     baselineCaptureIds: [],
@@ -251,7 +261,10 @@ export function newImprovementDraft(
 export interface ForwardPayload {
   scope: CitationPanelScope;
   improvement: Improvement;
-  binding: CitationPublicationBinding;
+  /** Public-URL binding (null for a change-kind payload). */
+  binding: CitationPublicationBinding | null;
+  /** Change-kind binding (null for a public-URL payload). */
+  changeBinding: CitationChangeBinding | null;
   /** The exact finding ROW ids the owner reviewed (Codex N1/R1): the server refuses a newly minted version whose
    * resolved rows differ, so a finding version saved by another tab between review and save is never pinned
    * silently. Identical lost-response retries are unaffected (nothing new is pinned). */
@@ -269,6 +282,9 @@ export type PayloadIssue =
   | "baseline_after_publication"
   | "approval_unknown"
   | "approval_unavailable"
+  | "artifact_required"
+  | "artifact_unapproved"
+  | "receipt_required"
   | "invalid";
 /** Build the exact frozen payload from a draft against the CURRENT dependencies; every field of the binding and
  * of the declared approval facts derives from the chosen published attempt (never typed by the owner). The
@@ -283,8 +299,11 @@ export function buildImprovementPayload(
     answers: readonly { id: string; capturedAt: string }[];
     /** Provenance keyed by publication attempt id; absent = not loaded (never assumed). */
     approvals?: ReadonlyMap<string, ApprovalProvenance>;
+    /** Change artifacts of the project (with their live approval and receipts) for listing/configuration kinds. */
+    artifacts?: readonly ChangeArtifact[];
   },
 ): { ok: true; payload: ForwardPayload } | { ok: false; issues: PayloadIssue[] } {
+  if (draft.changeArtifactId !== null) return buildChangePayload(draft, deps);
   const issues: PayloadIssue[] = [];
   if (draft.findingRowIds.length === 0) issues.push("findings_required");
   const selected = draft.findingRowIds.map((id) => findingLink(id, deps.rows));
@@ -348,6 +367,85 @@ export function buildImprovementPayload(
       scope,
       improvement: improvement.data,
       binding: bindingFromAttempt(attempt),
+      changeBinding: null,
+      expectedFindingRowIds: selectedRows.map((r) => r.id),
+    },
+  };
+}
+/** Listing/configuration payload (candidate 20260928120000): every binding field derives from the chosen
+ * approved artifact and its performed receipt — the artifact digest is the approved version, the approver is
+ * the artifact's CURRENT approver (owner or delegate), the destination is the artifact's kind + reference. */
+function buildChangePayload(
+  draft: ImprovementDraft,
+  deps: {
+    rows: readonly CitationFindingSummary[];
+    answers: readonly { id: string; capturedAt: string }[];
+    artifacts?: readonly ChangeArtifact[];
+  },
+): { ok: true; payload: ForwardPayload } | { ok: false; issues: PayloadIssue[] } {
+  const issues: PayloadIssue[] = [];
+  if (draft.findingRowIds.length === 0) issues.push("findings_required");
+  const selected = draft.findingRowIds.map((id) => findingLink(id, deps.rows));
+  if (selected.some((l) => l.status === "deleted")) issues.push("finding_unavailable");
+  if (selected.some((l) => l.status === "dismissed" || l.status === "superseded"))
+    issues.push("finding_not_bindable");
+  const rowsById = new Map(deps.rows.map((r) => [r.id.toLowerCase(), r]));
+  const selectedRows = draft.findingRowIds
+    .map((id) => rowsById.get(id.toLowerCase()))
+    .filter((r): r is CitationFindingSummary => !!r);
+  const scopeKey = (r: CitationFindingSummary) =>
+    JSON.stringify([r.panelId.toLowerCase(), r.panelVersion, r.client.name, r.client.market]);
+  if (selectedRows.length > 1 && new Set(selectedRows.map(scopeKey)).size > 1)
+    issues.push("scope_mixed");
+  if (!taskIdSchema.safeParse(draft.taskId).success) issues.push("task_invalid");
+  const artifact = deps.artifacts?.find((a) => a.id === draft.changeArtifactId);
+  if (!artifact) issues.push("artifact_required");
+  const approval = artifact?.approval;
+  if (artifact && (!approval || !approval.current || !approval.approverId))
+    issues.push("artifact_unapproved");
+  const receipt = artifact?.receipts.find((r) => r.id === draft.changeReceiptId);
+  if (artifact && !receipt) issues.push("receipt_required");
+  if (draft.description.trim().length === 0) issues.push("description_required");
+  if (receipt) {
+    const eligible = new Set(eligibleBaselines(deps.answers, receipt.performedAt).map((a) => a.id));
+    if (draft.baselineCaptureIds.some((id) => !eligible.has(id)))
+      issues.push("baseline_after_publication");
+  }
+  if (issues.length || !artifact || !approval?.approverId || !receipt || selectedRows.length === 0)
+    return { ok: false, issues };
+  const first = selectedRows[0];
+  const scope: CitationPanelScope = {
+    panelId: first.panelId,
+    panelVersion: first.panelVersion,
+    client: { name: first.client.name, market: first.client.market },
+  };
+  const improvement = improvementSchema.safeParse({
+    improvementId: draft.improvementId,
+    findingIds: [...new Set(selectedRows.map((r) => r.findingId))],
+    taskId: draft.taskId,
+    change: {
+      description: draft.description.trim(),
+      approvedVersion: artifact.artifactSha256,
+      approvedBy: approval.approverId,
+      approvedAt: approval.approvedAt ?? receipt.performedAt,
+    },
+    destination: { kind: artifact.kind, reference: artifact.reference },
+    baselineCaptureIds: [...new Set(draft.baselineCaptureIds)],
+    verification: null,
+  });
+  if (!improvement.success) return { ok: false, issues: ["invalid"] };
+  return {
+    ok: true,
+    payload: {
+      scope,
+      improvement: improvement.data,
+      binding: null,
+      changeBinding: {
+        artifactId: artifact.id,
+        artifactSha256: artifact.artifactSha256,
+        receiptId: receipt.id,
+        ownerInspection: null,
+      },
       expectedFindingRowIds: selectedRows.map((r) => r.id),
     },
   };
@@ -362,7 +460,10 @@ export type InspectionResult = CitationPublicationBinding extends { ownerInspect
     : never
   : never;
 export function inspectionPayload(
-  detail: Pick<CitationImprovementDetail, "record" | "publicationBinding" | "boundFindingRowIds">,
+  detail: Pick<
+    CitationImprovementDetail,
+    "record" | "publicationBinding" | "boundFindingRowIds" | "changeBinding"
+  >,
   input: {
     checkResult: "shows_approved_content" | "does_not_show" | "inconclusive";
     observedAt: string;
@@ -372,11 +473,45 @@ export function inspectionPayload(
   | {
       ok: true;
       improvement: Improvement;
-      binding: CitationPublicationBinding;
+      binding: CitationPublicationBinding | null;
+      changeBinding: CitationChangeBinding | null;
       /** The rows the displayed record is bound to: an inspection never rebinds to an unreviewed head. */
       expectedFindingRowIds: string[];
     }
   | { ok: false; issue: "binding_required" | "baseline_required" } {
+  const change = detail.changeBinding ?? null;
+  if (change) {
+    if (change.artifactDeleted) return { ok: false, issue: "binding_required" };
+    const positive = input.checkResult === "shows_approved_content";
+    if (positive && detail.record.baselineCaptureIds.length === 0)
+      return { ok: false, issue: "baseline_required" };
+    return {
+      ok: true,
+      improvement: {
+        ...detail.record,
+        verification: positive
+          ? {
+              method: "owner_inspection",
+              receipt: "owner_inspection",
+              verifiedAt: input.observedAt,
+              reviewer: input.ownerId,
+            }
+          : null,
+      },
+      binding: null,
+      changeBinding: {
+        artifactId: change.artifactId,
+        artifactSha256: change.artifactSha256,
+        receiptId: change.receiptId,
+        ownerInspection: {
+          observedAt: input.observedAt,
+          checkResult: input.checkResult,
+          observedReference: change.reference,
+        },
+      },
+      expectedFindingRowIds: [...detail.boundFindingRowIds],
+    };
+  }
   const binding = detail.publicationBinding;
   if (!binding) return { ok: false, issue: "binding_required" };
   const positive = input.checkResult === "shows_approved_content";
@@ -404,6 +539,7 @@ export function inspectionPayload(
         observedUrl: detail.record.destination.reference,
       },
     },
+    changeBinding: null,
     expectedFindingRowIds: [...detail.boundFindingRowIds],
   };
 }
@@ -415,7 +551,8 @@ export function inspectionPayload(
 export type InspectionRequest = {
   scope: CitationPanelScope;
   improvement: Improvement;
-  binding: CitationPublicationBinding;
+  binding: CitationPublicationBinding | null;
+  changeBinding: CitationChangeBinding | null;
   expectedVersion: number;
   expectedHeadId: string;
   expectedFindingRowIds: string[];
@@ -432,6 +569,7 @@ export function inspectionRequest(
     | "record"
     | "publicationBinding"
     | "boundFindingRowIds"
+    | "changeBinding"
   >,
   summaries: readonly CitationImprovementSummary[],
   input: {
@@ -457,6 +595,7 @@ export function inspectionRequest(
       },
       improvement: built.improvement,
       binding: built.binding,
+      changeBinding: built.changeBinding,
       expectedVersion: detail.version,
       expectedHeadId: detail.id,
       expectedFindingRowIds: built.expectedFindingRowIds,
@@ -496,6 +635,8 @@ export function forwardErrorKey(code: string): string {
     case "invalid_citation_improvement":
       return "citationForward.error.invalid";
     default:
+      if (code.startsWith("citation_change_") || code.startsWith("citation_inspection_"))
+        return changeErrorKey(code);
       return "citationForward.error.unavailable";
   }
 }
@@ -518,33 +659,56 @@ export function currentImprovementHeads(
  * invented, no comparison round is computed here, and `owner_attested` remains an owner observation. */
 export type AttestedDetail = Pick<
   CitationImprovementDetail,
-  "id" | "improvementId" | "version" | "verificationStatus" | "evidenceStatus" | "record"
+  | "id"
+  | "improvementId"
+  | "version"
+  | "verificationStatus"
+  | "evidenceStatus"
+  | "record"
+  | "independentStatus"
+  | "verifiedEligible"
+  | "verifiedAt"
 >;
+/** Heads whose details the readiness gate needs: owner-attested ones and any the server marks eligible (a
+ * positive independent inspection over a delivered/receipted change). */
+export function readinessDetailIds(summaries: readonly CitationImprovementSummary[]): string[] {
+  return currentImprovementHeads(summaries)
+    .filter((s) => s.verificationStatus === "owner_attested" || s.verifiedEligible === true)
+    .map((s) => s.id);
+}
 export function retestReadiness(
   allSummaries: readonly CitationImprovementSummary[],
   attestedDetails: ReadonlyMap<string, AttestedDetail>,
 ) {
   const summaries = currentImprovementHeads(allSummaries);
-  // Codex N2/S2: the detail read is the NEWER authoritative status. A head the list reported as attested counts
-  // only when its fresh detail (same row, same logical id and version) is STILL owner_attested with a recorded
-  // baseline; a revoke, baseline/source removal or dismissal between the two reads drops it.
-  const live = summaries
-    .filter((s) => s.verificationStatus === "owner_attested")
+  // Codex N2/S2: the detail read is the NEWER authoritative status. A head counts only when its fresh detail
+  // (same row, same logical id and version) is STILL eligible: owner_attested with a recorded baseline, or —
+  // candidate 20260928120000 — the server's `verifiedEligible` predicate (a positive independent inspection over
+  // a delivered/receipted change, and NEVER a disputed delivery). A revoke, baseline/source removal, dismissal
+  // or a newly active negative inspection between the two reads drops it.
+  const verified = summaries
+    .filter((s) => s.verificationStatus === "owner_attested" || s.verifiedEligible === true)
     .map((s) => {
       const d = attestedDetails.get(s.id);
-      return d &&
-        d.id === s.id &&
-        d.improvementId.toLowerCase() === s.improvementId.toLowerCase() &&
-        d.version === s.version &&
-        d.verificationStatus === "owner_attested" &&
-        d.evidenceStatus === "baseline_recorded"
-        ? d.record
-        : null;
+      if (
+        !d ||
+        d.id !== s.id ||
+        d.improvementId.toLowerCase() !== s.improvementId.toLowerCase() ||
+        d.version !== s.version
+      )
+        return null;
+      const live = {
+        verificationStatus: d.verificationStatus,
+        record: d.record,
+        verifiedEligible: d.verifiedEligible,
+        independentStatus: d.independentStatus,
+        verifiedAt: d.verifiedAt,
+      };
+      if (typeof d.verifiedEligible !== "boolean" && d.evidenceStatus !== "baseline_recorded")
+        return null;
+      return isVerifiedImprovement(live) ? d.record : null;
     })
     .filter((r): r is Improvement => !!r);
-  const verified = live.filter((r) =>
-    isVerifiedImprovement({ verificationStatus: "owner_attested", record: r }),
-  );
   return {
     attested: summaries.filter((s) => s.verificationStatus === "owner_attested").length,
     distinctVerified: countDistinctSubstantiveChanges(verified),
@@ -553,6 +717,11 @@ export function retestReadiness(
     approvalBound: summaries.filter((s) => s.verificationStatus === "approval_bound").length,
     unverified: summaries.filter((s) => s.verificationStatus === "unverified").length,
     baselineMissing: summaries.filter((s) => s.evidenceStatus === "baseline_missing").length,
+    receiptsRecorded: summaries.filter((s) => s.verificationStatus === "receipt_recorded").length,
+    independentlyInspected: summaries.filter(
+      (s) => s.independentStatus === "independently_inspected",
+    ).length,
+    disputed: summaries.filter((s) => s.independentStatus === "disputed").length,
   };
 }
 
@@ -787,4 +956,27 @@ export function pinnedRowsOf(
  * substituted), newest reference first. */
 export function pinnedTasks(opps: readonly Opportunity[]): Opportunity[] {
   return opps.filter((o) => findingRowIdsOf(o).length > 0);
+}
+
+/** Codex R5: the evidence chip of a row. The stored `evidenceStatus` is the released OWNER-verification axis
+ * (baseline_absent = no owner verification block). A row the server marks eligible through an INDEPENDENT
+ * inspection (not owner-attested) has its baselines resolved by the live predicate, so the owner-axis wording
+ * "no baseline recorded" would be false for that path; it is labelled by its real proof source instead. Every
+ * other state keeps the released label; an unknown live projection never turns into a confirmed one. */
+export function evidenceLabelKey(
+  s: Pick<CitationImprovementSummary, "evidenceStatus"> &
+    Partial<
+      Pick<
+        CitationImprovementSummary,
+        "verificationStatus" | "verifiedEligible" | "independentStatus"
+      >
+    >,
+): string {
+  if (
+    s.verifiedEligible === true &&
+    s.independentStatus === "independently_inspected" &&
+    s.verificationStatus !== "owner_attested"
+  )
+    return "citationChange.evidence.independentBaseline";
+  return `citationForward.improvement.evidence.${s.evidenceStatus}`;
 }

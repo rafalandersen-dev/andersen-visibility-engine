@@ -30,6 +30,7 @@ import { frPlanScreen } from "./fr-plan-screen";
 import { frCitationReview } from "./fr-citation-review";
 import { frCitationAuthoring } from "./fr-citation-authoring";
 import { frCitationForward } from "./fr-citation-forward";
+import { frCitationChange } from "./fr-citation-change";
 
 /** Authoring batches only. Dictionary coverage does not establish full interface
  * acceptance. This catalog is not registered by the runtime or language picker. */
@@ -171,6 +172,13 @@ export const FR_STAGED_BATCHES = [
     name: "citation forward",
     copy: frCitationForward,
     namespaces: ["citationForward"],
+  },
+  {
+    name: "citation change",
+    copy: frCitationChange,
+    namespaces: ["citationChange"],
+    sourceRevision: "citation change evidence candidate 20260928120000 (R/R1/R2)",
+    sourceHash: "9d524198e991d34317b960ac5f970e0ca02ff270ed6dc8b5dba425091a7791c1",
   },
 ] as const;
 

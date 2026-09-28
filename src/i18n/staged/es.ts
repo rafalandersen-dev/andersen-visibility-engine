@@ -30,6 +30,7 @@ import { esWorkflow } from "./es-workflow";
 import { esCitationReview } from "./es-citation-review";
 import { esCitationAuthoring } from "./es-citation-authoring";
 import { esCitationForward } from "./es-citation-forward";
+import { esCitationChange } from "./es-citation-change";
 
 /** Spanish authoring coverage: 3768 messages / 28 batches.
  * All 3,768 English keys reconciled against 5a9416d.
@@ -296,6 +297,13 @@ export const ES_STAGED_BATCHES = [
     namespaces: ["citationForward"],
     sourceRevision: "citation forward workflow candidate after 64db7a4b (Codex N1 corrections)",
     sourceHash: "692652100abfecf97689fd04a6f508d7d66db62417cfd2cfc3dc6f2adf8fcb70",
+  },
+  {
+    name: "citation change",
+    copy: esCitationChange,
+    namespaces: ["citationChange"],
+    sourceRevision: "citation change evidence candidate 20260928120000 (R/R1/R2)",
+    sourceHash: "9d524198e991d34317b960ac5f970e0ca02ff270ed6dc8b5dba425091a7791c1",
   },
 ] as const;
 
