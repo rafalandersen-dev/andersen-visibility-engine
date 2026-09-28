@@ -11,3 +11,10 @@ Independent combined verification:36 suites /908 tests pass, including quality c
 The finite canonical admission policy remains64000 UTF-16 units, generated body limit40000, with over-bound refusal before word scan/usage claim/provider. The existing model prompt's12000-character prefix is unchanged and does not establish whole-article quality acceptance. Full R00–R24/D01–D08 real-use obligations and USD50/month/manual free-account budgets remain.
 
 Fresh exact resulting-head external code/security and nongenerative checks are required before release. No deployment, provider call or migration has been performed by this integration.
+
+
+## BG canonical comparison correction — independent review
+
+Four focused suites111tests, types and diff checks PASS. Reviewed real assembler usage for threshold and frozen quality payload; contentImprove raw-body contract is retained. Actual local real-route harness5185: 20-word body plus25-word approved hook enables Run, both inert sides produce visible Success and exactly one history row; switching to20-word canonical-short disables Run, displays short-input hint and keeps one row. Captured provider-payload equality/source-mutation assertions were checked through the real assembler/server-function tests, not hidden browser state. Local fixture only; no provider or production acceptance. Review tab closed.
+
+Known remaining mismatch independently source-confirmed: comparison route uses project primary content language while production prefers selected asset language via languageLabel. This matters for multilingual assets and is retained as an open targeted correction before final release, not waived by BG's narrower fix. No model or release success claimed yet.

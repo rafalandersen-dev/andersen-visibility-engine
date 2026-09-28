@@ -41,11 +41,16 @@ vi.mock("@/integrations/supabase/client.server", () => ({ supabaseAdmin: {} }));
 import { evaluateContentQualityFn } from "./ai.functions";
 import { MIN_EVALUABLE_WORDS, QUALITY_CATEGORY_KEYS } from "./quality";
 import {
+  canonicalQualityMarkdown,
+  frozenAssetInput,
+  qualityInputEligible,
   runModelComparison,
   type EvaluationDeps,
   type FrozenEvaluationInput,
 } from "./ai-evaluation";
-import type { AiEvaluationRun, Project } from "./types";
+import { assembleContentAsset } from "./content-assembler";
+import { draftWordCount } from "./quality";
+import type { AiEvaluationRun, ContentAsset, Project } from "./types";
 
 const words = (n: number) => Array.from({ length: n }, (_, i) => `word${i}`).join(" ");
 const project = {
@@ -241,5 +246,107 @@ describe("genuine comparisons still run and record", () => {
     expect(result.kind).toBe("recorded");
     expect(d.improveDraft).toHaveBeenCalledTimes(2);
     expect(runs[0].existingOutputPreview).toBe("improved");
+  });
+});
+
+describe("BG (finding 4126458968): eligibility and the frozen quality payload use the canonical assembled input", () => {
+  const hookWords = (n: number) => Array.from({ length: n }, (_, i) => `hook${i}`).join(" ");
+  const asset = (bodyWords: number, over: Partial<ContentAsset> = {}): ContentAsset =>
+    ({
+      id: "a1",
+      projectId: "p1",
+      title: "T",
+      slug: "t",
+      markdown: words(bodyWords),
+      assetType: "article",
+      updatedAt: "2026-09-28T00:00:00.000Z",
+      ...over,
+    }) as ContentAsset;
+  const approvedHook = (n: number) => ({
+    id: "h1",
+    text: hookWords(n),
+    type: "question",
+    provenance: "user-edited",
+    approval: "approved",
+  });
+  const prompts = () => h.generateBudgetedText.mock.calls.map((c) => String(c[1]));
+
+  it("a raw body under 40 words with an approved hook is eligible, and the frozen payload is exactly the assembled canonical document (both sides)", async () => {
+    const a = asset(20, { hook: approvedHook(25) as ContentAsset["hook"] });
+    expect(draftWordCount(a.markdown)).toBe(20);
+    const canonical = assembleContentAsset(a, project).markdown;
+    expect(draftWordCount(canonical)).toBe(45);
+    expect(canonicalQualityMarkdown(a, project)).toBe(canonical);
+    expect(qualityInputEligible(a, project)).toBe(true);
+    const input = frozenAssetInput("contentQualityScore", a, project);
+    expect(input.markdown).toBe(canonical);
+    expect(input.markdown).toContain("hook0");
+    h.generateBudgetedText.mockResolvedValue(modelPayload);
+    const result = await runModelComparison(frozen(input.markdown), deps());
+    expect(result.kind).toBe("recorded");
+    expect(h.claimAiUsage).toHaveBeenCalledTimes(2);
+    expect(prompts()).toHaveLength(2);
+    for (const p of prompts()) expect(p).toContain(canonical);
+  });
+  it("a truly canonical-short draft stays ineligible and, if sent anyway, is skipped with no claim, no provider call and no run", async () => {
+    const a = asset(20);
+    expect(qualityInputEligible(a, project)).toBe(false);
+    const input = frozenAssetInput("contentQualityScore", a, project);
+    expect(input.markdown).toBe(assembleContentAsset(a, project).markdown);
+    const result = await runModelComparison(frozen(input.markdown), deps());
+    expect(result.kind).toBe("skipped");
+    expect(h.claimAiUsage).not.toHaveBeenCalled();
+    expect(h.generateBudgetedText).not.toHaveBeenCalled();
+    expect(runs).toHaveLength(0);
+  });
+  it("the canonical boundary is exactly 40 words: 20 body + 20 hook is eligible, 20 body + 19 hook is not", () => {
+    const at = asset(20, { hook: approvedHook(20) as ContentAsset["hook"] });
+    expect(draftWordCount(canonicalQualityMarkdown(at, project))).toBe(40);
+    expect(qualityInputEligible(at, project)).toBe(true);
+    const below = asset(20, { hook: approvedHook(19) as ContentAsset["hook"] });
+    expect(draftWordCount(canonicalQualityMarkdown(below, project))).toBe(39);
+    expect(qualityInputEligible(below, project)).toBe(false);
+  });
+  it("both sides receive the identical frozen canonical input even when the source asset changes after freezing", async () => {
+    const a = asset(20, { hook: approvedHook(25) as ContentAsset["hook"] });
+    const input = frozenAssetInput("contentQualityScore", a, project);
+    const before = input.markdown;
+    // The source mutates after the freeze (an edit landing mid-attempt): the attempt keeps its frozen input.
+    a.markdown = words(70) + " CHANGED";
+    (a.hook as { text: string }).text = "CHANGED hook";
+    h.generateBudgetedText.mockResolvedValue(modelPayload);
+    const result = await runModelComparison(frozen(input.markdown), deps());
+    expect(result.kind).toBe("recorded");
+    expect(input.markdown).toBe(before);
+    const ps = prompts();
+    expect(ps).toHaveLength(2);
+    for (const p of ps) {
+      expect(p).toContain(before);
+      expect(p).not.toContain("CHANGED");
+    }
+    expect(ps[0].replace("candidate-model", "")).toBe(ps[1].replace("candidate-model", ""));
+  });
+  it("eligibility follows the CURRENT selection: a different asset or a project without the asset's context gives its own answer", () => {
+    const hooked = asset(20, { hook: approvedHook(25) as ContentAsset["hook"] });
+    const plain = asset(20, { id: "a2" });
+    expect(qualityInputEligible(hooked, project)).toBe(true);
+    expect(qualityInputEligible(plain, project)).toBe(false);
+    // Recomputed from the arguments every time — no cached answer survives a changed asset.
+    expect(qualityInputEligible({ ...hooked, hook: undefined }, project)).toBe(false);
+  });
+  it("other task contracts are unchanged: contentImprove freezes the raw body, not the assembled article", async () => {
+    const a = asset(60, { hook: approvedHook(25) as ContentAsset["hook"] });
+    const improveInput = frozenAssetInput("contentImprove", a, project);
+    expect(improveInput.markdown).toBe(a.markdown);
+    expect(improveInput.markdown).not.toContain("hook0");
+    const d = deps();
+    const result = await runModelComparison(
+      frozen(improveInput.markdown, { task: "contentImprove" }),
+      d,
+    );
+    expect(result.kind).toBe("recorded");
+    expect(d.improveDraft).toHaveBeenCalledTimes(2);
+    for (const call of (d.improveDraft as ReturnType<typeof vi.fn>).mock.calls)
+      expect((call[0] as { markdown: string }).markdown).toBe(a.markdown);
   });
 });

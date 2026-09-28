@@ -135,3 +135,35 @@ fails); with the BB body-only cap restored the two BD tests fail (must-fail veri
 Reviewed the finite 64000 UTF-16 canonical-document admission policy, unchanged 40000 generated-body bound, early-exit word predicate, real client/assembler payload and validator boundary tests. Independent quality/caller/generation suites:105 tests passed; four assembler suites added45 passing tests (150 total across7 suites). Types, Vite build and diff checks passed. The boundary tests exercise an assembled maximum body with approved sections, exactly64000 and64001 code units and refusal before scan/usage/provider. The original body-only cap rejection is corrected.
 
 This does not prove a live provider evaluation or the quality of a complete long article: the existing model prompt uses only the first12000 units, unchanged here. The 24000 section allowance is a policy allowance, not a guarantee covering arbitrary manual input. No model call or production mutation was performed during verification. Exact resulting-head external code/security controls remain required.
+
+## Addendum (BG, 28 September 2026) — the comparison compares the canonical quality input (finding 4126458968)
+
+The owner AI Evaluation route decided contentQualityScore eligibility from the selected asset's RAW body and
+froze that raw body for both comparison sides, while production (`evaluateContentQuality`) scores
+`assembleContentAsset(asset, project).markdown` — the canonical document with the approved hook, TL;DR,
+takeaways, sources, author, breadcrumb and image sections. A raw body under 40 words with an approved hook
+was therefore falsely disabled, and any run sent a different artifact than production evaluates.
+
+Correction: `src/lib/ai-evaluation.ts` gains `canonicalQualityMarkdown(asset, project)` (the real assembler),
+`qualityInputEligible(asset, project)` (early-exit scan of that document against the 40-word threshold) and
+`frozenAssetInput(task, asset, project)` (contentQualityScore freezes the canonical document; contentImprove
+keeps the raw body — its contract improves the body, so other task contracts are unchanged). The route
+derives the eligibility hint on every render from the current selection, asset and project (no cached
+answer can go stale when the selection changes) and freezes the asset through the same helper at click
+time, so both sides receive exactly the artifact production scores. Skipped outcomes, no history/rating for
+genuine canonical-short inputs, candidate failure/partial outcomes, conservative scores, the 64 000-unit
+canonical bound and 40 000 body limit, producer/session fences and budget admission are untouched; nothing
+is truncated to pass eligibility.
+
+Tests (`ai-evaluation.test.ts`, +6, real assembler + the real server function under the mocked boundaries):
+raw 20-word body + 25-word approved hook → eligible, frozen payload equals the assembled document, a
+recorded run with both provider prompts containing the canonical document (two claims); a truly canonical-
+short 20-word draft → ineligible and, if sent, skipped with no claim, no provider call, no run; the canonical
+boundary is exactly 40 (20 body + 20 hook eligible, 20 + 19 not); both sides receive the identical frozen
+input even when the source asset is mutated after freezing (no side sees the change); eligibility follows the
+current asset; contentImprove still freezes the raw body. Local UI (harness on 5185, real route component
+and real orchestration over inert stubs; fixture drafts added: hooked and canonical-short): with the hooked
+draft Run is enabled, both stubbed requests receive the identical 45-word canonical body beginning with the
+hook, one run is recorded; with the canonical-short draft Run is disabled with the hint and no call or
+history is added; switching back re-enables Run. With the frozen route file temporarily restored the same
+harness shows the defect (hooked draft disabled with the hint). No production or provider call.

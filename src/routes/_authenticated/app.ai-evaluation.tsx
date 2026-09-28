@@ -14,8 +14,7 @@ import {
 import { useStore, addAiEvaluationRun, updateAiEvaluationRun, uid } from "@/lib/store";
 import { useT } from "@/i18n";
 import { contentLangToProjectLanguage } from "@/lib/onboarding";
-import { runModelComparison, type FrozenEvaluationInput, type SideResult } from "@/lib/ai-evaluation";
-import { MIN_EVALUABLE_WORDS, draftWordCount } from "@/lib/quality";
+import { runModelComparison, frozenAssetInput, qualityInputEligible, type FrozenEvaluationInput, type SideResult } from "@/lib/ai-evaluation";
 import {
   getAiRouterStatusFn,
   generateContentFn,
@@ -80,9 +79,11 @@ function AiEvaluationPage() {
   const explanationLanguage = contentLangToProjectLanguage(project.appLanguage ?? "en");
 
   const selectedAsset = assets.find((x) => x.id === assetId);
-  // Eligibility hint only: the server's explicit outcome (not this precheck) protects the record.
+  // Eligibility hint from the CANONICAL quality input production scores (real assembler, the selected project's
+  // context), derived on every render from the current selection, asset and project so it can never go stale;
+  // the server's explicit outcome (not this precheck) still protects the record.
   const shortDraft =
-    task === "contentQualityScore" && Boolean(selectedAsset) && draftWordCount(selectedAsset?.markdown || "") < MIN_EVALUABLE_WORDS;
+    task === "contentQualityScore" && Boolean(selectedAsset) && !qualityInputEligible(selectedAsset!, project);
 
   async function run() {
     setRunning(true);
@@ -102,23 +103,14 @@ function AiEvaluationPage() {
               businessValue: "Evaluation", recommendedCta: "Contact us", priority: "Medium", status: "captured",
             }
         : undefined;
-    // Freeze every input once so both sides evaluate exactly the same values.
+    // Freeze every input once so both sides evaluate exactly the same values; the quality task freezes the
+    // CANONICAL assembled document (what production scores) from the current asset and project.
     const frozen: FrozenEvaluationInput = {
       task,
       project: p,
       services,
       opportunity: opp,
-      asset: a
-        ? {
-            title: a.title,
-            markdown: a.markdown || "",
-            assetType: a.assetType ?? "article",
-            destinationType: a.publishDestinationType ?? "",
-            metaTitle: a.metaTitle ?? "",
-            metaDescription: a.metaDescription ?? "",
-            quickWins: a.qualityScore?.quickWins ?? [],
-          }
-        : undefined,
+      asset: a ? frozenAssetInput(task, a, p) : undefined,
       livePages: assets.filter((c) => c.livePublishStatus === "published" && c.liveUrl).map((c) => c.liveUrl as string),
       contentLanguage,
       explanationLanguage,

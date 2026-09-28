@@ -8,8 +8,16 @@
  * recorded. This is decided from the server's explicit provenance signal, never from the numeric
  * score, its copy or missing metadata, so it holds even when a UI precheck judged the input eligible.
  */
-import type { AiEvaluationRun, AiTaskType, Opportunity, Project, ServiceItem } from "./types";
-import type { QualityEvaluationResult } from "./quality";
+import type {
+  AiEvaluationRun,
+  AiTaskType,
+  ContentAsset,
+  Opportunity,
+  Project,
+  ServiceItem,
+} from "./types";
+import { MIN_EVALUABLE_WORDS, hasMinimumWords, type QualityEvaluationResult } from "./quality";
+import { assembleContentAsset } from "./content-assembler";
 
 export type SkipReason = Extract<QualityEvaluationResult, { outcome: "skipped" }>["reason"];
 
@@ -43,6 +51,45 @@ export interface FrozenEvaluationInput {
   existingModel: string;
   candidateModel: string | null;
   candidateConfigured: boolean;
+}
+
+/**
+ * The canonical quality input production scores (`evaluateContentQuality` in mock-ai.ts): the ASSEMBLED
+ * document of this asset in this project — body plus the composed hook, TL;DR, key takeaways, sources, author,
+ * breadcrumb and image sections — never the raw body alone. Eligibility and the frozen contentQualityScore
+ * payload both derive from it, from the CURRENT asset and the CURRENTLY selected project, so a raw body under
+ * 40 words with an approved hook is eligible exactly when production would score it, and both comparison
+ * sides receive the very artifact production evaluates. Nothing is truncated to pass eligibility.
+ */
+export function canonicalQualityMarkdown(asset: ContentAsset, project: Project): string {
+  return assembleContentAsset(asset, project).markdown;
+}
+/** True when the canonical document reaches the evaluator's threshold (early-exit scan, no count needed). */
+export function qualityInputEligible(asset: ContentAsset, project: Project): boolean {
+  return hasMinimumWords(canonicalQualityMarkdown(asset, project), MIN_EVALUABLE_WORDS);
+}
+/**
+ * The frozen asset input of one attempt. contentQualityScore compares the canonical document production
+ * scores; contentImprove keeps the raw body (its contract improves the body itself, not the assembled
+ * article), so other task contracts are unchanged.
+ */
+export function frozenAssetInput(
+  task: AiTaskType,
+  asset: ContentAsset,
+  project: Project,
+): NonNullable<FrozenEvaluationInput["asset"]> {
+  return {
+    title: asset.title,
+    markdown:
+      task === "contentQualityScore"
+        ? canonicalQualityMarkdown(asset, project)
+        : asset.markdown || "",
+    assetType: asset.assetType ?? "article",
+    destinationType: asset.publishDestinationType ?? "",
+    metaTitle: asset.metaTitle ?? "",
+    metaDescription: asset.metaDescription ?? "",
+    quickWins: asset.qualityScore?.quickWins ?? [],
+  };
 }
 
 export interface EvaluationDeps {
