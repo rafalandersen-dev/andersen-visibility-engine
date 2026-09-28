@@ -300,3 +300,53 @@ no app/SQL/server/test-behaviour change:
   registrations (`sourceHash`) and `de-source.ts`; no count fixture changed. Targeted checks: prettier clean,
   `git diff --check` 0, tsc 0, Vitest `src/i18n` + `CitationForwardPanel.test.ts` + `citation-forward.test.ts`
   32 files / 831 tests. No full suite, build or browser rerun (text only).
+
+
+## T addendum (28 September 2026): PR157 exact-head P1 corrections
+
+Packet `codex-citation-change-proof-review-t-20260928.md` (external review 5333867662); same worktree/session;
+R1–R5 preserved. The T delta is uncommitted; the candidate migration changed (sha `dcecd0db…` →
+`f0b0a5fc0b75b272106068d99fed8e119e29edfa098a4e89574d4407da7c4a9c`, still UNAPPLIED) and the S guard was
+regenerated for the new exact bytes (rehearsal PASS, UNEXECUTED).
+
+- **T1 (4118473976) artifact controls as submit controls.** All 8 untyped `Button`s in
+  `CitationChangeArtifacts.tsx` are now `type="button"` (the global default untouched; Review stays the one
+  submit). Static audit test across fresh/frozen variants; real DOM: one submit, zero untyped; lost declaration
+  and lost revoke on a VALID draft keep the form with retry/discard reachable, retries replay, only the
+  deliberate Review advances (harness recipe 56).
+- **T2 (4118473980) old receipt after re-approval.** v4 refuses `performed_at < approval.updated_at`
+  (`citation_improvement_binding_receipt_stale`, before the approver check, so a positive owner inspection on a
+  stale receipt is refused too); the ladder holds an existing binding at `approval_bound` when its receipt
+  predates the current approval (independent positive labelled but never eligible); the owner artifact read
+  lists `current` per receipt; the live projection adds `changeBinding.receiptCurrent`. No-op identical
+  re-approval and frozen replays keep the instant, so correct retries never demote. Client: stale receipts
+  disabled + labelled in the picker, `receipt_stale` draft issue, owner detail note + inspection controls
+  withheld, own error copy; change-mode issues now resolve through `draftIssueKey` (they were rendered under
+  the forward namespace). Copy: 4 keys (140; fingerprint `c4be1bf4…`; staged count 4474). Harness recipe 57.
+- **Tests.** SQL `T2 …` on the real chain (controlled instants: receipt at the approval instant; unchanged
+  decision, frozen replay, idempotent payload, revoke/re-approve, refused new binding ± owner positive, live
+  demotion with a non-qualifying independent positive, fresh receipt → v2 `receipt_recorded` → eligible);
+  forward/artifacts/panel static tests. tsc 0 · eslint 0 · prettier clean (changed files) · `git diff --check`
+  0 · full Vitest 412 files / 7051 tests (isolated run; a concurrent run with the guard rehearsal timed out) ·
+  `vite build` success. Browser: recipes 56–57 as reported in `…result-t-20260928.md`; mock outcomes are not
+  production proof.
+
+
+## U addendum (28 September 2026): approval epoch survives permitted clock skew
+
+Packet `codex-citation-change-proof-review-u-20260928.md`: on T SQL a declared instant 2 minutes ahead of the
+server clock (within the permitted 5-minute tolerance) still satisfied `performed_at >= updated_at` after an
+immediate revoke → re-approve, so the old receipt stayed current. Timestamps cannot express the approval epoch.
+Fix (candidate `20260928120000`, now `f1984efbc21d8023493eb58ae703b60d58922b95442f28bdead5c65a4797b649`,
+UNAPPLIED): receipts record `approval_revision` at declaration; a receipt is valid only while the approval is
+current, its recorded revision is the current one and its declared instant is on/after the approval instant —
+applied identically in the owner listing (`current`), the live ladder (`approval_bound` demotion), the live
+projection (`receiptCurrent`) and the v4 save (`citation_improvement_binding_receipt_stale`). No-op identical
+re-approval and frozen replays keep the revision, so correct retries never demote; revoke, re-approve and a
+delegate re-decision under moved authority retire earlier declarations; a retry of an old declaration returns
+its retired receipt and creates nothing. Copy for the four stale keys now states the validity rule (fingerprint
+`db673688…`). Codex's reproduction now fails at its first bad-outcome assertion (`approval_bound`, not
+`receipt_recorded`). New SQL regression (owner and delegate paths, +2 min instants, retry, positives, fresh
+receipt recovery) on the real chain; 21 tests in the file. Guard S regenerated for the new bytes and rehearsed
+(PASS, UNEXECUTED). tsc 0 · eslint 0 · prettier clean · `git diff --check` 0 · full Vitest 412 files / 7052
+tests · `vite build` success. No browser run for U (server-side rule; the mock mirrors it).

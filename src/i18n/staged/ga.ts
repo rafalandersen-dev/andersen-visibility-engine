@@ -316,7 +316,7 @@ export const GA_STAGED_BATCHES = [
     copy: gaCitationChange,
     namespaces: ["citationChange"],
     sourceRevision: "citation change evidence candidate 20260928120000 (R/R1/R2)",
-    sourceHash: "9d524198e991d34317b960ac5f970e0ca02ff270ed6dc8b5dba425091a7791c1",
+    sourceHash: "db673688985a684d3efa1534a82f56f5a07e4ccc866905885cd0ac9da578e5c7",
   },
 ] as const;
 export const GA_STAGED_CATALOG: Readonly<Record<string, string>> = Object.freeze(

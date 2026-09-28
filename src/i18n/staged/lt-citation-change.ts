@@ -173,4 +173,12 @@ export const ltCitationChange: Readonly<Record<string, string>> = {
     "Atidarykite įrašą arba nustatymą tikslioje nuorodoje, palyginkite su toliau pateiktais patvirtintais laukais ir tada užfiksuokite, ką matėte. Vien atidarymas nieko nepaliudija.",
   "citationChange.inspect.contentUnavailable":
     "Nepavyko įkelti tikslaus patvirtinto šio pakeitimo turinio (artefaktas ištrintas, pakeistas arba nepasiekiamas): teigiamas paliudijimas negalimas; neigiamą arba neaiškų rezultatą vis dar galima užfiksuoti.",
+  "citationChange.receipt.stale":
+    "negalioja pagal dabartinį patvirtinimą (įrašyta pagal ankstesnį sprendimą arba patvirtinimas nebegalioja) — deklaruokite naują atlikimą",
+  "citationChange.issue.receipt_stale":
+    "Pasirinkta deklaracija negalioja pagal dabartinį patvirtinimą: ji įrašyta pagal ankstesnį patvirtinimo sprendimą arba patvirtinimas nebegalioja. Deklaruokite naują atlikimą ir pasirinkite jį.",
+  "citationChange.error.receiptStale":
+    "Deklaracija įrašyta pagal ankstesnį patvirtinimo sprendimą (nuo tada patvirtinimas atšauktas arba nuspręstas iš naujo). Deklaruokite naują atlikimą pagal dabartinį patvirtinimą ir susiekite jį.",
+  "citationChange.binding.receiptStale":
+    "Susieta deklaracija įrašyta pagal ankstesnį patvirtinimo sprendimą, todėl ši eilutė lieka susieta su patvirtinimu ir joks naujas patikrinimas negali susieti tos deklaracijos. Deklaruokite naują atlikimą pagal dabartinį patvirtinimą ir įrašykite naują pagerinimo versiją.",
 };

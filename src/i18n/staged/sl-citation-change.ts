@@ -168,4 +168,12 @@ export const slCitationChange: Readonly<Record<string, string>> = {
     "Odprite vnos ali nastavitev na natančnem sklicu, primerjajte z odobrenimi polji spodaj in nato zabeležite, kaj ste videli. Samo odpiranje ničesar ne potrjuje.",
   "citationChange.inspect.contentUnavailable":
     "Natančne odobrene vsebine te spremembe ni bilo mogoče naložiti (artefakt izbrisan, spremenjen ali nedostopen): pozitivno potrdilo ni mogoče; negativen ali neprepričljiv rezultat je še vedno mogoče zabeležiti.",
+  "citationChange.receipt.stale":
+    "neveljavna pod trenutno odobritvijo (zabeležena pod prejšnjo odločitvijo ali odobritev ni več veljavna) — prijavite novo izvedbo",
+  "citationChange.issue.receipt_stale":
+    "Izbrana prijava ni veljavna pod trenutno odobritvijo: zabeležena je bila pod prejšnjo odločitvijo o odobritvi ali odobritev ni več veljavna. Prijavite novo izvedbo in izberite njo.",
+  "citationChange.error.receiptStale":
+    "Prijava je bila zabeležena pod prejšnjo odločitvijo o odobritvi (odobritev je bila od takrat preklicana ali znova odločena). Prijavite novo izvedbo pod trenutno odobritvijo in vežite njo.",
+  "citationChange.binding.receiptStale":
+    "Vezana prijava je bila zabeležena pod prejšnjo odločitvijo o odobritvi, zato ta vrstica ostane na ravni vezanosti na odobritev in noben nov pregled ne more vezati te prijave. Prijavite novo izvedbo pod trenutno odobritvijo in zabeležite novo različico izboljšave.",
 };

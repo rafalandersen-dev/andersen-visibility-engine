@@ -39,6 +39,7 @@ const SURFACED_CITATION_ERRORS = new Set([
   "citation_improvement_baseline_unresolved",
   "citation_improvement_binding_unresolved",
   "citation_improvement_binding_unapproved",
+  "citation_improvement_binding_receipt_stale",
   "citation_improvement_binding_approval_mismatch",
   "citation_improvement_binding_task_mismatch",
   "citation_improvement_binding_destination_mismatch",

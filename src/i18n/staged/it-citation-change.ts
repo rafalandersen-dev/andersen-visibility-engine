@@ -176,4 +176,12 @@ export const itCitationChange: Readonly<Record<string, string>> = {
     "Apri la scheda o l’impostazione al riferimento esatto, confrontala con i campi approvati qui sotto e poi registra ciò che hai visto. Aprirla non attesta nulla di per sé.",
   "citationChange.inspect.contentUnavailable":
     "Impossibile caricare il contenuto approvato esatto di questa modifica (artefatto eliminato, modificato o non disponibile): un’attestazione positiva non è possibile; un risultato negativo o inconcludente può ancora essere registrato.",
+  "citationChange.receipt.stale":
+    "non valida sotto l’approvazione attuale (registrata sotto una decisione precedente, o l’approvazione non è più corrente) — dichiara una nuova esecuzione",
+  "citationChange.issue.receipt_stale":
+    "La dichiarazione scelta non è valida sotto l’approvazione attuale: è stata registrata sotto una decisione di approvazione precedente, oppure l’approvazione non è più corrente. Dichiara una nuova esecuzione e scegli quella.",
+  "citationChange.error.receiptStale":
+    "La dichiarazione è stata registrata sotto una decisione di approvazione precedente (da allora l’approvazione è stata revocata o decisa di nuovo). Dichiara una nuova esecuzione sotto l’approvazione attuale e vincola quella.",
+  "citationChange.binding.receiptStale":
+    "La dichiarazione vincolata è stata registrata sotto una decisione di approvazione precedente, quindi questa riga resta a vincolata all’approvazione e nessuna nuova ispezione può vincolare quella dichiarazione. Dichiara una nuova esecuzione sotto l’approvazione attuale e registra una nuova versione della modifica.",
 };

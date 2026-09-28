@@ -168,4 +168,12 @@ export const fiCitationChange: Readonly<Record<string, string>> = {
     "Avaa listaus tai asetus tarkassa viitteessä, vertaa alla oleviin hyväksyttyihin kenttiin ja kirjaa sitten, mitä näit. Avaaminen ei itsessään todista mitään.",
   "citationChange.inspect.contentUnavailable":
     "Tämän muutoksen tarkkaa hyväksyttyä sisältöä ei voitu ladata (artefakti poistettu, muuttunut tai ei saatavilla): myönteinen vahvistus ei ole mahdollinen; kielteinen tai epäselvä tulos voidaan silti kirjata.",
+  "citationChange.receipt.stale":
+    "ei voimassa nykyisen hyväksynnän alla (kirjattu aiemman päätöksen alla tai hyväksyntä ei ole enää voimassa) — ilmoita uusi suoritus",
+  "citationChange.issue.receipt_stale":
+    "Valittu ilmoitus ei ole voimassa nykyisen hyväksynnän alla: se kirjattiin aiemman hyväksyntäpäätöksen alla, tai hyväksyntä ei ole enää voimassa. Ilmoita uusi suoritus ja valitse se.",
+  "citationChange.error.receiptStale":
+    "Ilmoitus kirjattiin aiemman hyväksyntäpäätöksen alla (hyväksyntä on sittemmin peruttu tai päätetty uudelleen). Ilmoita uusi suoritus nykyisen hyväksynnän alla ja sido se sen sijaan.",
+  "citationChange.binding.receiptStale":
+    "Sidottu ilmoitus kirjattiin aiemman hyväksyntäpäätöksen alla, joten tämä rivi pysyy hyväksyntään sidottuna eikä mikään uusi tarkastus voi sitoa tuota ilmoitusta. Ilmoita uusi suoritus nykyisen hyväksynnän alla ja kirjaa uusi parannusversio.",
 };

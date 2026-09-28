@@ -103,6 +103,12 @@ export const changeReceiptSchema = z
     recordedAt: z.string(),
   })
   .strict();
+/** A receipt as LISTED under its artifact (owner read): `current` is server-derived — the approval is current and
+ * the declaration was performed on/after the current approval instant (T, PR157 finding 4118473980). A receipt
+ * from an earlier approval epoch stays listed for audit but is not bindable. */
+export const changeListedReceiptSchema = changeReceiptSchema
+  .extend({ current: z.boolean() })
+  .strict();
 export const changeArtifactSchema = z
   .object({
     id: uuid,
@@ -123,7 +129,7 @@ export const changeArtifactSchema = z
       })
       .strict()
       .nullable(),
-    receipts: z.array(changeReceiptSchema).max(1000),
+    receipts: z.array(changeListedReceiptSchema).max(1000),
   })
   .strict();
 export const changeArtifactsStateSchema = z

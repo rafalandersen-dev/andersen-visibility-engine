@@ -272,6 +272,7 @@ export function CitationChangeArtifacts({
                   {pendingApproval ? (
                     <>
                       <Button
+                        type="button"
                         size="sm"
                         variant="outline"
                         disabled={busy}
@@ -281,6 +282,7 @@ export function CitationChangeArtifacts({
                         {t("citationChange.approval.retry")}
                       </Button>
                       <Button
+                        type="button"
                         size="sm"
                         variant="ghost"
                         disabled={busy}
@@ -295,6 +297,7 @@ export function CitationChangeArtifacts({
                     </>
                   ) : (
                     <Button
+                      type="button"
                       size="sm"
                       variant="outline"
                       disabled={busy || approvalBlockedBy !== null}
@@ -324,6 +327,7 @@ export function CitationChangeArtifacts({
                   {pendingReceipt ? (
                     <>
                       <Button
+                        type="button"
                         size="sm"
                         variant="outline"
                         disabled={busy}
@@ -333,6 +337,7 @@ export function CitationChangeArtifacts({
                         {t("citationChange.receipt.retry")}
                       </Button>
                       <Button
+                        type="button"
                         size="sm"
                         variant="ghost"
                         disabled={busy}
@@ -347,6 +352,7 @@ export function CitationChangeArtifacts({
                     </>
                   ) : (
                     <Button
+                      type="button"
                       size="sm"
                       variant="outline"
                       disabled={busy || !current || receiptBlockedBy !== null}
@@ -366,8 +372,12 @@ export function CitationChangeArtifacts({
                     </Button>
                   )}
                   <Button
+                    type="button"
                     size="sm"
                     variant="ghost"
+                    // V: the long audit label wraps inside the row at phone widths (never a horizontal scroll);
+                    // local override only, the shared Button keeps its nowrap/fixed-height default.
+                    className="h-auto min-h-8 max-w-full whitespace-normal text-left"
                     disabled={busy || deleteBlocked}
                     data-action="artifact-delete"
                     onClick={() => {
@@ -390,12 +400,16 @@ export function CitationChangeArtifacts({
                     <p className="text-muted-foreground">{t("citationChange.receipt.none")}</p>
                   ) : (
                     a.receipts.map((r) => (
-                      <label key={r.id} className="flex flex-wrap items-center gap-2">
+                      <label
+                        key={r.id}
+                        className="flex flex-wrap items-center gap-2"
+                        data-receipt-current={r.current ? "yes" : "no"}
+                      >
                         <input
                           type="radio"
                           name="change-receipt"
                           checked={selectedReceiptId === r.id}
-                          disabled={selectedArtifactId !== a.id}
+                          disabled={selectedArtifactId !== a.id || !r.current}
                           onChange={() => onSelect(a.id, r.id)}
                         />
                         <span>
@@ -404,7 +418,13 @@ export function CitationChangeArtifacts({
                             ? t("citationChange.approval.owner")
                             : t("citationChange.approval.delegate", { email: r.performedBy })}
                         </span>
+                        {r.current ? null : (
+                          <span className="text-muted-foreground" data-receipt-stale>
+                            {t("citationChange.receipt.stale")}
+                          </span>
+                        )}
                         <Button
+                          type="button"
                           size="sm"
                           variant="ghost"
                           disabled={busy}

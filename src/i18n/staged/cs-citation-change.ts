@@ -168,4 +168,12 @@ export const csCitationChange: Readonly<Record<string, string>> = {
     "Otevřete profil nebo nastavení na přesném odkazu, porovnejte se schválenými poli níže a poté zaznamenejte, co jste viděli. Samotné otevření nic nepotvrzuje.",
   "citationChange.inspect.contentUnavailable":
     "Přesný schválený obsah této změny nelze načíst (artefakt smazán, změněn nebo nedostupný): kladné potvrzení není možné; záporný nebo neprůkazný výsledek lze stále zaznamenat.",
+  "citationChange.receipt.stale":
+    "neplatná v rámci aktuálního schválení (zaznamenaná při dřívějším rozhodnutí, nebo schválení už není aktuální) — deklarujte nové provedení",
+  "citationChange.issue.receipt_stale":
+    "Zvolená deklarace není v rámci aktuálního schválení platná: byla zaznamenána při dřívějším rozhodnutí o schválení, nebo schválení už není aktuální. Deklarujte nové provedení a zvolte je.",
+  "citationChange.error.receiptStale":
+    "Deklarace byla zaznamenána při dřívějším rozhodnutí o schválení (schválení bylo od té doby odvoláno nebo znovu rozhodnuto). Deklarujte nové provedení v rámci aktuálního schválení a svažte je místo ní.",
+  "citationChange.binding.receiptStale":
+    "Svázaná deklarace byla zaznamenána při dřívějším rozhodnutí o schválení, takže tento řádek zůstává na úrovni svázání se schválením a žádná nová kontrola nemůže tuto deklaraci svázat. Deklarujte nové provedení v rámci aktuálního schválení a zaznamenejte novou verzi zlepšení.",
 };

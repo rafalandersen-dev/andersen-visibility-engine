@@ -173,4 +173,12 @@ export const esCitationChange: Readonly<Record<string, string>> = {
     "Abra la ficha o el ajuste en la referencia exacta, compárelo con los campos aprobados de abajo y luego registre lo que vio. Abrirlo no atestigua nada por sí mismo.",
   "citationChange.inspect.contentUnavailable":
     "No se pudo cargar el contenido aprobado exacto de este cambio (artefacto eliminado, modificado o no disponible): no es posible una atestación positiva; aún puede registrarse un resultado negativo o no concluyente.",
+  "citationChange.receipt.stale":
+    "no válida bajo la aprobación actual (registrada bajo una decisión anterior, o la aprobación ya no es vigente) — declare una nueva ejecución",
+  "citationChange.issue.receipt_stale":
+    "La declaración elegida no es válida bajo la aprobación actual: se registró bajo una decisión de aprobación anterior, o la aprobación ya no es vigente. Declare una nueva ejecución y elíjala.",
+  "citationChange.error.receiptStale":
+    "La declaración se registró bajo una decisión de aprobación anterior (desde entonces la aprobación se revocó o se decidió de nuevo). Declare una nueva ejecución bajo la aprobación actual y vincule esa.",
+  "citationChange.binding.receiptStale":
+    "La declaración vinculada se registró bajo una decisión de aprobación anterior, por lo que esta fila se mantiene en vinculada a aprobación y ninguna inspección nueva puede vincular esa declaración. Declare una nueva ejecución bajo la aprobación actual y registre una nueva versión de la mejora.",
 };

@@ -285,7 +285,20 @@ export type PayloadIssue =
   | "artifact_required"
   | "artifact_unapproved"
   | "receipt_required"
+  | "receipt_stale"
   | "invalid";
+/** Draft issues whose copy lives in the change-evidence namespace (`citationChange.issue.*`). */
+export const CHANGE_DRAFT_ISSUES: ReadonlySet<string> = new Set([
+  "artifact_required",
+  "artifact_unapproved",
+  "receipt_required",
+  "receipt_stale",
+]);
+export function draftIssueKey(issue: string): string {
+  return CHANGE_DRAFT_ISSUES.has(issue)
+    ? `citationChange.issue.${issue}`
+    : `citationForward.issue.${issue}`;
+}
 /** Build the exact frozen payload from a draft against the CURRENT dependencies; every field of the binding and
  * of the declared approval facts derives from the chosen published attempt (never typed by the owner). The
  * approver comes from the owner-scoped approval provenance of the attempt's exact asset version (Codex N2/S3):
@@ -405,6 +418,8 @@ function buildChangePayload(
     issues.push("artifact_unapproved");
   const receipt = artifact?.receipts.find((r) => r.id === draft.changeReceiptId);
   if (artifact && !receipt) issues.push("receipt_required");
+  // T: a receipt from an earlier approval epoch is listed for audit but never bindable.
+  if (receipt && receipt.current === false) issues.push("receipt_stale");
   if (draft.description.trim().length === 0) issues.push("description_required");
   if (receipt) {
     const eligible = new Set(eligibleBaselines(deps.answers, receipt.performedAt).map((a) => a.id));
@@ -617,6 +632,8 @@ export function forwardErrorKey(code: string): string {
       return "citationForward.error.bindingUnresolved";
     case "citation_improvement_binding_unapproved":
       return "citationForward.error.bindingUnapproved";
+    case "citation_improvement_binding_receipt_stale":
+      return "citationChange.error.receiptStale";
     case "citation_improvement_binding_approval_mismatch":
       return "citationForward.error.approvalMismatch";
     case "citation_improvement_binding_task_mismatch":

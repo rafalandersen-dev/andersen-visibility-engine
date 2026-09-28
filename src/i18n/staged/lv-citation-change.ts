@@ -171,4 +171,12 @@ export const lvCitationChange: Readonly<Record<string, string>> = {
     "Atveriet ierakstu vai iestatījumu precīzajā atsaucē, salīdziniet ar apstiprinātajiem laukiem zemāk un tad reģistrējiet, ko redzējāt. Atvēršana pati par sevi neko neapliecina.",
   "citationChange.inspect.contentUnavailable":
     "Nevarēja ielādēt šo izmaiņu precīzo apstiprināto saturu (artefakts dzēsts, mainīts vai nav pieejams): pozitīvs apliecinājums nav iespējams; negatīvu vai nepārliecinošu rezultātu joprojām var reģistrēt.",
+  "citationChange.receipt.stale":
+    "nav derīga pašreizējā apstiprinājuma ietvaros (reģistrēta pie agrāka lēmuma vai apstiprinājums vairs nav spēkā) — deklarējiet jaunu izpildi",
+  "citationChange.issue.receipt_stale":
+    "Izvēlētā deklarācija nav derīga pašreizējā apstiprinājuma ietvaros: tā reģistrēta pie agrāka apstiprinājuma lēmuma vai apstiprinājums vairs nav spēkā. Deklarējiet jaunu izpildi un izvēlieties to.",
+  "citationChange.error.receiptStale":
+    "Deklarācija reģistrēta pie agrāka apstiprinājuma lēmuma (apstiprinājums kopš tā laika atsaukts vai izlemts no jauna). Deklarējiet jaunu izpildi pašreizējā apstiprinājuma ietvaros un piesaistiet to.",
+  "citationChange.binding.receiptStale":
+    "Piesaistītā deklarācija reģistrēta pie agrāka apstiprinājuma lēmuma, tāpēc šī rinda paliek apstiprinājumam piesaistīta un neviena jauna pārbaude nevar piesaistīt šo deklarāciju. Deklarējiet jaunu izpildi pašreizējā apstiprinājuma ietvaros un reģistrējiet jaunu uzlabojuma versiju.",
 };

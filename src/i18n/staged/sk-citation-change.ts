@@ -169,4 +169,12 @@ export const skCitationChange: Readonly<Record<string, string>> = {
     "Otvorte profil alebo nastavenie na presnom odkaze, porovnajte so schválenými poľami nižšie a potom zaznamenajte, čo ste videli. Samotné otvorenie nič nepotvrdzuje.",
   "citationChange.inspect.contentUnavailable":
     "Presný schválený obsah tejto zmeny sa nepodarilo načítať (artefakt odstránený, zmenený alebo nedostupný): kladné potvrdenie nie je možné; záporný alebo nepreukazný výsledok možno stále zaznamenať.",
+  "citationChange.receipt.stale":
+    "neplatná v rámci aktuálneho schválenia (zaznamenaná pri skoršom rozhodnutí alebo schválenie už nie je aktuálne) — deklarujte nové vykonanie",
+  "citationChange.issue.receipt_stale":
+    "Zvolená deklarácia nie je platná v rámci aktuálneho schválenia: bola zaznamenaná pri skoršom rozhodnutí o schválení alebo schválenie už nie je aktuálne. Deklarujte nové vykonanie a zvoľte ho.",
+  "citationChange.error.receiptStale":
+    "Deklarácia bola zaznamenaná pri skoršom rozhodnutí o schválení (schválenie bolo odvtedy odvolané alebo znova rozhodnuté). Deklarujte nové vykonanie v rámci aktuálneho schválenia a zviažte ho namiesto nej.",
+  "citationChange.binding.receiptStale":
+    "Zviazaná deklarácia bola zaznamenaná pri skoršom rozhodnutí o schválení, takže tento riadok zostáva na úrovni zviazania so schválením a žiadna nová kontrola nemôže túto deklaráciu zviazať. Deklarujte nové vykonanie v rámci aktuálneho schválenia a zaznamenajte novú verziu zlepšenia.",
 };

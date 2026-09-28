@@ -172,4 +172,12 @@ export const mtCitationChange: Readonly<Record<string, string>> = {
     "Iftaħ l-elenku jew l-issettjar fir-referenza eżatta, qabblu mal-oqsma approvati hawn taħt, u mbagħad irreġistra dak li rajt. Il-ftuħ waħdu ma jattesta xejn.",
   "citationChange.inspect.contentUnavailable":
     "Il-kontenut approvat eżatt ta’ din il-bidla ma setax jitgħabba (artefatt imħassar, mibdul jew mhux disponibbli): attestazzjoni pożittiva mhix possibbli; riżultat negattiv jew mhux konklużiv xorta jista’ jiġi rreġistrat.",
+  "citationChange.receipt.stale":
+    "mhux valida taħt l-approvazzjoni attwali (irreġistrata taħt deċiżjoni preċedenti, jew l-approvazzjoni m’għadhiex attwali) — iddikjara eżekuzzjoni ġdida",
+  "citationChange.issue.receipt_stale":
+    "Id-dikjarazzjoni magħżula mhix valida taħt l-approvazzjoni attwali: ġiet irreġistrata taħt deċiżjoni ta’ approvazzjoni preċedenti, jew l-approvazzjoni m’għadhiex attwali. Iddikjara eżekuzzjoni ġdida u agħżel dik.",
+  "citationChange.error.receiptStale":
+    "Id-dikjarazzjoni ġiet irreġistrata taħt deċiżjoni ta’ approvazzjoni preċedenti (l-approvazzjoni minn dak iż-żmien ġiet irrevokata jew deċiża mill-ġdid). Iddikjara eżekuzzjoni ġdida taħt l-approvazzjoni attwali u orbot dik minflok.",
+  "citationChange.binding.receiptStale":
+    "Id-dikjarazzjoni marbuta ġiet irreġistrata taħt deċiżjoni ta’ approvazzjoni preċedenti, għalhekk din ir-ringiela tibqa’ marbuta mal-approvazzjoni u l-ebda spezzjoni ġdida ma tista’ torbot dik id-dikjarazzjoni. Iddikjara eżekuzzjoni ġdida taħt l-approvazzjoni attwali u rreġistra verżjoni ġdida tat-titjib.",
 };

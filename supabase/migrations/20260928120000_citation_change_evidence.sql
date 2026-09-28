@@ -165,6 +165,12 @@ CREATE TABLE public.ai_citation_change_receipts (
   reference text NOT NULL CHECK(octet_length(reference) BETWEEN 1 AND 1500),
   performed_by uuid NOT NULL,
   performer_kind text NOT NULL CHECK(performer_kind IN ('owner','delegate')),
+  -- U (PR157 T follow-up): the approval REVISION this declaration was recorded under. A declaration is valid only
+  -- while that exact revision is the current, approved one: any later decision (revoke, re-approve, delegate
+  -- re-decision under moved authority) is a new revision and retires every earlier declaration, independently
+  -- of clocks — the declared instant may legitimately lead the server clock by up to 5 minutes, so a timestamp
+  -- comparison alone cannot tell an old declaration from a new one across an immediate revoke → re-approve.
+  approval_revision bigint NOT NULL CHECK(approval_revision BETWEEN 1 AND 9007199254740991),
   performed_at timestamptz NOT NULL,
   recorded_at timestamptz NOT NULL DEFAULT clock_timestamp(),
   digest text NOT NULL CHECK(digest ~ '^[a-f0-9]{64}$'),
@@ -325,7 +331,7 @@ REVOKE ALL ON FUNCTION public.citation_improvement_baselines_resolve(uuid,text,j
 -- collapses it live; the stored binding is never rewritten.
 CREATE FUNCTION public.citation_change_binding_status(p_user uuid,p_project text,p_row uuid,p_record jsonb,p_bound uuid[])
 RETURNS text LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path='' AS $$
-DECLARE cb public.ai_citation_improvement_change_bindings%ROWTYPE; gate record; appr_at timestamptz; perf_at timestamptz; obs timestamptz; status text;
+DECLARE cb public.ai_citation_improvement_change_bindings%ROWTYPE; gate record; appr_at timestamptz; appr_rev bigint; perf_at timestamptz; perf_rev bigint; obs timestamptz; status text;
 BEGIN
   SELECT * INTO cb FROM public.ai_citation_improvement_change_bindings WHERE user_id=p_user AND project_id=p_project AND improvement_row_id=p_row;
   IF cb.improvement_row_id IS NULL OR cb.artifact_deleted_at IS NOT NULL THEN RETURN 'unverified'; END IF;
@@ -333,11 +339,19 @@ BEGIN
   IF NOT gate.available THEN RETURN 'unverified'; END IF;
   IF NOT EXISTS(SELECT 1 FROM public.ai_citation_change_artifacts WHERE user_id=p_user AND project_id=p_project AND id=cb.artifact_id AND artifact_sha256=cb.artifact_sha256) THEN RETURN 'unverified'; END IF;
   IF NOT public.citation_change_approval_current(p_user,p_project,cb.artifact_id) THEN RETURN 'unverified'; END IF;
-  SELECT updated_at INTO appr_at FROM public.ai_citation_change_approvals WHERE user_id=p_user AND project_id=p_project AND artifact_id=cb.artifact_id;
+  SELECT updated_at,revision INTO appr_at,appr_rev FROM public.ai_citation_change_approvals WHERE user_id=p_user AND project_id=p_project AND artifact_id=cb.artifact_id;
   status := 'approval_bound';
-  SELECT performed_at INTO perf_at FROM public.ai_citation_change_receipts
+  SELECT performed_at,approval_revision INTO perf_at,perf_rev FROM public.ai_citation_change_receipts
     WHERE user_id=p_user AND project_id=p_project AND id=cb.receipt_id AND artifact_id=cb.artifact_id AND artifact_sha256=cb.artifact_sha256 AND artifact_deleted_at IS NULL;
   IF perf_at IS NULL THEN RETURN status; END IF;
+  -- T (PR157 finding 4118473980): a declaration performed BEFORE the current approval instant belongs to an
+  -- earlier approval epoch (approve → perform → revoke → re-approve). It stays in the audit history but is never
+  -- a current performance: the row holds at 'approval_bound' (so neither an owner nor an independent positive
+  -- can qualify it) until a fresh declaration under the renewed approval is bound. An identical re-approval
+  -- keeps `updated_at` (no-op) and a frozen replay never moves it, so a correct retry never demotes a row.
+  -- U: the receipt must have been recorded under the CURRENT approval revision (exact epoch identity; a permitted
+  -- +5 min declared instant cannot outlive an immediate revoke → re-approve) AND on/after its instant.
+  IF perf_rev <> appr_rev OR perf_at < appr_at THEN RETURN status; END IF;
   status := 'receipt_recorded';
   IF cb.owner_inspection IS NOT NULL AND (cb.owner_inspection->>'checkResult')='shows_approved_content'
      AND (cb.owner_inspection->>'observedReference')=cb.reference
@@ -498,7 +512,7 @@ REVOKE ALL ON FUNCTION public.citation_independent_status(uuid,text,uuid) FROM P
 CREATE FUNCTION public.citation_improvement_live_v2(p_user uuid,p_project text,p_row uuid)
 RETURNS jsonb LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path='' AS $$
 DECLARE imp public.ai_citation_improvements%ROWTYPE; cb public.ai_citation_improvement_change_bindings%ROWTYPE;
-  base text; ind record; gate record; eligible boolean := false; vat text; baselines boolean;
+  base text; ind record; gate record; eligible boolean := false; vat text; baselines boolean; rc_current boolean := false;
 BEGIN
   SELECT * INTO imp FROM public.ai_citation_improvements WHERE user_id=p_user AND project_id=p_project AND id=p_row;
   IF imp.id IS NULL THEN RETURN NULL; END IF;
@@ -517,6 +531,13 @@ BEGIN
       eligible := true; vat := to_char(ind.verified_at AT TIME ZONE 'UTC','YYYY-MM-DD"T"HH24:MI:SS.US"Z"');
     END IF;
   END IF;
+  -- T: the bound receipt is current only while the approval is current AND the declaration is on/after its instant.
+  IF cb.improvement_row_id IS NOT NULL AND cb.artifact_deleted_at IS NULL AND public.citation_change_approval_current(p_user,p_project,cb.artifact_id) THEN
+    rc_current := EXISTS(SELECT 1 FROM public.ai_citation_change_receipts r JOIN public.ai_citation_change_approvals ap
+        ON ap.user_id=r.user_id AND ap.project_id=r.project_id AND ap.artifact_id=r.artifact_id
+      WHERE r.user_id=p_user AND r.project_id=p_project AND r.id=cb.receipt_id AND r.artifact_id=cb.artifact_id AND r.artifact_sha256=cb.artifact_sha256
+        AND r.artifact_deleted_at IS NULL AND r.approval_revision = ap.revision AND r.performed_at >= ap.updated_at);
+  END IF;
   RETURN jsonb_build_object(
     'verificationStatus',base,
     'independentStatus',ind.status,
@@ -525,7 +546,7 @@ BEGIN
     'dissent',ind.dissent,
     'changeBinding',CASE WHEN cb.improvement_row_id IS NULL THEN NULL ELSE jsonb_build_object(
       'kind',cb.kind,'artifactId',cb.artifact_id,'artifactSha256',cb.artifact_sha256,'receiptId',cb.receipt_id,
-      'reference',cb.reference,'ownerInspection',cb.owner_inspection,'artifactDeleted',cb.artifact_deleted_at IS NOT NULL) END);
+      'reference',cb.reference,'ownerInspection',cb.owner_inspection,'artifactDeleted',cb.artifact_deleted_at IS NOT NULL,'receiptCurrent',rc_current) END);
 END; $$;
 REVOKE ALL ON FUNCTION public.citation_improvement_live_v2(uuid,text,uuid) FROM PUBLIC,anon,authenticated,service_role;
 
@@ -566,7 +587,9 @@ BEGIN
           'approverKind',ap.approver_kind,'approverId',ap.approved_by,'approvedAt',to_char(ap.updated_at AT TIME ZONE 'UTC','YYYY-MM-DD"T"HH24:MI:SS.US"Z"'))
         FROM public.ai_citation_change_approvals ap WHERE ap.user_id=p_user AND ap.project_id=p_project AND ap.artifact_id=a.id),
       'receipts',coalesce((SELECT jsonb_agg(jsonb_build_object('id',r.id,'performedBy',r.performed_by,'performerKind',r.performer_kind,
-          'performedAt',to_char(r.performed_at AT TIME ZONE 'UTC','YYYY-MM-DD"T"HH24:MI:SS.US"Z"'),'recordedAt',r.recorded_at) ORDER BY r.performed_at DESC)
+          'performedAt',to_char(r.performed_at AT TIME ZONE 'UTC','YYYY-MM-DD"T"HH24:MI:SS.US"Z"'),'recordedAt',r.recorded_at,
+          'current',public.citation_change_approval_current(p_user,p_project,a.id)
+            AND coalesce((SELECT r.approval_revision=ap2.revision AND r.performed_at>=ap2.updated_at FROM public.ai_citation_change_approvals ap2 WHERE ap2.user_id=p_user AND ap2.project_id=p_project AND ap2.artifact_id=a.id),false)) ORDER BY r.performed_at DESC)
         FROM public.ai_citation_change_receipts r WHERE r.user_id=p_user AND r.project_id=p_project AND r.artifact_id=a.id AND r.artifact_deleted_at IS NULL),'[]'::jsonb)
     ) ORDER BY a.created_at DESC)
     FROM public.ai_citation_change_artifacts a WHERE a.user_id=p_user AND a.project_id=p_project),'[]'::jsonb));
@@ -668,7 +691,7 @@ END; $$;
 
 CREATE FUNCTION public.save_ai_citation_change_receipt(p_actor uuid,p_owner uuid,p_project text,p_artifact uuid,p_performed_at timestamptz)
 RETURNS jsonb LANGUAGE plpgsql SECURITY DEFINER SET search_path='' SET lock_timeout='1500ms' AS $$
-DECLARE art public.ai_citation_change_artifacts%ROWTYPE; auth record; kind_ text; appr_at timestamptz; dg text; existing uuid; new_id uuid;
+DECLARE art public.ai_citation_change_artifacts%ROWTYPE; auth record; kind_ text; appr_at timestamptz; appr_rev bigint; dg text; existing uuid; new_id uuid;
 BEGIN
   IF p_actor IS NULL OR p_owner IS NULL OR p_project IS NULL OR p_artifact IS NULL OR p_performed_at IS NULL OR NOT isfinite(p_performed_at) THEN
     RAISE EXCEPTION 'citation_change_receipt_invalid' USING ERRCODE='22023';
@@ -686,15 +709,19 @@ BEGIN
     kind_ := 'delegate';
   END IF;
   IF NOT public.citation_change_approval_current(p_owner,p_project,p_artifact) THEN RAISE EXCEPTION 'citation_change_unapproved' USING ERRCODE='22023'; END IF;
-  SELECT updated_at INTO appr_at FROM public.ai_citation_change_approvals WHERE user_id=p_owner AND project_id=p_project AND artifact_id=p_artifact;
+  SELECT updated_at,revision INTO appr_at,appr_rev FROM public.ai_citation_change_approvals WHERE user_id=p_owner AND project_id=p_project AND artifact_id=p_artifact;
   IF p_performed_at < appr_at OR p_performed_at > clock_timestamp() + interval '5 minutes' THEN
     RAISE EXCEPTION 'citation_change_receipt_invalid' USING ERRCODE='22023';
   END IF;
   dg := encode(sha256(convert_to(jsonb_build_array(art.artifact_sha256,p_actor,to_char(p_performed_at AT TIME ZONE 'UTC','YYYY-MM-DD"T"HH24:MI:SS.US"Z"'))::text,'UTF8')),'hex');
   SELECT id INTO existing FROM public.ai_citation_change_receipts WHERE user_id=p_owner AND project_id=p_project AND digest=dg;
   IF existing IS NULL THEN
-    INSERT INTO public.ai_citation_change_receipts(user_id,project_id,artifact_id,artifact_sha256,kind,reference,performed_by,performer_kind,performed_at,digest)
-      VALUES(p_owner,p_project,p_artifact,art.artifact_sha256,art.kind,art.reference,p_actor,kind_,p_performed_at,dg) RETURNING id INTO new_id;
+    -- U: the digest (artifact digest + actor + declared instant) is unchanged, so a lost-response retry of a
+    -- declaration still returns ITS receipt — stamped with the revision it was recorded under. After a later
+    -- approval decision that receipt is no longer valid and a retry never manufactures a new one: the owner
+    -- declares a fresh performance (a new instant) under the current revision.
+    INSERT INTO public.ai_citation_change_receipts(user_id,project_id,artifact_id,artifact_sha256,kind,reference,performed_by,performer_kind,approval_revision,performed_at,digest)
+      VALUES(p_owner,p_project,p_artifact,art.artifact_sha256,art.kind,art.reference,p_actor,kind_,appr_rev,p_performed_at,dg) RETURNING id INTO new_id;
     existing := new_id;
   END IF;
   RETURN (SELECT jsonb_build_object('id',id,'artifactId',artifact_id,'artifactSha256',artifact_sha256,'kind',kind,'reference',reference,
@@ -952,6 +979,11 @@ BEGIN
   IF rcpt.id IS NULL OR rcpt.artifact_id <> art.id OR rcpt.artifact_sha256 <> art.artifact_sha256 THEN RAISE EXCEPTION 'citation_improvement_binding_unresolved' USING ERRCODE='22023'; END IF;
   IF NOT public.citation_change_approval_current(p_user,p_project,art.id) THEN RAISE EXCEPTION 'citation_improvement_binding_unapproved' USING ERRCODE='22023'; END IF;
   SELECT * INTO appr FROM public.ai_citation_change_approvals WHERE user_id=p_user AND project_id=p_project AND artifact_id=art.id;
+  -- T (PR157 finding 4118473980): the receipt must have been performed under the CURRENT approval instant; a
+  -- receipt from an earlier approval epoch (declared before a revoke → re-approve) is never bound anew — the
+  -- owner declares a fresh performance instead. Same rule the receipt writer applies at declaration time.
+  -- U: exact epoch identity — the receipt's recorded approval revision must be the current one (clock-independent).
+  IF rcpt.approval_revision <> appr.revision OR rcpt.performed_at < appr.updated_at THEN RAISE EXCEPTION 'citation_improvement_binding_receipt_stale' USING ERRCODE='22023'; END IF;
   IF (p_record->'change'->>'approvedVersion') IS DISTINCT FROM art.artifact_sha256
      OR lower(p_record->'change'->>'approvedBy') IS DISTINCT FROM lower(appr.approved_by::text) THEN
     RAISE EXCEPTION 'citation_improvement_binding_approval_mismatch' USING ERRCODE='22023';

@@ -172,4 +172,12 @@ export const roCitationChange: Readonly<Record<string, string>> = {
     "Deschideți fișa sau setarea la referința exactă, comparați cu câmpurile aprobate de mai jos, apoi înregistrați ce ați văzut. Deschiderea nu atestă nimic în sine.",
   "citationChange.inspect.contentUnavailable":
     "Conținutul aprobat exact al acestei modificări nu a putut fi încărcat (artefact șters, modificat sau indisponibil): o atestare pozitivă nu este posibilă; un rezultat negativ sau neconcludent poate fi înregistrat în continuare.",
+  "citationChange.receipt.stale":
+    "nevalidă sub aprobarea curentă (înregistrată sub o decizie anterioară sau aprobarea nu mai este curentă) — declarați o execuție nouă",
+  "citationChange.issue.receipt_stale":
+    "Declarația aleasă nu este validă sub aprobarea curentă: a fost înregistrată sub o decizie de aprobare anterioară sau aprobarea nu mai este curentă. Declarați o execuție nouă și alegeți-o pe aceea.",
+  "citationChange.error.receiptStale":
+    "Declarația a fost înregistrată sub o decizie de aprobare anterioară (aprobarea a fost între timp revocată sau decisă din nou). Declarați o execuție nouă sub aprobarea curentă și legați-o pe aceea.",
+  "citationChange.binding.receiptStale":
+    "Declarația legată a fost înregistrată sub o decizie de aprobare anterioară, deci acest rând rămâne la legat de aprobare și nicio inspecție nouă nu poate lega acea declarație. Declarați o execuție nouă sub aprobarea curentă și înregistrați o versiune nouă a îmbunătățirii.",
 };

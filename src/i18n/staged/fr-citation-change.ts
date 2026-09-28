@@ -178,4 +178,12 @@ export const frCitationChange: Readonly<Record<string, string>> = {
     "Ouvrez la fiche ou le paramètre à la référence exacte, comparez-le aux champs approuvés ci-dessous, puis enregistrez ce que vous avez vu. L’ouvrir n’atteste rien en soi.",
   "citationChange.inspect.contentUnavailable":
     "Le contenu approuvé exact de cette modification n’a pas pu être chargé (artefact supprimé, modifié ou indisponible) : une attestation positive est impossible ; un résultat négatif ou non concluant peut encore être enregistré.",
+  "citationChange.receipt.stale":
+    "non valable sous l’approbation actuelle (enregistrée sous une décision antérieure, ou l’approbation n’est plus en vigueur) — déclarez une nouvelle exécution",
+  "citationChange.issue.receipt_stale":
+    "La déclaration choisie n’est pas valable sous l’approbation actuelle : elle a été enregistrée sous une décision d’approbation antérieure, ou l’approbation n’est plus en vigueur. Déclarez une nouvelle exécution et choisissez-la.",
+  "citationChange.error.receiptStale":
+    "La déclaration a été enregistrée sous une décision d’approbation antérieure (l’approbation a été révoquée ou décidée de nouveau depuis). Déclarez une nouvelle exécution sous l’approbation actuelle et liez celle-ci.",
+  "citationChange.binding.receiptStale":
+    "La déclaration liée a été enregistrée sous une décision d’approbation antérieure : cette ligne reste liée à l’approbation et aucune nouvelle inspection ne peut lier cette déclaration. Déclarez une nouvelle exécution sous l’approbation actuelle et enregistrez une nouvelle version de l’amélioration.",
 };

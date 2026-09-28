@@ -173,4 +173,12 @@ export const ptCitationChange: Readonly<Record<string, string>> = {
     "Abra a ficha ou a definição na referência exata, compare com os campos aprovados abaixo e depois registe o que viu. Abrir não atesta nada por si só.",
   "citationChange.inspect.contentUnavailable":
     "Não foi possível carregar o conteúdo aprovado exato desta alteração (artefacto eliminado, alterado ou indisponível): uma atestação positiva não é possível; um resultado negativo ou inconclusivo ainda pode ser registado.",
+  "citationChange.receipt.stale":
+    "não válida sob a aprovação atual (registada sob uma decisão anterior, ou a aprovação já não está em vigor) — declare uma nova execução",
+  "citationChange.issue.receipt_stale":
+    "A declaração escolhida não é válida sob a aprovação atual: foi registada sob uma decisão de aprovação anterior, ou a aprovação já não está em vigor. Declare uma nova execução e escolha essa.",
+  "citationChange.error.receiptStale":
+    "A declaração foi registada sob uma decisão de aprovação anterior (a aprovação foi desde então revogada ou decidida de novo). Declare uma nova execução sob a aprovação atual e vincule essa.",
+  "citationChange.binding.receiptStale":
+    "A declaração vinculada foi registada sob uma decisão de aprovação anterior, pelo que esta linha se mantém em vinculada à aprovação e nenhuma inspeção nova pode vincular essa declaração. Declare uma nova execução sob a aprovação atual e registe uma nova versão da melhoria.",
 };

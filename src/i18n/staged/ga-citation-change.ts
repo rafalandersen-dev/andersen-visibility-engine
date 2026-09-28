@@ -171,4 +171,12 @@ export const gaCitationChange: Readonly<Record<string, string>> = {
     "Oscail an liosta nó an socrú ag an tagairt bheacht, cuir i gcomparáid leis na réimsí ceadaithe thíos é, agus ansin taifead a bhfaca tú. Ní fhianaíonn a oscailt aon rud ann féin.",
   "citationChange.inspect.contentUnavailable":
     "Níorbh fhéidir ábhar ceadaithe beacht an athraithe seo a lódáil (déantán scriosta, athraithe nó gan a bheith ar fáil): ní féidir fianú dearfach; is féidir toradh diúltach nó neamhchinntitheach a thaifeadadh fós.",
+  "citationChange.receipt.stale":
+    "neamhbhailí faoin bhformheas reatha (taifeadta faoi chinneadh níos luaithe, nó níl an formheas reatha a thuilleadh) — dearbhaigh feidhmiú nua",
+  "citationChange.issue.receipt_stale":
+    "Níl an dearbhú roghnaithe bailí faoin bhformheas reatha: taifeadadh é faoi chinneadh formheasa níos luaithe, nó níl an formheas reatha a thuilleadh. Dearbhaigh feidhmiú nua agus roghnaigh é sin.",
+  "citationChange.error.receiptStale":
+    "Taifeadadh an dearbhú faoi chinneadh formheasa níos luaithe (cúlghaireadh an formheas nó cinneadh arís é ó shin). Dearbhaigh feidhmiú nua faoin bhformheas reatha agus ceangail é sin ina ionad.",
+  "citationChange.binding.receiptStale":
+    "Taifeadadh an dearbhú ceangailte faoi chinneadh formheasa níos luaithe, mar sin fanann an ró seo ag ceangailte le formheas agus ní féidir le hiniúchadh nua ar bith an dearbhú sin a cheangal. Dearbhaigh feidhmiú nua faoin bhformheas reatha agus taifead leagan feabhsúcháin nua.",
 };

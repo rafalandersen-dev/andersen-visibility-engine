@@ -178,4 +178,12 @@ export const deCitationChange: Readonly<Record<string, string>> = {
     "Öffnen Sie den Eintrag oder die Einstellung an der genauen Referenz, vergleichen Sie mit den genehmigten Feldern unten und erfassen Sie dann, was Sie gesehen haben. Das Öffnen allein bestätigt nichts.",
   "citationChange.inspect.contentUnavailable":
     "Der genaue genehmigte Inhalt dieser Änderung konnte nicht geladen werden (Artefakt gelöscht, geändert oder nicht verfügbar): eine positive Bestätigung ist nicht möglich; ein negatives oder nicht eindeutiges Ergebnis kann weiterhin erfasst werden.",
+  "citationChange.receipt.stale":
+    "unter der aktuellen Freigabe nicht gültig (unter einer früheren Entscheidung erfasst, oder die Freigabe ist nicht mehr aktuell) — erklären Sie eine neue Ausführung",
+  "citationChange.issue.receipt_stale":
+    "Die gewählte Erklärung ist unter der aktuellen Freigabe nicht gültig: Sie wurde unter einer früheren Freigabeentscheidung erfasst, oder die Freigabe ist nicht mehr aktuell. Erklären Sie eine neue Ausführung und wählen Sie diese.",
+  "citationChange.error.receiptStale":
+    "Die Erklärung wurde unter einer früheren Freigabeentscheidung erfasst (die Freigabe wurde seitdem widerrufen oder erneut entschieden). Erklären Sie eine neue Ausführung unter der aktuellen Freigabe und binden Sie stattdessen diese.",
+  "citationChange.binding.receiptStale":
+    "Die gebundene Erklärung wurde unter einer früheren Freigabeentscheidung erfasst, daher bleibt diese Zeile bei freigabegebunden und keine neue Prüfung kann diese Erklärung binden. Erklären Sie eine neue Ausführung unter der aktuellen Freigabe und erfassen Sie eine neue Verbesserungsversion.",
 };

@@ -57,6 +57,7 @@ import {
   type CitationImprovementDetail,
   type ForwardState,
   type InspectionRequest,
+  draftIssueKey,
 } from "@/lib/citation-forward";
 import type { ApprovalProvenance } from "@/lib/citation-approval.server";
 import type { CitationImprovementSummary } from "@/lib/citation-record";
@@ -884,7 +885,7 @@ export function CitationForwardPanel({
               {issues.length ? (
                 <ul className="text-destructive">
                   {issues.map((i) => (
-                    <li key={i}>{t(`citationForward.issue.${i}`)}</li>
+                    <li key={i}>{t(draftIssueKey(i))}</li>
                   ))}
                 </ul>
               ) : null}
@@ -1249,10 +1250,17 @@ function ImprovementList({
                 {d.changeBinding.artifactDeleted ? (
                   <Notice tone="error">{t("citationChange.binding.deleted")}</Notice>
                 ) : null}
+                {d.changeBinding.receiptCurrent === false ? (
+                  <div data-receipt-stale>
+                    <Notice tone="info">{t("citationChange.binding.receiptStale")}</Notice>
+                  </div>
+                ) : null}
               </div>
             ) : null}
             {(d.publicationBinding && liveUrl) ||
-            (d.changeBinding && !d.changeBinding.artifactDeleted) ? (
+            (d.changeBinding &&
+              !d.changeBinding.artifactDeleted &&
+              d.changeBinding.receiptCurrent !== false) ? (
               <div className="space-y-2 rounded-md border border-border p-3">
                 <h5 className="font-medium">{t("citationForward.inspection.title")}</h5>
                 <p className="text-muted-foreground">

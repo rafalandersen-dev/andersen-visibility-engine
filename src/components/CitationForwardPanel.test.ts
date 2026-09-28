@@ -882,5 +882,15 @@ describe("forward panel — honest states and real controls", () => {
     html = renderDetail();
     expect(html).toContain("citationForward.improvement.evidence.baseline_recorded");
     expect(html).not.toContain("citationChange.evidence.independentBaseline");
+    // T (PR157 finding 4118473980): a bound receipt from an earlier approval epoch is named as such and the owner
+    // inspection controls are withheld (no new inspection may bind that receipt); the audit block stays.
+    h.queries["citation-improvement"] = ok(detailOf({ receiptCurrent: false }));
+    const stale = renderDetail();
+    expect(stale).toContain("data-change-binding");
+    expect(stale).toContain("data-receipt-stale");
+    expect(stale).toContain("citationChange.binding.receiptStale");
+    expect(stale).not.toContain('name="inspection-result"');
+    h.queries["citation-improvement"] = ok(detailOf({ receiptCurrent: true }));
+    expect(renderDetail()).not.toContain("data-receipt-stale");
   });
 });

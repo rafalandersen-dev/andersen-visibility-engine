@@ -175,4 +175,12 @@ export const nlCitationChange: Readonly<Record<string, string>> = {
     "Open de vermelding of instelling bij de exacte referentie, vergelijk met de goedgekeurde velden hieronder en leg daarna vast wat u zag. Openen alleen bevestigt niets.",
   "citationChange.inspect.contentUnavailable":
     "De exacte goedgekeurde inhoud van deze wijziging kon niet worden geladen (artefact verwijderd, gewijzigd of niet beschikbaar): een positief attest is niet mogelijk; een negatief of onbeslist resultaat kan nog worden vastgelegd.",
+  "citationChange.receipt.stale":
+    "niet geldig onder de huidige goedkeuring (vastgelegd onder een eerdere beslissing, of de goedkeuring is niet meer actueel) — verklaar een nieuwe uitvoering",
+  "citationChange.issue.receipt_stale":
+    "De gekozen verklaring is niet geldig onder de huidige goedkeuring: ze is vastgelegd onder een eerdere goedkeuringsbeslissing, of de goedkeuring is niet meer actueel. Verklaar een nieuwe uitvoering en kies die.",
+  "citationChange.error.receiptStale":
+    "De verklaring is vastgelegd onder een eerdere goedkeuringsbeslissing (de goedkeuring is sindsdien ingetrokken of opnieuw beslist). Verklaar een nieuwe uitvoering onder de huidige goedkeuring en bind die in plaats daarvan.",
+  "citationChange.binding.receiptStale":
+    "De gebonden verklaring is vastgelegd onder een eerdere goedkeuringsbeslissing, dus deze rij blijft op goedkeuringsgebonden en geen nieuwe inspectie kan die verklaring binden. Verklaar een nieuwe uitvoering onder de huidige goedkeuring en leg een nieuwe verbeteringsversie vast.",
 };

@@ -140,6 +140,10 @@ const keys = [
   "evidence.independentBaseline",
   "inspect.ownerIntro",
   "inspect.contentUnavailable",
+  "receipt.stale",
+  "issue.receipt_stale",
+  "error.receiptStale",
+  "binding.receiptStale",
 ];
 const values: Record<string, string[]> = {
   en: [
@@ -279,6 +283,10 @@ const values: Record<string, string[]> = {
     "baseline resolves for the independent proof (no owner attestation on this row)",
     "Open the listing or setting at the exact reference, compare it with the approved fields below, then record what you saw. Opening it attests nothing by itself.",
     "The exact approved content of this change could not be loaded (artifact deleted, changed or unavailable): a positive attestation is not possible; a negative or inconclusive result can still be recorded.",
+    "not valid under the current approval (recorded under an earlier decision, or the approval is no longer current) — declare a fresh performance",
+    "The chosen declaration is not valid under the current approval: it was recorded under an earlier approval decision, or the approval is no longer current. Declare a fresh performance and choose that.",
+    "The declaration was recorded under an earlier approval decision (the approval was revoked or decided again since). Declare a fresh performance under the current approval and bind that instead.",
+    "The bound declaration was recorded under an earlier approval decision, so this row holds at approval-bound and no new inspection may bind that declaration. Declare a fresh performance under the current approval and record a new improvement version.",
   ],
   pl: [
     "Zmiany w wizytówkach i konfiguracji",
@@ -417,6 +425,10 @@ const values: Record<string, string[]> = {
     "punkt odniesienia rozstrzyga niezależny dowód (brak poświadczenia właściciela w tym wierszu)",
     "Otwórz wizytówkę lub ustawienie pod dokładnym odniesieniem, porównaj z zatwierdzonymi polami poniżej, a potem zapisz, co zobaczyłeś. Samo otwarcie niczego nie poświadcza.",
     "Nie udało się wczytać dokładnej zatwierdzonej treści tej zmiany (artefakt usunięty, zmieniony lub niedostępny): poświadczenie pozytywne nie jest możliwe; nadal można zapisać wynik negatywny lub nierozstrzygający.",
+    "nieważna w ramach bieżącego zatwierdzenia (zapisana pod wcześniejszą decyzją albo zatwierdzenie nie jest już aktualne) — zadeklaruj nowe wykonanie",
+    "Wybrana deklaracja nie jest ważna w ramach bieżącego zatwierdzenia: zapisano ją pod wcześniejszą decyzją o zatwierdzeniu albo zatwierdzenie nie jest już aktualne. Zadeklaruj nowe wykonanie i wybierz je.",
+    "Deklaracja została zapisana pod wcześniejszą decyzją o zatwierdzeniu (od tego czasu zatwierdzenie cofnięto lub podjęto ponownie). Zadeklaruj nowe wykonanie w ramach bieżącego zatwierdzenia i powiąż właśnie je.",
+    "Powiązana deklaracja została zapisana pod wcześniejszą decyzją o zatwierdzeniu, więc ten wiersz pozostaje na poziomie powiązania z zatwierdzeniem i żadna nowa inspekcja nie może powiązać tej deklaracji. Zadeklaruj nowe wykonanie w ramach bieżącego zatwierdzenia i zapisz nową wersję ulepszenia.",
   ],
   sv: [
     "Ändringar i listningar och konfiguration",
@@ -555,6 +567,10 @@ const values: Record<string, string[]> = {
     "baslinjen löses av det oberoende beviset (inget ägarintyg på den här raden)",
     "Öppna listningen eller inställningen vid den exakta referensen, jämför med de godkända fälten nedan och registrera sedan vad du såg. Att öppna den intygar ingenting i sig.",
     "Det exakta godkända innehållet för den här ändringen kunde inte läsas in (artefakt borttagen, ändrad eller otillgänglig): ett positivt intygande är inte möjligt; ett negativt eller icke avgörande resultat kan fortfarande registreras.",
+    "inte giltig under det aktuella godkännandet (registrerad under ett tidigare beslut, eller godkännandet är inte längre aktuellt) — deklarera ett nytt utförande",
+    "Den valda deklarationen är inte giltig under det aktuella godkännandet: den registrerades under ett tidigare godkännandebeslut, eller godkännandet är inte längre aktuellt. Deklarera ett nytt utförande och välj det.",
+    "Deklarationen registrerades under ett tidigare godkännandebeslut (godkännandet har återkallats eller beslutats på nytt sedan dess). Deklarera ett nytt utförande under det aktuella godkännandet och bind det i stället.",
+    "Den bundna deklarationen registrerades under ett tidigare godkännandebeslut, så den här raden stannar på godkännandebunden och ingen ny inspektion kan binda den deklarationen. Deklarera ett nytt utförande under det aktuella godkännandet och registrera en ny förbättringsversion.",
   ],
   da: [
     "Ændringer i lister og konfiguration",
@@ -693,6 +709,10 @@ const values: Record<string, string[]> = {
     "baseline afgøres af det uafhængige bevis (ingen ejerattestation på denne række)",
     "Åbn listen eller indstillingen ved den præcise reference, sammenlign med de godkendte felter nedenfor, og registrér derefter hvad du så. At åbne den attesterer intet i sig selv.",
     "Det præcise godkendte indhold af denne ændring kunne ikke indlæses (artefakt slettet, ændret eller utilgængelig): en positiv attestation er ikke mulig; et negativt eller ikke entydigt resultat kan stadig registreres.",
+    "ikke gyldig under den aktuelle godkendelse (registreret under en tidligere beslutning, eller godkendelsen er ikke længere aktuel) — erklær en ny udførelse",
+    "Den valgte erklæring er ikke gyldig under den aktuelle godkendelse: den blev registreret under en tidligere godkendelsesbeslutning, eller godkendelsen er ikke længere aktuel. Erklær en ny udførelse og vælg den.",
+    "Erklæringen blev registreret under en tidligere godkendelsesbeslutning (godkendelsen er siden trukket tilbage eller besluttet igen). Erklær en ny udførelse under den aktuelle godkendelse og bind den i stedet.",
+    "Den bundne erklæring blev registreret under en tidligere godkendelsesbeslutning, så denne række forbliver godkendelsesbundet, og ingen ny inspektion kan binde den erklæring. Erklær en ny udførelse under den aktuelle godkendelse og registrér en ny forbedringsversion.",
   ],
 };
 export const citationChangeCopy: Record<string, Record<string, string>> = Object.fromEntries(

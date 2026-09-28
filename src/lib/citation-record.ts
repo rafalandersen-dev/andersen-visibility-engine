@@ -351,6 +351,9 @@ export const citationChangeBindingViewSchema = citationChangeBindingSchema
     kind: z.enum(["listing", "configuration"]),
     reference: text(1500),
     artifactDeleted: z.boolean(),
+    /** T: false when the bound declaration predates the current approval instant (revoke → re-approve): the row
+     * holds at approval_bound live and no new inspection may bind that receipt. Absent on legacy reads. */
+    receiptCurrent: z.boolean().optional(),
   })
   .strict();
 export const citationInspectionReceiptSchema = z

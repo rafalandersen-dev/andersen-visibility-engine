@@ -8,6 +8,7 @@ import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it, vi } from "vitest";
 import type { FrozenWrites, FieldRow } from "@/lib/citation-change-ui";
+import type { ChangeArtifact } from "@/lib/citation-forward";
 
 vi.mock("@/i18n", () => ({
   useT: () => (key: string, vars?: Record<string, string | number>) =>
@@ -47,12 +48,13 @@ const artifact = (approved: boolean, id = ART, reference = "google-business-prof
         approvedAt: "2026-09-28T09:05:00Z",
       }
     : null,
-  receipts: [],
+  receipts: [] as ChangeArtifact["receipts"],
 });
 const render = (over: {
   artifacts?: ReturnType<typeof artifact>[];
   initialFieldRows?: FieldRow[];
   initialFrozen?: FrozenWrites;
+  selectedArtifactId?: string | null;
 }) =>
   renderToStaticMarkup(
     createElement(CitationChangeArtifacts, {
@@ -61,7 +63,7 @@ const render = (over: {
       artifacts: over.artifacts ?? [],
       isError: false,
       isPending: false,
-      selectedArtifactId: null,
+      selectedArtifactId: over.selectedArtifactId ?? null,
       selectedReceiptId: null,
       onSelect: () => {},
       initialFieldRows: over.initialFieldRows,
@@ -211,5 +213,82 @@ describe("frozen writes (R3/2, R3/3)", () => {
     expect(b2).toContain('data-blocked="receipt"');
     expect(b2).not.toContain('data-blocked="approval"');
     expect(tagOf(b2, "receipt-declare")).toContain('disabled=""');
+  });
+});
+
+describe("Codex T (PR157 exact-head findings 4118473976 / 4118473980)", () => {
+  const RC_OLD = "00000000-0000-4000-8000-0000000000c1";
+  const RC_NEW = "00000000-0000-4000-8000-0000000000c2";
+  const receiptRow = (id: string, current: boolean) => ({
+    id,
+    performedBy: OWNER,
+    performerKind: "owner" as const,
+    performedAt: "2026-09-28T09:10:00.000000Z",
+    recordedAt: "2026-09-28T09:10:01.000000Z",
+    current,
+  });
+  it('T1: every artifact control is an explicit type="button" — approve/revoke, retry/discard, declare, remove, save, add field — so nothing rendered inside the improvement form is a submit control', () => {
+    const variants = [
+      render({ artifacts: [{ ...artifact(true), receipts: [receiptRow(RC_NEW, true)] }] }),
+      render({ artifacts: [artifact(false)] }),
+      render({
+        artifacts: [artifact(true)],
+        initialFrozen: {
+          approval: {
+            projectId: "proj_a",
+            artifactId: ART,
+            expectedSha: SHA,
+            approved: false,
+            expectedRevision: 1,
+            requestId: "11111111-1111-4111-8111-111111111111",
+          },
+          receipt: null,
+        },
+      }),
+      render({
+        artifacts: [artifact(true)],
+        initialFrozen: {
+          approval: null,
+          receipt: {
+            projectId: "proj_a",
+            artifactId: ART,
+            performedAt: "2026-09-28T10:00:00.000Z",
+          },
+        },
+      }),
+    ];
+    for (const html of variants) {
+      const tags = html.match(/<button\b[^>]*>/g) ?? [];
+      expect(tags.length).toBeGreaterThan(3);
+      for (const tag of tags) expect(tag, tag).toContain('type="button"');
+      expect(html).not.toContain('type="submit"');
+    }
+  });
+  it("T2: a receipt from an earlier approval epoch is listed for audit but not selectable (disabled + labelled); a current receipt stays selectable", () => {
+    const html = render({
+      artifacts: [
+        { ...artifact(true), receipts: [receiptRow(RC_OLD, false), receiptRow(RC_NEW, true)] },
+      ],
+      selectedArtifactId: ART,
+    });
+    const staleAt = html.indexOf('data-receipt-current="no"');
+    const freshAt = html.indexOf('data-receipt-current="yes"');
+    expect(staleAt).toBeGreaterThan(-1);
+    expect(freshAt).toBeGreaterThan(staleAt);
+    const stale = html.slice(staleAt, freshAt);
+    const staleRadio = stale.slice(
+      stale.indexOf("<input"),
+      stale.indexOf(">", stale.indexOf("<input")),
+    );
+    expect(staleRadio).toContain('disabled=""');
+    expect(stale).toContain("data-receipt-stale");
+    expect(stale).toContain("citationChange.receipt.stale");
+    const fresh = html.slice(freshAt, html.indexOf("</label>", freshAt));
+    const freshRadio = fresh.slice(
+      fresh.indexOf("<input"),
+      fresh.indexOf(">", fresh.indexOf("<input")),
+    );
+    expect(freshRadio).not.toContain("disabled");
+    expect(fresh).not.toContain("data-receipt-stale");
   });
 });

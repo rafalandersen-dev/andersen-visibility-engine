@@ -174,4 +174,12 @@ export const huCitationChange: Readonly<Record<string, string>> = {
     "Nyissa meg a bejegyzést vagy beállítást a pontos hivatkozásnál, hasonlítsa össze az alábbi jóváhagyott mezőkkel, majd rögzítse, amit látott. A megnyitás önmagában semmit nem tanúsít.",
   "citationChange.inspect.contentUnavailable":
     "A módosítás pontos jóváhagyott tartalma nem tölthető be (artefaktum törölve, megváltozott vagy nem elérhető): pozitív tanúsítás nem lehetséges; negatív vagy nem egyértelmű eredmény továbbra is rögzíthető.",
+  "citationChange.receipt.stale":
+    "a jelenlegi jóváhagyás alatt nem érvényes (korábbi döntés alatt rögzítve, vagy a jóváhagyás már nem aktuális) — jelentsen be új végrehajtást",
+  "citationChange.issue.receipt_stale":
+    "A kiválasztott bejelentés a jelenlegi jóváhagyás alatt nem érvényes: korábbi jóváhagyási döntés alatt rögzítették, vagy a jóváhagyás már nem aktuális. Jelentsen be új végrehajtást, és azt válassza.",
+  "citationChange.error.receiptStale":
+    "A bejelentést korábbi jóváhagyási döntés alatt rögzítették (a jóváhagyást azóta visszavonták vagy újra eldöntötték). Jelentsen be új végrehajtást a jelenlegi jóváhagyás alatt, és inkább azt kösse.",
+  "citationChange.binding.receiptStale":
+    "A kötött bejelentést korábbi jóváhagyási döntés alatt rögzítették, ezért ez a sor jóváhagyáshoz kötött szinten marad, és új ellenőrzés nem kötheti azt a bejelentést. Jelentsen be új végrehajtást a jelenlegi jóváhagyás alatt, és rögzítsen új javítási verziót.",
 };

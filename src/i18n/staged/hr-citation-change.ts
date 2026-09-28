@@ -169,4 +169,12 @@ export const hrCitationChange: Readonly<Record<string, string>> = {
     "Otvorite unos ili postavku na točnoj referenci, usporedite s odobrenim poljima u nastavku, a zatim zabilježite što ste vidjeli. Samo otvaranje ništa ne potvrđuje.",
   "citationChange.inspect.contentUnavailable":
     "Točan odobreni sadržaj ove promjene nije bilo moguće učitati (artefakt izbrisan, promijenjen ili nedostupan): pozitivna potvrda nije moguća; negativan ili neuvjerljiv rezultat i dalje se može zabilježiti.",
+  "citationChange.receipt.stale":
+    "nije valjana pod trenutačnim odobrenjem (zabilježena pod ranijom odlukom ili odobrenje više nije važeće) — prijavite novu izvedbu",
+  "citationChange.issue.receipt_stale":
+    "Odabrana prijava nije valjana pod trenutačnim odobrenjem: zabilježena je pod ranijom odlukom o odobrenju ili odobrenje više nije važeće. Prijavite novu izvedbu i odaberite nju.",
+  "citationChange.error.receiptStale":
+    "Prijava je zabilježena pod ranijom odlukom o odobrenju (odobrenje je od tada opozvano ili ponovno odlučeno). Prijavite novu izvedbu pod trenutačnim odobrenjem i vežite nju.",
+  "citationChange.binding.receiptStale":
+    "Vezana prijava zabilježena je pod ranijom odlukom o odobrenju, pa ovaj redak ostaje na razini vezanosti uz odobrenje i nijedna nova provjera ne može vezati tu prijavu. Prijavite novu izvedbu pod trenutačnim odobrenjem i zabilježite novu verziju poboljšanja.",
 };

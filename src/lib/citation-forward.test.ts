@@ -67,6 +67,7 @@ import {
   inspectionRequest,
   pinnedRowsOf,
   pinnedTasks,
+  draftIssueKey,
 } from "./citation-forward";
 
 const OWNER = "00000000-0000-4000-8000-000000000001";
@@ -786,6 +787,7 @@ describe("change-kind binding (candidate 20260928120000): artifact → approval 
         performerKind: "owner",
         performedAt: "2026-09-27T10:10:00Z",
         recordedAt: "2026-09-27T10:10:01Z",
+        current: true,
       },
     ],
     ...over,
@@ -867,6 +869,14 @@ describe("change-kind binding (candidate 20260928120000): artifact → approval 
     expect(issuesOf(changeDraft({ changeReceiptId: null }), [artifact()])).toContain(
       "receipt_required",
     );
+    // T (PR157 finding 4118473980): a listed receipt from an earlier approval epoch (server-derived
+    // `current: false`) is never bindable; a current one raises no such issue.
+    expect(
+      issuesOf(changeDraft(), [
+        artifact({ receipts: [{ ...artifact().receipts[0], current: false }] }),
+      ]),
+    ).toContain("receipt_stale");
+    expect(issuesOf(changeDraft(), [artifact()])).not.toContain("receipt_stale");
     // The declared instant is the chronology anchor: a capture taken after it is not a baseline.
     const late = artifact({
       receipts: [
@@ -876,6 +886,7 @@ describe("change-kind binding (candidate 20260928120000): artifact → approval 
           performerKind: "owner",
           performedAt: "2026-09-25T09:05:00Z",
           recordedAt: "2026-09-25T09:05:01Z",
+          current: true,
         },
       ],
     });
@@ -1475,6 +1486,20 @@ describe("Codex P corrections (PR156 review)", () => {
     );
     expect(manualDraftForTask(created, uid(), "2026-09-28T00:00:00Z").assetType).toBe(
       "servicePage",
+    );
+  });
+});
+
+describe("T (PR157 exact-head): draft issue namespace and the stale-receipt outcome", () => {
+  it("routes change-mode issues to the change-evidence namespace and public ones to the forward namespace; the stale receipt token maps to its own copy", () => {
+    expect(draftIssueKey("receipt_stale")).toBe("citationChange.issue.receipt_stale");
+    expect(draftIssueKey("receipt_required")).toBe("citationChange.issue.receipt_required");
+    expect(draftIssueKey("artifact_unapproved")).toBe("citationChange.issue.artifact_unapproved");
+    expect(draftIssueKey("description_required")).toBe(
+      "citationForward.issue.description_required",
+    );
+    expect(forwardErrorKey("citation_improvement_binding_receipt_stale")).toBe(
+      "citationChange.error.receiptStale",
     );
   });
 });

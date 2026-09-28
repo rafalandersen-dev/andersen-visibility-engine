@@ -168,4 +168,12 @@ export const etCitationChange: Readonly<Record<string, string>> = {
     "Avage kirje või seade täpse viite juures, võrrelge allolevate kinnitatud väljadega ja seejärel salvestage, mida nägite. Avamine iseenesest ei tõenda midagi.",
   "citationChange.inspect.contentUnavailable":
     "Selle muudatuse täpset kinnitatud sisu ei saanud laadida (artefakt kustutatud, muudetud või kättesaamatu): positiivne kinnitus pole võimalik; negatiivse või ebaselge tulemuse saab siiski salvestada.",
+  "citationChange.receipt.stale":
+    "praeguse kinnituse all kehtetu (salvestatud varasema otsuse all või kinnitus ei ole enam kehtiv) — deklareerige uus teostus",
+  "citationChange.issue.receipt_stale":
+    "Valitud deklaratsioon ei kehti praeguse kinnituse all: see salvestati varasema kinnitusotsuse all või kinnitus ei ole enam kehtiv. Deklareerige uus teostus ja valige see.",
+  "citationChange.error.receiptStale":
+    "Deklaratsioon salvestati varasema kinnitusotsuse all (kinnitus on vahepeal tagasi võetud või uuesti otsustatud). Deklareerige uus teostus praeguse kinnituse all ja siduge see.",
+  "citationChange.binding.receiptStale":
+    "Seotud deklaratsioon salvestati varasema kinnitusotsuse all, seega jääb see rida kinnitusega seotud tasemele ja ükski uus kontroll ei saa seda deklaratsiooni siduda. Deklareerige uus teostus praeguse kinnituse all ja salvestage parenduse uus versioon.",
 };

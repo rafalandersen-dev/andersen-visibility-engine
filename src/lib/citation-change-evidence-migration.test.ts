@@ -1742,6 +1742,315 @@ describe("R1 regressions (Codex SQL-stage review 2026-09-28): the required behav
   });
 });
 
+describe("T2 (PR157 exact-head finding 4118473980): a performed receipt never outlives its approval epoch", () => {
+  const bindingOf = (
+    a: { id: string; artifactSha256: string },
+    r: { id: string },
+    ownerInspection: unknown = null,
+  ) => ({ artifactId: a.id, artifactSha256: a.artifactSha256, receiptId: r.id, ownerInspection });
+  const listedCurrent = async (artifactId: string, receiptId: string) => {
+    const state = await call("read_ai_citation_change_artifacts", { p_user: user, p_project: "p" });
+    const art = (
+      state.artifacts as Array<{ id: string; receipts: Array<{ id: string; current: boolean }> }>
+    ).find((x) => x.id === artifactId);
+    return art?.receipts.find((x) => x.id === receiptId)?.current;
+  };
+  const recordSha256 = async (rowId: string) =>
+    (
+      await db.query<{ s: string }>(
+        "SELECT record_sha256 s FROM ai_citation_improvements WHERE id=$1",
+        [rowId],
+      )
+    ).rows[0].s;
+  it("approve → perform → revoke → re-approve: the old receipt is refused for a NEW binding (a positive owner inspection included), an EXISTING binding holds at approval_bound live and an independent positive never qualifies it, the owner read marks it stale, a fresh declaration restores the path; an identical re-approval and a frozen replay keep the receipt current", async () => {
+    await seedTeam([[delegate, "reviewer"]]);
+    const a = (await artifact()) as { id: string; artifactSha256: string; reference: string };
+    const REQ = crypto.randomUUID();
+    const p1 = await approve(user, a.id, a.artifactSha256, true, {
+      expectedRevision: 0,
+      requestId: REQ,
+    });
+    expect(p1).toMatchObject({ approved: true, revision: 1 });
+    // Controlled instant: performed EXACTLY at the approval instant (the earliest valid declaration).
+    const r1 = (await receipt(user, a.id, p1.approvedAt as string)) as { id: string };
+    expect(await listedCurrent(a.id, r1.id)).toBe(true);
+    const v1 = await saveChange(changeRecord(a, user), bindingOf(a, r1));
+    expect(v1).toMatchObject({
+      version: 1,
+      verificationStatus: "receipt_recorded",
+      verifiedEligible: false,
+    });
+    expect((await readRow(String(v1.id))).changeBinding).toMatchObject({
+      receiptId: r1.id,
+      receiptCurrent: true,
+    });
+    // An unchanged decision (identical owner re-approval at the current head) keeps the instant: no demotion.
+    const p1b = await approve(user, a.id, a.artifactSha256, true);
+    expect(p1b).toMatchObject({ approved: true, revision: 1, approvedAt: p1.approvedAt });
+    // A frozen retry of the original request replays history: no demotion either.
+    const replay = await approve(user, a.id, a.artifactSha256, true, {
+      expectedRevision: 0,
+      requestId: REQ,
+    });
+    expect(replay).toMatchObject({ replayed: true, revision: 1, approvedAt: p1.approvedAt });
+    expect(await listedCurrent(a.id, r1.id)).toBe(true);
+    expect((await readRow(String(v1.id))).verificationStatus).toBe("receipt_recorded");
+    // The identical frozen improvement payload still resolves to the same row (idempotent retry intact).
+    expect((await saveChange(changeRecord(a, user), bindingOf(a, r1))).id).toBe(v1.id);
+    // Revoke → explicit re-approve: a NEW approval epoch (revision 3, a later instant).
+    await approve(user, a.id, a.artifactSha256, false);
+    const p3 = await approve(user, a.id, a.artifactSha256, true);
+    expect(p3).toMatchObject({ approved: true, revision: 3 });
+    expect(String(p3.approvedAt) > String(p1.approvedAt)).toBe(true);
+    // Owner read: the old receipt stays listed (audit) but is not current.
+    expect(await listedCurrent(a.id, r1.id)).toBe(false);
+    // The EXISTING binding holds at approval_bound live (never receipt_recorded) and names the stale receipt.
+    let live = await readRow(String(v1.id));
+    expect(live).toMatchObject({ verificationStatus: "approval_bound", verifiedEligible: false });
+    expect(live.changeBinding).toMatchObject({ receiptId: r1.id, receiptCurrent: false });
+    // A NEW binding of the old receipt — plain, or carrying a positive owner inspection — is refused.
+    const observedAt = await isoAt("+ interval '2 seconds'");
+    await expect(
+      saveChange(changeRecord(a, user, { description: "re-bound" }), bindingOf(a, r1), {
+        expectedVersion: 1,
+        expectedHeadId: String(v1.id),
+      }),
+    ).rejects.toThrow("citation_improvement_binding_receipt_stale");
+    await expect(
+      saveChange(
+        changeRecord(a, user, {
+          verification: {
+            method: "owner_inspection",
+            receipt: "x",
+            verifiedAt: observedAt,
+            reviewer: user,
+          },
+        }),
+        bindingOf(a, r1, {
+          checkResult: "shows_approved_content",
+          observedReference: a.reference,
+          observedAt,
+        }),
+        { expectedVersion: 1, expectedHeadId: String(v1.id) },
+        [(await findingHead()).id],
+      ),
+    ).rejects.toThrow("citation_improvement_binding_receipt_stale");
+    // An independent positive on the bound row is labelled but NEVER qualifies the stale performance.
+    await grant(String(v1.id), delegate);
+    await inspect(
+      delegate,
+      String(v1.id),
+      await recordSha256(String(v1.id)),
+      "shows_approved_content",
+      observedAt,
+    );
+    live = await readRow(String(v1.id));
+    expect(live).toMatchObject({
+      verificationStatus: "approval_bound",
+      independentStatus: "independently_inspected",
+      verifiedEligible: false,
+      verifiedAt: null,
+    });
+    // A fresh declaration under the renewed approval restores the forward path on a new version…
+    const r2 = (await receipt(user, a.id, await isoAt("+ interval '1 second'"))) as { id: string };
+    expect(await listedCurrent(a.id, r2.id)).toBe(true);
+    const v2 = await saveChange(changeRecord(a, user), bindingOf(a, r2), {
+      expectedVersion: 1,
+      expectedHeadId: String(v1.id),
+    });
+    expect(v2).toMatchObject({
+      version: 2,
+      verificationStatus: "receipt_recorded",
+      verifiedEligible: false,
+    });
+    expect((await readRow(String(v2.id))).changeBinding).toMatchObject({
+      receiptId: r2.id,
+      receiptCurrent: true,
+    });
+    // …and a fresh independent positive on THAT row qualifies; the old row's inspection stays on the old row.
+    await grant(String(v2.id), delegate);
+    await inspect(
+      delegate,
+      String(v2.id),
+      await recordSha256(String(v2.id)),
+      "shows_approved_content",
+      await isoAt("+ interval '3 seconds'"),
+    );
+    expect(await readRow(String(v2.id))).toMatchObject({
+      verificationStatus: "receipt_recorded",
+      independentStatus: "independently_inspected",
+      verifiedEligible: true,
+    });
+    expect(await readRow(String(v1.id))).toMatchObject({
+      verificationStatus: "approval_bound",
+      verifiedEligible: false,
+    });
+  });
+  it("U (Codex T follow-up): a permitted +2 min declared instant never survives an immediate revoke → re-approve; the receipt's recorded approval revision is the epoch identity (owner and delegate paths); retries of the old declaration never manufacture a current one; unchanged/frozen decisions keep it; a fresh declaration restores eligibility", async () => {
+    await seedTeam([[delegate, "reviewer"]]);
+    const receiptsOf = async (artifactId: string) =>
+      (
+        await db.query<{ n: number }>(
+          "SELECT count(*)::int n FROM ai_citation_change_receipts WHERE user_id=$1 AND project_id='p' AND artifact_id=$2",
+          [user, artifactId],
+        )
+      ).rows[0].n;
+    // ---- owner path: the declared instant leads the server clock by the permitted 2 minutes.
+    const a = (await artifact()) as { id: string; artifactSha256: string; reference: string };
+    const REQ = crypto.randomUUID();
+    const p1 = await approve(user, a.id, a.artifactSha256, true, {
+      expectedRevision: 0,
+      requestId: REQ,
+    });
+    const future = await isoAt("+ interval '2 minutes'");
+    const r1 = (await receipt(user, a.id, future)) as { id: string };
+    expect(await listedCurrent(a.id, r1.id)).toBe(true);
+    const v1 = await saveChange(changeRecord(a, user), bindingOf(a, r1));
+    expect(v1).toMatchObject({ version: 1, verificationStatus: "receipt_recorded" });
+    // Unchanged decision and a frozen replay keep the epoch: still current.
+    expect(await approve(user, a.id, a.artifactSha256, true)).toMatchObject({
+      revision: 1,
+      approvedAt: p1.approvedAt,
+    });
+    expect(
+      await approve(user, a.id, a.artifactSha256, true, { expectedRevision: 0, requestId: REQ }),
+    ).toMatchObject({ replayed: true, revision: 1 });
+    expect(await listedCurrent(a.id, r1.id)).toBe(true);
+    expect((await readRow(String(v1.id))).changeBinding).toMatchObject({ receiptCurrent: true });
+    // Immediate revoke → re-approve (revision 3): the new instant is STILL before the declared instant, so a
+    // timestamp rule alone would keep the old receipt; the recorded revision retires it.
+    await approve(user, a.id, a.artifactSha256, false);
+    const p3 = await approve(user, a.id, a.artifactSha256, true);
+    expect(p3).toMatchObject({ approved: true, revision: 3 });
+    expect(String(p3.approvedAt) < future).toBe(true);
+    expect(await listedCurrent(a.id, r1.id)).toBe(false);
+    let live = await readRow(String(v1.id));
+    expect(live).toMatchObject({ verificationStatus: "approval_bound", verifiedEligible: false });
+    expect(live.changeBinding).toMatchObject({ receiptCurrent: false });
+    await expect(
+      saveChange(changeRecord(a, user, { description: "re-bound" }), bindingOf(a, r1), {
+        expectedVersion: 1,
+        expectedHeadId: String(v1.id),
+      }),
+    ).rejects.toThrow("citation_improvement_binding_receipt_stale");
+    const observedAt = await isoAt("+ interval '3 minutes'");
+    await expect(
+      saveChange(
+        changeRecord(a, user, {
+          verification: {
+            method: "owner_inspection",
+            receipt: "x",
+            verifiedAt: observedAt,
+            reviewer: user,
+          },
+        }),
+        bindingOf(a, r1, {
+          checkResult: "shows_approved_content",
+          observedReference: a.reference,
+          observedAt,
+        }),
+        { expectedVersion: 1, expectedHeadId: String(v1.id) },
+        [(await findingHead()).id],
+      ),
+    ).rejects.toThrow("citation_improvement_binding_receipt_stale");
+    // A retry of the OLD declaration (same instant) returns that same retired receipt and creates nothing.
+    expect((await receipt(user, a.id, future)).id).toBe(r1.id);
+    expect(await receiptsOf(a.id)).toBe(1);
+    expect(await listedCurrent(a.id, r1.id)).toBe(false);
+    // An independent positive on the bound row is labelled but never qualifies the retired performance.
+    await grant(String(v1.id), delegate);
+    await inspect(
+      delegate,
+      String(v1.id),
+      await recordSha256(String(v1.id)),
+      "shows_approved_content",
+      observedAt,
+    );
+    live = await readRow(String(v1.id));
+    expect(live).toMatchObject({
+      verificationStatus: "approval_bound",
+      independentStatus: "independently_inspected",
+      verifiedEligible: false,
+    });
+    // A genuinely fresh declaration under revision 3 (a new instant, still within tolerance) restores the path.
+    const r2 = (await receipt(user, a.id, await isoAt("+ interval '2 minutes 30 seconds'"))) as {
+      id: string;
+    };
+    expect(r2.id).not.toBe(r1.id);
+    expect(await listedCurrent(a.id, r2.id)).toBe(true);
+    const v2 = await saveChange(changeRecord(a, user), bindingOf(a, r2), {
+      expectedVersion: 1,
+      expectedHeadId: String(v1.id),
+    });
+    expect(v2).toMatchObject({ version: 2, verificationStatus: "receipt_recorded" });
+    await grant(String(v2.id), delegate);
+    await inspect(
+      delegate,
+      String(v2.id),
+      await recordSha256(String(v2.id)),
+      "shows_approved_content",
+      await isoAt("+ interval '4 minutes'"),
+    );
+    expect(await readRow(String(v2.id))).toMatchObject({
+      verificationStatus: "receipt_recorded",
+      independentStatus: "independently_inspected",
+      verifiedEligible: true,
+    });
+    // ---- delegate path: a re-decision under moved authority is a new revision and retires the declaration.
+    const b = (await artifact({ p_reference: "google-business-profile:codex-u-delegate" })) as {
+      id: string;
+      artifactSha256: string;
+      reference: string;
+    };
+    const d1 = await approve(delegate, b.id, b.artifactSha256, true);
+    expect(d1).toMatchObject({ approved: true, approverKind: "delegate", revision: 1 });
+    const bFuture = await isoAt("+ interval '2 minutes'");
+    const rb = (await receipt(delegate, b.id, bFuture)) as { id: string };
+    expect(await listedCurrent(b.id, rb.id)).toBe(true);
+    const w1 = await saveChange(
+      changeRecord(b, delegate, { improvementId: IMP2 }),
+      bindingOf(b, rb),
+    );
+    expect(w1).toMatchObject({ version: 1, verificationStatus: "receipt_recorded" });
+    await db.query("UPDATE project_team_members SET revision=revision+1 WHERE actor_id=$1", [
+      delegate,
+    ]);
+    // Moved authority: not currently approved → the row collapses live; the receipt is not current.
+    expect((await readRow(String(w1.id))).verificationStatus).toBe("unverified");
+    expect(await listedCurrent(b.id, rb.id)).toBe(false);
+    // Explicit delegate re-approval at the current head: revision 2, and the old declaration stays retired.
+    const d2 = await approve(delegate, b.id, b.artifactSha256, true, { expectedRevision: 1 });
+    expect(d2).toMatchObject({ approved: true, revision: 2, replayed: false });
+    expect(String(d2.approvedAt) < bFuture).toBe(true);
+    expect(await listedCurrent(b.id, rb.id)).toBe(false);
+    expect(await readRow(String(w1.id))).toMatchObject({
+      verificationStatus: "approval_bound",
+      verifiedEligible: false,
+    });
+    await expect(
+      saveChange(
+        changeRecord(b, delegate, { improvementId: IMP2, description: "re-bound" }),
+        bindingOf(b, rb),
+        { expectedVersion: 1, expectedHeadId: String(w1.id) },
+      ),
+    ).rejects.toThrow("citation_improvement_binding_receipt_stale");
+    const rb2 = (await receipt(
+      delegate,
+      b.id,
+      await isoAt("+ interval '2 minutes 30 seconds'"),
+    )) as {
+      id: string;
+    };
+    expect(await listedCurrent(b.id, rb2.id)).toBe(true);
+    expect(
+      await saveChange(changeRecord(b, delegate, { improvementId: IMP2 }), bindingOf(b, rb2), {
+        expectedVersion: 1,
+        expectedHeadId: String(w1.id),
+      }),
+    ).toMatchObject({ version: 2, verificationStatus: "receipt_recorded" });
+  });
+});
+
 describe("privileges", () => {
   it("every new RPC is service_role-only; the predicates are granted to no role", async () => {
     const rows = await db.query<{
