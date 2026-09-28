@@ -14,7 +14,8 @@ import type { SignOutFlowState } from "@/lib/sign-out-flow";
 /**
  * Safe sign-out dialog (AS). Opens only when signing out could leave workspace changes that are
  * not confirmed as saved, or when the sign-out itself was refused. Explicit non-submit choices:
- * Stay (default focus; also cancels a pending pre-sign-out save), Retry save, Sign out anyway.
+ * Stay (default focus; also cancels a pending pre-sign-out save), Retry save, Sign out anyway
+ * (unconfirmed state only) and Try again (error state: re-checks the workspace first).
  * Only an in-flight auth sign-out cannot be cancelled. The copy says changes MAY be missing from the
  * server; it never asserts loss and never mentions technical causes.
  *
@@ -147,14 +148,21 @@ export function SignOutDialog({
               {t("planScreen.discovery.save.retry")}
             </Button>
           ) : null}
-          {state.kind === "unconfirmed" || state.kind === "error" ? (
+          {state.kind === "unconfirmed" ? (
             <Button
               type="button"
               variant="destructive"
-              onClick={state.kind === "error" ? onRetryAuth : onLeave}
-              data-sign-out-leave={state.kind}
+              onClick={onLeave}
+              data-sign-out-leave="unconfirmed"
             >
               {t("shell.signOutDialog.leave")}
+            </Button>
+          ) : null}
+          {state.kind === "error" ? (
+            // Retrying re-checks the workspace and may save or ask again before any new sign-out
+            // request, so the label says "Try again", not "Sign out anyway".
+            <Button type="button" variant="outline" onClick={onRetryAuth} data-sign-out-retry-auth>
+              {t("common.retry")}
             </Button>
           ) : null}
         </AlertDialogFooter>
