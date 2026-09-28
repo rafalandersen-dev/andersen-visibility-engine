@@ -17,6 +17,7 @@ vi.mock("@/lib/mcp.functions", () => ({
     endpoint: "https://milogrowth.com/api/mcp",
     toolNames: [],
     tokens: [],
+    oauthEnabled: true,
   })),
   createMcpTokenFn: vi.fn(),
   revokeMcpTokenFn: vi.fn(),
@@ -28,9 +29,13 @@ import { ClaudeConnectorCard } from "./ClaudeConnectorCard";
 describe("ClaudeConnectorCard (AB onboarding guidance)", () => {
   it("shows Connectors + OAuth guidance and the .mcp.json config before any token; no Desktop config-file route; no CLI token line", () => {
     const html = renderToStaticMarkup(createElement(ClaudeConnectorCard));
+    // AD: before any authenticated status has loaded the OAuth route is "unknown" — no instructions, no
+    // "enabled" claim; the block itself is still present so the token alternative is explained.
     expect(html).toContain("data-connectors-guidance");
-    expect(html).toContain("claude.connectorsHeading");
-    expect(html).toContain("claude.connectorsBody");
+    expect(html).toContain('data-oauth-availability="unknown"');
+    expect(html).toContain("claude.oauthUnknownHeading");
+    expect(html).not.toContain("claude.connectorsBody");
+    expect(html).not.toContain("claude.oauthEnabledStatus");
     expect(html).toContain("data-mcp-json");
     expect(html).toContain("claude.mcpJsonHeading");
     expect(html).toContain("claude.mcpJsonNote");

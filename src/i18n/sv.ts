@@ -928,7 +928,7 @@ export const sv: Record<string, string> = {
   // ---- Claude connector (MCP) ----
   "claude.title": "Claude-anslutning (MCP)",
   "claude.subtitle":
-    "Anslut Milo till Claude som en MCP-anslutning: lägg till den som en anpassad anslutning i Claude.ai, Claude Desktop eller Cowork (OAuth), eller använd en anslutningstoken i Claude Code, och läs dina projekt, möjligheter, innehåll, Milo Score, granskningar, Search Console- och auktoritetsdata direkt i Claude.",
+    "Anslut Milo till Claude som en MCP-anslutning och läs dina projekt, möjligheter, innehåll, Milo Score, granskningar, Search Console- och auktoritetsdata direkt i Claude. Claude Code kan använda en anslutningstoken (eller OAuth där det är aktiverat); Claude.ai, Claude Desktop och Cowork kräver OAuth, som är en driftsättningsinställning — se dess status nedan.",
   "claude.accountNote":
     "Anslutningen är på kontonivå: en token ger Claude skrivskyddad åtkomst till alla projekt i denna arbetsyta.",
   "claude.endpoint": "MCP-slutpunkt",
@@ -941,10 +941,15 @@ export const sv: Record<string, string> = {
   "claude.cliHeading": "Claude Code (CLI) — det här kommandot innehåller din nya token; dela den inte",
   "claude.connectorsHeading": "Claude.ai, Claude Desktop och Cowork — lägg till som anpassad anslutning (OAuth, ingen token behövs)",
   "claude.connectorsBody": "Öppna i Claude Inställningar → Anslutningar → Lägg till anpassad anslutning, klistra in MCP-slutpunkten ovan, logga sedan in i Milo och tillåt åtkomst. Behörigheten är skrivskyddad om inte ytterligare omfattningar erbjuds och du godkänner dem. Anslutningen visas sedan under Anslutna appar nedan. Claude Desktops claude_desktop_config.json är bara för lokala servrar och används inte för Milo.",
+  "claude.oauthEnabledStatus": "OAuth är aktiverat i den här driftsättningen (status läst nyss).",
+  "claude.oauthUnavailableHeading": "Claude.ai, Claude Desktop och Cowork (OAuth) — inte tillgängligt i den här driftsättningen",
+  "claude.oauthUnavailableBody": "OAuth är avstängt i den här driftsättningen, så dessa klienter kan inte ansluta just nu. Använd Claude Code med en anslutningstoken nedan. Befintliga behörigheter under Anslutna appar kan fortfarande granskas och återkallas.",
+  "claude.oauthUnknownHeading": "Claude.ai, Claude Desktop och Cowork (OAuth) — tillgänglighet inte verifierad",
+  "claude.oauthUnknownBody": "Milo kunde inte bekräfta om OAuth är aktiverat i den här driftsättningen (laddar fortfarande, eller så misslyckades statusbegäran). Förlita dig inte på OAuth-vägen förrän statusen har lästs in. Claude Code med en anslutningstoken fungerar oberoende av detta.",
   "claude.mcpJsonHeading": "Projektkonfiguration för Claude Code (.mcp.json)",
   "claude.mcpJsonNote": "Säker att checka in: den refererar till miljövariabeln MILO_MCP_TOKEN i stället för en token. Sätt variabeln till en anslutningstoken på varje dator.",
   "claude.activeTokens": "Aktiva tokens",
-  "claude.noTokens": "Inga anslutningstokens ännu. En token behövs bara för klienter som skickar en header, till exempel Claude Code. Claude.ai, Claude Desktop och Cowork ansluter med OAuth (se ovan) och visas under Anslutna appar.",
+  "claude.noTokens": "Inga anslutningstokens ännu. En token behövs bara för klienter som skickar en header, till exempel Claude Code. Claude.ai, Claude Desktop och Cowork ansluter med OAuth när det är aktiverat i den här driftsättningen (se statusen ovan) och visas då under Anslutna appar.",
   "claude.unnamed": "Namnlös token",
   "claude.created": "Skapad",
   "claude.lastUsed": "senast använd",

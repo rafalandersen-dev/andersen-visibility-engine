@@ -104,7 +104,7 @@ export const ES_STAGED_BATCHES = [
     copy: esConfiguration,
     namespaces: ["brand", "wp", "shopify", "claude", "connect", "connections", "coverage"],
     sourceRevision: "5a9416d74f532b65f78c0f19b89d221c6b2af6c2",
-    sourceHash: "29eb61124072d7a6beede37033d8cfe8c3c0175e9fbe2da2dfe49d2ee0e395ba",
+    sourceHash: "c60d43a37be661079475896eeebe2c3cd1337a321e05df01b27a0e803ac823cc",
   },
   {
     name: "core",

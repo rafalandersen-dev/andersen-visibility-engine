@@ -138,7 +138,7 @@ export const ET_STAGED_BATCHES = [
     copy: etConfiguration,
     namespaces: ["brand", "wp", "shopify", "claude", "connect", "connections", "coverage"],
     sourceRevision: "20b7d4e",
-    sourceHash: "29eb61124072d7a6beede37033d8cfe8c3c0175e9fbe2da2dfe49d2ee0e395ba",
+    sourceHash: "c60d43a37be661079475896eeebe2c3cd1337a321e05df01b27a0e803ac823cc",
   },
   {
     name: "public beta",

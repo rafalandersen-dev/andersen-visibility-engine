@@ -112,7 +112,7 @@ export const frConfiguration: Readonly<Record<string, string>> = {
     "Shopify prend uniquement en charge les articles de blog. Ce contenu sera publié sous forme d’article de blog.",
   "claude.title": "Connecteur Claude (MCP)",
   "claude.subtitle":
-    "Connectez Milo à Claude comme connecteur MCP : ajoutez-le comme connecteur personnalisé dans Claude.ai, Claude Desktop ou Cowork (OAuth), ou utilisez un jeton de connexion dans Claude Code, et lisez vos projets, opportunités, contenus, Milo Score, audits, données Search Console et d’autorité directement dans Claude.",
+    "Connectez Milo à Claude comme connecteur MCP et lisez vos projets, opportunités, contenus, Milo Score, audits, données Search Console et d’autorité directement dans Claude. Claude Code peut utiliser un jeton de connexion (ou OAuth là où il est activé) ; Claude.ai, Claude Desktop et Cowork requièrent OAuth, un réglage du déploiement — voir son statut ci-dessous.",
   "claude.accountNote":
     "Cette connexion s’applique au compte : un seul jeton donne à Claude un accès en lecture seule à tous les projets de cet espace de travail.",
   "claude.endpoint": "Point de terminaison MCP",
@@ -126,11 +126,16 @@ export const frConfiguration: Readonly<Record<string, string>> = {
   "claude.cliHeading": "Claude Code (CLI) — cette commande contient votre nouveau jeton ; ne la partagez pas",
   "claude.connectorsHeading": "Claude.ai, Claude Desktop et Cowork — ajouter comme connecteur personnalisé (OAuth, sans jeton)",
   "claude.connectorsBody": "Dans Claude, ouvrez Paramètres → Connecteurs → Ajouter un connecteur personnalisé, collez le point de terminaison MCP ci-dessus, puis connectez-vous à Milo et autorisez l’accès. L’autorisation est en lecture seule sauf si des portées supplémentaires sont proposées et que vous les approuvez. Le connecteur apparaît ensuite ci-dessous dans Applications connectées. Le fichier claude_desktop_config.json de Claude Desktop sert uniquement aux serveurs locaux et n’est pas utilisé pour Milo.",
+  "claude.oauthEnabledStatus": "OAuth est activé sur ce déploiement (statut lu à l’instant).",
+  "claude.oauthUnavailableHeading": "Claude.ai, Claude Desktop et Cowork (OAuth) — indisponible sur ce déploiement",
+  "claude.oauthUnavailableBody": "OAuth est désactivé sur ce déploiement ; ces clients ne peuvent donc pas se connecter pour le moment. Utilisez Claude Code avec un jeton de connexion ci-dessous. Les autorisations existantes dans Applications connectées peuvent toujours être consultées et révoquées.",
+  "claude.oauthUnknownHeading": "Claude.ai, Claude Desktop et Cowork (OAuth) — disponibilité non vérifiée",
+  "claude.oauthUnknownBody": "Milo n’a pas pu confirmer si OAuth est activé sur ce déploiement (chargement en cours ou échec de la demande de statut). Ne vous fiez pas à la voie OAuth tant que le statut n’est pas chargé. Claude Code avec un jeton de connexion fonctionne indépendamment.",
   "claude.mcpJsonHeading": "Configuration de projet Claude Code (.mcp.json)",
   "claude.mcpJsonNote": "Sûr à valider dans le dépôt : il référence la variable d’environnement MILO_MCP_TOKEN au lieu d’un jeton. Définissez cette variable avec un jeton de connexion sur chaque machine.",
   "claude.activeTokens": "Jetons actifs",
   "claude.noTokens":
-    "Aucun jeton de connexion pour l’instant. Un jeton n’est nécessaire qu’aux clients qui envoient un en-tête, comme Claude Code. Claude.ai, Claude Desktop et Cowork se connectent via OAuth (voir ci-dessus) et apparaissent dans Applications connectées.",
+    "Aucun jeton de connexion pour l’instant. Un jeton n’est nécessaire qu’aux clients qui envoient un en-tête, comme Claude Code. Claude.ai, Claude Desktop et Cowork se connectent via OAuth lorsqu’il est activé sur ce déploiement (voir le statut ci-dessus) et apparaissent alors dans Applications connectées.",
   "claude.unnamed": "Jeton sans titre",
   "claude.created": "Créé",
   "claude.lastUsed": "dernière utilisation",

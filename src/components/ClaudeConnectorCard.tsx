@@ -12,6 +12,8 @@ import { Bot, Copy, KeyRound, Loader2, Trash2, ShieldCheck } from "lucide-react"
 import { toast } from "sonner";
 import { ConnectedAppsSection } from "@/components/ConnectedAppsSection";
 import { cliSnippet, mcpJsonSnippet } from "@/lib/mcp-client-snippets";
+import { oauthAvailabilityFromStatus, type OAuthAvailability } from "@/lib/mcp-oauth-availability";
+import { OAuthAvailabilityNotice } from "@/components/OAuthAvailabilityNotice";
 
 async function copy(text: string, msg: string, failureMsg: string) {
   try {
@@ -31,6 +33,8 @@ export function ClaudeConnectorCard() {
   const [label, setLabel] = useState("");
   const [creating, setCreating] = useState(false);
   const [freshToken, setFreshToken] = useState<string | null>(null);
+  // "unknown" until an authenticated status call succeeds; any failed refresh drops back to "unknown".
+  const [oauth, setOauth] = useState<OAuthAvailability>("unknown");
 
   async function refresh() {
     try {
@@ -38,8 +42,10 @@ export function ClaudeConnectorCard() {
       setEndpoint(s.endpoint);
       setToolNames(s.toolNames);
       setTokens(s.tokens);
+      setOauth(oauthAvailabilityFromStatus(s));
     } catch {
-      /* not configured / offline — leave defaults */
+      /* not configured / offline — token defaults stay, OAuth availability is no longer verified */
+      setOauth("unknown");
     } finally {
       setLoading(false);
     }
@@ -107,16 +113,8 @@ export function ClaudeConnectorCard() {
         </div>
       </div>
 
-      {/* Claude.ai / Claude Desktop / Cowork: account-level custom connector with OAuth — no token needed */}
-      <div
-        className="mt-5 rounded-md border border-border bg-secondary/20 p-3"
-        data-connectors-guidance
-      >
-        <div className="text-xs font-medium text-foreground">{t("claude.connectorsHeading")}</div>
-        <p className="mt-1.5 text-xs text-muted-foreground max-w-2xl">
-          {t("claude.connectorsBody")}
-        </p>
-      </div>
+      {/* Claude.ai / Claude Desktop / Cowork: OAuth route, offered only when this deployment reports it enabled */}
+      <OAuthAvailabilityNotice availability={oauth} />
 
       {/* Claude Code project configuration — safe to commit (environment placeholder, never a token) */}
       <div className="mt-5" data-mcp-json>

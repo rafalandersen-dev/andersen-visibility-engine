@@ -928,7 +928,7 @@ export const pl: Record<string, string> = {
   // ---- Claude connector (MCP) ----
   "claude.title": "Konektor Claude (MCP)",
   "claude.subtitle":
-    "Połącz Milo z Claude jako konektor MCP: dodaj go jako niestandardowy konektor w Claude.ai, Claude Desktop lub Cowork (OAuth) albo użyj tokenu połączenia w Claude Code i czytaj swoje projekty, szanse, treści, Milo Score, audyty, dane Search Console i autorytetu bezpośrednio w Claude.",
+    "Połącz Milo z Claude jako konektor MCP i czytaj swoje projekty, szanse, treści, Milo Score, audyty, dane Search Console i autorytetu bezpośrednio w Claude. Claude Code może użyć tokenu połączenia (lub OAuth, gdy jest włączony); Claude.ai, Claude Desktop i Cowork wymagają OAuth, który jest ustawieniem wdrożenia — zobacz jego status poniżej.",
   "claude.accountNote":
     "To połączenie działa na poziomie konta: jeden token daje Claude dostęp tylko do odczytu do wszystkich projektów w tym workspace.",
   "claude.endpoint": "Punkt końcowy MCP",
@@ -942,10 +942,15 @@ export const pl: Record<string, string> = {
   "claude.cliHeading": "Claude Code (CLI) — to polecenie zawiera Twój nowy token; nie udostępniaj go",
   "claude.connectorsHeading": "Claude.ai, Claude Desktop i Cowork — dodaj jako niestandardowy konektor (OAuth, bez tokenu)",
   "claude.connectorsBody": "W Claude otwórz Ustawienia → Konektory → Dodaj niestandardowy konektor, wklej powyższy punkt końcowy MCP, a następnie zaloguj się do Milo i zezwól na dostęp. Uprawnienie jest tylko do odczytu, chyba że zaoferowane zostaną dodatkowe zakresy i je zatwierdzisz. Konektor pojawi się poniżej w sekcji Połączone aplikacje. Plik claude_desktop_config.json w Claude Desktop służy tylko do lokalnych serwerów i nie jest używany dla Milo.",
+  "claude.oauthEnabledStatus": "OAuth jest włączony w tym wdrożeniu (status odczytany przed chwilą).",
+  "claude.oauthUnavailableHeading": "Claude.ai, Claude Desktop i Cowork (OAuth) — niedostępne w tym wdrożeniu",
+  "claude.oauthUnavailableBody": "OAuth jest wyłączony w tym wdrożeniu, więc te klienty nie mogą się teraz połączyć. Użyj Claude Code z tokenem połączenia poniżej. Istniejące uprawnienia w sekcji Połączone aplikacje nadal można przeglądać i unieważniać.",
+  "claude.oauthUnknownHeading": "Claude.ai, Claude Desktop i Cowork (OAuth) — dostępność niezweryfikowana",
+  "claude.oauthUnknownBody": "Milo nie mógł potwierdzić, czy OAuth jest włączony w tym wdrożeniu (trwa ładowanie albo żądanie statusu się nie powiodło). Nie polegaj na ścieżce OAuth, dopóki status się nie wczyta. Claude Code z tokenem połączenia działa niezależnie od tego.",
   "claude.mcpJsonHeading": "Konfiguracja projektu Claude Code (.mcp.json)",
   "claude.mcpJsonNote": "Bezpieczna do zapisania w repozytorium: odwołuje się do zmiennej środowiskowej MILO_MCP_TOKEN zamiast tokenu. Ustaw tę zmienną na token połączenia na każdym komputerze.",
   "claude.activeTokens": "Aktywne tokeny",
-  "claude.noTokens": "Brak tokenów połączenia. Token jest potrzebny tylko klientom wysyłającym nagłówek, takim jak Claude Code. Claude.ai, Claude Desktop i Cowork łączą się przez OAuth (patrz wyżej) i pojawiają się w sekcji Połączone aplikacje.",
+  "claude.noTokens": "Brak tokenów połączenia. Token jest potrzebny tylko klientom wysyłającym nagłówek, takim jak Claude Code. Claude.ai, Claude Desktop i Cowork łączą się przez OAuth, gdy jest on włączony w tym wdrożeniu (patrz status powyżej), i pojawiają się wtedy w sekcji Połączone aplikacje.",
   "claude.unnamed": "Token bez nazwy",
   "claude.created": "Utworzono",
   "claude.lastUsed": "ostatnio użyty",

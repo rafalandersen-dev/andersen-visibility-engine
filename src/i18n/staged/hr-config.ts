@@ -112,7 +112,7 @@ export const hrConfig: Readonly<Record<string, string>> = {
     "Shopify podržava samo članke na blogu. Ovaj će sadržaj biti objavljen kao članak na blogu.",
   "claude.title": "Claude povezivač (MCP)",
   "claude.subtitle":
-    "Povežite Milo s Claudeom kao MCP konektor: dodajte ga kao prilagođeni konektor u Claude.ai, Claude Desktop ili Cowork (OAuth) ili upotrijebite token za povezivanje u Claude Codeu i čitajte svoje projekte, prilike, sadržaj, Milo Score, revizije, podatke Search Consolea i autoriteta izravno u Claudeu.",
+    "Povežite Milo s Claudeom kao MCP konektor i čitajte svoje projekte, prilike, sadržaj, Milo Score, revizije, podatke Search Consolea i autoriteta izravno u Claudeu. Claude Code može koristiti token za povezivanje (ili OAuth gdje je omogućen); Claude.ai, Claude Desktop i Cowork zahtijevaju OAuth, koji je postavka implementacije — pogledajte njegov status u nastavku.",
   "claude.accountNote":
     "Ova je veza na razini računa: jedan token daje Claudeu pristup samo za čitanje svim projektima u ovom radnom prostoru.",
   "claude.endpoint": "MCP krajnja točka",
@@ -126,11 +126,16 @@ export const hrConfig: Readonly<Record<string, string>> = {
   "claude.cliHeading": "Claude Code (CLI) — ova naredba sadrži vaš novi token; ne dijelite ga",
   "claude.connectorsHeading": "Claude.ai, Claude Desktop i Cowork — dodaj kao prilagođeni konektor (OAuth, bez tokena)",
   "claude.connectorsBody": "U Claudeu otvorite Postavke → Konektori → Dodaj prilagođeni konektor, zalijepite gornju MCP krajnju točku, zatim se prijavite u Milo i dopustite pristup. Dopuštenje je samo za čitanje osim ako se ponude dodatni opsezi i vi ih odobrite. Konektor se zatim prikazuje niže u Povezanim aplikacijama. Datoteka claude_desktop_config.json u Claude Desktopu služi samo lokalnim poslužiteljima i ne koristi se za Milo.",
+  "claude.oauthEnabledStatus": "OAuth je omogućen u ovoj implementaciji (status upravo očitan).",
+  "claude.oauthUnavailableHeading": "Claude.ai, Claude Desktop i Cowork (OAuth) — nije dostupno u ovoj implementaciji",
+  "claude.oauthUnavailableBody": "OAuth je isključen u ovoj implementaciji, pa se ti klijenti trenutačno ne mogu povezati. Koristite Claude Code s tokenom za povezivanje u nastavku. Postojeća dopuštenja u Povezanim aplikacijama i dalje se mogu pregledavati i opozivati.",
+  "claude.oauthUnknownHeading": "Claude.ai, Claude Desktop i Cowork (OAuth) — dostupnost nije potvrđena",
+  "claude.oauthUnknownBody": "Milo nije mogao potvrditi je li OAuth omogućen u ovoj implementaciji (još se učitava ili zahtjev za status nije uspio). Ne oslanjajte se na OAuth put dok se status ne učita. Claude Code s tokenom za povezivanje radi neovisno o tome.",
   "claude.mcpJsonHeading": "Konfiguracija projekta Claude Code (.mcp.json)",
   "claude.mcpJsonNote": "Sigurno za spremanje u repozitorij: upućuje na varijablu okruženja MILO_MCP_TOKEN umjesto na token. Postavite tu varijablu na token za povezivanje na svakom računalu.",
   "claude.activeTokens": "Aktivni tokeni",
   "claude.noTokens":
-    "Još nema tokena za povezivanje. Token je potreban samo klijentima koji šalju zaglavlje, poput Claude Codea. Claude.ai, Claude Desktop i Cowork povezuju se putem OAutha (vidi gore) i prikazuju se u Povezanim aplikacijama.",
+    "Još nema tokena za povezivanje. Token je potreban samo klijentima koji šalju zaglavlje, poput Claude Codea. Claude.ai, Claude Desktop i Cowork povezuju se putem OAutha kada je omogućen u ovoj implementaciji (vidi status iznad) i tada se prikazuju u Povezanim aplikacijama.",
   "claude.unnamed": "Token bez naziva",
   "claude.created": "Izrađeno",
   "claude.lastUsed": "posljednji put korišteno",

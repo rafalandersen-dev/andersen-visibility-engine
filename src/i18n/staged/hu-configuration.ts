@@ -114,7 +114,7 @@ export const huConfiguration = {
     "A Shopify csak blogcikkeket támogat. Ez a tartalom blogcikként lesz közzétéve.",
   "claude.title": "Claude-csatlakozó (MCP)",
   "claude.subtitle":
-    "Kapcsolja össze a Milót a Claude-dal MCP-csatlakozóként: adja hozzá egyéni csatlakozóként a Claude.ai-ban, a Claude Desktopban vagy a Coworkben (OAuth), vagy használjon kapcsolati tokent a Claude Code-ban, és olvassa projektjeit, lehetőségeit, tartalmait, a Milo Score-t, az auditokat, a Search Console- és tekintélyadatokat közvetlenül a Claude-ban.",
+    "Kapcsolja össze a Milót a Claude-dal MCP-csatlakozóként, és olvassa projektjeit, lehetőségeit, tartalmait, a Milo Score-t, az auditokat, a Search Console- és tekintélyadatokat közvetlenül a Claude-ban. A Claude Code kapcsolati tokent használhat (vagy OAuth-ot, ahol engedélyezett); a Claude.ai, a Claude Desktop és a Cowork OAuth-ot igényel, ami telepítési beállítás — lásd az állapotát lent.",
   "claude.accountNote":
     "Ez a kapcsolat fiókszintű: egy token csak olvasási hozzáférést ad a Claude-nak a munkaterület összes projektjéhez.",
   "claude.endpoint": "MCP-végpont",
@@ -128,11 +128,16 @@ export const huConfiguration = {
   "claude.cliHeading": "Claude Code (CLI) — ez a parancs tartalmazza az új tokenjét; ne ossza meg",
   "claude.connectorsHeading": "Claude.ai, Claude Desktop és Cowork — hozzáadás egyéni csatlakozóként (OAuth, token nélkül)",
   "claude.connectorsBody": "A Claude-ban nyissa meg a Beállítások → Csatlakozók → Egyéni csatlakozó hozzáadása menüt, illessze be a fenti MCP-végpontot, majd jelentkezzen be a Milóba és engedélyezze a hozzáférést. Az engedély csak olvasható, hacsak nem ajánlanak fel további hatóköröket, és ön jóvá nem hagyja azokat. A csatlakozó ezután lent, a Csatlakoztatott alkalmazások között jelenik meg. A Claude Desktop claude_desktop_config.json fájlja csak helyi kiszolgálókhoz való, a Milóhoz nem használatos.",
+  "claude.oauthEnabledStatus": "Az OAuth engedélyezett ebben a telepítésben (az állapot az imént lett beolvasva).",
+  "claude.oauthUnavailableHeading": "Claude.ai, Claude Desktop és Cowork (OAuth) — ebben a telepítésben nem érhető el",
+  "claude.oauthUnavailableBody": "Az OAuth ki van kapcsolva ebben a telepítésben, így ezek a kliensek most nem tudnak kapcsolódni. Használja a Claude Code-ot a lenti kapcsolati tokennel. A Csatlakoztatott alkalmazások alatti meglévő engedélyek továbbra is megtekinthetők és visszavonhatók.",
+  "claude.oauthUnknownHeading": "Claude.ai, Claude Desktop és Cowork (OAuth) — az elérhetőség nincs ellenőrizve",
+  "claude.oauthUnknownBody": "A Milo nem tudta megerősíteni, hogy az OAuth engedélyezett-e ebben a telepítésben (még tölt, vagy az állapotkérés sikertelen volt). Ne támaszkodjon az OAuth-útra, amíg az állapot be nem töltődik. A Claude Code kapcsolati tokennel ettől függetlenül működik.",
   "claude.mcpJsonHeading": "Claude Code projektkonfiguráció (.mcp.json)",
   "claude.mcpJsonNote": "Biztonságosan beküldhető a tárolóba: token helyett a MILO_MCP_TOKEN környezeti változóra hivatkozik. Állítsa ezt a változót kapcsolati tokenre minden gépen.",
   "claude.activeTokens": "Aktív tokenek",
   "claude.noTokens":
-    "Még nincs kapcsolati token. Tokenre csak a fejlécet küldő klienseknek van szükségük, például a Claude Code-nak. A Claude.ai, a Claude Desktop és a Cowork OAuth-tal kapcsolódik (lásd fent), és a Csatlakoztatott alkalmazások között jelenik meg.",
+    "Még nincs kapcsolati token. Tokenre csak a fejlécet küldő klienseknek van szükségük, például a Claude Code-nak. A Claude.ai, a Claude Desktop és a Cowork OAuth-tal kapcsolódik, ha az engedélyezett ebben a telepítésben (lásd az állapotot fent), és ezután a Csatlakoztatott alkalmazások között jelenik meg.",
   "claude.unnamed": "Névtelen token",
   "claude.created": "Létrehozva",
   "claude.lastUsed": "utolsó használat",
