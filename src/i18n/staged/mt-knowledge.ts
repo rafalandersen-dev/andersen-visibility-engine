@@ -261,6 +261,8 @@ export const mtKnowledge: Readonly<Record<string, string>> = {
     "Ma nstab l-ebda test li jista’ jinqara. Uża PDF jew DOCX bit-test jew daħħal l-istruzzjoni manwalment.",
   "knowledge.ui.parseFailed":
     "Dan id-dokument ma setax jiġi estratt fil-limiti appoġġati. Uża PDF jew DOCX iżgħar u mhux kriptat, jew daħħal l-istruzzjoni manwalment.",
+  "knowledge.ui.websiteUnreadable":
+    "Il-websajt ma rritornatx biżżejjed test li jinqara, għalhekk ma nqabad xejn u l-għarfien salvat tiegħek għadu l-istess. Iċċekkja l-indirizz jew erġa’ pprova aktar tard.",
   "knowledge.ui.changeFailed":
     "Din il-bidla ma setgħetx tiġi kkonfermata. Qabel ma terġa’ tipprova, aġġorna u ċċekkja l-verżjoni ssejvjata.",
   "knowledge.ui.forgetAll":

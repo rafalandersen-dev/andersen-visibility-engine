@@ -27,6 +27,7 @@ import {
   resolveKnowledgeBrand,
 } from "@/lib/knowledge-brand";
 import { displayBrandValue } from "@/lib/brand-proposal";
+import { knowledgeChangeFailure } from "@/lib/project-knowledge-failure";
 import type { BrandDocumentText } from "@/lib/brand-document";
 
 const categories: [KnowledgeRecord["category"], string][] = [
@@ -165,12 +166,10 @@ export function ProjectKnowledgePanel({
       }
     } catch (error) {
       if (alive.current) {
-        if (error instanceof Error && error.message.startsWith("brand_document_")) {
-          toast.error(
-            error.message === "brand_document_no_text"
-              ? t("knowledge.ui.noText")
-              : t("knowledge.ui.parseFailed"),
-          );
+        // A known refusal wrote nothing and needs no refresh; anything else is an unconfirmed save.
+        const failure = knowledgeChangeFailure(error);
+        if (failure.kind === "known") {
+          toast.error(t(failure.key));
           return;
         }
         setFailed(true);

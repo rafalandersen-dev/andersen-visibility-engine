@@ -257,6 +257,8 @@ export const huKnowledge = {
     "Nem található olvasható szöveg. Használj szöveges PDF-et vagy DOCX-et, vagy adj meg kézzel egy utasítást.",
   "knowledge.ui.parseFailed":
     "Ebből a dokumentumból nem sikerült szöveget kinyerni a támogatott korlátokon belül. Használj kisebb, nem titkosított PDF-et vagy DOCX-et, vagy adj meg kézzel egy utasítást.",
+  "knowledge.ui.websiteUnreadable":
+    "A webhely nem adott vissza elég olvasható szöveget, így semmi nem került rögzítésre, és a mentett tudás változatlan. Ellenőrizd a címet, vagy próbáld újra később.",
   "knowledge.ui.changeFailed":
     "Ezt a módosítást nem sikerült megerősíteni. Újrapróbálás előtt frissíts, és ellenőrizd a mentett verziót.",
   "knowledge.ui.forgetAll":

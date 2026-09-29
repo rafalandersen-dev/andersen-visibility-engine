@@ -259,6 +259,8 @@ export const roKnowledge: Readonly<Record<string, string>> = {
     "Nu a fost găsit text lizibil. Folosiți un PDF sau DOCX bazat pe text ori introduceți manual o instrucțiune.",
   "knowledge.ui.parseFailed":
     "Acest document nu a putut fi extras în limitele acceptate. Folosiți un PDF sau DOCX mai mic și necriptat ori introduceți manual o instrucțiune.",
+  "knowledge.ui.websiteUnreadable":
+    "Site-ul nu a returnat suficient text lizibil, așa că nimic nu a fost capturat, iar cunoștințele salvate rămân neschimbate. Verificați adresa sau încercați din nou mai târziu.",
   "knowledge.ui.changeFailed":
     "Această modificare nu a putut fi confirmată. Reîmprospătați și verificați versiunea salvată înainte de a încerca din nou.",
   "knowledge.ui.forgetAll":

@@ -1,0 +1,11 @@
+# Website knowledge refusal handling — independent review, 29 September 2026
+
+BU/BV candidate at released base69b2af0cc415887fa1f208ba8294f664438e2a31. This correction distinguishes a known pre-write unreadable-page refusal from an unconfirmed save; it does not diagnose or fix the observed hosted intake failure.
+
+Codex independently reviewed final classifier, panel, website error path and regression tests. ReadonlyMap rejects inherited Object.prototype keys and non-string messages. Pair-rollback regression now reaches read_project_knowledge then save_project_knowledge_pair; a nontransactional sequence proves source insertion happened before the record trigger refused it, and source/record/history remain empty after rollback. The next local capture succeeds. Separate initial-read refusal is accurately named. Applied SQL is unchanged.
+
+Independent checks:813 tests in34 suites, TypeScript, production build and git diff --check passed. Local logs .coordination/codex-bv-{tests,types,build}.log. Build metadata reports cloudflare-module/nodeCompat, which is local build evidence only, not proof of the hosted failure cause.61 source/test/locale identities in ORIGINAL .coordination/codex-bv-reviewed-identity-20260929.json.
+
+Actual browser on inert localhost5196: EN known refusal shows exact translated message, no unconfirmed alert, Build enabled; unknown outcome shows persistent alert and disables Build until read refresh. Fictional success renders a proposed fact and active source, not accepted business truth. PL375px: document width375, Tab from website input reaches Build, keyboard Enter invokes outcome; translated refusal observed. No horizontal overflow, viewport restored. The toast screenshot was taken during entrance animation, so no claim of final animation-frame geometry. No real website/DB/provider calls from this fixture.
+
+Hosting read-only log investigation did not retrieve a log: current Lovable tab observation again timed out. No authentication diagnosis from that timeout. Connector project metadata confirms current published69b2af0c; no runtime logs connector available. No capture retry, production change, source acceptance, migration or publication. Root cause and full real knowledge acceptance remain OPEN.

@@ -7,7 +7,10 @@ import {
 
 /** Captures bounded actual homepage text, without a model call. Source text
  * becomes a proposal; fetching or owner acceptance cannot independently verify
- * business claims. Failed fetches do not replace the last successful source. */
+ * business claims. Failed fetches do not replace the last successful source: an
+ * unreachable or unreadable page is refused BEFORE any write with the fixed
+ * code `website_source_unreadable` (BU), so the caller can tell this known,
+ * deterministic rejection apart from an unconfirmed save that needs a refresh. */
 export async function captureProjectWebsiteKnowledge(scope: KnowledgeScope, url: string) {
   const now = new Date().toISOString();
   const trimmedUrl = url.trim();
@@ -19,10 +22,7 @@ export async function captureProjectWebsiteKnowledge(scope: KnowledgeScope, url:
   const state = await readProjectKnowledge(scope);
   const { fetchSiteContext } = await import("./ai.functions");
   const site = await fetchSiteContext(sourceUrl);
-  if (!site.ok || site.text.trim().length < 80)
-    throw new Error(
-      "The website did not return enough readable text. Saved knowledge has not been replaced.",
-    );
+  if (!site.ok || site.text.trim().length < 80) throw new Error("website_source_unreadable");
   const excerpt = site.text.slice(0, 2000);
   const fingerprint = Array.from(
     new Uint8Array(await crypto.subtle.digest("SHA-256", new TextEncoder().encode(excerpt))),

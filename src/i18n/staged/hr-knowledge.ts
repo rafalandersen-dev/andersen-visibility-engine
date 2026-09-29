@@ -255,6 +255,8 @@ export const hrKnowledge: Readonly<Record<string, string>> = {
     "Nije pronađen čitljiv tekst. Upotrijebite tekstualni PDF ili DOCX ili ručno unesite uputu.",
   "knowledge.ui.parseFailed":
     "Tekst iz ovog dokumenta nije bilo moguće izdvojiti unutar podržanih ograničenja. Upotrijebite manji, nešifrirani PDF ili DOCX ili ručno unesite uputu.",
+  "knowledge.ui.websiteUnreadable":
+    "Web-mjesto nije vratilo dovoljno čitljivog teksta pa ništa nije zabilježeno, a spremljeno znanje ostaje nepromijenjeno. Provjerite adresu ili pokušajte ponovno kasnije.",
   "knowledge.ui.changeFailed":
     "Ovu promjenu nije bilo moguće potvrditi. Osvježite i provjerite spremljenu verziju prije ponovnog pokušaja.",
   "knowledge.ui.forgetAll": "ovaj izvor, njegov izvorni dokument, izvedene zapise i povijest",

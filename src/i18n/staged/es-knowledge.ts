@@ -118,6 +118,8 @@ export const esKnowledge: Readonly<Record<string, string>> = {
     "No se ha encontrado texto legible. Utiliza un PDF o DOCX con texto, o introduce una instrucción manualmente.",
   "knowledge.ui.parseFailed":
     "No se ha podido extraer este documento dentro de los límites admitidos. Utiliza un PDF o DOCX más pequeño y sin cifrar, o introduce una instrucción manualmente.",
+  "knowledge.ui.websiteUnreadable":
+    "El sitio web no devolvió suficiente texto legible, por lo que no se capturó nada y tu conocimiento guardado no ha cambiado. Comprueba la dirección o inténtalo de nuevo más tarde.",
   "knowledge.ui.changeFailed":
     "No se ha podido confirmar este cambio. Actualiza y comprueba la versión guardada antes de reintentar.",
   "knowledge.ui.forgetAll":

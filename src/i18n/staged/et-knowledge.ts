@@ -254,6 +254,8 @@ export const etKnowledge: Readonly<Record<string, string>> = {
     "Loetavat teksti ei leitud. Kasuta tekstipõhist PDF-i või DOCX-i või sisesta juhis käsitsi.",
   "knowledge.ui.parseFailed":
     "Selle dokumendi teksti ei õnnestunud toetatud piirides eraldada. Kasuta väiksemat krüpteerimata PDF-i või DOCX-i või sisesta juhis käsitsi.",
+  "knowledge.ui.websiteUnreadable":
+    "Veebisait ei tagastanud piisavalt loetavat teksti, seega ei salvestatud midagi ja teie salvestatud teadmised on muutmata. Kontrollige aadressi või proovige hiljem uuesti.",
   "knowledge.ui.changeFailed":
     "Muudatust ei õnnestunud kinnitada. Värskenda ja kontrolli enne uuesti proovimist salvestatud versiooni.",
   "knowledge.ui.forgetAll": "see allikas, selle originaaldokument, tuletatud kirjed ja ajalugu",
