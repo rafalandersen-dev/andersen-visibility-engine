@@ -59,7 +59,7 @@ describe("website reference proposals", () => {
   it("does not replace saved evidence when a source cannot be read", async () => {
     h.fetch.mockResolvedValue({ ok: false, text: "" });
     await expect(captureProjectWebsiteKnowledge(scope, "https://example.com")).rejects.toThrow(
-      "Saved knowledge has not been replaced",
+      "website_source_unreadable",
     );
     expect(h.save).not.toHaveBeenCalled();
   });

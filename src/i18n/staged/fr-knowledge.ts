@@ -119,6 +119,8 @@ export const frKnowledge: Readonly<Record<string, string>> = {
     "Aucun texte lisible trouvé. Utilisez un PDF ou DOCX contenant du texte, ou saisissez une instruction manuellement.",
   "knowledge.ui.parseFailed":
     "Ce document n’a pas pu être extrait dans les limites prises en charge. Utilisez un PDF ou DOCX plus petit et non chiffré, ou saisissez une instruction manuellement.",
+  "knowledge.ui.websiteUnreadable":
+    "Le site web n’a pas renvoyé assez de texte lisible : rien n’a été capturé et vos connaissances enregistrées sont inchangées. Vérifiez l’adresse ou réessayez plus tard.",
   "knowledge.ui.changeFailed":
     "Cette modification n’a pas pu être confirmée. Actualisez et vérifiez la version enregistrée avant de réessayer.",
   "knowledge.ui.forgetAll":

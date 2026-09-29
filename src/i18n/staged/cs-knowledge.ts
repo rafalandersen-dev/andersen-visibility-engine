@@ -254,6 +254,8 @@ export const csKnowledge: Readonly<Record<string, string>> = {
     "Nebyl nalezen čitelný text. Použijte textový PDF nebo DOCX, případně zadejte pokyn ručně.",
   "knowledge.ui.parseFailed":
     "Text z tohoto dokumentu se nepodařilo získat v podporovaných limitech. Použijte menší nešifrovaný PDF nebo DOCX, případně zadejte pokyn ručně.",
+  "knowledge.ui.websiteUnreadable":
+    "Web nevrátil dostatek čitelného textu, takže nic nebylo zachyceno a uložené znalosti zůstávají beze změny. Zkontrolujte adresu nebo to zkuste znovu později.",
   "knowledge.ui.changeFailed":
     "Tuto změnu se nepodařilo potvrdit. Před dalším pokusem obnovte údaje a zkontrolujte uloženou verzi.",
   "knowledge.ui.forgetAll": "tento zdroj, jeho původní dokument, odvozené záznamy a historii",

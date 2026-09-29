@@ -258,6 +258,8 @@ export const lvKnowledge: Readonly<Record<string, string>> = {
     "Nolasāms teksts netika atrasts. Izmantojiet teksta PDF vai DOCX vai ievadiet norādījumu manuāli.",
   "knowledge.ui.parseFailed":
     "Šo dokumentu neizdevās izgūt atbalstītajos ierobežojumos. Izmantojiet mazāku, nešifrētu PDF vai DOCX vai ievadiet norādījumu manuāli.",
+  "knowledge.ui.websiteUnreadable":
+    "Vietne neatgrieza pietiekami daudz lasāma teksta, tāpēc nekas netika tverts un saglabātās zināšanas nav mainītas. Pārbaudiet adresi vai mēģiniet vēlāk.",
   "knowledge.ui.changeFailed":
     "Šo izmaiņu neizdevās apstiprināt. Pirms mēģināt vēlreiz, atsvaidziniet un pārbaudiet saglabāto versiju.",
   "knowledge.ui.forgetAll": "šo avotu, tā sākotnējo dokumentu, atvasinātos ierakstus un vēsturi",

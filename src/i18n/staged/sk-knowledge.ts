@@ -253,6 +253,8 @@ export const skKnowledge: Readonly<Record<string, string>> = {
     "Nenašiel sa čitateľný text. Použite textový PDF alebo DOCX alebo zadajte pokyn ručne.",
   "knowledge.ui.parseFailed":
     "Text tohto dokumentu sa nepodarilo extrahovať v podporovaných limitoch. Použite menší nešifrovaný PDF alebo DOCX alebo zadajte pokyn ručne.",
+  "knowledge.ui.websiteUnreadable":
+    "Web nevrátil dostatok čitateľného textu, takže sa nič nezachytilo a uložené znalosti zostávajú nezmenené. Skontrolujte adresu alebo to skúste neskôr znova.",
   "knowledge.ui.changeFailed":
     "Túto zmenu sa nepodarilo potvrdiť. Pred opakovaním obnovte údaje a skontrolujte uloženú verziu.",
   "knowledge.ui.forgetAll": "tento zdroj, jeho pôvodný dokument, odvodené záznamy a históriu",

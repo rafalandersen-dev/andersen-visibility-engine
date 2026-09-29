@@ -255,6 +255,8 @@ export const slKnowledge: Readonly<Record<string, string>> = {
     "Berljivega besedila ni bilo mogoče najti. Uporabite PDF ali DOCX z besedilom ali ročno vnesite navodilo.",
   "knowledge.ui.parseFailed":
     "Besedila tega dokumenta ni bilo mogoče pridobiti v okviru podprtih omejitev. Uporabite manjši, nešifriran PDF ali DOCX ali ročno vnesite navodilo.",
+  "knowledge.ui.websiteUnreadable":
+    "Spletno mesto ni vrnilo dovolj berljivega besedila, zato ni bilo nič zajeto in shranjeno znanje ostaja nespremenjeno. Preverite naslov ali poskusite znova pozneje.",
   "knowledge.ui.changeFailed":
     "Te spremembe ni bilo mogoče potrditi. Pred ponovnim poskusom osvežite in preverite shranjeno različico.",
   "knowledge.ui.forgetAll": "ta vir, njegov izvirni dokument, izpeljane zapise in zgodovino",

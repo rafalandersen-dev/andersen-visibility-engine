@@ -263,6 +263,8 @@ export const gaKnowledge: Readonly<Record<string, string>> = {
     "Níor aimsíodh aon téacs inléite. Úsáid PDF nó DOCX le téacs nó cuir an treoir isteach de láimh.",
   "knowledge.ui.parseFailed":
     "Níorbh fhéidir an doiciméad seo a eastóscadh laistigh de na teorainneacha a dtacaítear leo. Úsáid PDF nó DOCX níos lú nach bhfuil criptithe, nó cuir an treoir isteach de láimh.",
+  "knowledge.ui.websiteUnreadable":
+    "Níor sheol an suíomh gréasáin go leor téacs inléite ar ais, mar sin níor gabhadh aon rud agus tá an t-eolas sábháilte gan athrú. Seiceáil an seoladh nó bain triail eile as níos déanaí.",
   "knowledge.ui.changeFailed":
     "Níorbh fhéidir an t-athrú seo a dheimhniú. Athnuaigh agus seiceáil an leagan sábháilte sula mbaineann tú triail eile as.",
   "knowledge.ui.forgetAll":

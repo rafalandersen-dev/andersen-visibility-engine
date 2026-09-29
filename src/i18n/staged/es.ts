@@ -159,7 +159,7 @@ export const ES_STAGED_BATCHES = [
     copy: esKnowledge,
     namespaces: ["knowledge", "weekly", "approval", "refresh"],
     sourceRevision: "5a9416d74f532b65f78c0f19b89d221c6b2af6c2",
-    sourceHash: "78a4fd67fd0f878a2a05f99de85ce989e7d57ac84e9abdb74a4bf8e6f4a0ae9d",
+    sourceHash: "c3e618b7a0da63afa9cb94ee232e917d78e2c7704c84d99659ac0112474dd13a",
   },
   {
     name: "links",
