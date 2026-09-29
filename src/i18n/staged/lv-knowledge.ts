@@ -62,6 +62,8 @@ export const lvKnowledge: Readonly<Record<string, string>> = {
   "weekly.title": "Nedēļas sagatavošana",
   "weekly.help":
     "Izmanto projekta saglabātās publicēšanas dienas, laiku un laika joslu, kas norādīti iepriekš. Vispirms saglabājiet projekta izmaiņas. Koordinatora maiņa saglabā esošo darbu, un tai nepieciešams atrisināt jebkuru aktīvu vai nenoteiktu izpildi.",
+  "weekly.sessionHelp":
+    "Lai apturētu turpmāko sagatavošanu, atspējojiet saglabāto publicēšanas grafiku vai izvēlieties Sagatavošana apturēta. Jau ieplānotās publikācijas pārvaldiet atsevišķi Satura kalendārā.",
   "weekly.loading": "Notiek nedēļas gatavības ielāde…",
   "weekly.unavailable": "Nedēļas gatavība nav pieejama. Atsvaidziniet, lai pārbaudītu vēlreiz.",
   "weekly.engine": "Sagatavošanas koordinators",
@@ -85,6 +87,8 @@ export const lvKnowledge: Readonly<Record<string, string>> = {
   "weekly.noDraft": "Nav saglabāta melnraksta",
   "weekly.queueHelp":
     "Saglabāts vai apstiprināts melnraksts nav ievietots rindā. Kā rindā esošs tiek rādīts tikai faktisks publicēšanas rindas ieraksts. Ģenerēšanas budžeti un publicēšanas apstiprinājums tiek pārbaudīti atsevišķi.",
+  "weekly.startedHelp":
+    "Jau sāktais darbs var tikt pabeigts arī pēc izrakstīšanās vai atcelšanas. Atcelšana aptur nākamos šī laika soļus; tā neatceļ pabeigtu soli, neatjauno tā patēriņu, neko neapstiprina un neko nepublicē. Kamēr saglabātais grafiks ir atspējots vai koordinators ir apturēts, sagatavošana nesākas.",
   "weekly.state.missing": "Trūkst",
   "weekly.state.drafted": "Melnraksts saglabāts",
   "weekly.state.reserved": "Rezervēts",

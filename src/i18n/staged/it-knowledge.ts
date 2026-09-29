@@ -59,6 +59,8 @@ export const itKnowledge: Readonly<Record<string, string>> = {
   "weekly.title": "Preparazione settimanale",
   "weekly.help":
     "Usa i giorni, l’orario e il fuso orario di pubblicazione del progetto salvati sopra. Salva prima le modifiche al progetto. Cambiare coordinatore conserva il lavoro esistente e richiede di risolvere qualsiasi esecuzione attiva o dall’esito incerto.",
+  "weekly.sessionHelp":
+    "Per mettere in pausa la preparazione futura, disattiva il calendario di pubblicazione salvato o seleziona Preparazione in pausa. Le pubblicazioni già programmate si gestiscono separatamente nel Calendario editoriale.",
   "weekly.loading": "Caricamento dello stato di preparazione settimanale…",
   "weekly.unavailable":
     "Lo stato di preparazione settimanale non è disponibile. Aggiorna per ricontrollare.",
@@ -83,6 +85,8 @@ export const itKnowledge: Readonly<Record<string, string>> = {
   "weekly.noDraft": "Nessuna bozza salvata",
   "weekly.queueHelp":
     "Una bozza salvata o approvata non è in coda. Solo una voce effettiva nella coda di pubblicazione viene mostrata come in coda. I budget di generazione e l’approvazione di pubblicazione vengono controllati separatamente.",
+  "weekly.startedHelp":
+    "Il lavoro già avviato può comunque concludersi dopo la disconnessione o l’annullamento. L’annullamento interrompe i passaggi successivi per quello slot; non annulla un passaggio concluso, non ripristina il suo consumo, non approva nulla e non pubblica nulla. Finché il calendario salvato è disattivato o il coordinatore è in pausa, nessuna preparazione viene avviata.",
   "weekly.state.missing": "Mancante",
   "weekly.state.drafted": "Bozza salvata",
   "weekly.state.reserved": "Riservato",

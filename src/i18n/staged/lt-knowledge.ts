@@ -60,6 +60,8 @@ export const ltKnowledge: Readonly<Record<string, string>> = {
   "weekly.title": "Savaitės pasirengimas",
   "weekly.help":
     "Naudojamos aukščiau nurodytos projekto išsaugotos paskelbimo dienos, laikas ir laiko juosta. Pirmiausia išsaugokite projekto pakeitimus. Pakeitus koordinatorių esamas darbas išsaugomas, tačiau reikia išspręsti bet kokį aktyvų ar neaiškų vykdymą.",
+  "weekly.sessionHelp":
+    "Norėdami pristabdyti būsimą pasiruošimą, išjunkite išsaugotą publikavimo tvarkaraštį arba pasirinkite Pasirengimas pristabdytas. Jau suplanuotas publikacijas tvarkykite atskirai Turinio kalendoriuje.",
   "weekly.loading": "Įkeliamas savaitės pasirengimas…",
   "weekly.unavailable":
     "Savaitės pasirengimas nepasiekiamas. Atnaujinkite, kad patikrintumėte dar kartą.",
@@ -84,6 +86,8 @@ export const ltKnowledge: Readonly<Record<string, string>> = {
   "weekly.noDraft": "Išsaugoto juodraščio nėra",
   "weekly.queueHelp":
     "Išsaugotas ar patvirtintas juodraštis nėra įtrauktas į eilę. Kaip eilėje esantis rodomas tik tikras paskelbimo eilės įrašas. Generavimo biudžetai ir paskelbimo patvirtinimas tikrinami atskirai.",
+  "weekly.startedHelp":
+    "Jau pradėtas darbas gali būti baigtas ir po atsijungimo ar atšaukimo. Atšaukimas sustabdo tolesnius to laiko žingsnius; jis neatšaukia užbaigto žingsnio, neatkuria jo sunaudojimo, nieko nepatvirtina ir nieko nepublikuoja. Kol išsaugotas tvarkaraštis išjungtas arba koordinatorius pristabdytas, pasiruošimas nepradedamas.",
   "weekly.state.missing": "Trūksta",
   "weekly.state.drafted": "Juodraštis išsaugotas",
   "weekly.state.reserved": "Rezervuota",

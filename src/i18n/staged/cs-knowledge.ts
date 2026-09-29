@@ -58,6 +58,8 @@ export const csKnowledge: Readonly<Record<string, string>> = {
   "weekly.title": "Týdenní příprava",
   "weekly.help":
     "Používá výše uložené dny, čas a časové pásmo zveřejňování projektu. Nejprve uložte změny projektu. Změna koordinátora zachová stávající práci a vyžaduje vyřešení každého aktivního běhu nebo běhu s nejistým výsledkem.",
+  "weekly.sessionHelp":
+    "Chcete-li pozastavit budoucí přípravu, vypněte uložený plán publikování nebo zvolte Příprava pozastavena. Již naplánované publikace spravujete samostatně v Kalendáři obsahu.",
   "weekly.loading": "Načítání týdenní připravenosti…",
   "weekly.unavailable": "Týdenní připravenost není dostupná. Obnovte údaje a kontrolu zopakujte.",
   "weekly.engine": "Koordinátor přípravy",
@@ -81,6 +83,8 @@ export const csKnowledge: Readonly<Record<string, string>> = {
   "weekly.noDraft": "Žádný uložený návrh",
   "weekly.queueHelp":
     "Uložený nebo schválený návrh není ve frontě. Jako zařazená do fronty se zobrazuje pouze položka skutečné fronty zveřejnění. Rozpočty generování a schválení ke zveřejnění se kontrolují samostatně.",
+  "weekly.startedHelp":
+    "Práce, která již začala, může být dokončena i po odhlášení nebo zrušení. Zrušení zastaví následující kroky pro daný termín; nevrátí dokončený krok, neobnoví jeho spotřebu, nic neschválí ani nezveřejní. Dokud je uložený plán vypnutý nebo je koordinátor pozastaven, žádná příprava nezačne.",
   "weekly.state.missing": "Chybí",
   "weekly.state.drafted": "Návrh uložen",
   "weekly.state.reserved": "Rezervováno",

@@ -58,6 +58,8 @@ export const projectKnowledge = {
     "weekly.title": "Weekly preparation",
     "weekly.help":
       "Uses the project’s saved publication days, time and timezone above. Save project changes first. Changing coordinator preserves existing work and requires any active or uncertain run to be resolved.",
+    "weekly.sessionHelp":
+      "To pause future preparation, disable the saved publication schedule or select Preparation paused. Manage already scheduled publications separately in the Content Calendar.",
     "weekly.loading": "Loading weekly readiness…",
     "weekly.unavailable": "Weekly readiness is unavailable. Refresh to check again.",
     "weekly.engine": "Preparation coordinator",
@@ -81,6 +83,8 @@ export const projectKnowledge = {
     "weekly.noDraft": "No saved draft",
     "weekly.queueHelp":
       "A saved or approved draft is not queued. Only an actual publication queue entry is shown as queued. Generation budgets and publication approval are checked separately.",
+    "weekly.startedHelp":
+      "Work that has already started may still finish after you sign out or cancel. Cancelling stops the following steps for that slot; it does not undo a finished step, restore its usage, approve anything or publish anything. While the saved schedule is disabled or the coordinator is paused, no preparation starts.",
     "weekly.state.missing": "Missing",
     "weekly.state.drafted": "Draft saved",
     "weekly.state.reserved": "Reserved",
@@ -348,6 +352,8 @@ export const projectKnowledge = {
     "weekly.title": "Przygotowanie tygodnia",
     "weekly.help":
       "Korzysta z zapisanych powyżej dni, godziny i strefy czasowej publikacji. Najpierw zapisz zmiany projektu. Zmiana koordynatora zachowuje istniejącą pracę i wymaga wyjaśnienia aktywnych lub niepewnych przebiegów.",
+    "weekly.sessionHelp":
+      "Aby wstrzymać przyszłe przygotowanie, wyłącz zapisany harmonogram publikacji lub wybierz Przygotowanie wstrzymane. Już zaplanowanymi publikacjami zarządzasz osobno w Kalendarzu treści.",
     "weekly.loading": "Ładowanie gotowości tygodnia…",
     "weekly.unavailable": "Gotowość tygodnia jest niedostępna. Odśwież, aby sprawdzić ponownie.",
     "weekly.engine": "Koordynator przygotowania",
@@ -371,6 +377,8 @@ export const projectKnowledge = {
     "weekly.noDraft": "Brak zapisanego szkicu",
     "weekly.queueHelp":
       "Zapisany lub zatwierdzony szkic nie jest w kolejce. Tylko rzeczywisty wpis w kolejce publikacji jest oznaczony jako oczekujący. Budżety generowania i zgoda na publikację są sprawdzane osobno.",
+    "weekly.startedHelp":
+      "Praca, która już się rozpoczęła, może się dokończyć po wylogowaniu lub anulowaniu. Anulowanie zatrzymuje kolejne kroki dla tego terminu; nie cofa ukończonego kroku, nie przywraca zużytego limitu, niczego nie zatwierdza ani nie publikuje. Gdy zapisany harmonogram jest wyłączony lub koordynator jest wstrzymany, żadne przygotowanie się nie rozpoczyna.",
     "weekly.state.missing": "Brak",
     "weekly.state.drafted": "Szkic zapisany",
     "weekly.state.reserved": "Zarezerwowane",
@@ -641,6 +649,8 @@ export const projectKnowledge = {
     "weekly.title": "Veckoförberedelse",
     "weekly.help":
       "Använder projektets sparade publiceringsdagar, tid och tidszon ovan. Spara projektändringar först. Byte av samordnare bevarar befintligt arbete och kräver att aktiva eller osäkra körningar hanteras.",
+    "weekly.sessionHelp":
+      "För att pausa framtida förberedelse, inaktivera det sparade publiceringsschemat eller välj Förberedelse pausad. Redan schemalagda publiceringar hanterar du separat i Innehållskalender.",
     "weekly.loading": "Läser veckans beredskap…",
     "weekly.unavailable": "Veckans beredskap är inte tillgänglig. Uppdatera för att försöka igen.",
     "weekly.engine": "Samordnare för förberedelse",
@@ -664,6 +674,8 @@ export const projectKnowledge = {
     "weekly.noDraft": "Inget sparat utkast",
     "weekly.queueHelp":
       "Ett sparat eller godkänt utkast är inte kölagt. Endast en faktisk post i publiceringskön visas som kölagd. Genereringsbudget och publiceringsgodkännande kontrolleras separat.",
+    "weekly.startedHelp":
+      "Arbete som redan har startat kan slutföras även efter att du loggar ut eller avbryter. Avbrytning stoppar de följande stegen för den tiden; den ångrar inte ett slutfört steg, återställer inte dess förbrukning, godkänner inget och publicerar inget. När det sparade schemat är inaktiverat eller samordnaren är pausad startar ingen förberedelse.",
     "weekly.state.missing": "Saknas",
     "weekly.state.drafted": "Utkast sparat",
     "weekly.state.reserved": "Reserverad",
@@ -935,6 +947,8 @@ export const projectKnowledge = {
     "weekly.title": "Ugeforberedelse",
     "weekly.help":
       "Bruger projektets gemte publiceringsdage, tidspunkt og tidszone ovenfor. Gem projektændringer først. Skift af koordinator bevarer eksisterende arbejde og kræver, at aktive eller usikre kørsler afklares.",
+    "weekly.sessionHelp":
+      "For at sætte fremtidig forberedelse på pause skal du deaktivere den gemte publiceringstidsplan eller vælge Forberedelse sat på pause. Allerede planlagte publiceringer håndterer du separat i Indholdskalender.",
     "weekly.loading": "Indlæser ugens parathed…",
     "weekly.unavailable": "Ugens parathed er utilgængelig. Opdater for at kontrollere igen.",
     "weekly.engine": "Forberedelseskoordinator",
@@ -958,6 +972,8 @@ export const projectKnowledge = {
     "weekly.noDraft": "Intet gemt udkast",
     "weekly.queueHelp":
       "Et gemt eller godkendt udkast er ikke i kø. Kun en faktisk post i publiceringskøen vises som sat i kø. Genereringsbudgetter og publiceringsgodkendelse kontrolleres separat.",
+    "weekly.startedHelp":
+      "Arbejde, der allerede er startet, kan stadig blive færdigt, efter at du logger ud eller annullerer. Annullering stopper de efterfølgende trin for det tidspunkt; den fortryder ikke et afsluttet trin, gendanner ikke dets forbrug, godkender intet og publicerer intet. Når den gemte tidsplan er deaktiveret, eller koordinatoren er sat på pause, starter ingen forberedelse.",
     "weekly.state.missing": "Mangler",
     "weekly.state.drafted": "Udkast gemt",
     "weekly.state.reserved": "Reserveret",

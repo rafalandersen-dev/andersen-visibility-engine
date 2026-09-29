@@ -188,7 +188,7 @@ export const LT_STAGED_BATCHES = [
     copy: ltKnowledge,
     namespaces: ["knowledge", "weekly", "approval", "refresh"],
     sourceRevision: "ff9b085",
-    sourceHash: "a3a3297006f23628e422ddedfb5b6f5a51c6dd5f6abbc6d6e589481e49915816",
+    sourceHash: "78a4fd67fd0f878a2a05f99de85ce989e7d57ac84e9abdb74a4bf8e6f4a0ae9d",
   },
   {
     name: "technical",

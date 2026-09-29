@@ -58,6 +58,8 @@ export const etKnowledge: Readonly<Record<string, string>> = {
   "weekly.title": "Nädala ettevalmistus",
   "weekly.help":
     "Kasutab projekti ülal salvestatud avaldamispäevi, kellaaega ja ajavööndit. Salvesta esmalt projekti muudatused. Koordinaatori muutmine säilitab olemasoleva töö ning nõuab aktiivsete või ebakindlate käivituste lahendamist.",
+  "weekly.sessionHelp":
+    "Tulevase ettevalmistuse peatamiseks keelake salvestatud avaldamisajakava või valige Ettevalmistus on peatatud. Juba ajastatud avaldamisi hallake eraldi Sisukalendris.",
   "weekly.loading": "Nädala valmisoleku laadimine…",
   "weekly.unavailable": "Nädala valmisolek pole saadaval. Uuesti kontrollimiseks värskenda.",
   "weekly.engine": "Ettevalmistuse koordinaator",
@@ -81,6 +83,8 @@ export const etKnowledge: Readonly<Record<string, string>> = {
   "weekly.noDraft": "Salvestatud mustand puudub",
   "weekly.queueHelp":
     "Salvestatud või heakskiidetud mustand ei ole järjekorras. Järjekorras näidatakse ainult tegelikku avaldamisjärjekorra kirjet. Genereerimise eelarveid ja avaldamise heakskiitu kontrollitakse eraldi.",
+  "weekly.startedHelp":
+    "Juba alanud töö võib pärast väljalogimist või tühistamist siiski lõpule jõuda. Tühistamine peatab selle aja järgmised sammud; see ei tühista lõpetatud sammu, ei taasta selle kasutust, ei kinnita ega avalda midagi. Kui salvestatud ajakava on keelatud või koordinaator peatatud, ei alga ükski ettevalmistus.",
   "weekly.state.missing": "Puudub",
   "weekly.state.drafted": "Mustand on salvestatud",
   "weekly.state.reserved": "Reserveeritud",

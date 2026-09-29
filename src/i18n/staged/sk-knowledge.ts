@@ -58,6 +58,8 @@ export const skKnowledge: Readonly<Record<string, string>> = {
   "weekly.title": "Týždenná príprava",
   "weekly.help":
     "Používa uložené dni, čas a časové pásmo publikovania projektu uvedené vyššie. Najprv uložte zmeny projektu. Zmena koordinátora zachová existujúcu prácu a vyžaduje vyriešenie každého aktívneho alebo neistého behu.",
+  "weekly.sessionHelp":
+    "Ak chcete pozastaviť budúcu prípravu, vypnite uložený plán publikovania alebo zvoľte Príprava pozastavená. Už naplánované publikácie spravujete samostatne v Kalendári obsahu.",
   "weekly.loading": "Načítavame týždennú pripravenosť…",
   "weekly.unavailable": "Týždenná pripravenosť nie je dostupná. Obnovte ju a skontrolujte znova.",
   "weekly.engine": "Koordinátor prípravy",
@@ -81,6 +83,8 @@ export const skKnowledge: Readonly<Record<string, string>> = {
   "weekly.noDraft": "Žiadny uložený návrh",
   "weekly.queueHelp":
     "Uložený alebo schválený návrh nie je zaradený do frontu. Ako zaradený sa zobrazuje iba skutočný záznam vo fronte publikovania. Rozpočty generovania a schválenie publikovania sa kontrolujú samostatne.",
+  "weekly.startedHelp":
+    "Práca, ktorá sa už začala, sa môže dokončiť aj po odhlásení alebo zrušení. Zrušenie zastaví nasledujúce kroky pre daný termín; nevráti dokončený krok, neobnoví jeho spotrebu, nič neschváli ani nezverejní. Kým je uložený plán vypnutý alebo je koordinátor pozastavený, žiadna príprava sa nezačne.",
   "weekly.state.missing": "Chýba",
   "weekly.state.drafted": "Návrh uložený",
   "weekly.state.reserved": "Rezervované",

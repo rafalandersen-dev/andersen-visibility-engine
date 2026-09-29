@@ -60,6 +60,8 @@ export const ptKnowledge: Readonly<Record<string, string>> = {
   "weekly.title": "Preparação semanal",
   "weekly.help":
     "Utiliza os dias, a hora e o fuso horário de publicação guardados no projeto acima. Guarde primeiro as alterações do projeto. Alterar o coordenador preserva o trabalho existente e exige resolver qualquer execução ativa ou incerta.",
+  "weekly.sessionHelp":
+    "Para pausar a preparação futura, desative o calendário de publicação guardado ou selecione Preparação em pausa. Gira as publicações já agendadas separadamente no Calendário de conteúdos.",
   "weekly.loading": "A carregar a preparação semanal…",
   "weekly.unavailable":
     "A preparação semanal está indisponível. Atualize para verificar novamente.",
@@ -84,6 +86,8 @@ export const ptKnowledge: Readonly<Record<string, string>> = {
   "weekly.noDraft": "Sem rascunho guardado",
   "weekly.queueHelp":
     "Um rascunho guardado ou aprovado não está em fila. Só uma entrada efetiva na fila de publicação é apresentada como tal. Os limites de geração e a aprovação de publicação são verificados separadamente.",
+  "weekly.startedHelp":
+    "O trabalho já iniciado pode ainda terminar depois de terminar sessão ou cancelar. Cancelar interrompe os passos seguintes desse espaço; não desfaz um passo concluído, não repõe o seu consumo, não aprova nada nem publica nada. Enquanto o calendário guardado estiver desativado ou o coordenador em pausa, nenhuma preparação é iniciada.",
   "weekly.state.missing": "Em falta",
   "weekly.state.drafted": "Rascunho guardado",
   "weekly.state.reserved": "Reservado",

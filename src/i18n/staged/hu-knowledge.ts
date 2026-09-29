@@ -60,6 +60,8 @@ export const huKnowledge = {
   "weekly.title": "Heti előkészítés",
   "weekly.help":
     "A projekt fent mentett közzétételi napjait, időpontját és időzónáját használja. Először mentsd a projekt módosításait. A koordinátor módosítása megőrzi a meglévő munkát, és megköveteli minden aktív vagy bizonytalan kimenetelű futás rendezését.",
+  "weekly.sessionHelp":
+    "A jövőbeli előkészítés szüneteltetéséhez tiltsd le a mentett közzétételi ütemtervet, vagy válaszd az Előkészítés szüneteltetve lehetőséget. A már ütemezett közzétételeket külön, a Tartalomnaptárban kezeled.",
   "weekly.loading": "Heti felkészültség betöltése…",
   "weekly.unavailable": "A heti felkészültség nem érhető el. Az újabb ellenőrzéshez frissíts.",
   "weekly.engine": "Előkészítési koordinátor",
@@ -83,6 +85,8 @@ export const huKnowledge = {
   "weekly.noDraft": "Nincs mentett vázlat",
   "weekly.queueHelp":
     "A mentett vagy jóváhagyott vázlat nincs várólistára állítva. Csak a tényleges közzétételi várólista-bejegyzés jelenik meg várólistán lévőként. A generálási kereteket és a közzétételi jóváhagyást külön ellenőrizzük.",
+  "weekly.startedHelp":
+    "A már megkezdett munka a kijelentkezés vagy a megszakítás után is befejeződhet. A megszakítás leállítja az adott időpont következő lépéseit; nem vonja vissza a befejezett lépést, nem állítja vissza a felhasználását, semmit nem hagy jóvá és semmit nem tesz közzé. Amíg a mentett ütemterv le van tiltva vagy a koordinátor szünetel, nem indul előkészítés.",
   "weekly.state.missing": "Hiányzik",
   "weekly.state.drafted": "Vázlat mentve",
   "weekly.state.reserved": "Lefoglalva",

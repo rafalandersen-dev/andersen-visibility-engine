@@ -57,6 +57,8 @@ export const fiKnowledge: Readonly<Record<string, string>> = {
   "weekly.title": "Viikoittainen valmistelu",
   "weekly.help":
     "Käyttää projektin yllä tallennettuja julkaisupäiviä, aikaa ja aikavyöhykettä. Tallenna projektin muutokset ensin. Koordinaattorin vaihtaminen säilyttää nykyisen työn ja edellyttää aktiivisen tai epävarman ajon selvittämistä.",
+  "weekly.sessionHelp":
+    "Jos haluat keskeyttää tulevan valmistelun, poista tallennettu julkaisuaikataulu käytöstä tai valitse Valmistelu tauolla. Jo ajoitettuja julkaisuja hallitaan erikseen Sisältökalenterissa.",
   "weekly.loading": "Ladataan viikkovalmiutta…",
   "weekly.unavailable": "Viikkovalmius ei ole saatavilla. Päivitä tarkistaaksesi uudelleen.",
   "weekly.engine": "Valmistelun koordinaattori",
@@ -80,6 +82,8 @@ export const fiKnowledge: Readonly<Record<string, string>> = {
   "weekly.noDraft": "Ei tallennettua luonnosta",
   "weekly.queueHelp":
     "Tallennettu tai hyväksytty luonnos ei ole jonossa. Vain todellinen julkaisujonon merkintä näytetään jonossa olevana. Luontibudjetit ja julkaisuhyväksyntä tarkistetaan erikseen.",
+  "weekly.startedHelp":
+    "Jo alkanut työ voi valmistua myös uloskirjautumisen tai peruutuksen jälkeen. Peruutus pysäyttää kyseisen ajan seuraavat vaiheet; se ei kumoa valmista vaihetta, ei palauta sen kulutusta, ei hyväksy eikä julkaise mitään. Kun tallennettu aikataulu on pois käytöstä tai koordinaattori on keskeytetty, valmistelu ei käynnisty.",
   "weekly.state.missing": "Puuttuu",
   "weekly.state.drafted": "Luonnos tallennettu",
   "weekly.state.reserved": "Varattu",
