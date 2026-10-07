@@ -67,7 +67,7 @@ export function isPublicHomepageAddress(address: string): boolean {
   return false;
 }
 
-function pageUrl(raw: string, maximum = 4096): URL {
+export function pageUrl(raw: string, maximum = 4096): URL {
   if (raw.length > maximum || !isSafePublicUrl(raw)) throw new Error("blocked_url");
   const url = new URL(raw);
   const hostname = url.hostname.replace(/^\[|\]$/g, "");
@@ -244,6 +244,30 @@ function openPage(
   });
 }
 
+/** Bounded body read shared by the in-process loop and the single pinned hop:
+ * at most `maxBytes` bytes and HOMEPAGE_MAX_CHUNKS chunks; a cut-off response
+ * below the bound is refused. Identical semantics to the original inline loop. */
+async function readBoundedChunks(response: PageResponse, maxBytes: number, signal: AbortSignal) {
+  const chunks: Buffer[] = [];
+  let bytes = 0;
+  let count = 0;
+  let truncated = false;
+  for await (const rawChunk of response) {
+    signal.throwIfAborted();
+    const chunk = Buffer.isBuffer(rawChunk) ? rawChunk : Buffer.from(rawChunk);
+    if (++count > HOMEPAGE_MAX_CHUNKS) throw new Error("too_many_chunks");
+    const take = Math.min(chunk.length, maxBytes - bytes);
+    chunks.push(Buffer.from(chunk.subarray(0, take)));
+    bytes += take;
+    if (chunk.length > take) {
+      truncated = true;
+      break;
+    }
+  }
+  if (!truncated && !response.complete) throw new Error("incomplete_page");
+  return { payload: Buffer.concat(chunks, bytes), truncated };
+}
+
 export type PinnedResource = {
   url: string;
   status: number;
@@ -376,24 +400,9 @@ export async function fetchPinnedResource(
         const gzipEncoding = options.purpose === "sitemap" && encoding === "gzip";
         if (encoding && encoding !== "identity" && !gzipEncoding)
           throw new Error("unsupported_encoding");
-        const chunks: Buffer[] = [];
-        let bytes = 0;
-        let count = 0;
-        let truncated = false;
-        for await (const rawChunk of response) {
-          controller.signal.throwIfAborted();
-          const chunk = Buffer.isBuffer(rawChunk) ? rawChunk : Buffer.from(rawChunk);
-          if (++count > HOMEPAGE_MAX_CHUNKS) throw new Error("too_many_chunks");
-          const take = Math.min(chunk.length, maxBytes - bytes);
-          chunks.push(Buffer.from(chunk.subarray(0, take)));
-          bytes += take;
-          if (chunk.length > take) {
-            truncated = true;
-            break;
-          }
-        }
-        if (!truncated && !response.complete) throw new Error("incomplete_page");
-        let payload = Buffer.concat(chunks, bytes);
+        const read = await readBoundedChunks(response, maxBytes, controller.signal);
+        const truncated = read.truncated;
+        let payload = read.payload;
         const gzipMagic = payload[0] === 0x1f && payload[1] === 0x8b;
         const inferredGzipFile =
           options.purpose === "sitemap" &&
@@ -455,6 +464,78 @@ export async function fetchPinnedResource(
   } finally {
     clearTimeout(timer);
     controller.abort();
+    response?.destroy();
+  }
+}
+
+/** One homepage hop over ONE connection to an address the CALLER already
+ * resolved and vetted (CC knowledge-transport candidate). No DNS, no redirect
+ * following: a 3xx is returned to the caller, which re-authorizes, re-resolves
+ * and re-vets the next hop itself. The same Host/SNI/certificate identity,
+ * header, chunk, byte and encoding rules as the in-process homepage path. The
+ * socket is destroyed before this promise settles. Error messages are the
+ * existing fixed codes. */
+export type PinnedHomepageHop =
+  | { kind: "redirect"; status: number; location: string | null }
+  | {
+      kind: "response";
+      status: number;
+      headers: Record<string, string>;
+      contentAccepted: boolean;
+      truncated: boolean;
+      body: string;
+    };
+export async function readPinnedHomepageHop(
+  raw: string,
+  address: { address: string; family: number },
+  signal: AbortSignal,
+): Promise<PinnedHomepageHop> {
+  if (proxyVariables.some((key) => process.env[key]?.trim())) throw new Error("proxy_refused");
+  const url = pageUrl(raw, 4096);
+  if (isIP(address.address) !== address.family || !isPublicHomepageAddress(address.address))
+    throw new Error("blocked_address");
+  const literal = url.hostname.replace(/^\[|\]$/g, "");
+  if (isIP(literal) && literal !== address.address) throw new Error("blocked_address");
+  signal.throwIfAborted();
+  let response: PageResponse | undefined;
+  try {
+    response = await openPage(url, address, signal);
+    const status = response.statusCode ?? 0;
+    if ([301, 302, 303, 307, 308].includes(status)) {
+      const location = response.headers.location;
+      return {
+        kind: "redirect",
+        status,
+        location: typeof location === "string" && location ? location : null,
+      };
+    }
+    if (!Number.isInteger(status) || status < 100 || status > 599) throw new Error("http_error");
+    const headers: Record<string, string> = {};
+    for (const key of ["content-type", "content-range", "x-robots-tag", "link"]) {
+      const rawValue = response.headers[key];
+      const value = Array.isArray(rawValue) ? rawValue.join(", ") : rawValue;
+      if (value && value.length > 32000) throw new Error("header_limit");
+      if (value !== undefined) headers[key] = value;
+    }
+    const contentAccepted = /^(text\/(html|plain)|application\/xhtml\+xml)(?:\s*;|$)/i.test(
+      headers["content-type"] ?? "",
+    );
+    if (!contentAccepted)
+      return { kind: "response", status, headers, contentAccepted, truncated: false, body: "" };
+    const rawEncoding = response.headers["content-encoding"];
+    const encoding =
+      typeof rawEncoding === "string" ? rawEncoding.trim().toLowerCase() : rawEncoding;
+    if (encoding && encoding !== "identity") throw new Error("unsupported_encoding");
+    const read = await readBoundedChunks(response, HOMEPAGE_MAX_BYTES, signal);
+    return {
+      kind: "response",
+      status,
+      headers,
+      contentAccepted,
+      truncated: read.truncated,
+      body: read.payload.toString("utf8"),
+    };
+  } finally {
     response?.destroy();
   }
 }

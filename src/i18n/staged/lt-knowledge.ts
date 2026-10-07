@@ -259,6 +259,8 @@ export const ltKnowledge: Readonly<Record<string, string>> = {
     "Šio dokumento nepavyko išgauti laikantis palaikomų ribų. Naudokite mažesnį, nešifruotą PDF ar DOCX arba įveskite nurodymą rankiniu būdu.",
   "knowledge.ui.websiteUnreadable":
     "Svetainė negrąžino pakankamai įskaitomo teksto, todėl nieko neužfiksuota, o išsaugotos žinios nepakitusios. Patikrinkite adresą arba bandykite vėliau.",
+  "knowledge.ui.websiteTemporarilyUnavailable":
+    "Svetainių skaitymo paslauga paleidžiama arba užimta, todėl nieko neužfiksuota, o išsaugotos žinios nepakitusios. Bandykite dar kartą po minutės.",
   "knowledge.ui.changeFailed":
     "Nepavyko patvirtinti šio pakeitimo. Prieš bandydami dar kartą atnaujinkite ir patikrinkite išsaugotą versiją.",
   "knowledge.ui.forgetAll": "šį šaltinį, jo pradinį dokumentą, išvestinius įrašus ir istoriją",

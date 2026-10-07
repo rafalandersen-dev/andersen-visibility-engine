@@ -256,6 +256,8 @@ export const fiKnowledge: Readonly<Record<string, string>> = {
     "Tämän asiakirjan tekstiä ei voitu poimia tuettujen rajojen puitteissa. Käytä pienempää salaamatonta PDF- tai DOCX-tiedostoa tai syötä ohje käsin.",
   "knowledge.ui.websiteUnreadable":
     "Verkkosivusto ei palauttanut tarpeeksi luettavaa tekstiä, joten mitään ei tallennettu ja tallennettu tieto on ennallaan. Tarkista osoite tai yritä myöhemmin uudelleen.",
+  "knowledge.ui.websiteTemporarilyUnavailable":
+    "Verkkosivustojen lukupalvelu käynnistyy tai on varattu, joten mitään ei tallennettu ja tallennettu tieto on ennallaan. Yritä uudelleen minuutin kuluttua.",
   "knowledge.ui.changeFailed":
     "Tätä muutosta ei voitu vahvistaa. Päivitä ja tarkista tallennettu versio ennen uudelleenyritystä.",
   "knowledge.ui.forgetAll": "tämä lähde, sen alkuperäinen asiakirja, johdetut tietueet ja historia",

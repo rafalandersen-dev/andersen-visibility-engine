@@ -11,7 +11,16 @@ import {
  * unreachable or unreadable page is refused BEFORE any write with the fixed
  * code `website_source_unreadable` (BU), so the caller can tell this known,
  * deterministic rejection apart from an unconfirmed save that needs a refresh. */
-export async function captureProjectWebsiteKnowledge(scope: KnowledgeScope, url: string) {
+/** Optional seam (CC): an explicit pinned-hop transport config. `undefined`
+ * reads the default-OFF environment switch; `null` forces the in-process path. */
+export type WebsiteCaptureDeps = {
+  transport?: import("./pinned-hop/client.server").PinnedHopConfig | null;
+};
+export async function captureProjectWebsiteKnowledge(
+  scope: KnowledgeScope,
+  url: string,
+  deps: WebsiteCaptureDeps = {},
+) {
   const now = new Date().toISOString();
   const trimmedUrl = url.trim();
   // Match website-led onboarding's bare-hostname input without upgrading an
@@ -20,8 +29,22 @@ export async function captureProjectWebsiteKnowledge(scope: KnowledgeScope, url:
     .unwrap()
     .parse(/^[a-z][a-z\d+.-]*:/i.test(trimmedUrl) ? trimmedUrl : `https://${trimmedUrl}`);
   const state = await readProjectKnowledge(scope);
-  const { fetchSiteContext } = await import("./ai.functions");
-  const site = await fetchSiteContext(sourceUrl);
+  const pinned = await import("./pinned-hop/client.server");
+  const transport = deps.transport !== undefined ? deps.transport : pinned.pinnedHopConfigFromEnv();
+  const ai = await import("./ai.functions");
+  let site: Awaited<ReturnType<typeof ai.fetchSiteContext>>;
+  if (transport) {
+    // Homepage purpose only; a cold/busy/unreachable service is a truthful,
+    // retryable refusal before any write. No automatic retry.
+    const outcome = await pinned.fetchHomepageViaPinnedHop(sourceUrl, transport);
+    if (outcome.retryable) throw new Error("website_source_temporarily_unavailable");
+    site = outcome.html
+      ? ai.siteContextFromHtml(outcome.html, new URL(sourceUrl))
+      : { ok: false, title: "", metaDescription: "", text: "", links: [] };
+  } else {
+    // Default OFF: exactly the released in-process path.
+    site = await ai.fetchSiteContext(sourceUrl);
+  }
   if (!site.ok || site.text.trim().length < 80) throw new Error("website_source_unreadable");
   const excerpt = site.text.slice(0, 2000);
   const fingerprint = Array.from(

@@ -10,7 +10,8 @@ import { PGlite } from "@electric-sql/pglite";
 import { readFileSync } from "node:fs";
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 const h = vi.hoisted(() => ({ html: "", calls: [] as string[], rpc: [] as string[] }));
-vi.mock("./homepage-fetch.server", () => ({
+vi.mock("./homepage-fetch.server", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("./homepage-fetch.server")>()),
   fetchHomepageHtml: async (url: string) => {
     h.calls.push(url);
     return h.html;

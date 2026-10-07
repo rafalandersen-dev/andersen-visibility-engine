@@ -261,6 +261,8 @@ export const roKnowledge: Readonly<Record<string, string>> = {
     "Acest document nu a putut fi extras în limitele acceptate. Folosiți un PDF sau DOCX mai mic și necriptat ori introduceți manual o instrucțiune.",
   "knowledge.ui.websiteUnreadable":
     "Site-ul nu a returnat suficient text lizibil, așa că nimic nu a fost capturat, iar cunoștințele salvate rămân neschimbate. Verificați adresa sau încercați din nou mai târziu.",
+  "knowledge.ui.websiteTemporarilyUnavailable":
+    "Serviciul de citire a site-urilor pornește sau este ocupat, așa că nimic nu a fost capturat, iar cunoștințele salvate rămân neschimbate. Încercați din nou peste un minut.",
   "knowledge.ui.changeFailed":
     "Această modificare nu a putut fi confirmată. Reîmprospătați și verificați versiunea salvată înainte de a încerca din nou.",
   "knowledge.ui.forgetAll":
