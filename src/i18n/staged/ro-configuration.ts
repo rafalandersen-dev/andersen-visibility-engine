@@ -9,6 +9,13 @@ export const roConfiguration: Readonly<Record<string, string>> = {
   "brand.remove": "Eliminați",
   "brand.listHint": "Câte unul pe rând sau separate prin virgulă.",
   "brand.toast.saved": "Brand Intelligence a fost salvat",
+  "brand.toast.noChanges": "Nu există modificări de salvat.",
+  "brand.error.row": "rândul {row}",
+  "brand.error.required": "este necesar un nume (oferte) sau atât o etichetă, cât și un URL (linkuri). Nu s-a salvat nimic.",
+  "brand.error.tooLong": "textul este prea lung. Nu s-a salvat nimic.",
+  "brand.error.invalidUrl": "folosiți o adresă HTTPS sau o cale care începe cu un singur /, de exemplu /contact. Alte scheme și spații nu sunt permise. Nu s-a salvat nimic.",
+  "brand.error.limit": "lista este plină, așa că noua intrare nu a fost adăugată. Eliminați mai întâi una. Nu s-a salvat nimic.",
+  "brand.error.unsupported": "această valoare nu poate fi editată aici. Reîncărcați pagina și încercați din nou. Nu s-a salvat nimic.",
   "brand.section.voice": "Vocea brandului",
   "brand.voice.help":
     "Spuneți-i lui Milo cum ar trebui să sune conținutul și ce formulări să evite.",

@@ -9,6 +9,13 @@ export const lvConfiguration: Readonly<Record<string, string>> = {
   "brand.remove": "Noņemt",
   "brand.listHint": "Pa vienam katrā rindā vai atdalot ar komatiem.",
   "brand.toast.saved": "Brand Intelligence saglabāts",
+  "brand.toast.noChanges": "Nav izmaiņu, ko saglabāt.",
+  "brand.error.row": "rinda {row}",
+  "brand.error.required": "nepieciešams nosaukums (piedāvājumi) vai gan etiķete, gan URL (saites). Nekas netika saglabāts.",
+  "brand.error.tooLong": "teksts ir pārāk garš. Nekas netika saglabāts.",
+  "brand.error.invalidUrl": "izmantojiet HTTPS adresi vai ceļu, kas sākas ar vienu /, piemēram, /kontakti. Citas shēmas un atstarpes nav atļautas. Nekas netika saglabāts.",
+  "brand.error.limit": "saraksts ir pilns, tāpēc jaunais ieraksts netika pievienots. Vispirms noņemiet vienu. Nekas netika saglabāts.",
+  "brand.error.unsupported": "šo vērtību šeit nevar rediģēt. Pārlādējiet lapu un mēģiniet vēlreiz. Nekas netika saglabāts.",
   "brand.section.voice": "Zīmola balss",
   "brand.voice.help":
     "Pastāstiet Milo, kā jūsu saturam jāizklausās un no kādiem formulējumiem izvairīties.",
