@@ -8,6 +8,13 @@ export const huConfiguration = {
   "brand.remove": "Eltávolítás",
   "brand.listHint": "Soronként egy elem vagy vesszővel elválasztott elemek.",
   "brand.toast.saved": "Márkaelemzés mentve",
+  "brand.toast.noChanges": "Nincs mentendő módosítás.",
+  "brand.error.row": "{row}. sor",
+  "brand.error.required": "név (ajánlatok) vagy címke és URL is (hivatkozások) szükséges. Semmi sem lett mentve.",
+  "brand.error.tooLong": "a szöveg túl hosszú. Semmi sem lett mentve.",
+  "brand.error.invalidUrl": "használj HTTPS-címet vagy egyetlen / jellel kezdődő útvonalat, például /kapcsolat. Más séma és szóköz nem engedélyezett. Semmi sem lett mentve.",
+  "brand.error.limit": "a lista megtelt, ezért az új elem nem került hozzáadásra. Előbb távolíts el egyet. Semmi sem lett mentve.",
+  "brand.error.unsupported": "ez az érték itt nem szerkeszthető. Töltsd újra az oldalt, és próbáld újra. Semmi sem lett mentve.",
   "brand.section.voice": "Márkahang",
   "brand.voice.help":
     "Add meg a Milónak, milyen legyen a tartalom hangja, és milyen megfogalmazásokat kerüljön.",

@@ -8,6 +8,13 @@ export const itConfiguration: Readonly<Record<string, string>> = {
   "brand.remove": "Rimuovi",
   "brand.listHint": "Una voce per riga oppure separata da virgole.",
   "brand.toast.saved": "Brand Intelligence salvata",
+  "brand.toast.noChanges": "Nessuna modifica da salvare.",
+  "brand.error.row": "riga {row}",
+  "brand.error.required": "è richiesto un nome (offerte) oppure sia un'etichetta sia un URL (link). Non è stato salvato nulla.",
+  "brand.error.tooLong": "il testo è troppo lungo. Non è stato salvato nulla.",
+  "brand.error.invalidUrl": "usa un indirizzo HTTPS o un percorso che inizia con una sola /, ad esempio /contatti. Altri schemi e spazi non sono consentiti. Non è stato salvato nulla.",
+  "brand.error.limit": "l'elenco è pieno, quindi la nuova voce non è stata aggiunta. Rimuovine prima una. Non è stato salvato nulla.",
+  "brand.error.unsupported": "questo valore non può essere modificato qui. Ricarica la pagina e riprova. Non è stato salvato nulla.",
   "brand.section.voice": "Voce del marchio",
   "brand.voice.help":
     "Indica a Milo quale tono devono avere i contenuti e quali formulazioni evitare.",

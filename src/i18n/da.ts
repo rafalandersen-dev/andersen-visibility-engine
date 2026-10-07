@@ -547,6 +547,13 @@ export const da: Record<string, string> = {
   "brand.remove": "Fjern",
   "brand.listHint": "Én pr. linje eller kommasepareret.",
   "brand.toast.saved": "Brandintelligens gemt",
+  "brand.toast.noChanges": "Ingen ændringer at gemme.",
+  "brand.error.row": "række {row}",
+  "brand.error.required": "et navn (tilbud) eller både etiket og URL (links) er påkrævet. Intet blev gemt.",
+  "brand.error.tooLong": "teksten er for lang. Intet blev gemt.",
+  "brand.error.invalidUrl": "brug en HTTPS-adresse eller en sti, der starter med en enkelt /, for eksempel /kontakt. Andre skemaer og mellemrum er ikke tilladt. Intet blev gemt.",
+  "brand.error.limit": "listen er fuld, så den nye post blev ikke tilføjet. Fjern en først. Intet blev gemt.",
+  "brand.error.unsupported": "denne værdi kan ikke redigeres her. Genindlæs siden, og prøv igen. Intet blev gemt.",
   "brand.section.voice": "Brandstemme",
   "brand.voice.help":
     "Fortæl Milo, hvordan dit indhold skal lyde, og hvilke formuleringer der skal undgås.",
