@@ -258,6 +258,8 @@ export const projectKnowledge = {
       "This document could not be extracted within the supported limits. Use a smaller, unencrypted PDF or DOCX, or enter an instruction manually.",
     "knowledge.ui.websiteUnreadable":
       "The website did not return enough readable text, so nothing was captured and your saved knowledge is unchanged. Check the address or try again later.",
+    "knowledge.ui.websiteTemporarilyUnavailable":
+      "The website reading service is starting up or busy, so nothing was captured and your saved knowledge is unchanged. Try again in a minute.",
     "knowledge.ui.changeFailed":
       "This change could not be confirmed. Refresh and check the saved version before trying again.",
     "knowledge.ui.forgetAll": "this source, its original document, derived records and history",
@@ -555,6 +557,8 @@ export const projectKnowledge = {
       "Nie udało się odczytać dokumentu w obsługiwanych limitach. Użyj mniejszego, niezaszyfrowanego pliku PDF lub DOCX albo wpisz instrukcję ręcznie.",
     "knowledge.ui.websiteUnreadable":
       "Strona nie zwróciła wystarczająco czytelnego tekstu, więc nic nie zostało pobrane, a zapisana wiedza pozostaje bez zmian. Sprawdź adres lub spróbuj ponownie później.",
+    "knowledge.ui.websiteTemporarilyUnavailable":
+      "Usługa odczytu stron uruchamia się lub jest zajęta, więc nic nie zostało pobrane, a zapisana wiedza pozostaje bez zmian. Spróbuj ponownie za minutę.",
     "knowledge.ui.changeFailed":
       "Nie udało się potwierdzić zmiany. Odśwież i sprawdź zapisaną wersję przed ponowną próbą.",
     "knowledge.ui.forgetAll": "to źródło, jego oryginalny dokument, pochodne wpisy i historię",
@@ -858,6 +862,8 @@ export const projectKnowledge = {
       "Dokumentet kunde inte extraheras inom de tillåtna gränserna. Använd en mindre, okrypterad PDF eller DOCX, eller skriv en instruktion manuellt.",
     "knowledge.ui.websiteUnreadable":
       "Webbplatsen returnerade inte tillräckligt med läsbar text, så inget hämtades och din sparade kunskap är oförändrad. Kontrollera adressen eller försök igen senare.",
+    "knowledge.ui.websiteTemporarilyUnavailable":
+      "Tjänsten som läser webbplatser startar eller är upptagen, så inget hämtades och din sparade kunskap är oförändrad. Försök igen om en minut.",
     "knowledge.ui.changeFailed":
       "Ändringen kunde inte bekräftas. Uppdatera och kontrollera den sparade versionen innan du försöker igen.",
     "knowledge.ui.forgetAll": "denna källa, dess originaldokument, härledda poster och historik",
@@ -1156,6 +1162,8 @@ export const projectKnowledge = {
       "Dokumentet kunne ikke udtrækkes inden for de tilladte grænser. Brug en mindre, ukrypteret PDF eller DOCX, eller skriv en instruktion manuelt.",
     "knowledge.ui.websiteUnreadable":
       "Webstedet returnerede ikke nok læsbar tekst, så intet blev hentet, og din gemte viden er uændret. Kontroller adressen, eller prøv igen senere.",
+    "knowledge.ui.websiteTemporarilyUnavailable":
+      "Tjenesten, der læser websteder, starter op eller er optaget, så intet blev hentet, og din gemte viden er uændret. Prøv igen om et minut.",
     "knowledge.ui.changeFailed":
       "Ændringen kunne ikke bekræftes. Opdater og kontroller den gemte version, før du prøver igen.",
     "knowledge.ui.forgetAll": "denne kilde, dens originaldokument, afledte poster og historik",

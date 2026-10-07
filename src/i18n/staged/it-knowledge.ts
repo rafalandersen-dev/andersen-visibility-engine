@@ -262,6 +262,8 @@ export const itKnowledge: Readonly<Record<string, string>> = {
     "Impossibile estrarre questo documento entro i limiti supportati. Usa un PDF o DOCX più piccolo e non crittografato oppure inserisci manualmente un’istruzione.",
   "knowledge.ui.websiteUnreadable":
     "Il sito web non ha restituito abbastanza testo leggibile, quindi non è stato acquisito nulla e la conoscenza salvata è invariata. Controlla l’indirizzo o riprova più tardi.",
+  "knowledge.ui.websiteTemporarilyUnavailable":
+    "Il servizio di lettura dei siti web si sta avviando o è occupato, quindi non è stato acquisito nulla e la conoscenza salvata è invariata. Riprova tra un minuto.",
   "knowledge.ui.changeFailed":
     "Impossibile confermare questa modifica. Aggiorna e controlla la versione salvata prima di riprovare.",
   "knowledge.ui.forgetAll":

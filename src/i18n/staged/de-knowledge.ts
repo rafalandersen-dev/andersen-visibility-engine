@@ -122,6 +122,8 @@ export const deKnowledge: Readonly<Record<string, string>> = {
     "Dieses Dokument konnte innerhalb der unterstützten Grenzen nicht extrahiert werden. Verwende ein kleineres, unverschlüsseltes PDF oder DOCX oder gib eine Anweisung manuell ein.",
   "knowledge.ui.websiteUnreadable":
     "Die Website lieferte nicht genug lesbaren Text, daher wurde nichts erfasst und Ihr gespeichertes Wissen bleibt unverändert. Prüfen Sie die Adresse oder versuchen Sie es später erneut.",
+  "knowledge.ui.websiteTemporarilyUnavailable":
+    "Der Dienst zum Lesen von Websites startet gerade oder ist ausgelastet, daher wurde nichts erfasst und Ihr gespeichertes Wissen bleibt unverändert. Versuchen Sie es in einer Minute erneut.",
   "knowledge.ui.changeFailed":
     "Diese Änderung konnte nicht bestätigt werden. Aktualisiere die Ansicht und prüfe die gespeicherte Version vor einem erneuten Versuch.",
   "knowledge.ui.forgetAll":

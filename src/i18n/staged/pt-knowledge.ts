@@ -262,6 +262,8 @@ export const ptKnowledge: Readonly<Record<string, string>> = {
     "Não foi possível extrair este documento dentro dos limites suportados. Utilize um PDF ou DOCX mais pequeno e sem encriptação, ou introduza uma instrução manualmente.",
   "knowledge.ui.websiteUnreadable":
     "O site não devolveu texto legível suficiente, por isso nada foi captado e o seu conhecimento guardado permanece inalterado. Verifique o endereço ou tente novamente mais tarde.",
+  "knowledge.ui.websiteTemporarilyUnavailable":
+    "O serviço de leitura de sites está a iniciar ou ocupado, por isso nada foi captado e o seu conhecimento guardado permanece inalterado. Tente novamente dentro de um minuto.",
   "knowledge.ui.changeFailed":
     "Não foi possível confirmar esta alteração. Atualize e verifique a versão guardada antes de tentar novamente.",
   "knowledge.ui.forgetAll":

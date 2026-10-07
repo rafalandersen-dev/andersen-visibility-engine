@@ -255,6 +255,8 @@ export const skKnowledge: Readonly<Record<string, string>> = {
     "Text tohto dokumentu sa nepodarilo extrahovať v podporovaných limitoch. Použite menší nešifrovaný PDF alebo DOCX alebo zadajte pokyn ručne.",
   "knowledge.ui.websiteUnreadable":
     "Web nevrátil dostatok čitateľného textu, takže sa nič nezachytilo a uložené znalosti zostávajú nezmenené. Skontrolujte adresu alebo to skúste neskôr znova.",
+  "knowledge.ui.websiteTemporarilyUnavailable":
+    "Služba na čítanie webov sa spúšťa alebo je zaneprázdnená, takže sa nič nezachytilo a uložené znalosti zostávajú nezmenené. Skúste to znova o minútu.",
   "knowledge.ui.changeFailed":
     "Túto zmenu sa nepodarilo potvrdiť. Pred opakovaním obnovte údaje a skontrolujte uloženú verziu.",
   "knowledge.ui.forgetAll": "tento zdroj, jeho pôvodný dokument, odvodené záznamy a históriu",

@@ -188,7 +188,7 @@ export const GA_STAGED_BATCHES = [
     copy: gaKnowledge,
     namespaces: ["knowledge", "weekly", "approval", "refresh"],
     sourceRevision: "ff9b085",
-    sourceHash: "c3e618b7a0da63afa9cb94ee232e917d78e2c7704c84d99659ac0112474dd13a",
+    sourceHash: "5cc639baf0f188d2a22148d0d12e4a93e6b0329be66fb3cfe1ef6f1c9c30a630",
   },
   {
     name: "technical",
