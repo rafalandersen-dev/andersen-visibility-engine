@@ -3,6 +3,7 @@ import { createServerFn } from "@tanstack/react-start";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { z } from "zod";
 import { operationalEmailEnabled, readOperationalEmailAddress } from "./operational-email.server";
+import { operationalEmailAllowedFor } from "./operational-email-gate";
 const preference = z.object({ enabled: z.boolean(), locale: emailLocaleSchema }).strict();
 const history = z
   .array(
@@ -50,7 +51,7 @@ export const getOperationalEmailSettingsFn = createServerFn({ method: "POST" })
     ]);
     if (prefs.error || sent.error) throw new Error("Email settings are temporarily unavailable.");
     return {
-      ready: operationalEmailEnabled(),
+      ready: operationalEmailEnabled() && operationalEmailAllowedFor(context.userId as string),
       addressVerification: address.status,
       preference: preference.parse(prefs.data ?? { enabled: false, locale: "en" }),
       history: history.parse(sent.data),
@@ -60,7 +61,10 @@ export const setOperationalEmailSettingsFn = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((input: unknown) => z.object({ enabled: z.boolean() }).strict().parse(input))
   .handler(async ({ context, data }) => {
-    if (data.enabled && !operationalEmailEnabled())
+    if (
+      data.enabled &&
+      (!operationalEmailEnabled() || !operationalEmailAllowedFor(context.userId as string))
+    )
       throw new Error("Operational email is not activated yet.");
     if (
       data.enabled &&

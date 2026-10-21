@@ -13,6 +13,7 @@ import {
   type OperationalEmailDependencies,
 } from "./operational-email.server";
 import type { TeamReadRpc } from "./project-team-read.server";
+import { teamInvitationEmailAllowedForOwner } from "./operational-email-gate";
 export async function requestTeamInvitationDelivery(
   actorId: string,
   raw: z.infer<typeof invitationDeliveryRequest>,
@@ -74,6 +75,8 @@ const claimSchema = z
   .strict();
 type Dependencies = Pick<OperationalEmailDependencies, "rpc" | "send"> & {
   recipient(email: string): Promise<{ email: string; unsubscribeToken: string }>;
+  /** Optional acceptance allowlist; see operational-email-gate.ts. */
+  ownerAllowed?(ownerId: string): boolean;
 };
 
 export function renderTeamInvitation(
@@ -105,6 +108,7 @@ export async function deliverOneTeamInvitation(deps: Dependencies) {
   };
   let target: Awaited<ReturnType<Dependencies["recipient"]>>;
   try {
+    if (deps.ownerAllowed && !deps.ownerAllowed(c.owner_id)) throw new Error("owner_not_allowed");
     target = await deps.recipient(c.email);
     if (target.email !== c.email) throw new Error("recipient_changed");
   } catch {
@@ -155,6 +159,7 @@ export async function runTeamInvitationWorker() {
     const result = await deliverOneTeamInvitation({
       rpc: (name, args) => db.rpc(name, args),
       recipient: resolveInvitationEmailRecipient,
+      ownerAllowed: teamInvitationEmailAllowedForOwner,
       send: async (p) => {
         let timer: ReturnType<typeof setTimeout> | undefined;
         try {
