@@ -3,6 +3,7 @@ import { emailCopy } from "@/i18n/email-copy";
 import { emailLocaleSchema } from "./email-languages";
 import { escapeEmailText as escape } from "./email-render";
 import { refreshOperationalNotifications } from "./operational-notifications.server";
+import { operationalEmailAllowedFor } from "./operational-email-gate";
 
 const claimSchema = z.object({
   id: z.string().uuid(),
@@ -221,7 +222,11 @@ export async function runOperationalEmailWorker() {
       rpc: (name, args) =>
         (db as unknown as Pick<OperationalEmailDependencies, "rpc">).rpc(name, args),
       refresh: refreshOperationalNotifications,
-      recipient: resolveOperationalEmailRecipient,
+      recipient: async (userId) => {
+        // A digest queued before an allowlist was set must not reach anyone else.
+        if (!operationalEmailAllowedFor(userId)) throw new Error("recipient_not_allowed");
+        return resolveOperationalEmailRecipient(userId);
+      },
       send: async (payload) => {
         let timer: ReturnType<typeof setTimeout> | undefined;
         try {

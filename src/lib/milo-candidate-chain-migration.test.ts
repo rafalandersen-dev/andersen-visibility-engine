@@ -81,6 +81,10 @@ const candidates = [
   // chains; unapplied until reviewed, additive over v3.
   "20260928120000_citation_change_evidence.sql",
 ];
+// Unapplied candidate outside this chain: it only re-pins the email queue wrappers, which this
+// fixture does not create, so it is enumerated (never silently released) but executed by its own
+// test against real pgmq SQL (email-queue-search-path-migration.test.ts).
+const independentCandidates = ["20261021120000_email_queue_search_path.sql"];
 const allowed = async (role: string, fn: string) =>
   (
     await db.query<{ allowed: boolean }>("SELECT has_function_privilege($1,$2,'EXECUTE') allowed", [
@@ -141,7 +145,7 @@ describe("candidate migration chain", () => {
     ].sort();
     expect(files.filter((file) => applied.includes(file))).toEqual(applied);
     const unapplied = files.filter((file) => !applied.includes(file));
-    expect(unapplied).toEqual(candidates);
+    expect(unapplied).toEqual([...candidates, ...independentCandidates].sort());
   });
   it.each([
     "read_citation_protocol(uuid,text)",

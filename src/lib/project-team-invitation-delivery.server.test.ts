@@ -90,6 +90,22 @@ describe("saved invitation delivery", () => {
       expect.anything(),
     );
   });
+  it("defers an owner outside TEAM_INVITATION_EMAIL_ALLOWED_OWNER_IDS before recipient work", async () => {
+    const { teamInvitationEmailAllowedForOwner } = await import("./operational-email-gate");
+    vi.stubEnv("TEAM_INVITATION_EMAIL_ALLOWED_OWNER_IDS", "00000000-0000-4000-8000-0000000000aa");
+    const d = { ...deps(), ownerAllowed: teamInvitationEmailAllowedForOwner };
+    expect(await deliverOneTeamInvitation(d)).toBe("deferred");
+    expect(d.recipient).not.toHaveBeenCalled();
+    expect(d.send).not.toHaveBeenCalled();
+    expect(d.rpc).toHaveBeenCalledWith("finish_project_team_invitation_delivery", {
+      p_id: id,
+      p_lease: id,
+      p_outcome: "preflight_unavailable",
+    });
+    vi.stubEnv("TEAM_INVITATION_EMAIL_ALLOWED_OWNER_IDS", `x,${owner}`);
+    const allowed = { ...deps(), ownerAllowed: teamInvitationEmailAllowedForOwner };
+    expect(await deliverOneTeamInvitation(allowed)).toBe("accepted");
+  });
   it("does not retry an uncertain transport", async () => {
     const d = deps();
     d.send.mockRejectedValue(new Error("timeout"));

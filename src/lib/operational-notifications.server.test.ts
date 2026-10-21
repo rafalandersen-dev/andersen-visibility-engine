@@ -249,6 +249,12 @@ describe("server notification snapshot boundary", () => {
     await refreshOperationalNotifications("owner");
     expect(mocks.rpc).toHaveBeenCalledTimes(1);
   });
+  it("does not queue a digest for an account outside OPERATIONAL_EMAIL_ALLOWED_USER_IDS", async () => {
+    vi.stubEnv("OPERATIONAL_EMAIL_ENABLED", "true");
+    vi.stubEnv("OPERATIONAL_EMAIL_ALLOWED_USER_IDS", "00000000-0000-4000-8000-0000000000aa");
+    expect(await refreshOperationalNotifications("owner")).toBe(true);
+    expect(mocks.rpc).not.toHaveBeenCalledWith("queue_operational_email_digest", expect.anything());
+  });
   it("keeps the inbox available when email queueing fails", async () => {
     vi.stubEnv("OPERATIONAL_EMAIL_ENABLED", "true");
     mocks.rpc
