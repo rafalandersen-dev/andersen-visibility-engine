@@ -247,4 +247,12 @@ export const lvMeasurements: Readonly<Record<string, string>> = {
   "gsc.integrity.separate": "Skatīt vietnes analītiku atsevišķi",
   "gsc.integrity.invalid":
     "CSV neizdevās validēt. Izmantojiet vienu Query, Page vai Date tabulu, ne vairāk kā 1 000 rindu / 2 MB, unikālas rindas un kolonnas, vienkāršas skaitliskās vērtības bez tūkstošu atdalītājiem un tukšas šūnas nepieejamiem rādītājiem. Norādiet derīgu rekvizītu un datumu periodu. Lapu URL jāpieder šim rekvizītam, un tajos nedrīkst būt akreditācijas datu, vaicājuma virkņu vai fragmentu.",
+  "gsc.sync.retryLater":
+    "Google Search Console neatbildēja laikā vai ierobežo pieprasījumus. Nekas netika saglabāts, un savienojums nav mainīts; lūdzu, mēģiniet vēlāk. Kods: {code}",
+  "gsc.sync.accessDenied":
+    "Google atteica šī īpašuma pārskatu pievienotajam kontam. Nekas netika saglabāts. Pārbaudiet konta piekļuvi īpašumam Search Console; pievienojieties atkārtoti tikai tad, ja šī piekļuve tika noņemta. Kods: {code}",
+  "gsc.sync.unreadable":
+    "Google atgrieza pārskatu, ko Milo nevarēja validēt, tāpēc nekas netika saglabāts un netika izdomāti skaitļi. Atkārtota pievienošana to neatrisinās; nosūtiet kodu atbalstam. Kods: {code}",
+  "gsc.warn.withheldPages":
+    "Aizturētās lapu rindas: {count}. To URL satur vaicājuma parametrus vai fragmentus, kuros var būt privātas vērtības. Lapu tabulā tās netiek rādītas; to datplūsma paliek īpašuma kopsummā.",
 };

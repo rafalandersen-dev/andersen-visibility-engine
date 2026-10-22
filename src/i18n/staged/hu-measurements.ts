@@ -245,4 +245,12 @@ export const huMeasurements = {
   "gsc.integrity.separate": "Webhelyen belüli analitika külön megtekintése",
   "gsc.integrity.invalid":
     "A CSV-t nem sikerült ellenőrizni. Használj egyetlen Query, Page vagy Date táblázatot, legfeljebb 1 000 sorral / 2 MB méretben, egyedi sorokkal és oszlopokkal, egyszerű számértékekkel ezreselválasztók nélkül, és üres cellákkal a nem elérhető mérőszámokhoz. Adj meg érvényes tulajdont és dátumtartományt. Az oldal-URL-eknek ehhez a tulajdonhoz kell tartozniuk, és nem tartalmazhatnak hitelesítési adatokat, lekérdezési paramétereket vagy töredékazonosítókat.",
+  "gsc.sync.retryLater":
+    "A Google Search Console nem válaszolt időben, vagy korlátozza a kéréseket. Semmi sem lett mentve, és a kapcsolat változatlan; próbáld újra később. Kód: {code}",
+  "gsc.sync.accessDenied":
+    "A Google megtagadta ennek a tulajdonnak a jelentését a csatlakoztatott fiók számára. Semmi sem lett mentve. Ellenőrizd a fiók hozzáférését a tulajdonhoz a Search Console-ban; csak akkor csatlakozz újra, ha a hozzáférést visszavonták. Kód: {code}",
+  "gsc.sync.unreadable":
+    "A Google olyan jelentést adott vissza, amelyet a Milo nem tudott ellenőrizni, ezért semmi sem lett mentve, és nem születtek kitalált számok. Az újracsatlakozás ezt nem javítja; oszd meg a kódot a támogatással. Kód: {code}",
+  "gsc.warn.withheldPages":
+    "Visszatartott oldalsorok: {count}. Az URL-jeik lekérdezési paramétereket vagy töredékazonosítókat tartalmaznak, amelyek privát értékeket hordozhatnak. Az oldaltáblázat kihagyja őket; a forgalmuk a tulajdon összesítésében marad.",
 } as const;

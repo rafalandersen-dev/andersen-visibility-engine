@@ -249,4 +249,12 @@ export const frMeasurements: Readonly<Record<string, string>> = {
   "gsc.integrity.separate": "Consulter séparément les analyses du site",
   "gsc.integrity.invalid":
     "Le CSV n’a pas pu être validé. Utilisez une seule table Requête, Page ou Date, au maximum 1 000 lignes / 2 Mo, des lignes et colonnes uniques, des valeurs numériques simples sans séparateurs de milliers et des cellules vides pour les mesures indisponibles. Fournissez une propriété et une période valides. Les URL des pages doivent appartenir à cette propriété et ne contenir ni identifiants, ni paramètres de requête, ni fragments.",
+  "gsc.sync.retryLater":
+    "Google Search Console n'a pas répondu à temps ou limite les requêtes. Rien n'a été enregistré et votre connexion est inchangée ; réessayez plus tard. Code : {code}",
+  "gsc.sync.accessDenied":
+    "Google a refusé le rapport de cette propriété pour le compte connecté. Rien n'a été enregistré. Vérifiez l'accès du compte à cette propriété dans Search Console ; reconnectez-vous uniquement si cet accès a été retiré. Code : {code}",
+  "gsc.sync.unreadable":
+    "Google a renvoyé un rapport que Milo n'a pas pu valider : rien n'a été enregistré et aucun chiffre n'a été inventé. Une reconnexion ne corrigera pas ce problème ; communiquez le code au support. Code : {code}",
+  "gsc.warn.withheldPages":
+    "Lignes de pages retenues : {count}. Leurs URL contiennent des paramètres de requête ou des fragments susceptibles de porter des valeurs privées. Le tableau des pages les omet ; leur trafic reste inclus dans l'agrégat de la propriété.",
 };

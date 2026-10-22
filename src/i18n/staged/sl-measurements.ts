@@ -245,4 +245,12 @@ export const slMeasurements: Readonly<Record<string, string>> = {
   "gsc.integrity.separate": "Analitiko spletnega mesta si oglejte ločeno",
   "gsc.integrity.invalid":
     "CSV-ja ni bilo mogoče preveriti. Uporabite eno tabelo Query, Page ali Date, največ 1 000 vrstic / 2 MB, enolične vrstice in stolpce, navadne številčne vrednosti brez ločil tisočic in prazne celice za nedostopne meritve. Navedite veljavno znamko in časovno obdobje. URL-ji strani morajo pripadati tej znamki in ne smejo vsebovati poverilnic, poizvedbenih nizov ali fragmentov.",
+  "gsc.sync.retryLater":
+    "Google Search Console ni odgovoril pravočasno ali omejuje zahteve. Nič ni bilo shranjeno in povezava ostaja nespremenjena; poskusite znova pozneje. Koda: {code}",
+  "gsc.sync.accessDenied":
+    "Google je zavrnil poročilo te lastnosti za povezani račun. Nič ni bilo shranjeno. Preverite dostop računa do lastnosti v Search Console; znova se povežite le, če je bil ta dostop odstranjen. Koda: {code}",
+  "gsc.sync.unreadable":
+    "Google je vrnil poročilo, ki ga Milo ni mogel preveriti, zato ni bilo nič shranjeno in nobena številka ni bila izmišljena. Ponovna povezava tega ne bo odpravila; kodo delite s podporo. Koda: {code}",
+  "gsc.warn.withheldPages":
+    "Zadržane vrstice strani: {count}. Njihovi URL-ji vsebujejo parametre poizvedbe ali fragmente, ki lahko nosijo zasebne vrednosti. Tabela strani jih izpušča; njihov promet ostaja v skupnem seštevku lastnosti.",
 };

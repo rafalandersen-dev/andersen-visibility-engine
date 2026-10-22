@@ -5,9 +5,31 @@ import type {
   GscRow,
   GscImport,
   GscImportSummary,
+  GscSyncDiagnostic,
   MatchedGscPagePerformance,
 } from "./types";
 export const MAX_ROWS_PER_IMPORT = 1000;
+/** What the owner can do about a failed sync; none of these asks for reconnection. */
+export function gscSyncAdvice(d: GscSyncDiagnostic): {
+  key: "gsc.sync.retryLater" | "gsc.sync.accessDenied" | "gsc.sync.unreadable";
+  code: string;
+} {
+  const key =
+    d.category === "access_denied"
+      ? "gsc.sync.accessDenied"
+      : d.category === "timeout" ||
+          d.category === "rate_limited" ||
+          d.category === "provider_unavailable"
+        ? "gsc.sync.retryLater"
+        : "gsc.sync.unreadable";
+  return { key, code: `${d.stage}/${d.category}` };
+}
+/** Explicit privacy-boundary omission count; only integrity-v2 API syncs carry one. */
+export function gscWithheldPageRows(imp: GscImport): number {
+  if (imp.integrityVersion !== 2 || imp.source !== "api") return 0;
+  const n = imp.withheldPageRows?.queryOrFragment;
+  return typeof n === "number" && Number.isSafeInteger(n) && n > 0 ? n : 0;
+}
 export const MAX_IMPORTS = 5;
 /** API refresh keeps the established rolling window; retained records are not rewritten. */
 export function retainGscApiImport(existing: GscImport[], imp: GscImport): GscImport[] {
@@ -67,15 +89,17 @@ export function gscMetric(value: unknown, kind: "count" | "ctr" | "position"): n
   if (kind === "position" && value < 1) return null;
   return value;
 }
+function gscUrlText(value: unknown): value is string {
+  return (
+    typeof value === "string" &&
+    value.length <= 2000 &&
+    !/[\s\\]/.test(value) &&
+    ![...value].some((c) => c.charCodeAt(0) < 32 || c.charCodeAt(0) === 127)
+  );
+}
 /** Do not discard a query/fragment or collapse www, case, slash, protocol or hostname. */
 export function gscPageUrl(value: unknown): string | null {
-  if (
-    typeof value !== "string" ||
-    value.length > 2000 ||
-    /[\s\\]/.test(value) ||
-    [...value].some((c) => c.charCodeAt(0) < 32 || c.charCodeAt(0) === 127)
-  )
-    return null;
+  if (!gscUrlText(value)) return null;
   try {
     const u = new URL(value);
     if (
@@ -110,6 +134,22 @@ export function gscPageInProperty(page: string, property: string): boolean {
     return host === domain || host.endsWith(`.${domain}`);
   }
   return url.startsWith(prop);
+}
+/** Synced page rows. A public in-property page whose only refused part is a query or
+ * fragment (for example a `?lang=en` variant) is a distinct real page, but its
+ * parameters may carry private values: it is withheld — counted, never retained and
+ * never stripped into another page's URL. Anything else (credentials, unsafe text,
+ * another protocol, outside the property) is a malformed report row. */
+export function classifyGscReportPage(
+  value: unknown,
+  property: string,
+): "retain" | "withhold" | "invalid" {
+  if (!gscUrlText(value)) return "invalid";
+  if (gscPageUrl(value)) return gscPageInProperty(value, property) ? "retain" : "invalid";
+  const cut = value.search(/[?#]/);
+  if (cut < 0) return "invalid";
+  const base = value.slice(0, cut);
+  return gscPageUrl(base) && gscPageInProperty(base, property) ? "withhold" : "invalid";
 }
 export function gscDay(value: string): boolean {
   return (

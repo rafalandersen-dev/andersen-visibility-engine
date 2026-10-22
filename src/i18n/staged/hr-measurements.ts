@@ -249,4 +249,12 @@ export const hrMeasurements: Readonly<Record<string, string>> = {
   "gsc.integrity.separate": "Zasebno pogledaj analitiku web-mjesta",
   "gsc.integrity.invalid":
     "CSV nije bilo moguće provjeriti. Koristite jednu tablicu Query, Page ili Date, najviše 1 000 redaka / 2 MB, jedinstvene retke i stupce, obične brojčane vrijednosti bez razdjelnika tisućica i prazne ćelije za nedostupne pokazatelje. Navedite valjan entitet i razdoblje. URL-ovi stranica moraju pripadati tom entitetu i ne smiju sadržavati vjerodajnice, upitne nizove ni fragmente.",
+  "gsc.sync.retryLater":
+    "Google Search Console nije odgovorio na vrijeme ili ograničava zahtjeve. Ništa nije spremljeno i veza je nepromijenjena; pokušajte ponovno kasnije. Kod: {code}",
+  "gsc.sync.accessDenied":
+    "Google je odbio izvješće ovog svojstva za povezani račun. Ništa nije spremljeno. Provjerite pristup računa svojstvu u Search Consoleu; ponovno se povežite samo ako je taj pristup uklonjen. Kod: {code}",
+  "gsc.sync.unreadable":
+    "Google je vratio izvješće koje Milo nije mogao provjeriti, pa ništa nije spremljeno i nisu izmišljene brojke. Ponovno povezivanje to neće riješiti; podijelite kod s podrškom. Kod: {code}",
+  "gsc.warn.withheldPages":
+    "Zadržani retci stranica: {count}. Njihovi URL-ovi sadrže parametre upita ili fragmente koji mogu nositi privatne vrijednosti. Tablica stranica ih izostavlja; njihov promet ostaje u ukupnom zbroju svojstva.",
 };

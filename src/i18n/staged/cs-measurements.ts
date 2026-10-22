@@ -244,4 +244,12 @@ export const csMeasurements: Readonly<Record<string, string>> = {
   "gsc.integrity.separate": "Zobrazit samostatně analytiku webu",
   "gsc.integrity.invalid":
     "CSV se nepodařilo ověřit. Použijte jednu tabulku Query, Page nebo Date, nejvýše 1 000 řádků / 2 MB, jedinečné řádky a sloupce, prosté číselné hodnoty bez oddělovačů tisíců a prázdné buňky pro nedostupné metriky. Uveďte platnou službu a období. URL stránek musí patřit k této službě a nesmí obsahovat přihlašovací údaje, parametry dotazu ani fragmenty.",
+  "gsc.sync.retryLater":
+    "Google Search Console neodpověděl včas nebo omezuje požadavky. Nic nebylo uloženo a připojení zůstává beze změny; zkuste to později. Kód: {code}",
+  "gsc.sync.accessDenied":
+    "Google odmítl přehled této služby pro připojený účet. Nic nebylo uloženo. Zkontrolujte přístup účtu ke službě v Search Console; znovu se připojte jen tehdy, pokud byl přístup odebrán. Kód: {code}",
+  "gsc.sync.unreadable":
+    "Google vrátil přehled, který Milo nedokázal ověřit, proto nebylo nic uloženo a nebyla vymyšlena žádná čísla. Opětovné připojení to nevyřeší; sdílejte kód s podporou. Kód: {code}",
+  "gsc.warn.withheldPages":
+    "Zadržené řádky stránek: {count}. Jejich adresy URL obsahují parametry dotazu nebo fragmenty, které mohou nést soukromé hodnoty. Tabulka stránek je vynechává; jejich návštěvnost zůstává v souhrnu služby.",
 };

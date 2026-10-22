@@ -248,4 +248,12 @@ export const gaMeasurements: Readonly<Record<string, string>> = {
   "gsc.integrity.separate": "Féach ar anailísíocht an tsuímh ar leith",
   "gsc.integrity.invalid":
     "Níorbh fhéidir an CSV a bhailíochtú. Úsáid tábla Query, Page nó Date amháin, gan níos mó ná 1 000 sraith / 2 MB, sraitheanna agus colúin uathúla, luachanna uimhriúla simplí gan deighilteoirí na mílte agus cealla folmha do mhéadrachtaí nach bhfuil ar fáil. Luaigh maoin agus raon dátaí bailí. Caithfidh URLanna leathanach a bheith faoin maoin seo agus gan dintiúir, teaghráin cheisteanna ná giotaí a bheith iontu.",
+  "gsc.sync.retryLater":
+    "Níor fhreagair Google Search Console in am nó tá sé ag teorannú iarratas. Níor sábháladh aon rud agus níl do nasc athraithe; bain triail eile as ar ball. Cód: {code}",
+  "gsc.sync.accessDenied":
+    "Dhiúltaigh Google tuarascáil an mhaoine seo don chuntas nasctha. Níor sábháladh aon rud. Seiceáil rochtain an chuntais ar an maoin in Search Console; athnasc amháin má baineadh an rochtain sin. Cód: {code}",
+  "gsc.sync.unreadable":
+    "Chuir Google tuarascáil ar ais nárbh fhéidir le Milo a bhailíochtú, mar sin níor sábháladh aon rud agus níor cumadh aon fhigiúirí. Ní réiteoidh athnascadh é seo; roinn an cód leis an tacaíocht. Cód: {code}",
+  "gsc.warn.withheldPages":
+    "Rónna leathanach a coinníodh siar: {count}. Tá paraiméadair iarratais nó blúirí ina URLanna a d'fhéadfadh luachanna príobháideacha a iompar. Fágann tábla na leathanach ar lár iad; fanann a dtrácht san iomlán comhiomlánaithe don mhaoin.",
 };

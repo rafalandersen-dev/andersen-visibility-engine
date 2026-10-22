@@ -248,4 +248,12 @@ export const esMeasurements: Readonly<Record<string, string>> = {
   "gsc.integrity.separate": "Ver la analítica del sitio por separado",
   "gsc.integrity.invalid":
     "No se ha podido validar el CSV. Utiliza una tabla de Consulta, Página o Fecha, con un máximo de 1000 filas / 2 MB, filas y columnas únicas, valores numéricos simples sin separadores de miles y celdas vacías para métricas no disponibles. Proporciona una propiedad y un intervalo de fechas válidos. Las URL de páginas deben pertenecer a esa propiedad y no contener credenciales, parámetros de consulta ni fragmentos.",
+  "gsc.sync.retryLater":
+    "Google Search Console no respondió a tiempo o está limitando las solicitudes. No se guardó nada y tu conexión no cambia; inténtalo de nuevo más tarde. Código: {code}",
+  "gsc.sync.accessDenied":
+    "Google rechazó el informe de esta propiedad para la cuenta conectada. No se guardó nada. Revisa el acceso de la cuenta a esta propiedad en Search Console; vuelve a conectar solo si se retiró ese acceso. Código: {code}",
+  "gsc.sync.unreadable":
+    "Google devolvió un informe que Milo no pudo validar, así que no se guardó nada y no se inventaron cifras. Volver a conectar no lo resolverá; comparte el código con soporte. Código: {code}",
+  "gsc.warn.withheldPages":
+    "Filas de páginas retenidas: {count}. Sus URL contienen parámetros de consulta o fragmentos que pueden llevar valores privados. La tabla de páginas las omite; su tráfico sigue incluido en el agregado de la propiedad.",
 };

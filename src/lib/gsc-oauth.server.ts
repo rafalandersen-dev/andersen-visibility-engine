@@ -9,16 +9,18 @@
  * - Offline access (refresh token) is requested ONLY when secure encryption is
  *   configured; otherwise sync is reported "not configured" and CSV remains.
  */
-import {
-  gscMetric,
-  gscPageUrl,
-  gscPageInProperty,
-  gscImportSummary,
-  detectImportType,
-} from "./gsc";
+import { gscMetric, classifyGscReportPage, gscImportSummary, detectImportType } from "./gsc";
 import { normalizePath } from "./analytics";
 import { encryptSecret, decryptSecret, isEncryptionConfigured } from "./crypto.server";
-import type { GscRow, GscImport, GscConnectionStatus, GscSiteEntry } from "./types";
+import type {
+  GscRow,
+  GscImport,
+  GscConnectionStatus,
+  GscSiteEntry,
+  GscSyncCategory,
+  GscSyncDiagnostic,
+  GscSyncStage,
+} from "./types";
 
 export const GSC_DEFAULT_SCOPE = "https://www.googleapis.com/auth/webmasters.readonly";
 export const GSC_MAX_API_ROWS = 1000; // matches the CSV per-import cap
@@ -335,18 +337,104 @@ async function getAccessToken(userId: string): Promise<string> {
 }
 
 // ---- Google Search Console API ----
+/** A provider/data failure after authorization succeeded. The message stays the
+ * established "api_error"; only the finite stage/category travel further — never
+ * provider bodies, query text, URLs, tokens or stacks. */
+export class GscSyncError extends Error {
+  constructor(
+    readonly category: GscSyncCategory,
+    readonly stage: GscSyncStage,
+  ) {
+    super("api_error");
+    this.name = "GscSyncError";
+  }
+}
+export function gscSyncDiagnostic(error: unknown): GscSyncDiagnostic | null {
+  return error instanceof GscSyncError ? { stage: error.stage, category: error.category } : null;
+}
+const GSC_REQUEST_TIMEOUT_MS = 20_000;
+const GSC_MAX_RESPONSE_BYTES = 2_000_000;
+function isTimeout(error: unknown) {
+  const name = (error as { name?: unknown } | null)?.name;
+  return name === "TimeoutError" || name === "AbortError";
+}
+/** One bounded request: no retry, fixed timeout, body size capped while reading. */
+async function gscRequestJson(
+  url: string,
+  init: RequestInit,
+  stage: GscSyncStage,
+  unauthorized: (status: number) => boolean,
+): Promise<unknown> {
+  let res: Response;
+  try {
+    res = await fetch(url, { ...init, signal: AbortSignal.timeout(GSC_REQUEST_TIMEOUT_MS) });
+  } catch (error) {
+    throw new GscSyncError(isTimeout(error) ? "timeout" : "provider_unavailable", stage);
+  }
+  if (unauthorized(res.status)) throw new Error("expired");
+  if (!res.ok) {
+    await res.body?.cancel().catch(() => {});
+    throw new GscSyncError(
+      res.status === 403
+        ? "access_denied"
+        : res.status === 429
+          ? "rate_limited"
+          : res.status >= 500
+            ? "provider_unavailable"
+            : "request_rejected",
+      stage,
+    );
+  }
+  const reader = res.body?.getReader();
+  if (!reader) throw new GscSyncError("response_malformed", stage);
+  const chunks: Uint8Array[] = [];
+  let size = 0;
+  try {
+    while (true) {
+      let part: ReadableStreamReadResult<Uint8Array>;
+      try {
+        part = await reader.read();
+      } catch (error) {
+        throw new GscSyncError(isTimeout(error) ? "timeout" : "provider_unavailable", stage);
+      }
+      if (part.done) break;
+      size += part.value.byteLength;
+      if (size > GSC_MAX_RESPONSE_BYTES) {
+        await reader.cancel().catch(() => {});
+        throw new GscSyncError("response_too_large", stage);
+      }
+      chunks.push(part.value);
+    }
+  } finally {
+    reader.releaseLock();
+  }
+  const bytes = new Uint8Array(size);
+  let offset = 0;
+  for (const chunk of chunks) {
+    bytes.set(chunk, offset);
+    offset += chunk.length;
+  }
+  try {
+    return JSON.parse(new TextDecoder("utf-8", { fatal: true }).decode(bytes));
+  } catch {
+    throw new GscSyncError("response_malformed", stage);
+  }
+}
+
 export async function listSites(userId: string): Promise<GscSiteEntry[]> {
   const accessToken = await getAccessToken(userId);
-  const res = await fetch("https://www.googleapis.com/webmasters/v3/sites", {
-    headers: { Authorization: `Bearer ${accessToken}` },
-  });
-  if (res.status === 401 || res.status === 403) throw new Error("expired");
-  if (!res.ok) throw new Error("api_error");
-  const json = (await res.json().catch(() => ({}))) as {
-    siteEntry?: { siteUrl?: string; permissionLevel?: string }[];
-  };
-  return (json.siteEntry ?? [])
-    .filter((s) => typeof s.siteUrl === "string")
+  const json = await gscRequestJson(
+    "https://www.googleapis.com/webmasters/v3/sites",
+    { headers: { Authorization: `Bearer ${accessToken}` } },
+    "sites",
+    (status) => status === 401 || status === 403,
+  );
+  if (!json || typeof json !== "object" || Array.isArray(json))
+    throw new GscSyncError("response_malformed", "sites");
+  const entries = (json as { siteEntry?: unknown }).siteEntry ?? [];
+  if (!Array.isArray(entries)) throw new GscSyncError("response_malformed", "sites");
+  return (entries as { siteUrl?: unknown; permissionLevel?: string }[])
+    .filter((s) => typeof s?.siteUrl === "string")
     .map((s) => ({ siteUrl: s.siteUrl as string, permissionLevel: s.permissionLevel }));
 }
 
@@ -410,48 +498,22 @@ async function querySearchAnalytics(
   dimension: "query" | "page" | "aggregate",
   limit: number,
 ): Promise<SaRow[]> {
-  const res = await fetch(
+  // Membership was just validated, so 403 here is a property/report refusal, not
+  // an expired connection; only 401 asks the owner to reconnect.
+  const json = await gscRequestJson(
     `https://www.googleapis.com/webmasters/v3/sites/${encodeURIComponent(siteUrl)}/searchAnalytics/query`,
     {
       method: "POST",
       headers: { Authorization: `Bearer ${accessToken}`, "Content-Type": "application/json" },
       body: JSON.stringify(body),
-      signal: AbortSignal.timeout(20000),
     },
+    dimension,
+    (status) => status === 401,
   );
-  if (res.status === 401 || res.status === 403) throw new Error("expired");
-  if (!res.ok) throw new Error("api_error");
-  // Bound the body while reading, before parsing or retaining provider fields.
-  const reader = res.body?.getReader();
-  if (!reader) throw Error("api_error");
-  const chunks: Uint8Array[] = [];
-  let size = 0;
   try {
-    while (true) {
-      const { value, done } = await reader.read();
-      if (done) break;
-      size += value.byteLength;
-      if (size > 2_000_000) {
-        await reader.cancel();
-        throw Error("api_error");
-      }
-      chunks.push(value);
-    }
-    const bytes = new Uint8Array(size);
-    let offset = 0;
-    for (const chunk of chunks) {
-      bytes.set(chunk, offset);
-      offset += chunk.length;
-    }
-    return normalizeSearchAnalyticsResponse(
-      JSON.parse(new TextDecoder("utf-8", { fatal: true }).decode(bytes)),
-      dimension,
-      limit,
-    );
+    return normalizeSearchAnalyticsResponse(json, dimension, limit);
   } catch {
-    throw Error("api_error");
-  } finally {
-    reader.releaseLock();
+    throw new GscSyncError("response_malformed", dimension);
   }
 }
 /** API calendar days are Pacific time; both endpoints are included. */
@@ -517,9 +579,19 @@ export async function syncSearchAnalytics(args: {
     query: r.keys![0],
     ...apiMetrics(r),
   }));
+  // A query/fragment page variant is a real distinct page whose parameters may be
+  // private: withhold it with an explicit count instead of failing the whole report
+  // or stripping it into another page. Its traffic stays inside the separately
+  // queried property aggregate; nothing is added to or subtracted from that total.
+  let withheld = 0;
   for (const r of pageRows) {
     const page = r.keys![0];
-    if (!gscPageUrl(page) || !gscPageInProperty(page, args.siteUrl)) throw Error("api_error");
+    const kind = classifyGscReportPage(page, args.siteUrl);
+    if (kind === "invalid") throw new GscSyncError("page_url_invalid", "page");
+    if (kind === "withhold") {
+      withheld++;
+      continue;
+    }
     rows.push({ type: "page", page, path: normalizePath(page), ...apiMetrics(r) });
   }
   const imp: GscImport = {
@@ -540,6 +612,7 @@ export async function syncSearchAnalytics(args: {
     selectedSiteUrl: args.siteUrl,
     dateRange: { start: startDate, end: endDate, label: `${args.range} · PT · web · final` },
     truncated: queryRows.length >= half || pageRows.length >= half,
+    withheldPageRows: { queryOrFragment: withheld },
   };
   imp.summary = gscImportSummary(imp);
   return imp;

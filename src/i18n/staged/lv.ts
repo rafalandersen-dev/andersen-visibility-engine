@@ -202,7 +202,7 @@ export const LV_STAGED_BATCHES = [
     copy: lvMeasurements,
     namespaces: ["analytics", "gsc", "report"],
     sourceRevision: "ff9b085",
-    sourceHash: "216126da773525ef913fe7e10a4db7af57539ea07dae497fd349051da3088395",
+    sourceHash: "2080a1c30718c7f9c9a2c3f414305a52232950b304c200e271c0b6945f125cb8",
   },
   {
     name: "outreach",

@@ -348,6 +348,8 @@ export interface GscImport {
   summary: GscImportSummary;
   /** True when the source had more rows than the per-import cap. */
   truncated?: boolean;
+  /** API page rows withheld at the privacy boundary (counted, URLs never retained). */
+  withheldPageRows?: { queryOrFragment: number };
   /** Search Console property this import was synced from (API imports). */
   selectedSiteUrl?: string;
 }
@@ -362,6 +364,22 @@ export interface GscLite {
 // are NEVER stored in JSONB — they live server-side only (google_connections).
 export type GscConnectionStatus =
   "notConfigured" | "disconnected" | "connected" | "expired" | "error";
+
+/** Finite, payload-free sync failure diagnostics (never provider text, URLs or tokens). */
+export type GscSyncStage = "sites" | "aggregate" | "query" | "page";
+export type GscSyncCategory =
+  | "access_denied"
+  | "rate_limited"
+  | "provider_unavailable"
+  | "request_rejected"
+  | "timeout"
+  | "response_too_large"
+  | "response_malformed"
+  | "page_url_invalid";
+export interface GscSyncDiagnostic {
+  stage: GscSyncStage;
+  category: GscSyncCategory;
+}
 
 export interface GscSelectedSite {
   siteUrl: string;
