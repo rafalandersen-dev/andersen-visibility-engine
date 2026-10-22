@@ -1,5 +1,12 @@
-import { mergeOwnerBrandEdits } from "@/lib/knowledge-brand";
-import { useState } from "react";
+import {
+  OWNER_FIELD_LABEL_KEYS,
+  ownerBrandBaseline,
+  saveOwnerBrandForm,
+  toBrandForm,
+  type BrandForm,
+} from "./brand-intelligence-form";
+import type { OwnerBrandField } from "@/lib/brand-owner-edits";
+import { useEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -11,15 +18,10 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { useStore, getState, updateProject, saveWorkspaceNow } from "@/lib/store";
+import { useStore } from "@/lib/store";
+import { storeBrandSaveDeps } from "./brand-intelligence-store-deps";
 import { useT } from "@/i18n";
-import type {
-  Project,
-  BrandIntelligence,
-  BrandOffer,
-  BrandInternalLink,
-  BrandMarketLanguageRule,
-} from "@/lib/types";
+import type { Project, BrandOffer, BrandInternalLink } from "@/lib/types";
 import { Plus, X } from "lucide-react";
 import { toast } from "sonner";
 import { ProjectKnowledgePanel } from "./ProjectKnowledgePanel";
@@ -36,109 +38,8 @@ const LINK_TYPES: BrandInternalLink["type"][] = [
 ];
 const PRIORITIES: BrandOffer["priority"][] = ["high", "medium", "low"];
 
-// ---- list <-> string helpers (forgiving: comma or newline separated) ----
-const toArr = (s: string): string[] =>
-  s
-    .split(/[\n,]/)
-    .map((x) => x.trim())
-    .filter(Boolean);
-const fromArr = (a: string[] | undefined): string => (a ?? []).join("\n");
-
-type Form = {
-  tone: string;
-  styleNotes: string;
-  wordsToUse: string;
-  wordsToAvoid: string;
-  allowedClaims: string;
-  forbiddenClaims: string;
-  requiredCaveats: string;
-  primaryOffers: BrandOffer[];
-  secondaryOffers: BrandOffer[];
-  proofPoints: string;
-  credentials: string;
-  testimonialsNotes: string;
-  trustSignals: string;
-  primaryCtaLabel: string;
-  primaryCtaUrl: string;
-  secondaryCtaLabel: string;
-  secondaryCtaUrl: string;
-  ctaStyleNotes: string;
-  internalLinks: BrandInternalLink[];
-  marketLanguageRules: BrandMarketLanguageRule[];
-  avoid: string;
-};
-
-function toForm(b: BrandIntelligence | undefined): Form {
-  return {
-    tone: b?.voice?.tone ?? "",
-    styleNotes: b?.voice?.styleNotes ?? "",
-    wordsToUse: fromArr(b?.voice?.wordsToUse),
-    wordsToAvoid: fromArr(b?.voice?.wordsToAvoid),
-    allowedClaims: fromArr(b?.claims?.allowedClaims),
-    forbiddenClaims: fromArr(b?.claims?.forbiddenClaims),
-    requiredCaveats: fromArr(b?.claims?.requiredCaveats),
-    primaryOffers: b?.offers?.primaryOffers ?? [],
-    secondaryOffers: b?.offers?.secondaryOffers ?? [],
-    proofPoints: fromArr(b?.proof?.proofPoints),
-    credentials: fromArr(b?.proof?.credentials),
-    testimonialsNotes: b?.proof?.testimonialsNotes ?? "",
-    trustSignals: fromArr(b?.proof?.trustSignals),
-    primaryCtaLabel: b?.ctas?.primaryCtaLabel ?? "",
-    primaryCtaUrl: b?.ctas?.primaryCtaUrl ?? "",
-    secondaryCtaLabel: b?.ctas?.secondaryCtaLabel ?? "",
-    secondaryCtaUrl: b?.ctas?.secondaryCtaUrl ?? "",
-    ctaStyleNotes: b?.ctas?.ctaStyleNotes ?? "",
-    internalLinks: b?.internalLinks ?? [],
-    marketLanguageRules: b?.marketLanguageRules ?? [],
-    avoid: fromArr(b?.avoid),
-  };
-}
-
-function buildBrand(f: Form): BrandIntelligence {
-  const cleanOffer = (o: BrandOffer): BrandOffer => ({
-    name: o.name.trim(),
-    type: o.type,
-    priority: o.priority,
-    description: o.description?.trim() || undefined,
-    url: o.url?.trim() || undefined,
-    targetAudience: o.targetAudience?.trim() || undefined,
-    notes: o.notes?.trim() || undefined,
-  });
-  return {
-    voice: {
-      tone: f.tone.trim() || undefined,
-      styleNotes: f.styleNotes.trim() || undefined,
-      wordsToUse: toArr(f.wordsToUse),
-      wordsToAvoid: toArr(f.wordsToAvoid),
-    },
-    claims: {
-      allowedClaims: toArr(f.allowedClaims),
-      forbiddenClaims: toArr(f.forbiddenClaims),
-      requiredCaveats: toArr(f.requiredCaveats),
-    },
-    offers: {
-      primaryOffers: f.primaryOffers.filter((o) => o.name.trim()).map(cleanOffer),
-      secondaryOffers: f.secondaryOffers.filter((o) => o.name.trim()).map(cleanOffer),
-    },
-    proof: {
-      proofPoints: toArr(f.proofPoints),
-      credentials: toArr(f.credentials),
-      testimonialsNotes: f.testimonialsNotes.trim() || undefined,
-      trustSignals: toArr(f.trustSignals),
-    },
-    ctas: {
-      primaryCtaLabel: f.primaryCtaLabel.trim() || undefined,
-      primaryCtaUrl: f.primaryCtaUrl.trim() || undefined,
-      secondaryCtaLabel: f.secondaryCtaLabel.trim() || undefined,
-      secondaryCtaUrl: f.secondaryCtaUrl.trim() || undefined,
-      ctaStyleNotes: f.ctaStyleNotes.trim() || undefined,
-    },
-    internalLinks: f.internalLinks.filter((l) => l.label.trim() || l.url.trim()),
-    marketLanguageRules: f.marketLanguageRules.filter((r) => (r.notes ?? "").trim()),
-    avoid: toArr(f.avoid),
-    updatedAt: new Date().toISOString(),
-  };
-}
+type Form = BrandForm;
+const toForm = toBrandForm;
 
 export function BrandIntelligenceCard({ project }: { project: Project }) {
   const { user } = useAuth();
@@ -151,7 +52,18 @@ function BrandIntelligenceEditor({ project }: { project: Project }) {
   const services = useStore((s) => s.services.filter((x) => x.projectId === project.id));
   const [f, setF] = useState<Form>(() => toForm(project.brandIntelligence));
   const [saving, setSaving] = useState(false);
-  const [baseline, setBaseline] = useState(project.brandIntelligence);
+  // The confirmed baseline: a value from this session's unconfirmed earlier attempt is
+  // shown in the form as an edit to retry, not adopted as already saved.
+  const [baseline, setBaseline] = useState(() =>
+    ownerBrandBaseline(project.id, project.brandIntelligence, storeBrandSaveDeps.sessionKey()),
+  );
+  const mounted = useRef(true);
+  useEffect(() => {
+    mounted.current = true;
+    return () => {
+      mounted.current = false;
+    };
+  }, []);
 
   const set = <K extends keyof Form>(k: K, v: Form[K]) => setF((p) => ({ ...p, [k]: v }));
 
@@ -174,30 +86,49 @@ function BrandIntelligenceEditor({ project }: { project: Project }) {
     toast.success(t("brand.offers.imported", { count: imported.length }));
   }
 
+  // Success is shown only after the requested values are confirmed in the saved
+  // workspace. Every failure keeps the entered form; the form is locked while saving.
   async function save() {
+    if (saving) return;
     setSaving(true);
+    const submitted = f;
+    // A result arriving after this editor closed (project switch, remount) names its
+    // project, so it is not read as being about the project now on screen.
+    const toastText = (text: string) => (mounted.current ? text : `${project.name}: ${text}`);
     try {
-      const current = getState().projects.find((item) => item.id === project.id);
-      if (!current) throw new Error("brand_profile_changed");
-      const brandIntelligence = mergeOwnerBrandEdits(
-        baseline,
-        buildBrand(f),
-        current.brandIntelligence,
-        new Date().toISOString(),
-      );
-      if (brandIntelligence) updateProject(project.id, { brandIntelligence });
-      await saveWorkspaceNow();
-      setBaseline(brandIntelligence);
-      setF(toForm(brandIntelligence));
-      toast.success(t("brand.toast.saved"));
-    } catch (e) {
-      toast.error(
-        e instanceof Error && e.message === "brand_profile_changed"
-          ? t("knowledge.ui.projectChanged")
-          : e instanceof Error
-            ? e.message
-            : t("onboarding.toast.saveError"),
-      );
+      const result = await saveOwnerBrandForm(project.id, submitted, baseline, storeBrandSaveDeps);
+      switch (result.status) {
+        case "saved":
+          setBaseline(result.brand);
+          setF((prev) => (prev === submitted ? toForm(result.brand) : prev));
+          toast.success(toastText(t("brand.toast.saved")));
+          break;
+        case "noop":
+          toast.message(toastText(t("brand.toast.noChanges")));
+          break;
+        case "conflict":
+          toast.error(toastText(t("knowledge.ui.projectChanged")));
+          break;
+        case "invalid": {
+          const { code, field, index } = result.error;
+          const label = t(OWNER_FIELD_LABEL_KEYS[field as OwnerBrandField] ?? "brand.title");
+          const row = index === undefined ? "" : ` (${t("brand.error.row", { row: index + 1 })})`;
+          const reason = ["required", "tooLong", "invalidUrl", "limit"].includes(code)
+            ? `brand.error.${code}`
+            : "brand.error.unsupported";
+          toast.error(toastText(`${label}${row}: ${t(reason)}`));
+          break;
+        }
+        case "unavailable":
+          toast.error(toastText(t("shell.producer.notReady")));
+          break;
+        case "failed":
+          // The entered values stay in the form; the attempt is remembered for retry/revert.
+          toast.error(toastText(t("shell.signOutDialog.title")));
+          break;
+      }
+    } catch {
+      toast.error(toastText(t("onboarding.toast.saveError")));
     } finally {
       setSaving(false);
     }
@@ -211,353 +142,362 @@ function BrandIntelligenceEditor({ project }: { project: Project }) {
       <div className="my-4 gold-rule" />
       <p className="text-sm text-muted-foreground max-w-2xl">{t("brand.intro")}</p>
 
-      {/* 1. Brand voice */}
-      <Group title={t("brand.section.voice")} help={t("brand.voice.help")}>
-        <TextField label={t("brand.voice.tone")} value={f.tone} onChange={(v) => set("tone", v)} />
-        <TextField
-          label={t("brand.voice.styleNotes")}
-          value={f.styleNotes}
-          onChange={(v) => set("styleNotes", v)}
-        />
-        <ListField
-          label={t("brand.voice.wordsToUse")}
-          value={f.wordsToUse}
-          onChange={(v) => set("wordsToUse", v)}
-          hint={t("brand.listHint")}
-        />
-        <ListField
-          label={t("brand.voice.wordsToAvoid")}
-          value={f.wordsToAvoid}
-          onChange={(v) => set("wordsToAvoid", v)}
-          hint={t("brand.listHint")}
-        />
-      </Group>
+      {/* Locked while a save is pending so its completion cannot overwrite newer typing. */}
+      <fieldset disabled={saving} aria-busy={saving} className="m-0 min-w-0 border-0 p-0">
+        {/* 1. Brand voice */}
+        <Group title={t("brand.section.voice")} help={t("brand.voice.help")}>
+          <TextField
+            label={t("brand.voice.tone")}
+            value={f.tone}
+            onChange={(v) => set("tone", v)}
+          />
+          <TextField
+            label={t("brand.voice.styleNotes")}
+            value={f.styleNotes}
+            onChange={(v) => set("styleNotes", v)}
+          />
+          <ListField
+            label={t("brand.voice.wordsToUse")}
+            value={f.wordsToUse}
+            onChange={(v) => set("wordsToUse", v)}
+            hint={t("brand.listHint")}
+          />
+          <ListField
+            label={t("brand.voice.wordsToAvoid")}
+            value={f.wordsToAvoid}
+            onChange={(v) => set("wordsToAvoid", v)}
+            hint={t("brand.listHint")}
+          />
+        </Group>
 
-      {/* 2. Claims & safety */}
-      <Group title={t("brand.section.claims")} help={t("brand.claims.help")}>
-        <ListField
-          label={t("brand.claims.allowed")}
-          value={f.allowedClaims}
-          onChange={(v) => set("allowedClaims", v)}
-          hint={t("brand.listHint")}
-        />
-        <ListField
-          label={t("brand.claims.forbidden")}
-          value={f.forbiddenClaims}
-          onChange={(v) => set("forbiddenClaims", v)}
-          hint={t("brand.listHint")}
-        />
-        <ListField
-          label={t("brand.claims.caveats")}
-          value={f.requiredCaveats}
-          onChange={(v) => set("requiredCaveats", v)}
-          hint={t("brand.listHint")}
-        />
-      </Group>
+        {/* 2. Claims & safety */}
+        <Group title={t("brand.section.claims")} help={t("brand.claims.help")}>
+          <ListField
+            label={t("brand.claims.allowed")}
+            value={f.allowedClaims}
+            onChange={(v) => set("allowedClaims", v)}
+            hint={t("brand.listHint")}
+          />
+          <ListField
+            label={t("brand.claims.forbidden")}
+            value={f.forbiddenClaims}
+            onChange={(v) => set("forbiddenClaims", v)}
+            hint={t("brand.listHint")}
+          />
+          <ListField
+            label={t("brand.claims.caveats")}
+            value={f.requiredCaveats}
+            onChange={(v) => set("requiredCaveats", v)}
+            hint={t("brand.listHint")}
+          />
+        </Group>
 
-      {/* 3. Offers */}
-      <Group
-        title={t("brand.section.offers")}
-        action={
-          <div className="flex flex-wrap gap-2">
-            {services.length ? (
-              <Button size="sm" variant="outline" onClick={importFromServices}>
-                {t("brand.offers.import")}
+        {/* 3. Offers */}
+        <Group
+          title={t("brand.section.offers")}
+          action={
+            <div className="flex flex-wrap gap-2">
+              {services.length ? (
+                <Button size="sm" variant="outline" onClick={importFromServices}>
+                  {t("brand.offers.import")}
+                </Button>
+              ) : null}
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() =>
+                  set("primaryOffers", [
+                    ...f.primaryOffers,
+                    { name: "", type: "service", priority: "medium" },
+                  ])
+                }
+              >
+                <Plus className="h-3.5 w-3.5" /> {t("brand.offers.add")}
               </Button>
-            ) : null}
+            </div>
+          }
+        >
+          <div className="md:col-span-2 min-w-0 space-y-3">
+            <div className="text-xs font-medium text-muted-foreground">
+              {t("brand.offers.primary")}
+            </div>
+            <OfferList offers={f.primaryOffers} onChange={(o) => set("primaryOffers", o)} t={t} />
+            <div className="text-xs font-medium text-muted-foreground pt-2">
+              {t("brand.offers.secondary")}
+            </div>
+            <OfferList
+              offers={f.secondaryOffers}
+              onChange={(o) => set("secondaryOffers", o)}
+              t={t}
+              addLabel={t("brand.offers.add")}
+            />
+          </div>
+        </Group>
+
+        {/* 4. Proof & trust */}
+        <Group title={t("brand.section.proof")}>
+          <ListField
+            label={t("brand.proof.points")}
+            value={f.proofPoints}
+            onChange={(v) => set("proofPoints", v)}
+            hint={t("brand.listHint")}
+          />
+          <ListField
+            label={t("brand.proof.credentials")}
+            value={f.credentials}
+            onChange={(v) => set("credentials", v)}
+            hint={t("brand.listHint")}
+          />
+          <ListField
+            label={t("brand.proof.trustSignals")}
+            value={f.trustSignals}
+            onChange={(v) => set("trustSignals", v)}
+            hint={t("brand.listHint")}
+          />
+          <TextField
+            label={t("brand.proof.testimonials")}
+            value={f.testimonialsNotes}
+            onChange={(v) => set("testimonialsNotes", v)}
+          />
+        </Group>
+
+        {/* 5. CTA preferences */}
+        <Group title={t("brand.section.cta")}>
+          <TextField
+            label={t("brand.cta.primaryLabel")}
+            value={f.primaryCtaLabel}
+            onChange={(v) => set("primaryCtaLabel", v)}
+          />
+          <TextField
+            label={t("brand.cta.primaryUrl")}
+            value={f.primaryCtaUrl}
+            onChange={(v) => set("primaryCtaUrl", v)}
+            placeholder="/book"
+          />
+          <TextField
+            label={t("brand.cta.secondaryLabel")}
+            value={f.secondaryCtaLabel}
+            onChange={(v) => set("secondaryCtaLabel", v)}
+          />
+          <TextField
+            label={t("brand.cta.secondaryUrl")}
+            value={f.secondaryCtaUrl}
+            onChange={(v) => set("secondaryCtaUrl", v)}
+            placeholder="/pricing"
+          />
+          <TextField
+            label={t("brand.cta.styleNotes")}
+            value={f.ctaStyleNotes}
+            onChange={(v) => set("ctaStyleNotes", v)}
+            full
+          />
+        </Group>
+
+        {/* 6. Internal links */}
+        <Group
+          title={t("brand.section.links")}
+          action={
             <Button
               size="sm"
               variant="outline"
               onClick={() =>
-                set("primaryOffers", [
-                  ...f.primaryOffers,
-                  { name: "", type: "service", priority: "medium" },
+                set("internalLinks", [
+                  ...f.internalLinks,
+                  { label: "", url: "", type: "service", priority: "medium" },
                 ])
               }
             >
-              <Plus className="h-3.5 w-3.5" /> {t("brand.offers.add")}
+              <Plus className="h-3.5 w-3.5" /> {t("brand.links.add")}
             </Button>
+          }
+        >
+          <div className="md:col-span-2 space-y-2">
+            {f.internalLinks.length === 0 ? (
+              <p className="text-sm text-muted-foreground">{t("brand.links.empty")}</p>
+            ) : null}
+            {f.internalLinks.map((l, i) => (
+              <div
+                key={i}
+                className="rounded-md border border-border p-2 grid sm:grid-cols-[1fr,1fr,140px,120px,auto] gap-2 items-center"
+              >
+                <Input
+                  placeholder={t("brand.field.label")}
+                  value={l.label ?? ""}
+                  onChange={(e) =>
+                    set(
+                      "internalLinks",
+                      f.internalLinks.map((x, j) =>
+                        j === i ? { ...x, label: e.target.value } : x,
+                      ),
+                    )
+                  }
+                />
+                <Input
+                  placeholder="/your-page-path"
+                  value={l.url ?? ""}
+                  onChange={(e) =>
+                    set(
+                      "internalLinks",
+                      f.internalLinks.map((x, j) => (j === i ? { ...x, url: e.target.value } : x)),
+                    )
+                  }
+                />
+                <Select
+                  value={l.type}
+                  onValueChange={(v) =>
+                    set(
+                      "internalLinks",
+                      f.internalLinks.map((x, j) =>
+                        j === i ? { ...x, type: v as BrandInternalLink["type"] } : x,
+                      ),
+                    )
+                  }
+                >
+                  <SelectTrigger className="h-9 text-xs">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {LINK_TYPES.map((tp) => (
+                      <SelectItem key={tp} value={tp}>
+                        {tp}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <Select
+                  value={l.priority}
+                  onValueChange={(v) =>
+                    set(
+                      "internalLinks",
+                      f.internalLinks.map((x, j) =>
+                        j === i ? { ...x, priority: v as BrandInternalLink["priority"] } : x,
+                      ),
+                    )
+                  }
+                >
+                  <SelectTrigger className="h-9 text-xs">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {PRIORITIES.map((pr) => (
+                      <SelectItem key={pr} value={pr}>
+                        {t(`common.${pr}`)}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <Button
+                  size="icon"
+                  variant="ghost"
+                  className="h-9 w-9 text-muted-foreground hover:text-destructive"
+                  onClick={() =>
+                    set(
+                      "internalLinks",
+                      f.internalLinks.filter((_, j) => j !== i),
+                    )
+                  }
+                  aria-label={t("brand.remove")}
+                >
+                  <X className="h-4 w-4" />
+                </Button>
+              </div>
+            ))}
           </div>
-        }
-      >
-        <div className="md:col-span-2 min-w-0 space-y-3">
-          <div className="text-xs font-medium text-muted-foreground">
-            {t("brand.offers.primary")}
+        </Group>
+
+        {/* 7. Market/language rules */}
+        <Group
+          title={t("brand.section.rules")}
+          action={
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() =>
+                set("marketLanguageRules", [
+                  ...f.marketLanguageRules,
+                  { market: "", language: "", notes: "" },
+                ])
+              }
+            >
+              <Plus className="h-3.5 w-3.5" /> {t("brand.rules.add")}
+            </Button>
+          }
+        >
+          <div className="md:col-span-2 space-y-2">
+            {f.marketLanguageRules.length === 0 ? (
+              <p className="text-sm text-muted-foreground">{t("brand.rules.empty")}</p>
+            ) : null}
+            {f.marketLanguageRules.map((r, i) => (
+              <div
+                key={i}
+                className="rounded-md border border-border p-2 grid sm:grid-cols-[120px,120px,1fr,auto] gap-2 items-center"
+              >
+                <Input
+                  placeholder={t("brand.rules.market")}
+                  value={r.market ?? ""}
+                  onChange={(e) =>
+                    set(
+                      "marketLanguageRules",
+                      f.marketLanguageRules.map((x, j) =>
+                        j === i ? { ...x, market: e.target.value } : x,
+                      ),
+                    )
+                  }
+                />
+                <Input
+                  placeholder={t("brand.rules.language")}
+                  value={r.language ?? ""}
+                  onChange={(e) =>
+                    set(
+                      "marketLanguageRules",
+                      f.marketLanguageRules.map((x, j) =>
+                        j === i ? { ...x, language: e.target.value } : x,
+                      ),
+                    )
+                  }
+                />
+                <Input
+                  placeholder={t("brand.field.notes")}
+                  value={r.notes ?? ""}
+                  onChange={(e) =>
+                    set(
+                      "marketLanguageRules",
+                      f.marketLanguageRules.map((x, j) =>
+                        j === i ? { ...x, notes: e.target.value } : x,
+                      ),
+                    )
+                  }
+                />
+                <Button
+                  size="icon"
+                  variant="ghost"
+                  className="h-9 w-9 text-muted-foreground hover:text-destructive"
+                  onClick={() =>
+                    set(
+                      "marketLanguageRules",
+                      f.marketLanguageRules.filter((_, j) => j !== i),
+                    )
+                  }
+                  aria-label={t("brand.remove")}
+                >
+                  <X className="h-4 w-4" />
+                </Button>
+              </div>
+            ))}
           </div>
-          <OfferList offers={f.primaryOffers} onChange={(o) => set("primaryOffers", o)} t={t} />
-          <div className="text-xs font-medium text-muted-foreground pt-2">
-            {t("brand.offers.secondary")}
-          </div>
-          <OfferList
-            offers={f.secondaryOffers}
-            onChange={(o) => set("secondaryOffers", o)}
-            t={t}
-            addLabel={t("brand.offers.add")}
+        </Group>
+
+        {/* 8. Things to avoid */}
+        <Group title={t("brand.section.avoid")} help={t("brand.avoid.help")}>
+          <ListField
+            label={t("brand.section.avoid")}
+            value={f.avoid}
+            onChange={(v) => set("avoid", v)}
+            hint={t("brand.listHint")}
+            full
           />
-        </div>
-      </Group>
-
-      {/* 4. Proof & trust */}
-      <Group title={t("brand.section.proof")}>
-        <ListField
-          label={t("brand.proof.points")}
-          value={f.proofPoints}
-          onChange={(v) => set("proofPoints", v)}
-          hint={t("brand.listHint")}
-        />
-        <ListField
-          label={t("brand.proof.credentials")}
-          value={f.credentials}
-          onChange={(v) => set("credentials", v)}
-          hint={t("brand.listHint")}
-        />
-        <ListField
-          label={t("brand.proof.trustSignals")}
-          value={f.trustSignals}
-          onChange={(v) => set("trustSignals", v)}
-          hint={t("brand.listHint")}
-        />
-        <TextField
-          label={t("brand.proof.testimonials")}
-          value={f.testimonialsNotes}
-          onChange={(v) => set("testimonialsNotes", v)}
-        />
-      </Group>
-
-      {/* 5. CTA preferences */}
-      <Group title={t("brand.section.cta")}>
-        <TextField
-          label={t("brand.cta.primaryLabel")}
-          value={f.primaryCtaLabel}
-          onChange={(v) => set("primaryCtaLabel", v)}
-        />
-        <TextField
-          label={t("brand.cta.primaryUrl")}
-          value={f.primaryCtaUrl}
-          onChange={(v) => set("primaryCtaUrl", v)}
-          placeholder="/book"
-        />
-        <TextField
-          label={t("brand.cta.secondaryLabel")}
-          value={f.secondaryCtaLabel}
-          onChange={(v) => set("secondaryCtaLabel", v)}
-        />
-        <TextField
-          label={t("brand.cta.secondaryUrl")}
-          value={f.secondaryCtaUrl}
-          onChange={(v) => set("secondaryCtaUrl", v)}
-          placeholder="/pricing"
-        />
-        <TextField
-          label={t("brand.cta.styleNotes")}
-          value={f.ctaStyleNotes}
-          onChange={(v) => set("ctaStyleNotes", v)}
-          full
-        />
-      </Group>
-
-      {/* 6. Internal links */}
-      <Group
-        title={t("brand.section.links")}
-        action={
-          <Button
-            size="sm"
-            variant="outline"
-            onClick={() =>
-              set("internalLinks", [
-                ...f.internalLinks,
-                { label: "", url: "", type: "service", priority: "medium" },
-              ])
-            }
-          >
-            <Plus className="h-3.5 w-3.5" /> {t("brand.links.add")}
-          </Button>
-        }
-      >
-        <div className="md:col-span-2 space-y-2">
-          {f.internalLinks.length === 0 ? (
-            <p className="text-sm text-muted-foreground">{t("brand.links.empty")}</p>
-          ) : null}
-          {f.internalLinks.map((l, i) => (
-            <div
-              key={i}
-              className="rounded-md border border-border p-2 grid sm:grid-cols-[1fr,1fr,140px,120px,auto] gap-2 items-center"
-            >
-              <Input
-                placeholder={t("brand.field.label")}
-                value={l.label}
-                onChange={(e) =>
-                  set(
-                    "internalLinks",
-                    f.internalLinks.map((x, j) => (j === i ? { ...x, label: e.target.value } : x)),
-                  )
-                }
-              />
-              <Input
-                placeholder="/your-page-path"
-                value={l.url}
-                onChange={(e) =>
-                  set(
-                    "internalLinks",
-                    f.internalLinks.map((x, j) => (j === i ? { ...x, url: e.target.value } : x)),
-                  )
-                }
-              />
-              <Select
-                value={l.type}
-                onValueChange={(v) =>
-                  set(
-                    "internalLinks",
-                    f.internalLinks.map((x, j) =>
-                      j === i ? { ...x, type: v as BrandInternalLink["type"] } : x,
-                    ),
-                  )
-                }
-              >
-                <SelectTrigger className="h-9 text-xs">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {LINK_TYPES.map((tp) => (
-                    <SelectItem key={tp} value={tp}>
-                      {tp}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              <Select
-                value={l.priority}
-                onValueChange={(v) =>
-                  set(
-                    "internalLinks",
-                    f.internalLinks.map((x, j) =>
-                      j === i ? { ...x, priority: v as BrandInternalLink["priority"] } : x,
-                    ),
-                  )
-                }
-              >
-                <SelectTrigger className="h-9 text-xs">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {PRIORITIES.map((pr) => (
-                    <SelectItem key={pr} value={pr}>
-                      {t(`common.${pr}`)}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              <Button
-                size="icon"
-                variant="ghost"
-                className="h-9 w-9 text-muted-foreground hover:text-destructive"
-                onClick={() =>
-                  set(
-                    "internalLinks",
-                    f.internalLinks.filter((_, j) => j !== i),
-                  )
-                }
-                aria-label={t("brand.remove")}
-              >
-                <X className="h-4 w-4" />
-              </Button>
-            </div>
-          ))}
-        </div>
-      </Group>
-
-      {/* 7. Market/language rules */}
-      <Group
-        title={t("brand.section.rules")}
-        action={
-          <Button
-            size="sm"
-            variant="outline"
-            onClick={() =>
-              set("marketLanguageRules", [
-                ...f.marketLanguageRules,
-                { market: "", language: "", notes: "" },
-              ])
-            }
-          >
-            <Plus className="h-3.5 w-3.5" /> {t("brand.rules.add")}
-          </Button>
-        }
-      >
-        <div className="md:col-span-2 space-y-2">
-          {f.marketLanguageRules.length === 0 ? (
-            <p className="text-sm text-muted-foreground">{t("brand.rules.empty")}</p>
-          ) : null}
-          {f.marketLanguageRules.map((r, i) => (
-            <div
-              key={i}
-              className="rounded-md border border-border p-2 grid sm:grid-cols-[120px,120px,1fr,auto] gap-2 items-center"
-            >
-              <Input
-                placeholder={t("brand.rules.market")}
-                value={r.market ?? ""}
-                onChange={(e) =>
-                  set(
-                    "marketLanguageRules",
-                    f.marketLanguageRules.map((x, j) =>
-                      j === i ? { ...x, market: e.target.value } : x,
-                    ),
-                  )
-                }
-              />
-              <Input
-                placeholder={t("brand.rules.language")}
-                value={r.language ?? ""}
-                onChange={(e) =>
-                  set(
-                    "marketLanguageRules",
-                    f.marketLanguageRules.map((x, j) =>
-                      j === i ? { ...x, language: e.target.value } : x,
-                    ),
-                  )
-                }
-              />
-              <Input
-                placeholder={t("brand.field.notes")}
-                value={r.notes ?? ""}
-                onChange={(e) =>
-                  set(
-                    "marketLanguageRules",
-                    f.marketLanguageRules.map((x, j) =>
-                      j === i ? { ...x, notes: e.target.value } : x,
-                    ),
-                  )
-                }
-              />
-              <Button
-                size="icon"
-                variant="ghost"
-                className="h-9 w-9 text-muted-foreground hover:text-destructive"
-                onClick={() =>
-                  set(
-                    "marketLanguageRules",
-                    f.marketLanguageRules.filter((_, j) => j !== i),
-                  )
-                }
-                aria-label={t("brand.remove")}
-              >
-                <X className="h-4 w-4" />
-              </Button>
-            </div>
-          ))}
-        </div>
-      </Group>
-
-      {/* 8. Things to avoid */}
-      <Group title={t("brand.section.avoid")} help={t("brand.avoid.help")}>
-        <ListField
-          label={t("brand.section.avoid")}
-          value={f.avoid}
-          onChange={(v) => set("avoid", v)}
-          hint={t("brand.listHint")}
-          full
-        />
-      </Group>
+        </Group>
+      </fieldset>
 
       <div className="mt-5 flex justify-end">
         <Button onClick={save} disabled={saving}>

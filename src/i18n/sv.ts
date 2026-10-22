@@ -546,6 +546,13 @@ export const sv: Record<string, string> = {
   "brand.remove": "Ta bort",
   "brand.listHint": "En per rad eller kommaseparerade.",
   "brand.toast.saved": "Varumärkesintelligens sparad",
+  "brand.toast.noChanges": "Inga ändringar att spara.",
+  "brand.error.row": "rad {row}",
+  "brand.error.required": "ett namn (erbjudanden) eller både etikett och URL (länkar) krävs. Inget sparades.",
+  "brand.error.tooLong": "texten är för lång. Inget sparades.",
+  "brand.error.invalidUrl": "använd en HTTPS-adress eller en sökväg som börjar med ett enda /, till exempel /kontakt. Andra scheman och mellanslag är inte tillåtna. Inget sparades.",
+  "brand.error.limit": "listan är full, så den nya posten lades inte till. Ta bort en först. Inget sparades.",
+  "brand.error.unsupported": "det här värdet kan inte redigeras här. Ladda om sidan och försök igen. Inget sparades.",
   "brand.section.voice": "Varumärkesröst",
   "brand.voice.help":
     "Berätta för Milo hur ditt innehåll ska låta och vilka formuleringar du vill undvika.",

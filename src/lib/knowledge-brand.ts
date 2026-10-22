@@ -1,9 +1,4 @@
-import {
-  brandProposal,
-  brandProposalEntries,
-  mergeBrandProposal,
-  type BrandProposal,
-} from "./brand-proposal";
+import { brandProposal, mergeBrandProposal, type BrandProposal } from "./brand-proposal";
 import type { BrandIntelligence } from "./types";
 import type { BrandDocumentSegment } from "./brand-document";
 import type { KnowledgeRecord, KnowledgeSelection } from "./project-knowledge";
@@ -161,33 +156,9 @@ export function resolveKnowledgeBrand(
   }
   return brand;
 }
-/** Mark only changed fields, including clears; a routine save cannot adopt derived values. */
-export function changedBrandOwnerFields(
-  before: BrandIntelligence | undefined,
-  after: BrandIntelligence,
-  prior: string[] = [],
-) {
-  const fields = new Set([
-    ...brandProposalEntries(
-      before && Object.fromEntries(Object.entries(before).filter(([key]) => key !== "updatedAt")),
-    ).map((x) => x.field),
-    ...knowledgeBrandFields.map((x) => x.field),
-  ]);
-  for (const entry of brandProposalEntries(
-    Object.fromEntries(Object.entries(after).filter(([key]) => key !== "updatedAt")),
-  ))
-    fields.add(entry.field);
-  return [
-    ...new Set([
-      ...prior,
-      ...[...fields].filter((field) => {
-        const a = brandFieldValue(before, field),
-          b = brandFieldValue(after, field);
-        return !(blank(a) && blank(b)) && JSON.stringify(a) !== JSON.stringify(b);
-      }),
-    ]),
-  ].sort();
-}
+/** Owner change markers and form merges follow the separate owner-edit contract,
+ * independent of whether the whole stored profile passes the proposal schema. */
+export { changedBrandOwnerFields, mergeOwnerBrandEdits } from "./brand-owner-edits";
 export function extractLabelledBrandProposals(segments: BrandDocumentSegment[]) {
   const proposals: Array<
     Pick<KnowledgeRecord, "key" | "category" | "appliesTo" | "value" | "locator" | "excerpt">
@@ -223,33 +194,4 @@ export function extractLabelledBrandProposals(segments: BrandDocumentSegment[]) 
     }
   }
   return proposals;
-}
-
-/** Save only the fields edited in this form. A stale form cannot erase unrelated
- * new owner settings; competing edits to the same field require reloading. */
-export function mergeOwnerBrandEdits(
-  baseline: BrandIntelligence | undefined,
-  edited: BrandIntelligence,
-  current: BrandIntelligence | undefined,
-  now: string,
-) {
-  const changed = changedBrandOwnerFields(baseline, edited);
-  if (!changed.length) return current;
-  const patch: Record<string, unknown> = {};
-  for (const field of changed) {
-    const before = brandFieldValue(baseline, field),
-      latest = brandFieldValue(current, field),
-      value = brandFieldValue(edited, field);
-    if (
-      !(blank(before) && blank(latest)) &&
-      JSON.stringify(before) !== JSON.stringify(latest) &&
-      JSON.stringify(value) !== JSON.stringify(latest)
-    )
-      throw new Error("brand_profile_changed");
-    const [group, leaf] = field.split(".");
-    if (leaf)
-      patch[group] = { ...(patch[group] as Record<string, unknown> | undefined), [leaf]: value };
-    else patch[group] = value;
-  }
-  return mergeBrandProposal(current, patch as BrandProposal, now);
 }

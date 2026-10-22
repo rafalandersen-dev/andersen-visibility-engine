@@ -140,7 +140,7 @@ export const HR_STAGED_BATCHES = [
     copy: hrConfig,
     namespaces: ["brand", "wp", "shopify", "claude", "connect", "connections", "coverage"],
     sourceRevision: "aedd7bf",
-    sourceHash: "c60d43a37be661079475896eeebe2c3cd1337a321e05df01b27a0e803ac823cc",
+    sourceHash: "c7a21405a0e079bfafbf14747dfad84b284e717e035127aaf77bae98d6583413",
   },
   {
     name: "public beta",

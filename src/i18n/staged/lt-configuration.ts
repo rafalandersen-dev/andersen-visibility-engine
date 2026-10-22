@@ -9,6 +9,13 @@ export const ltConfiguration: Readonly<Record<string, string>> = {
   "brand.remove": "Pašalinti",
   "brand.listHint": "Po vieną eilutėje arba atskirti kableliais.",
   "brand.toast.saved": "Brand Intelligence išsaugotas",
+  "brand.toast.noChanges": "Nėra pakeitimų, kuriuos reikėtų išsaugoti.",
+  "brand.error.row": "eilutė {row}",
+  "brand.error.required": "būtinas pavadinimas (pasiūlymai) arba ir etiketė, ir URL (nuorodos). Niekas neišsaugota.",
+  "brand.error.tooLong": "tekstas per ilgas. Niekas neišsaugota.",
+  "brand.error.invalidUrl": "naudokite HTTPS adresą arba kelią, prasidedantį vienu /, pavyzdžiui, /kontaktai. Kitos schemos ir tarpai neleidžiami. Niekas neišsaugota.",
+  "brand.error.limit": "sąrašas pilnas, todėl naujas įrašas nepridėtas. Pirmiausia pašalinkite vieną. Niekas neišsaugota.",
+  "brand.error.unsupported": "šios reikšmės čia redaguoti negalima. Iš naujo įkelkite puslapį ir bandykite dar kartą. Niekas neišsaugota.",
   "brand.section.voice": "Prekės ženklo tonas",
   "brand.voice.help":
     "Nurodykite Milo, kaip turėtų skambėti jūsų turinys ir kokių formuluočių vengti.",

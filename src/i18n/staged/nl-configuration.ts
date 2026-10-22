@@ -8,6 +8,13 @@ export const nlConfiguration: Readonly<Record<string, string>> = {
   "brand.remove": "Verwijderen",
   "brand.listHint": "Eén per regel of gescheiden door komma's.",
   "brand.toast.saved": "Brand Intelligence opgeslagen",
+  "brand.toast.noChanges": "Geen wijzigingen om op te slaan.",
+  "brand.error.row": "rij {row}",
+  "brand.error.required": "een naam (aanbod) of zowel een label als een URL (links) is verplicht. Er is niets opgeslagen.",
+  "brand.error.tooLong": "de tekst is te lang. Er is niets opgeslagen.",
+  "brand.error.invalidUrl": "gebruik een HTTPS-adres of een pad dat begint met één /, zoals /contact. Andere schema's en spaties zijn niet toegestaan. Er is niets opgeslagen.",
+  "brand.error.limit": "de lijst is vol, dus het nieuwe item is niet toegevoegd. Verwijder er eerst een. Er is niets opgeslagen.",
+  "brand.error.unsupported": "deze waarde kan hier niet worden bewerkt. Laad de pagina opnieuw en probeer het nog eens. Er is niets opgeslagen.",
   "brand.section.voice": "Merkstem",
   "brand.voice.help":
     "Vertel Milo hoe je content moet klinken en welke formuleringen je wilt vermijden.",

@@ -9,6 +9,13 @@ export const mtConfiguration: Readonly<Record<string, string>> = {
   "brand.remove": "Neħħi",
   "brand.listHint": "Wieħed f’kull linja jew separati b’virgoli.",
   "brand.toast.saved": "Brand Intelligence ġie ssejvjat",
+  "brand.toast.noChanges": "M’hemm l-ebda bidla x’tissejvja.",
+  "brand.error.row": "ringiela {row}",
+  "brand.error.required": "huwa meħtieġ isem (offerti) jew kemm tikketta kif ukoll URL (links). Ma ġie ssejvjat xejn.",
+  "brand.error.tooLong": "it-test huwa twil wisq. Ma ġie ssejvjat xejn.",
+  "brand.error.invalidUrl": "uża indirizz HTTPS jew mogħdija li tibda b’ / waħda, pereżempju /kuntatt. Skemi oħra u spazji mhumiex permessi. Ma ġie ssejvjat xejn.",
+  "brand.error.limit": "il-lista hija mimlija, għalhekk id-daħla l-ġdida ma ġietx miżjuda. Neħħi waħda l-ewwel. Ma ġie ssejvjat xejn.",
+  "brand.error.unsupported": "dan il-valur ma jistax jiġi editjat hawn. Erġa’ tella’ l-paġna u erġa’ pprova. Ma ġie ssejvjat xejn.",
   "brand.section.voice": "Vuċi tal-brand",
   "brand.voice.help":
     "Għid lil Milo kif għandu jinstema’ l-kontenut tiegħek u liema formulazzjonijiet għandhom jiġu evitati.",

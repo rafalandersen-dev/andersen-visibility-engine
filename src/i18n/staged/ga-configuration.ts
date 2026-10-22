@@ -9,6 +9,13 @@ export const gaConfiguration: Readonly<Record<string, string>> = {
   "brand.remove": "Bain",
   "brand.listHint": "Ceann in aghaidh na líne nó scartha le camóga.",
   "brand.toast.saved": "Sábháladh Brand Intelligence",
+  "brand.toast.noChanges": "Níl aon athruithe le sábháil.",
+  "brand.error.row": "ró {row}",
+  "brand.error.required": "tá ainm (tairiscintí) nó lipéad agus URL araon (naisc) ag teastáil. Níor sábháladh aon rud.",
+  "brand.error.tooLong": "tá an téacs rófhada. Níor sábháladh aon rud.",
+  "brand.error.invalidUrl": "úsáid seoladh HTTPS nó cosán a thosaíonn le / amháin, mar shampla /teagmhail. Ní cheadaítear scéimeanna eile ná spásanna. Níor sábháladh aon rud.",
+  "brand.error.limit": "tá an liosta lán, mar sin níor cuireadh an iontráil nua leis. Bain ceann amháin ar dtús. Níor sábháladh aon rud.",
+  "brand.error.unsupported": "ní féidir an luach seo a chur in eagar anseo. Athlódáil an leathanach agus bain triail eile as. Níor sábháladh aon rud.",
   "brand.section.voice": "Guth an bhranda",
   "brand.voice.help":
     "Inis do Milo conas ba cheart d’ábhar a bheith agus cé na foclaíochtaí ba cheart a sheachaint.",

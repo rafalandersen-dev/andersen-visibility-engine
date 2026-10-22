@@ -5,6 +5,7 @@ import { z } from "zod";
 import { operationalNotifications } from "./operational-notifications";
 import { schedulerDemand, schedulerCapacityNotifications } from "./scheduler-capacity";
 import { readGenerationCapacity } from "./generation-capacity.server";
+import { operationalEmailAllowedFor } from "./operational-email-gate";
 import type { Project, ContentAsset, Opportunity } from "./types";
 const identity = z.string().min(1).max(200);
 const entity = z.object({ id: identity }).passthrough();
@@ -187,7 +188,11 @@ export async function refreshOperationalNotifications(
   );
   if (synced.error || typeof synced.data !== "boolean")
     throw new Error("notification_sync_unavailable");
-  if (synced.data && process.env.OPERATIONAL_EMAIL_ENABLED === "true") {
+  if (
+    synced.data &&
+    process.env.OPERATIONAL_EMAIL_ENABLED === "true" &&
+    operationalEmailAllowedFor(userId)
+  ) {
     try {
       const queued = await notificationOperation(
         db.rpc("queue_operational_email_digest", { p_user: userId }),

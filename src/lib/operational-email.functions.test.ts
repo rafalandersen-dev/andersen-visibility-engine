@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 const mocks = vi.hoisted(() => ({
   address: vi.fn(),
   enabled: vi.fn(),
@@ -222,4 +222,30 @@ it("rejects a cached language in a delivery toggle", () => {
     call(setOperationalEmailSettingsFn, ctx, { enabled: false, locale: "en" }),
   ).toThrow();
   expect(ctx.supabase.rpc).not.toHaveBeenCalled();
+});
+
+describe("optional recipient allowlist (OPERATIONAL_EMAIL_ALLOWED_USER_IDS)", () => {
+  const other = "00000000-0000-4000-8000-000000000099";
+  afterEach(() => vi.unstubAllEnvs());
+  it("reports summaries as not ready and refuses enabling for an account outside the list", async () => {
+    vi.stubEnv("OPERATIONAL_EMAIL_ALLOWED_USER_IDS", other);
+    const ctx = context();
+    expect(await call(getOperationalEmailSettingsFn, ctx)).toMatchObject({ ready: false });
+    await expect(call(setOperationalEmailSettingsFn, ctx, { enabled: true })).rejects.toThrow(
+      "not activated",
+    );
+    expect(ctx.supabase.rpc).not.toHaveBeenCalled();
+    // Turning summaries off stays possible.
+    expect(await call(setOperationalEmailSettingsFn, ctx, { enabled: false })).toEqual({
+      saved: true,
+    });
+  });
+  it("leaves a listed account unaffected", async () => {
+    vi.stubEnv("OPERATIONAL_EMAIL_ALLOWED_USER_IDS", `${other},${userId}`);
+    const ctx = context();
+    expect(await call(getOperationalEmailSettingsFn, ctx)).toMatchObject({ ready: true });
+    expect(await call(setOperationalEmailSettingsFn, ctx, { enabled: true })).toEqual({
+      saved: true,
+    });
+  });
 });

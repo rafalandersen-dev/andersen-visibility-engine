@@ -8,6 +8,13 @@ export const frConfiguration: Readonly<Record<string, string>> = {
   "brand.remove": "Supprimer",
   "brand.listHint": "Un élément par ligne ou séparé par des virgules.",
   "brand.toast.saved": "Informations de marque enregistrées",
+  "brand.toast.noChanges": "Aucune modification à enregistrer.",
+  "brand.error.row": "ligne {row}",
+  "brand.error.required": "un nom (offres) ou à la fois un libellé et une URL (liens) est requis. Rien n’a été enregistré.",
+  "brand.error.tooLong": "le texte est trop long. Rien n’a été enregistré.",
+  "brand.error.invalidUrl": "utilisez une adresse HTTPS ou un chemin commençant par un seul /, par exemple /contact. Les autres schémas et les espaces ne sont pas autorisés. Rien n’a été enregistré.",
+  "brand.error.limit": "la liste est pleine, la nouvelle entrée n’a donc pas été ajoutée. Supprimez-en une d’abord. Rien n’a été enregistré.",
+  "brand.error.unsupported": "cette valeur ne peut pas être modifiée ici. Rechargez la page et réessayez. Rien n’a été enregistré.",
   "brand.section.voice": "Voix de la marque",
   "brand.voice.help":
     "Indiquez à Milo le ton souhaité pour vos contenus et les formulations à éviter.",

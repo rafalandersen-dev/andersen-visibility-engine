@@ -8,6 +8,13 @@ export const deConfiguration: Readonly<Record<string, string>> = {
   "brand.remove": "Entfernen",
   "brand.listHint": "Ein Eintrag pro Zeile oder durch Kommas getrennt.",
   "brand.toast.saved": "Brand Intelligence gespeichert",
+  "brand.toast.noChanges": "Keine Änderungen zum Speichern.",
+  "brand.error.row": "Zeile {row}",
+  "brand.error.required": "ein Name (Angebote) oder sowohl Bezeichnung als auch URL (Links) ist erforderlich. Es wurde nichts gespeichert.",
+  "brand.error.tooLong": "der Text ist zu lang. Es wurde nichts gespeichert.",
+  "brand.error.invalidUrl": "verwende eine HTTPS-Adresse oder einen Pfad, der mit einem einzelnen / beginnt, etwa /kontakt. Andere Schemata und Leerzeichen sind nicht erlaubt. Es wurde nichts gespeichert.",
+  "brand.error.limit": "die Liste ist voll, daher wurde der neue Eintrag nicht hinzugefügt. Entferne zuerst einen. Es wurde nichts gespeichert.",
+  "brand.error.unsupported": "dieser Wert kann hier nicht bearbeitet werden. Lade die Seite neu und versuche es erneut. Es wurde nichts gespeichert.",
   "brand.section.voice": "Markensprache",
   "brand.voice.help":
     "Sage Milo, wie deine Inhalte klingen sollen und welche Formulierungen zu vermeiden sind.",

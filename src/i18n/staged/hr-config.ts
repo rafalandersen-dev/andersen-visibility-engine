@@ -8,6 +8,13 @@ export const hrConfig: Readonly<Record<string, string>> = {
   "brand.remove": "Ukloni",
   "brand.listHint": "Jedna stavka po retku ili odvojeno zarezima.",
   "brand.toast.saved": "Analitika brenda spremljena",
+  "brand.toast.noChanges": "Nema promjena za spremanje.",
+  "brand.error.row": "redak {row}",
+  "brand.error.required": "potreban je naziv (ponude) ili i oznaka i URL (poveznice). Ništa nije spremljeno.",
+  "brand.error.tooLong": "tekst je predug. Ništa nije spremljeno.",
+  "brand.error.invalidUrl": "upotrijebite HTTPS adresu ili putanju koja počinje jednim /, na primjer /kontakt. Druge sheme i razmaci nisu dopušteni. Ništa nije spremljeno.",
+  "brand.error.limit": "popis je pun pa nova stavka nije dodana. Najprije uklonite jednu. Ništa nije spremljeno.",
+  "brand.error.unsupported": "ova se vrijednost ovdje ne može uređivati. Ponovno učitajte stranicu i pokušajte ponovno. Ništa nije spremljeno.",
   "brand.section.voice": "Ton brenda",
   "brand.voice.help":
     "Recite Milu kako bi vaš sadržaj trebao zvučati i koje izraze treba izbjegavati.",

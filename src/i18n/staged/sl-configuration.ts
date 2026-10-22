@@ -8,6 +8,13 @@ export const slConfiguration: Readonly<Record<string, string>> = {
   "brand.remove": "Odstrani",
   "brand.listHint": "Vsak vnos v svojo vrstico ali ločen z vejico.",
   "brand.toast.saved": "Brand Intelligence shranjen",
+  "brand.toast.noChanges": "Ni sprememb za shranjevanje.",
+  "brand.error.row": "vrstica {row}",
+  "brand.error.required": "potrebno je ime (ponudbe) ali pa oznaka in URL (povezave). Nič ni bilo shranjeno.",
+  "brand.error.tooLong": "besedilo je predolgo. Nič ni bilo shranjeno.",
+  "brand.error.invalidUrl": "uporabite naslov HTTPS ali pot, ki se začne z enim /, na primer /kontakt. Druge sheme in presledki niso dovoljeni. Nič ni bilo shranjeno.",
+  "brand.error.limit": "seznam je poln, zato novi vnos ni bil dodan. Najprej odstranite enega. Nič ni bilo shranjeno.",
+  "brand.error.unsupported": "te vrednosti tukaj ni mogoče urejati. Znova naložite stran in poskusite znova. Nič ni bilo shranjeno.",
   "brand.section.voice": "Glas blagovne znamke",
   "brand.voice.help":
     "Povejte Milu, kako naj zvenijo vaše vsebine in katerim izrazom naj se izogiba.",
