@@ -94,6 +94,8 @@ export const gaConversation: ConversationCopy = {
   "chat.sendUnconfirmed":
     "Níorbh fhéidir an t-iarratas seo a dheimhniú. Aisghabh an t-iarratas bunaidh nó seiceáil an stair shábháilte sula seolann tú é mar thasc nua.",
   "chat.recover": "Aisghabh an t-iarratas bunaidh",
+  "chat.notSavedBusy":
+    "Tá Milo gnóthach faoi láthair, mar sin níor sábháladh an teachtaireacht seo agus níor tosaíodh aon obair. Tá do théacs anseo fós; bain triail eile as.",
   "chat.resume": "Tosaigh an t-iarratas sábháilte",
   "chat.stop": "Stop obair bhreise",
   "chat.stopHelp":

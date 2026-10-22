@@ -90,6 +90,8 @@ export const etConversation: ConversationCopy = {
   "chat.sendUnconfirmed":
     "Seda päringut ei saanud kinnitada. Taasta algne päring või kontrolli ajalugu enne selle uue ülesandena saatmist.",
   "chat.recover": "Taasta algne päring",
+  "chat.notSavedBusy":
+    "Milo on praegu hõivatud, seega seda sõnumit ei salvestatud ja tööd ei alustatud. Sinu tekst on endiselt siin; proovi uuesti.",
   "chat.resume": "Alusta salvestatud päringut",
   "chat.stop": "Peata edasine töö",
   "chat.stopHelp":

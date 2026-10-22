@@ -92,6 +92,8 @@ export const fiConversation: ConversationCopy = {
   "chat.sendUnconfirmed":
     "Pyyntöä ei voitu vahvistaa. Palauta alkuperäinen pyyntö tai tarkista historia ennen lähettämistä uutena tehtävänä.",
   "chat.recover": "Palauta alkuperäinen pyyntö",
+  "chat.notSavedBusy":
+    "Milo on juuri nyt varattu, joten viestiä ei tallennettu eikä työtä aloitettu. Tekstisi on yhä tässä; yritä uudelleen.",
   "chat.resume": "Aloita tallennettu pyyntö",
   "chat.stop": "Pysäytä jatkotyö",
   "chat.stopHelp":

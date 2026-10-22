@@ -90,6 +90,8 @@ export const csConversation: ConversationCopy = {
   "chat.sendUnconfirmed":
     "Tento požadavek se nepodařilo potvrdit. Obnovte původní požadavek nebo zkontrolujte historii, než jej odešlete jako nový úkol.",
   "chat.recover": "Obnovit původní požadavek",
+  "chat.notSavedBusy":
+    "Milo je právě zaneprázdněný, proto tato zpráva nebyla uložena a žádná práce nezačala. Váš text tu stále je; zkuste to znovu.",
   "chat.resume": "Spustit uložený požadavek",
   "chat.stop": "Zastavit další práci",
   "chat.stopHelp":

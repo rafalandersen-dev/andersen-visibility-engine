@@ -127,3 +127,21 @@ Ten groups cover: accessible titles as exact links and identifier-only entries a
 Observed on 14 September 2026 (Claude continuation, second session): all ten groups passed in EN, PL, SV and DA at both 1280×900 and 390×844, with no horizontal overflow at phone width. The first English run failed the confirmation group at "focus returns to Delete": the dialog is controlled without a Radix trigger, so Radix's default close handling focused nothing and keyboard focus fell to the body. `MiloAccountConversations` now returns focus to the Delete control that opened the dialog, or to the list container when that control is gone after erasure; the assertion was kept and passed afterwards. Because this sandbox cannot start the Vite dev server or write to `node_modules`, the run used a scratch copy of `build.cjs` with a local output directory and a stylesheet compiled from `src/styles.css` through `@tailwindcss/node`, served by a loopback static server. Test settings and assertions were unchanged.
 
 Consent coverage on the same date: the `component` fixture's first group now also ticks the site-check consent box and asserts that the request carries `allowProviderChecks: true`, that the saved message shows both consent notes, and that both boxes clear after sending. The `component` and `full` collaborator assertions were updated for the 14 September owner decision: a collaborator sees exactly one consent box (site checks) and no draft-generation control. Component: 9/9 in EN at 1280×900 and 390×844. Full route: 4/4 in EN at 1280×900 and PL at 390×844. Reruns on the same date at 1280×900 in EN after the imported shell, workspace, action and route changes: auth 6/6, bookmark 12/12, lifecycle 11/11, proposal 8/8, generation 3/3. The multitab mode was not rerun; it needs its own local SQL server process. After the consent gating change (site-check consent only for owners and working members; the workspace takes `canConsentChecks` from the membership directory), `component` 9/9 and `full` 4/4 passed again in EN at 1280×900.
+
+## First-message admission and retained recovery (CR, 22 October 2026)
+
+**Component groups.** The `component` mode adds five CR groups. They render the actual workspace through a small routed wrapper, so URL promotion is observable.
+1. A typed busy rollback keeps the text and offers **Try again**, which resubmits the identical request. Neither the URL nor a history read happens before confirmation.
+2. A directory failure conceals, then reveals, the same uncertain request. Recovering it uses the identical request.
+3. A directory failure while the send is in flight keeps the send, and confirms it only after fresh authorization.
+4. A busy recovery of a send whose response was lost after commit stays uncertain: no not-saved claim, no new Send, and later recovery confirms the single original turn.
+5. A consent-role change discards retained private request state.
+
+**Bookmark fixture.** It records a bounded memory-history `trace` (operation, target conversation, history/router location and callers) in failure output, for diagnosis only. Its first-message group now expects an unconfirmed first message to stay at `conversation=new`; the exact bookmark is written once the same request is confirmed.
+
+**Diagnosed and corrected on 22 October.**
+- **Symptom:** an early CR build failed the PL bookmark "Back restores prior conversation" group. The trace showed a stale page-effect confirmation from the departed conversation replacing the restored URL. It was reached through a callback ref assigned during render.
+- **Final source:** it restores the pre-CR page effect, which uses its own committed `onLocationChange`, so the route's source-location guard holds. It also restores the pre-CR history-link and New selection behaviour. A confirmed read only clears the `fresh` flag, through an id-checked state update.
+- **Baselines:** exact `0de0ae88`, and `0de0ae88` plus trace, both passed all 12 PL groups.
+
+These groups do not establish live admission contention, provider behaviour or production acceptance.

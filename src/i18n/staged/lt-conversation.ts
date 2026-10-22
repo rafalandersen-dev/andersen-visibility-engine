@@ -92,6 +92,8 @@ export const ltConversation: ConversationCopy = {
   "chat.sendUnconfirmed":
     "Nepavyko patvirtinti šios užklausos. Atkurkite pradinę užklausą arba patikrinkite išsaugotą istoriją prieš siųsdami ją kaip naują užduotį.",
   "chat.recover": "Atkurti pradinę užklausą",
+  "chat.notSavedBusy":
+    "Milo šiuo metu užimtas, todėl ši žinutė neišsaugota ir joks darbas nepradėtas. Jūsų tekstas vis dar čia; bandykite dar kartą.",
   "chat.resume": "Pradėti išsaugotą užklausą",
   "chat.stop": "Sustabdyti tolesnį darbą",
   "chat.stopHelp":

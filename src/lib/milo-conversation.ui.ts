@@ -119,3 +119,39 @@ export function referenceDestination(
       return null;
   }
 }
+
+/** What the browser may conclude from one send response. Only the server's typed
+ * confirmed rollback is "notSaved", and only a saved turn with the request's own
+ * turn ID is "saved". Anything else — a thrown call included — stays "uncertain"
+ * and may be recovered only by resubmitting the identical request. */
+export type SendOutcome = "saved" | "notSaved" | "uncertain";
+export function sendOutcome(response: unknown, turnId: string): SendOutcome {
+  if (!response || typeof response !== "object") return "uncertain";
+  const value = response as { turn?: { turnId?: unknown }; notSaved?: unknown };
+  if (value.notSaved === "busy" && value.turn === undefined) return "notSaved";
+  return value.turn?.turnId === turnId ? "saved" : "uncertain";
+}
+/** Uncertainty is monotonic per request. The server's typed busy response proves
+ * only that the attempt it answers did not commit; if any earlier attempt of the
+ * same immutable request was uncertain, that one may have saved and queued work,
+ * so the request stays uncertain. Only a never-uncertain request can be "notSaved". */
+export function retainedSendOutcome(result: SendOutcome, everUncertain: boolean): SendOutcome {
+  return everUncertain && result === "notSaved" ? "uncertain" : result;
+}
+/** History is never read while directory authorization is failing, and a new
+ * conversation is read only after its first send was confirmed or became
+ * uncertain — never alongside the begin call it would compete with. */
+export function conversationReadEnabled(state: {
+  fresh: boolean;
+  concealed: boolean;
+  outcome?: SendOutcome;
+}) {
+  if (state.concealed) return false;
+  return !state.fresh || state.outcome === "saved" || state.outcome === "uncertain";
+}
+/** A new conversation whose first send is uncertain may not exist yet. A failed
+ * read there means "not confirmed yet", not lost access: recovery stays offered and
+ * the conversation is not reported as unavailable or promoted into the URL. */
+export function awaitingFirstConfirmation(state: { fresh: boolean; outcome?: SendOutcome }) {
+  return state.fresh && state.outcome === "uncertain";
+}

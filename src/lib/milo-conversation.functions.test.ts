@@ -37,6 +37,7 @@ vi.mock("./milo-conversation.server", () => ({
 }));
 vi.mock("./milo-specialist-executor.server", () => ({ runConversationSpecialists: h.run }));
 import * as endpoints from "./milo-conversation.functions";
+import { TeamAdmissionBusyError } from "./project-team-admission";
 const actor = "00000000-0000-4000-8000-000000000001",
   ownerId = "00000000-0000-4000-8000-000000000002",
   conversationId = "00000000-0000-4000-8000-000000000003",
@@ -83,6 +84,17 @@ describe("authenticated conversation endpoints", () => {
       { events: [] },
     ])
       expect(() => invoke(endpoints.sendMiloMessageFn, { ...input, ...extra })).toThrow();
+  });
+  it("CR: an exhausted confirmed-rollback busy is a typed not-saved response; other failures stay thrown", async () => {
+    h.begin.mockRejectedValueOnce(new TeamAdmissionBusyError());
+    expect(await invoke(endpoints.sendMiloMessageFn, input)).toEqual({ notSaved: "busy" });
+    h.begin.mockRejectedValueOnce(
+      new Error("Team access could not be updated or confirmed. Refresh before trying again."),
+    );
+    await expect(invoke(endpoints.sendMiloMessageFn, input)).rejects.toThrow(
+      "could not be updated or confirmed",
+    );
+    expect(h.run).not.toHaveBeenCalled();
   });
   it("does not re-run received running, unknown or completed submissions", async () => {
     for (const state of ["running", "unknown", "completed", "cancelled", "failed"]) {

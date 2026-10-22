@@ -190,11 +190,42 @@ const authPage = createRoute({
 });
 const routeTree = rootRoute.addChildren([authPage, authenticated.addChildren([home])]);
 let view, router, queryClient;
+// Diagnostic only (CR): a bounded trace of memory-history transitions and their
+// callers, reported with the results. It never changes navigation or assertions.
+const trace = [];
+const conversationOf = (path) =>
+  typeof path === "string"
+    ? new URL(path, "http://fixture.invalid").searchParams.get("conversation")
+    : undefined;
+function traced(memory) {
+  for (const op of ["push", "replace", "back", "forward", "go"]) {
+    const original = memory[op].bind(memory);
+    memory[op] = (...args) => {
+      trace.push({
+        op,
+        to: op === "push" || op === "replace" ? conversationOf(args[0]) : args[0],
+        historyBefore: conversationOf(memory.location.href),
+        routerBefore: router?.state.location.search.conversation,
+        by: (new Error().stack ?? "")
+          .split("\n")
+          .slice(2, 9)
+          .map((line) => line.trim().replace(/https?:\/\/[^/]+\//, "")),
+      });
+      if (trace.length > 80) trace.shift();
+      return original(...args);
+    };
+  }
+  return memory;
+}
 function mount(url) {
   view?.unmount();
   queryClient?.clear();
   h.initial = { promise: Promise.resolve({ data: { session: h.current } }) };
-  router = createRouter({ routeTree, history: createMemoryHistory({ initialEntries: [url] }) });
+  trace.push({ op: "mount", to: conversationOf(url) });
+  router = createRouter({
+    routeTree,
+    history: traced(createMemoryHistory({ initialEntries: [url] })),
+  });
   queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   view = createRoot(document.getElementById("root"));
   view.render(
@@ -338,13 +369,15 @@ async function run() {
     "uncertain submission recovery is visible",
   );
   const request = h.sends[0];
+  // CR (22 October): an unconfirmed first message is never bookmarked; the exact
+  // bookmark is written only once the same request is confirmed saved.
   assert(
-    router.state.location.search.conversation === request.conversationId,
-    "first submission writes its exact bookmark",
+    router.state.location.search.conversation === "new",
+    "unconfirmed first submission is not bookmarked",
   );
   assert(
     document.querySelector("textarea") === composer && composer.value === request.body,
-    "URL promotion did not remount or clear unconfirmed request",
+    "unconfirmed request keeps the same composer and text",
   );
   assert(!button("chat.recover").disabled, "original immutable request remains recoverable");
   h.mode = "hold";
@@ -359,12 +392,15 @@ async function run() {
   await tick();
   assert(
     document.querySelector("textarea") === composer,
-    "token refresh preserves the promoted conversation session",
+    "token refresh preserves the pending conversation session",
   );
   h.finish();
   await until(
-    () => text().includes("SAVED_BOOKMARK_RESPONSE") && composer.value === "",
-    "successful same-request response is retained and clears composer",
+    () =>
+      text().includes("SAVED_BOOKMARK_RESPONSE") &&
+      composer.value === "" &&
+      router.state.location.search.conversation === request.conversationId,
+    "confirmed same-request response is retained, clears composer and writes its exact bookmark",
   );
   const retainedHref = router.state.location.href;
   mount(retainedHref);
@@ -669,6 +705,7 @@ run().catch((error) => {
       results,
       location: router?.state.location.href,
       sends: h.sends.length,
+      trace,
     },
     null,
     2,

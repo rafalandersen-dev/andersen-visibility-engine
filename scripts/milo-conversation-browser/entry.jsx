@@ -62,6 +62,26 @@ const completed = (body = "Review my saved draft", number = 1) => ({
   createdAt: date,
   updatedAt: date,
 });
+/** The fixture's held send: saves a running turn and resolves when `finish()` runs. */
+function heldSend(input) {
+  sendCalls.push(structuredClone(input));
+  conv = input.conversationId;
+  const turn = {
+    ...completed(input.body, saved.length + 1),
+    turnId: input.turnId,
+    state: "running",
+    allowDraftGeneration: input.allowDraftGeneration,
+    allowProviderChecks: input.allowProviderChecks,
+    events: [],
+  };
+  saved = [...saved, turn];
+  return new Promise((resolve) => {
+    finish = () => {
+      Object.assign(turn, { state: "completed", events: completed().events });
+      resolve({ turn });
+    };
+  });
+}
 function fixtures(turns = []) {
   saved = turns;
   conv = conversationId;
@@ -102,25 +122,7 @@ function fixtures(turns = []) {
         hasMore: input.after + 20 < saved.length,
       };
     },
-    send: (input) => {
-      sendCalls.push(structuredClone(input));
-      conv = input.conversationId;
-      const turn = {
-        ...completed(input.body, saved.length + 1),
-        turnId: input.turnId,
-        state: "running",
-        allowDraftGeneration: input.allowDraftGeneration,
-        allowProviderChecks: input.allowProviderChecks,
-        events: [],
-      };
-      saved = [...saved, turn];
-      return new Promise((resolve) => {
-        finish = () => {
-          Object.assign(turn, { state: "completed", events: completed().events });
-          resolve({ turn });
-        };
-      });
-    },
+    send: heldSend,
     resume: async (input) => {
       const turn = saved.find((turn) => turn.turnId === input.turnId);
       turn.state = "completed";
@@ -154,6 +156,43 @@ async function mount(p = project) {
   await until(
     () => !!document.querySelector("textarea") && document.querySelector("textarea") !== previous,
     "fresh composer mounted",
+  );
+}
+/** CR: the real workspace with a live URL location, so promotion and remounts are
+ * observable. `consent` stands in for a working-role change. */
+let routed = { locations: [], location: "new", setConsent: undefined };
+function Routed({ p }) {
+  const [location, setLocation] = React.useState("new");
+  const [consent, setConsent] = React.useState(true);
+  routed.setConsent = setConsent;
+  return (
+    <MiloConversationWorkspace
+      actorId={actor}
+      project={p}
+      canConsentChecks={consent}
+      location={location}
+      onLocationChange={(next) => {
+        routed.locations.push(next);
+        routed.location = next;
+        setLocation(next);
+      }}
+      onOpenResult={() => {}}
+    />
+  );
+}
+async function mountRouted(p = project) {
+  const previous = document.querySelector("textarea");
+  routed = { locations: [], location: "new", setConsent: undefined };
+  client?.clear();
+  client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+  root.render(
+    <QueryClientProvider client={client}>
+      <Routed key={++mountId} p={p} />
+    </QueryClientProvider>,
+  );
+  await until(
+    () => !!document.querySelector("textarea") && document.querySelector("textarea") !== previous,
+    "routed composer mounted",
   );
 }
 async function input(value) {
@@ -336,6 +375,216 @@ async function run() {
       JSON.stringify(sendCalls[0]) === JSON.stringify(sendCalls[1]),
       "same turn, text, scope and generation flag",
     );
+  });
+  await group(
+    "CR first-message busy keeps text, identical Try again, no URL or history read before confirmation",
+    async () => {
+      fixtures();
+      const reads = [];
+      const read = window.h.read;
+      window.h.read = async (input) => {
+        reads.push(input.conversationId);
+        return read(input);
+      };
+      await mountRouted();
+      window.h.send = async (input) => {
+        sendCalls.push(structuredClone(input));
+        assert(reads.length === 0, "no history read races the first begin");
+        return { notSaved: "busy" };
+      };
+      await input("First message after a busy admission");
+      button("chat.send").click();
+      await until(() => text().includes(t("chat.notSavedBusy")), "confirmed rollback is explained");
+      const first = sendCalls[0];
+      assert(routed.locations.length === 0 && routed.location === "new", "URL not promoted");
+      assert(reads.length === 0, "nonexistent conversation never read");
+      assert(
+        document.querySelector("textarea").value === first.body && !button("chat.recover"),
+        "text kept; no uncertain-recovery banner for a known rollback",
+      );
+      window.h.send = (input) => {
+        assert(reads.length === 0, "no history read while the retry begin is in flight");
+        return heldSend(input);
+      };
+      button("common.retry").click();
+      await until(() => sendCalls.length === 2 && !!finish, "Try again dispatched");
+      assert(JSON.stringify(sendCalls[1]) === JSON.stringify(first), "identical immutable request");
+      assert(routed.location === "new", "still not promoted while unconfirmed");
+      finish();
+      await until(
+        () =>
+          routed.location === first.conversationId &&
+          reads.includes(first.conversationId) &&
+          text().includes("The saved draft has two section headings"),
+        "confirmed save promotes the URL and then reads history",
+      );
+      assert(document.querySelector("textarea").value === "", "composer cleared only on save");
+      assert(sendCalls.length === 2, "no further dispatch");
+    },
+  );
+  await group(
+    "CR directory failure conceals, then reveals the same uncertain request and recovers it identically",
+    async () => {
+      fixtures();
+      await mountRouted();
+      window.h.send = async (input) => {
+        sendCalls.push(structuredClone(input));
+        throw Error("connection lost");
+      };
+      await input("Unknown outcome must survive a directory failure");
+      button("chat.send").click();
+      await until(() => !!button("chat.recover"), "uncertain recovery offered");
+      const first = sendCalls[0];
+      assert(routed.location === "new", "uncertain first message is not promoted");
+      await tick();
+      assert(
+        ![...document.querySelectorAll('[role="alert"]')].some((n) =>
+          n.textContent.includes(t("chat.unavailable")),
+        ),
+        "an unconfirmed new conversation is not reported as lost access",
+      );
+      const list = window.h.list;
+      window.h.list = async () => {
+        throw Error("directory authorization unavailable");
+      };
+      await client.invalidateQueries({ predicate: (q) => q.queryKey.includes("directory") });
+      await until(
+        () =>
+          text().includes(t("chat.unavailable")) &&
+          !document.querySelector("textarea") &&
+          !text().includes(first.body) &&
+          !button("chat.recover"),
+        "private request, composer and recovery concealed",
+      );
+      window.h.list = list;
+      await client.invalidateQueries({ predicate: (q) => q.queryKey.includes("directory") });
+      await until(
+        () => !!button("chat.recover") && document.querySelector("textarea")?.value === first.body,
+        "same in-memory request revealed after fresh authorization",
+      );
+      window.h.send = heldSend;
+      button("chat.recover").click();
+      await until(() => sendCalls.length === 2 && !!finish, "recovery dispatched");
+      assert(
+        JSON.stringify(sendCalls[1]) === JSON.stringify(first),
+        "identical immutable recovery",
+      );
+      finish();
+      await until(
+        () => routed.location === first.conversationId && text().includes(first.body),
+        "recovered request saved and promoted",
+      );
+    },
+  );
+  await group(
+    "CR a busy recovery of a lost-response send stays uncertain with the same request",
+    async () => {
+      fixtures();
+      let readable = false;
+      const read = window.h.read;
+      window.h.read = async (input) => {
+        if (!readable) throw Error("history read refused");
+        return read(input);
+      };
+      await mountRouted();
+      // The original attempt commits (synthetic saved turn) but its response is lost.
+      window.h.send = async (input) => {
+        void heldSend(input);
+        throw Error("response lost after commit");
+      };
+      await input("Committed, but the browser never heard back");
+      button("chat.send").click();
+      await until(() => !!button("chat.recover"), "uncertain recovery offered");
+      const first = sendCalls[0];
+      assert(saved.length === 1, "the original attempt did commit");
+      // Recovery cannot acquire admission: this attempt alone rolled back.
+      window.h.send = async (input) => {
+        sendCalls.push(structuredClone(input));
+        return { notSaved: "busy" };
+      };
+      button("chat.recover").click();
+      await until(() => sendCalls.length === 2, "recovery attempted");
+      await tick();
+      await tick();
+      assert(JSON.stringify(sendCalls[1]) === JSON.stringify(first), "identical recovery request");
+      assert(!text().includes(t("chat.notSavedBusy")), "no claim that nothing was saved");
+      assert(!!button("chat.recover") && !button("common.retry"), "still recoverable as uncertain");
+      assert(
+        document.querySelector("textarea").value === first.body && button("chat.send").disabled,
+        "text kept and a new task cannot be sent alongside the unknown one",
+      );
+      assert(routed.location === "new", "an unknown first message is still not bookmarked");
+      // Later the same request is confirmed (idempotent begin returns the saved turn).
+      readable = true;
+      window.h.send = async (input) => {
+        sendCalls.push(structuredClone(input));
+        return { turn: saved.find((turn) => turn.turnId === input.turnId) };
+      };
+      button("chat.recover").click();
+      await until(
+        () => routed.location === first.conversationId && text().includes(first.body),
+        "later recovery confirms the original turn and promotes it",
+      );
+      assert(JSON.stringify(sendCalls[2]) === JSON.stringify(first), "same request again");
+      assert(saved.length === 1, "exactly one saved turn; nothing duplicated");
+      finish();
+      await until(
+        () => text().includes("The saved draft has two section headings"),
+        "the original turn's result appears",
+      );
+    },
+  );
+  await group(
+    "CR directory failure while the send is in flight keeps and confirms it",
+    async () => {
+      fixtures();
+      await mountRouted();
+      await input("Directory fails during this send");
+      button("chat.send").click();
+      await until(() => !!finish, "send in flight");
+      const first = sendCalls[0];
+      const list = window.h.list;
+      window.h.list = async () => {
+        throw Error("directory authorization unavailable");
+      };
+      await client.invalidateQueries({ predicate: (q) => q.queryKey.includes("directory") });
+      await until(
+        () => text().includes(t("chat.unavailable")) && !text().includes(first.body),
+        "concealed while sending",
+      );
+      finish();
+      await tick();
+      await tick();
+      assert(!text().includes(first.body), "a late save never reveals while authorization fails");
+      window.h.list = list;
+      await client.invalidateQueries({ predicate: (q) => q.queryKey.includes("directory") });
+      await until(
+        () =>
+          text().includes("The saved draft has two section headings") &&
+          text().includes(first.body),
+        "fresh authorization reveals the confirmed turn",
+      );
+      assert(sendCalls.length === 1, "no duplicate dispatch");
+      assert(routed.location === first.conversationId, "confirmed conversation promoted");
+    },
+  );
+  await group("CR a consent-role change discards retained private request state", async () => {
+    fixtures();
+    await mountRouted();
+    window.h.send = async (input) => {
+      sendCalls.push(structuredClone(input));
+      throw Error("connection lost");
+    };
+    await input("Must not survive a role change");
+    button("chat.send").click();
+    await until(() => !!button("chat.recover"), "uncertain recovery offered");
+    routed.setConsent(false);
+    await until(
+      () => !button("chat.recover") && document.querySelector("textarea")?.value === "",
+      "role change remounts with no retained request",
+    );
+    assert(!text().includes("Must not survive a role change"), "no private text across roles");
+    assert(sendCalls.length === 1, "nothing replayed");
   });
   await group("keyboard, UTF-8 bounds and long-history pagination", async () => {
     fixtures();

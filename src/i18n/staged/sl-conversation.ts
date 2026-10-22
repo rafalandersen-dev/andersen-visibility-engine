@@ -90,6 +90,8 @@ export const slConversation: ConversationCopy = {
   "chat.sendUnconfirmed":
     "Te zahteve ni bilo mogoče potrditi. Obnovite prvotno zahtevo ali preverite zgodovino, preden jo pošljete kot novo nalogo.",
   "chat.recover": "Obnovi prvotno zahtevo",
+  "chat.notSavedBusy":
+    "Milo je trenutno zaseden, zato to sporočilo ni bilo shranjeno in nobeno delo se ni začelo. Vaše besedilo je še vedno tukaj; poskusite znova.",
   "chat.resume": "Začni shranjeno zahtevo",
   "chat.stop": "Ustavi nadaljnje delo",
   "chat.stopHelp":

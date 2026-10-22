@@ -92,6 +92,8 @@ export const hrConversation: ConversationCopy = {
   "chat.sendUnconfirmed":
     "Ovaj zahtjev nije moguće potvrditi. Oporavite izvorni zahtjev ili provjerite povijest prije nego što ga pošaljete kao novi zadatak.",
   "chat.recover": "Oporavi izvorni zahtjev",
+  "chat.notSavedBusy":
+    "Milo je trenutačno zauzet, pa ova poruka nije spremljena i nijedan posao nije započet. Vaš je tekst još ovdje; pokušajte ponovno.",
   "chat.resume": "Pokreni spremljeni zahtjev",
   "chat.stop": "Zaustavi daljnji rad",
   "chat.stopHelp":

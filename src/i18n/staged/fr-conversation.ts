@@ -93,6 +93,8 @@ export const frConversation: ConversationCopy = {
   "chat.sendUnconfirmed":
     "Cette demande n’a pas pu être confirmée. Récupérez la demande d’origine ou vérifiez l’historique avant de l’envoyer comme nouvelle tâche.",
   "chat.recover": "Récupérer la demande d’origine",
+  "chat.notSavedBusy":
+    "Milo est occupé pour le moment : ce message n'a pas été enregistré et aucun travail n'a commencé. Votre texte est toujours là ; réessayez.",
   "chat.resume": "Démarrer la demande enregistrée",
   "chat.stop": "Arrêter la suite du travail",
   "chat.stopHelp":

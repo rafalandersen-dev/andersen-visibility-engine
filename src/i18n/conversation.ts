@@ -88,6 +88,8 @@ const en = {
   "chat.sendUnconfirmed":
     "This request could not be confirmed. Recover the original request or check saved history before sending it as a new task.",
   "chat.recover": "Recover original request",
+  "chat.notSavedBusy":
+    "Milo is busy right now, so this message was not saved and no work started. Your text is still here; try again.",
   "chat.resume": "Start saved request",
   "chat.stop": "Stop further work",
   "chat.stopHelp":
@@ -210,6 +212,8 @@ const pl: Copy = {
   "chat.sendUnconfirmed":
     "Nie udało się potwierdzić tego zadania. Odzyskaj pierwotne zadanie lub sprawdź historię przed wysłaniem go jako nowego.",
   "chat.recover": "Odzyskaj pierwotne zadanie",
+  "chat.notSavedBusy":
+    "Milo jest teraz zajęty, więc ta wiadomość nie została zapisana i żadna praca się nie rozpoczęła. Twój tekst nadal tu jest; spróbuj ponownie.",
   "chat.resume": "Rozpocznij zapisane zadanie",
   "chat.stop": "Zatrzymaj dalszą pracę",
   "chat.stopHelp":
@@ -330,6 +334,8 @@ const sv: Copy = {
   "chat.sendUnconfirmed":
     "Uppgiften kunde inte bekräftas. Återställ den ursprungliga uppgiften eller kontrollera historiken innan du skickar den som en ny.",
   "chat.recover": "Återställ ursprunglig uppgift",
+  "chat.notSavedBusy":
+    "Milo är upptagen just nu, så meddelandet sparades inte och inget arbete startade. Din text finns kvar; försök igen.",
   "chat.resume": "Starta sparad uppgift",
   "chat.stop": "Stoppa fortsatt arbete",
   "chat.stopHelp":
@@ -449,6 +455,8 @@ const da: Copy = {
   "chat.sendUnconfirmed":
     "Opgaven kunne ikke bekræftes. Gendan den oprindelige opgave, eller kontrollér historikken, før du sender den som en ny.",
   "chat.recover": "Gendan oprindelig opgave",
+  "chat.notSavedBusy":
+    "Milo har travlt lige nu, så beskeden blev ikke gemt, og intet arbejde blev startet. Din tekst er her stadig; prøv igen.",
   "chat.resume": "Start gemt opgave",
   "chat.stop": "Stop videre arbejde",
   "chat.stopHelp":
