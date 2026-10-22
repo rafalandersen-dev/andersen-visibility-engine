@@ -1247,7 +1247,7 @@ async function fetchHtml(url: string): Promise<string> {
   return fetchHomepageHtml(url);
 }
 
-interface SiteContext {
+export interface SiteContext {
   ok: boolean;
   title: string;
   metaDescription: string;
@@ -1277,7 +1277,12 @@ async function fetchSiteContextImpl(rawUrl: string): Promise<SiteContext> {
 
   const html = await fetchHtml(base.toString());
   if (!html) return empty;
+  return siteContextFromHtml(html, base);
+}
 
+/** Extracts title/meta/visible text/same-domain links from already fetched
+ * homepage HTML. Shared by the in-process fetch and the CC pinned-hop adapter. */
+export function siteContextFromHtml(html: string, base: URL): SiteContext {
   const title = stripTags(html.match(/<title[^>]*>([\s\S]*?)<\/title>/i)?.[1] ?? "").slice(0, 200);
   const metaDescription = (
     html.match(/<meta[^>]+name=["']description["'][^>]*content=["']([^"']*)["']/i)?.[1] ??

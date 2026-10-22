@@ -264,6 +264,8 @@ export const nlKnowledge: Readonly<Record<string, string>> = {
     "Dit document kon niet binnen de ondersteunde limieten worden uitgelezen. Gebruik een kleinere, onversleutelde PDF of DOCX of voer handmatig een instructie in.",
   "knowledge.ui.websiteUnreadable":
     "De website gaf niet genoeg leesbare tekst terug, dus er is niets vastgelegd en je opgeslagen kennis is ongewijzigd. Controleer het adres of probeer het later opnieuw.",
+  "knowledge.ui.websiteTemporarilyUnavailable":
+    "De dienst die websites leest start op of is bezet, dus er is niets vastgelegd en je opgeslagen kennis is ongewijzigd. Probeer het over een minuut opnieuw.",
   "knowledge.ui.changeFailed":
     "Deze wijziging kon niet worden bevestigd. Vernieuw en controleer de opgeslagen versie voordat je het opnieuw probeert.",
   "knowledge.ui.forgetAll": "deze bron, het originele document, afgeleide records en geschiedenis",

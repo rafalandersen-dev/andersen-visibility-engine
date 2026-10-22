@@ -10,6 +10,7 @@
 const KNOWN: ReadonlyMap<string, string> = new Map([
   ["brand_document_no_text", "knowledge.ui.noText"],
   ["website_source_unreadable", "knowledge.ui.websiteUnreadable"],
+  ["website_source_temporarily_unavailable", "knowledge.ui.websiteTemporarilyUnavailable"],
 ]);
 export type KnowledgeChangeFailure = { kind: "known"; key: string } | { kind: "unconfirmed" };
 export function knowledgeChangeFailure(error: unknown): KnowledgeChangeFailure {
