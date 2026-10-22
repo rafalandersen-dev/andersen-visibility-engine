@@ -114,6 +114,8 @@ export const huConversation: ConversationCopy = {
   "chat.tool.google_index_inspection": "Google-indexellenőrzés",
   "chat.tool.performance_test": "Oldalsebesség-teszt",
   "chat.tool.site_crawl": "Webhely bejárása",
+  "chat.tool.search_console_evidence": "Mentett Search Console-importok",
+  "chat.tool.saved_ai_advice": "Mentett javaslatok az MI-felkészültséghez",
   "chat.allowProviderChecks":
     "Legfeljebb két webhely-ellenőrzés engedélyezése ebben a kérésben (Google-indexellenőrzés, oldalsebesség vagy egy webhelybejárás) a projekt webhelyéhez. A projekt tulajdonosának csatlakoztatott szolgáltatásait és a meglévő ellenőrzési korlátokat használja, az eredményeket pedig a projekt technikai ellenőrzéseivel együtt menti.",
   "chat.providerChecksEnabled": "Webhely-ellenőrzések engedélyezve ehhez a kéréshez.",

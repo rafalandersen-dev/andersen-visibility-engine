@@ -113,6 +113,8 @@ export const ltConversation: ConversationCopy = {
   "chat.tool.google_index_inspection": "Google indekso patikra",
   "chat.tool.performance_test": "Puslapio greičio testas",
   "chat.tool.site_crawl": "Svetainės nuskaitymas",
+  "chat.tool.search_console_evidence": "Išsaugoti Search Console importai",
+  "chat.tool.saved_ai_advice": "Išsaugotos DI parengties rekomendacijos",
   "chat.allowProviderChecks":
     "Leisti šiame užklausime atlikti ne daugiau kaip du svetainės patikrinimus (Google indekso patikra, puslapio greitis arba vienas svetainės nuskaitymas) šio projekto svetainei. Naudojamos projekto savininko prijungtos paslaugos ir esami patikrinimų limitai, o rezultatai išsaugomi kartu su projekto techniniais patikrinimais.",
   "chat.providerChecksEnabled": "Svetainės patikrinimai šiam užklausimui leidžiami.",

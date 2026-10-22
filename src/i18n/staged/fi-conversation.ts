@@ -113,6 +113,8 @@ export const fiConversation: ConversationCopy = {
   "chat.tool.google_index_inspection": "Googlen indeksitarkastus",
   "chat.tool.performance_test": "Sivun nopeustesti",
   "chat.tool.site_crawl": "Sivuston läpikäynti",
+  "chat.tool.search_console_evidence": "Tallennetut Search Console -tuonnit",
+  "chat.tool.saved_ai_advice": "Tallennetut tekoälyvalmiuden suositukset",
   "chat.allowProviderChecks":
     "Salli tässä pyynnössä enintään kaksi sivustotarkistusta (Googlen indeksitarkastus, sivun nopeus tai yksi sivuston läpikäynti) tämän projektin verkkosivustolle. Käyttää projektin omistajan yhdistämiä palveluja ja nykyisiä tarkistusrajoja, ja tulokset tallennetaan projektin teknisten tarkistusten yhteyteen.",
   "chat.providerChecksEnabled": "Sivustotarkistukset on sallittu tälle pyynnölle.",

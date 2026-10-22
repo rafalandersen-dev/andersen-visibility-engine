@@ -70,7 +70,11 @@ export type ConversationDiagnosticSqlState = "55P03" | "40001" | "40P01" | "5701
 /** The classified failure codes the executor's `failure()` can produce. Kept in
  * lockstep with the sanitised event codes; never a free-text value. */
 export type ConversationFailureCode =
-  "provider_unavailable" | "usage_limit" | "budget_unavailable" | "execution_unknown";
+  | "provider_unavailable"
+  | "usage_limit"
+  | "budget_unavailable"
+  | "execution_unknown"
+  | "response_unreadable";
 export interface ConversationFailureOutcome {
   state: "failed" | "unknown";
   code: ConversationFailureCode;

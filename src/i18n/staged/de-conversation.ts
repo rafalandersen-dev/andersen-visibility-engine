@@ -117,6 +117,8 @@ export const deConversation: ConversationCopy = {
   "chat.tool.google_index_inspection": "Google-Indexprüfung",
   "chat.tool.performance_test": "Seitengeschwindigkeitstest",
   "chat.tool.site_crawl": "Website-Crawl",
+  "chat.tool.search_console_evidence": "Gespeicherte Search-Console-Importe",
+  "chat.tool.saved_ai_advice": "Gespeicherte Empfehlungen zur KI-Bereitschaft",
   "chat.allowProviderChecks":
     "Bis zu zwei Website-Prüfungen in dieser Anfrage erlauben (Google-Indexprüfung, Seitengeschwindigkeit oder ein Website-Crawl) für die Website dieses Projekts. Nutzt die verbundenen Dienste des Projektinhabers und die bestehenden Prüflimits und speichert die Ergebnisse bei den technischen Prüfungen des Projekts.",
   "chat.providerChecksEnabled": "Website-Prüfungen für diese Anfrage erlaubt.",

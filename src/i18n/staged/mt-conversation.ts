@@ -114,6 +114,8 @@ export const mtConversation: ConversationCopy = {
   "chat.tool.google_index_inspection": "Spezzjoni tal-indiċi ta’ Google",
   "chat.tool.performance_test": "Test tal-veloċità tal-paġna",
   "chat.tool.site_crawl": "Skennjar tas-sit",
+  "chat.tool.search_console_evidence": "Importazzjonijiet issejvjati minn Search Console",
+  "chat.tool.saved_ai_advice": "Parir issejvjat dwar it-tħejjija għall-IA",
   "chat.allowProviderChecks":
     "Ippermetti sa żewġ verifiki tas-sit f’din it-talba (spezzjoni tal-indiċi ta’ Google, veloċità tal-paġna jew skennjar wieħed tas-sit) għas-sit ta’ dan il-proġett. Juża s-servizzi konnessi tas-sid tal-proġett u l-limiti eżistenti tal-verifiki, u jissejvja r-riżultati mal-verifiki tekniċi tal-proġett.",
   "chat.providerChecksEnabled": "Il-verifiki tas-sit huma permessi għal din it-talba.",

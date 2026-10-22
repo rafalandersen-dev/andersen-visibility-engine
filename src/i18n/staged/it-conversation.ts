@@ -116,6 +116,8 @@ export const itConversation: ConversationCopy = {
   "chat.tool.google_index_inspection": "Controllo dell’indice Google",
   "chat.tool.performance_test": "Test della velocità della pagina",
   "chat.tool.site_crawl": "Scansione del sito",
+  "chat.tool.search_console_evidence": "Importazioni salvate di Search Console",
+  "chat.tool.saved_ai_advice": "Consigli salvati sulla preparazione all’IA",
   "chat.allowProviderChecks":
     "Consenti fino a due controlli del sito in questa richiesta (controllo dell’indice Google, velocità della pagina o una scansione del sito) per il sito web di questo progetto. Usa i servizi collegati del proprietario del progetto e i limiti di controllo esistenti, e salva i risultati insieme ai controlli tecnici del progetto.",
   "chat.providerChecksEnabled": "Controlli del sito consentiti per questa richiesta.",

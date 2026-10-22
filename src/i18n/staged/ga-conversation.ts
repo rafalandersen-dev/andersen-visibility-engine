@@ -115,6 +115,8 @@ export const gaConversation: ConversationCopy = {
   "chat.tool.google_index_inspection": "Iniúchadh innéacs Google",
   "chat.tool.performance_test": "Tástáil luais leathanaigh",
   "chat.tool.site_crawl": "Crálú suímh",
+  "chat.tool.search_console_evidence": "Iompórtálacha Search Console sábháilte",
+  "chat.tool.saved_ai_advice": "Comhairle shábháilte maidir le hullmhacht AI",
   "chat.allowProviderChecks":
     "Ceadaigh suas le dhá sheiceáil suímh san iarratas seo (iniúchadh innéacs Google, luas leathanaigh nó crálú suímh amháin) do shuíomh gréasáin an tionscadail seo. Úsáideann sé seirbhísí nasctha úinéir an tionscadail agus na teorainneacha seiceála atá ann cheana, agus sábhálann sé na torthaí in éineacht le seiceálacha teicniúla an tionscadail.",
   "chat.providerChecksEnabled": "Tá seiceálacha suímh ceadaithe don iarratas seo.",
