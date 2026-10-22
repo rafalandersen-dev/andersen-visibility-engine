@@ -10,7 +10,7 @@
 import { createServerFn } from "@tanstack/react-start";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { z } from "zod";
-import type { GscImport, GscConnectionStatus, GscSiteEntry } from "./types";
+import type { GscImport, GscConnectionStatus, GscSiteEntry, GscSyncDiagnostic } from "./types";
 
 export interface GscOAuthStatus {
   configured: boolean;
@@ -96,8 +96,8 @@ export const syncGscSearchAnalyticsFn = createServerFn({ method: "POST" })
   .inputValidator((input: unknown) =>
     z.object({ siteUrl: z.string(), range: z.enum(["28d", "90d"]) }).parse(input),
   )
-  .handler(async ({ data, context }): Promise<{ success: boolean; import?: GscImport; status?: GscConnectionStatus; error?: string }> => {
-    const { gscOAuthConfig, listSites, syncSearchAnalytics } = await import("./gsc-oauth.server");
+  .handler(async ({ data, context }): Promise<{ success: boolean; import?: GscImport; status?: GscConnectionStatus; error?: string; diagnostic?: GscSyncDiagnostic }> => {
+    const { gscOAuthConfig, listSites, syncSearchAnalytics, gscSyncDiagnostic } = await import("./gsc-oauth.server");
     const cfg = gscOAuthConfig();
     if (!cfg.isSyncConfigured) return { success: false, status: "notConfigured", error: "Google Search Console sync is not configured yet." };
     try {
@@ -109,6 +109,10 @@ export const syncGscSearchAnalyticsFn = createServerFn({ method: "POST" })
       const imp = await syncSearchAnalytics({ userId: context.userId, siteUrl: data.siteUrl, range: data.range });
       return { success: true, import: imp, status: "connected" };
     } catch (e) {
+      // Provider/data failures after authorization are not a broken account: keep
+      // the connection, save nothing and return only the finite stage/category.
+      const diagnostic = gscSyncDiagnostic(e);
+      if (diagnostic) return { success: false, status: "connected", diagnostic, error: `Search Console sync failed (${diagnostic.stage}/${diagnostic.category}). Nothing was saved.` };
       const code = e instanceof Error ? e.message : "api_error";
       if (code === "expired") return { success: false, status: "expired", error: "Your Google connection expired. Reconnect to continue." };
       if (code === "not_connected") return { success: false, status: "disconnected", error: "Connect Google Search Console first." };

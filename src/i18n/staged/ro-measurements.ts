@@ -250,4 +250,12 @@ export const roMeasurements: Readonly<Record<string, string>> = {
   "gsc.integrity.separate": "Vedeți separat analiza de pe site",
   "gsc.integrity.invalid":
     "CSV-ul nu a putut fi validat. Folosiți un singur tabel Query, Page sau Date, cel mult 1 000 de rânduri / 2 MB, rânduri și coloane unice, valori numerice simple fără separatori de mii și celule goale pentru metricile indisponibile. Furnizați o proprietate și un interval de date valide. URL-urile paginilor trebuie să aparțină acelei proprietăți și să nu conțină credențiale, șiruri de interogare sau fragmente.",
+  "gsc.sync.retryLater":
+    "Google Search Console nu a răspuns la timp sau limitează solicitările. Nu s-a salvat nimic, iar conexiunea rămâne neschimbată; încercați din nou mai târziu. Cod: {code}",
+  "gsc.sync.accessDenied":
+    "Google a refuzat raportul acestei proprietăți pentru contul conectat. Nu s-a salvat nimic. Verificați accesul contului la această proprietate în Search Console; reconectați-vă doar dacă acel acces a fost eliminat. Cod: {code}",
+  "gsc.sync.unreadable":
+    "Google a returnat un raport pe care Milo nu l-a putut valida, așa că nu s-a salvat nimic și nu s-au inventat cifre. Reconectarea nu va rezolva problema; transmiteți codul echipei de asistență. Cod: {code}",
+  "gsc.warn.withheldPages":
+    "Rânduri de pagini reținute: {count}. URL-urile lor conțin parametri de interogare sau fragmente care pot purta valori private. Tabelul paginilor le omite; traficul lor rămâne inclus în agregatul proprietății.",
 };

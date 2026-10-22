@@ -246,4 +246,12 @@ export const itMeasurements: Readonly<Record<string, string>> = {
   "gsc.integrity.separate": "Consulta separatamente le analisi del sito",
   "gsc.integrity.invalid":
     "Impossibile convalidare il CSV. Usa una sola tabella Query, Page o Date, al massimo 1 000 righe / 2 MB, righe e colonne uniche, valori numerici semplici senza separatori delle migliaia e celle vuote per metriche non disponibili. Fornisci una proprietà e un intervallo di date validi. Gli URL delle pagine devono appartenere a quella proprietà e non contenere credenziali, stringhe di query o frammenti.",
+  "gsc.sync.retryLater":
+    "Google Search Console non ha risposto in tempo o sta limitando le richieste. Non è stato salvato nulla e la connessione resta invariata; riprova più tardi. Codice: {code}",
+  "gsc.sync.accessDenied":
+    "Google ha rifiutato il report di questa proprietà per l'account collegato. Non è stato salvato nulla. Controlla l'accesso dell'account a questa proprietà in Search Console; ricollega solo se quell'accesso è stato rimosso. Codice: {code}",
+  "gsc.sync.unreadable":
+    "Google ha restituito un report che Milo non è riuscito a convalidare, quindi non è stato salvato nulla e non sono stati inventati numeri. Ricollegare non risolve il problema; condividi il codice con l'assistenza. Codice: {code}",
+  "gsc.warn.withheldPages":
+    "Righe di pagina trattenute: {count}. I loro URL contengono parametri di query o frammenti che possono contenere valori privati. La tabella delle pagine le omette; il loro traffico resta incluso nell'aggregato della proprietà.",
 };

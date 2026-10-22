@@ -3,6 +3,7 @@ import {
   MAX_ROWS_PER_IMPORT,
   gscImportSummary,
   gscSummaryBasis,
+  gscWithheldPageRows,
   safeGscRow,
   sortGscRows,
 } from "./gsc";
@@ -481,6 +482,8 @@ export function searchConsoleEvidence(imports: unknown): string {
       },
       ...(item.selectedSiteUrl ? { property: clip(item.selectedSiteUrl, 200) } : {}),
       sourceTruncated: item.truncated === true,
+      // Page variants with a query/fragment withheld at the privacy boundary at sync.
+      withheldPageRows: gscWithheldPageRows(item),
       basis,
       ...(trusted
         ? {}

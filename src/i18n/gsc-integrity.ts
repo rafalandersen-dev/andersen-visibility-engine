@@ -32,6 +32,14 @@ export const gscIntegrity: Record<OnboardingLanguage, Record<string, string>> = 
     "gsc.rec.waitOrPromote": "Measurement unavailable",
     "gsc.helper":
       "One table per CSV, up to 1,000 rows and 2 MB. Use decimals without thousands separators; CTR uses 0–1 fractions or an explicit % suffix. Review the property, dates and preview before saving.",
+    "gsc.sync.retryLater":
+      "Google Search Console did not answer in time or is limiting requests. Nothing was saved and your connection is unchanged; try again later. Code: {code}",
+    "gsc.sync.accessDenied":
+      "Google refused this property's report for the connected account. Nothing was saved. Check the account's access to this property in Search Console; reconnect only if that access was removed. Code: {code}",
+    "gsc.sync.unreadable":
+      "Google returned a report Milo could not validate, so nothing was saved and no figures were invented. Reconnecting will not fix this; share the code with support. Code: {code}",
+    "gsc.warn.withheldPages":
+      "{count} page rows were withheld because their URLs contain query parameters or fragments, which may carry private values. The page table omits them; their traffic remains in the property aggregate.",
   },
   pl: {
     "launch.conn.gsc.synced":
@@ -65,6 +73,14 @@ export const gscIntegrity: Record<OnboardingLanguage, Record<string, string>> = 
     "gsc.rec.waitOrPromote": "Pomiar niedostępny",
     "gsc.helper":
       "Jedna tabela CSV, do 1000 wierszy i 2 MB. Liczby dziesiętne bez separatorów tysięcy; CTR jako ułamek 0–1 lub z %. Sprawdź usługę, daty i podgląd przed zapisem.",
+    "gsc.sync.retryLater":
+      "Google Search Console nie odpowiedział na czas lub ogranicza zapytania. Nic nie zapisano, a połączenie pozostaje bez zmian; spróbuj ponownie później. Kod: {code}",
+    "gsc.sync.accessDenied":
+      "Google odmówił raportu tej usługi dla połączonego konta. Nic nie zapisano. Sprawdź dostęp konta do tej usługi w Search Console; połącz ponownie tylko wtedy, gdy ten dostęp został odebrany. Kod: {code}",
+    "gsc.sync.unreadable":
+      "Google zwrócił raport, którego Milo nie mógł zweryfikować, więc nic nie zapisano i nie wymyślono żadnych liczb. Ponowne połączenie tego nie naprawi; przekaż kod do wsparcia. Kod: {code}",
+    "gsc.warn.withheldPages":
+      "Wstrzymane wiersze stron: {count}. Ich adresy URL zawierają parametry zapytania lub fragmenty, które mogą przenosić prywatne wartości. Tabela stron je pomija; ich ruch pozostaje w agregacie usługi.",
   },
   sv: {
     "launch.conn.gsc.synced":
@@ -98,6 +114,14 @@ export const gscIntegrity: Record<OnboardingLanguage, Record<string, string>> = 
     "gsc.rec.waitOrPromote": "Mätning saknas",
     "gsc.helper":
       "En tabell per CSV, högst 1 000 rader och 2 MB. Decimaler utan tusentalsavgränsare; CTR som 0–1 eller med %. Granska egendom, datum och förhandsvisning före sparande.",
+    "gsc.sync.retryLater":
+      "Google Search Console svarade inte i tid eller begränsar förfrågningar. Inget sparades och din anslutning är oförändrad; försök igen senare. Kod: {code}",
+    "gsc.sync.accessDenied":
+      "Google nekade rapporten för den här egendomen för det anslutna kontot. Inget sparades. Kontrollera kontots åtkomst till egendomen i Search Console; anslut igen bara om åtkomsten har tagits bort. Kod: {code}",
+    "gsc.sync.unreadable":
+      "Google returnerade en rapport som Milo inte kunde validera, så inget sparades och inga siffror hittades på. En ny anslutning löser inte detta; dela koden med supporten. Kod: {code}",
+    "gsc.warn.withheldPages":
+      "{count} sidrader hölls inne eftersom deras URL:er innehåller frågeparametrar eller fragment som kan bära privata värden. Sidtabellen utelämnar dem; deras trafik ingår fortfarande i egendomens aggregat.",
   },
   da: {
     "launch.conn.gsc.synced":
@@ -131,5 +155,13 @@ export const gscIntegrity: Record<OnboardingLanguage, Record<string, string>> = 
     "gsc.rec.waitOrPromote": "Måling utilgængelig",
     "gsc.helper":
       "Én tabel pr. CSV, op til 1.000 rækker og 2 MB. Decimaler uden tusindtalsseparatorer; CTR som 0–1 eller med %. Gennemgå ejendom, datoer og forhåndsvisning før lagring.",
+    "gsc.sync.retryLater":
+      "Google Search Console svarede ikke i tide eller begrænser forespørgsler. Intet blev gemt, og din forbindelse er uændret; prøv igen senere. Kode: {code}",
+    "gsc.sync.accessDenied":
+      "Google afviste rapporten for denne ejendom for den forbundne konto. Intet blev gemt. Tjek kontoens adgang til ejendommen i Search Console; forbind kun igen, hvis adgangen er fjernet. Kode: {code}",
+    "gsc.sync.unreadable":
+      "Google returnerede en rapport, som Milo ikke kunne validere, så intet blev gemt, og ingen tal blev opfundet. En ny forbindelse løser ikke dette; del koden med support. Kode: {code}",
+    "gsc.warn.withheldPages":
+      "{count} siderækker blev tilbageholdt, fordi deres URL'er indeholder forespørgselsparametre eller fragmenter, der kan indeholde private værdier. Sidetabellen udelader dem; deres trafik indgår stadig i ejendommens aggregat.",
   },
 };

@@ -1,4 +1,4 @@
-import { gscImportSummary, gscSummaryBasis, safeGscRow, sortGscRows } from "./gsc";
+import { gscImportSummary, gscSummaryBasis, gscWithheldPageRows, safeGscRow, sortGscRows } from "./gsc";
 import type { McpImageWorkTracker } from "./mcp-transport.server";
 import { MCP_IMAGE_TOOL, mcpImageSchema, McpImageError } from "./mcp-image";
 import { CONTENT_LANGUAGES, projectContentLanguage } from "./content-languages";
@@ -346,6 +346,7 @@ const TOOLS: McpTool[] = [
         summary: gscImportSummary(latest),
         basis: gscSummaryBasis(latest),
         property: latest.selectedSiteUrl,
+        withheldPageRows: gscWithheldPageRows(latest),
         independentlyVerified: false,
         note: "Saved observation only. Row subtotals are not property totals. Windows are independent of publication or report month; no causality or conversions.",
         topQueries,

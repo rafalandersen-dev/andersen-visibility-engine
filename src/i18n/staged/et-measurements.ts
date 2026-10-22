@@ -244,4 +244,12 @@ export const etMeasurements: Readonly<Record<string, string>> = {
   "gsc.integrity.separate": "Vaata veebisaidi analüütikat eraldi",
   "gsc.integrity.invalid":
     "CSV-d ei saanud valideerida. Kasuta ühte Query-, Page- või Date-tabelit, kuni 1 000 rida / 2 MB, kordumatuid ridu ja veerge, lihtsaid arvväärtusi ilma tuhandete eraldajateta ning tühje lahtreid puuduvate mõõdikute jaoks. Esita kehtiv veebivara ja kuupäevavahemik. Lehtede URL-id peavad kuuluma sellele veebivarale ega tohi sisaldada autentimisandmeid, päringustringe ega fragmente.",
+  "gsc.sync.retryLater":
+    "Google Search Console ei vastanud õigel ajal või piirab päringuid. Midagi ei salvestatud ja ühendus jääb muutmata; proovi hiljem uuesti. Kood: {code}",
+  "gsc.sync.accessDenied":
+    "Google keeldus selle atribuudi aruandest ühendatud konto jaoks. Midagi ei salvestatud. Kontrolli konto juurdepääsu atribuudile Search Console'is; ühenda uuesti ainult siis, kui juurdepääs eemaldati. Kood: {code}",
+  "gsc.sync.unreadable":
+    "Google tagastas aruande, mida Milo ei suutnud valideerida, seega midagi ei salvestatud ja numbreid ei mõeldud välja. Uus ühendamine seda ei paranda; jaga koodi toega. Kood: {code}",
+  "gsc.warn.withheldPages":
+    "Kinni peetud lehekülje read: {count}. Nende URL-id sisaldavad päringuparameetreid või fragmente, mis võivad kanda privaatseid väärtusi. Lehtede tabel jätab need välja; nende liiklus jääb atribuudi koondnäitajasse.",
 };

@@ -249,4 +249,12 @@ export const ptMeasurements: Readonly<Record<string, string>> = {
   "gsc.integrity.separate": "Ver a análise do site separadamente",
   "gsc.integrity.invalid":
     "Não foi possível validar o CSV. Utilize uma tabela de consultas, páginas ou datas, no máximo 1 000 linhas / 2 MB, linhas e colunas únicas, valores numéricos simples sem separadores de milhares e células vazias para métricas indisponíveis. Indique uma propriedade e um intervalo de datas válidos. Os URLs de páginas têm de pertencer a essa propriedade e não podem conter credenciais, parâmetros de consulta nem fragmentos.",
+  "gsc.sync.retryLater":
+    "O Google Search Console não respondeu a tempo ou está a limitar pedidos. Nada foi guardado e a sua ligação mantém-se; tente novamente mais tarde. Código: {code}",
+  "gsc.sync.accessDenied":
+    "A Google recusou o relatório desta propriedade para a conta ligada. Nada foi guardado. Verifique o acesso da conta a esta propriedade no Search Console; volte a ligar apenas se esse acesso tiver sido removido. Código: {code}",
+  "gsc.sync.unreadable":
+    "A Google devolveu um relatório que o Milo não conseguiu validar, por isso nada foi guardado e nenhum valor foi inventado. Voltar a ligar não resolve isto; partilhe o código com o suporte. Código: {code}",
+  "gsc.warn.withheldPages":
+    "Linhas de páginas retidas: {count}. Os respetivos URLs contêm parâmetros de consulta ou fragmentos que podem conter valores privados. A tabela de páginas omite-as; o seu tráfego continua incluído no agregado da propriedade.",
 };

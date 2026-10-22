@@ -247,4 +247,12 @@ export const fiMeasurements: Readonly<Record<string, string>> = {
   "gsc.integrity.separate": "Katso sivuston analytiikka erikseen",
   "gsc.integrity.invalid":
     "CSV:tä ei voitu tarkistaa. Käytä yhtä Query-, Page- tai Date-taulukkoa, enintään 1 000 riviä / 2 MB, yksilöllisiä rivejä ja sarakkeita, tavallisia numeroarvoja ilman tuhaterottimia sekä tyhjiä soluja puuttuville mittareille. Anna kelvollinen sivusto-omaisuus ja ajanjakso. Sivujen URL-osoitteiden on kuuluttava kyseiseen omaisuuteen, eikä niissä saa olla tunnistetietoja, kyselymerkkijonoja tai fragmentteja.",
+  "gsc.sync.retryLater":
+    "Google Search Console ei vastannut ajoissa tai rajoittaa pyyntöjä. Mitään ei tallennettu ja yhteys on ennallaan; yritä myöhemmin uudelleen. Koodi: {code}",
+  "gsc.sync.accessDenied":
+    "Google kieltäytyi tämän sivuston raportista yhdistetyllä tilillä. Mitään ei tallennettu. Tarkista tilin pääsy sivustoon Search Consolessa; yhdistä uudelleen vain, jos pääsy on poistettu. Koodi: {code}",
+  "gsc.sync.unreadable":
+    "Google palautti raportin, jota Milo ei voinut vahvistaa, joten mitään ei tallennettu eikä lukuja keksitty. Uudelleenyhdistäminen ei korjaa tätä; jaa koodi tuen kanssa. Koodi: {code}",
+  "gsc.warn.withheldPages":
+    "Pidätettyjä sivurivejä: {count}. Niiden URL-osoitteet sisältävät kyselyparametreja tai fragmentteja, jotka voivat sisältää yksityisiä arvoja. Sivutaulukko jättää ne pois; niiden liikenne sisältyy edelleen sivuston kokonaismäärään.",
 };

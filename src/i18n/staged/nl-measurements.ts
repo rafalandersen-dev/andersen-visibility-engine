@@ -245,4 +245,12 @@ export const nlMeasurements: Readonly<Record<string, string>> = {
   "gsc.integrity.separate": "Websiteanalyses apart bekijken",
   "gsc.integrity.invalid":
     "CSV kon niet worden gevalideerd. Gebruik één tabel met zoekopdrachten, pagina's of datums, maximaal 1 000 rijen / 2 MB, unieke rijen en kolommen, gewone numerieke waarden zonder scheidingstekens voor duizendtallen en lege cellen voor niet-beschikbare statistieken. Geef een geldige property en periode op. Pagina-URL's moeten bij die property horen en mogen geen inloggegevens, querystrings of fragmenten bevatten.",
+  "gsc.sync.retryLater":
+    "Google Search Console antwoordde niet op tijd of beperkt verzoeken. Er is niets opgeslagen en je verbinding is ongewijzigd; probeer het later opnieuw. Code: {code}",
+  "gsc.sync.accessDenied":
+    "Google weigerde het rapport van deze property voor het verbonden account. Er is niets opgeslagen. Controleer de toegang van het account tot deze property in Search Console; verbind alleen opnieuw als die toegang is ingetrokken. Code: {code}",
+  "gsc.sync.unreadable":
+    "Google gaf een rapport terug dat Milo niet kon valideren, dus er is niets opgeslagen en er zijn geen cijfers verzonnen. Opnieuw verbinden lost dit niet op; deel de code met support. Code: {code}",
+  "gsc.warn.withheldPages":
+    "Achtergehouden paginarijen: {count}. Hun URL's bevatten queryparameters of fragmenten die privéwaarden kunnen bevatten. De paginatabel laat ze weg; hun verkeer blijft opgenomen in het totaal van de property.",
 };

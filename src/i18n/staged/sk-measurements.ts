@@ -245,4 +245,12 @@ export const skMeasurements: Readonly<Record<string, string>> = {
   "gsc.integrity.separate": "Zobraziť analytiku webu samostatne",
   "gsc.integrity.invalid":
     "CSV sa nepodarilo overiť. Použite jednu tabuľku Query, Page alebo Date, najviac 1 000 riadkov / 2 MB, jedinečné riadky a stĺpce, obyčajné číselné hodnoty bez oddeľovačov tisícov a prázdne bunky pre nedostupné metriky. Zadajte platnú službu a rozsah dátumov. URL stránok musia patriť tejto službe a nesmú obsahovať prihlasovacie údaje, parametre dopytu ani fragmenty.",
+  "gsc.sync.retryLater":
+    "Google Search Console neodpovedal včas alebo obmedzuje požiadavky. Nič sa neuložilo a pripojenie zostáva nezmenené; skúste to neskôr. Kód: {code}",
+  "gsc.sync.accessDenied":
+    "Google odmietol prehľad tejto vlastnosti pre pripojený účet. Nič sa neuložilo. Skontrolujte prístup účtu k vlastnosti v Search Console; znova sa pripojte len vtedy, ak bol tento prístup odobratý. Kód: {code}",
+  "gsc.sync.unreadable":
+    "Google vrátil prehľad, ktorý Milo nedokázal overiť, preto sa nič neuložilo a neboli vymyslené žiadne čísla. Opätovné pripojenie to nevyrieši; zdieľajte kód s podporou. Kód: {code}",
+  "gsc.warn.withheldPages":
+    "Zadržané riadky stránok: {count}. Ich adresy URL obsahujú parametre dopytu alebo fragmenty, ktoré môžu niesť súkromné hodnoty. Tabuľka stránok ich vynecháva; ich návštevnosť zostáva v súhrne vlastnosti.",
 };

@@ -253,4 +253,12 @@ export const mtMeasurements: Readonly<Record<string, string>> = {
   "gsc.integrity.separate": "Ara l-analitika tas-sit separatament",
   "gsc.integrity.invalid":
     "Is-CSV ma setax jiġi vvalidat. Uża tabella waħda Query, Page jew Date, mhux aktar minn 1 000 ringiela / 2 MB, ringieli u kolonni uniċi, valuri numeriċi sempliċi mingħajr separaturi tal-eluf u ċelloli vojta għal metriċi mhux disponibbli. Indika proprjetà u perjodu tad-dati validi. L-URLs tal-paġni għandhom jappartjenu għal din il-proprjetà u ma jistgħux jinkludu kredenzjali, strings ta’ mistoqsijiet jew frammenti.",
+  "gsc.sync.retryLater":
+    "Google Search Console ma weġibx fil-ħin jew qed jillimita t-talbiet. Ma ġie ssejvjat xejn u l-konnessjoni tiegħek ma nbidlitx; erġa' pprova aktar tard. Kodiċi: {code}",
+  "gsc.sync.accessDenied":
+    "Google irrifjuta r-rapport ta' din il-proprjetà għall-kont konness. Ma ġie ssejvjat xejn. Iċċekkja l-aċċess tal-kont għal din il-proprjetà f'Search Console; erġa' qabbad biss jekk dak l-aċċess tneħħa. Kodiċi: {code}",
+  "gsc.sync.unreadable":
+    "Google bagħat rapport li Milo ma setax jivvalida, għalhekk ma ġie ssejvjat xejn u ma ġew ivvintati l-ebda ċifri. Il-konnessjoni mill-ġdid ma ssolvix dan; aqsam il-kodiċi mal-appoġġ. Kodiċi: {code}",
+  "gsc.warn.withheldPages":
+    "Ringieli ta' paġni miżmuma: {count}. Il-URLs tagħhom fihom parametri ta' mistoqsija jew frammenti li jistgħu jġorru valuri privati. It-tabella tal-paġni tħallihom barra; it-traffiku tagħhom jibqa' fl-aggregat tal-proprjetà.",
 };

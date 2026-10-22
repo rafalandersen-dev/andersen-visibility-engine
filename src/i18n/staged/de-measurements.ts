@@ -250,4 +250,12 @@ export const deMeasurements: Readonly<Record<string, string>> = {
   "gsc.integrity.separate": "Website-Analysedaten separat ansehen",
   "gsc.integrity.invalid":
     "CSV konnte nicht validiert werden. Verwende eine Tabelle für Suchanfragen (Query), Seiten (Page) oder Datumswerte (Date), höchstens 1.000 Zeilen / 2 MB, eindeutige Zeilen und Spalten, einfache Zahlenwerte ohne Tausendertrennzeichen und leere Zellen für nicht verfügbare Kennzahlen. Gib eine gültige Property und einen Zeitraum an. Seiten-URLs müssen zu dieser Property gehören und dürfen keine Zugangsdaten, Abfragezeichenfolgen oder Fragmente enthalten.",
+  "gsc.sync.retryLater":
+    "Google Search Console hat nicht rechtzeitig geantwortet oder begrenzt Anfragen. Es wurde nichts gespeichert und die Verbindung ist unverändert; bitte später erneut versuchen. Code: {code}",
+  "gsc.sync.accessDenied":
+    "Google hat den Bericht dieser Property für das verbundene Konto verweigert. Es wurde nichts gespeichert. Prüfe den Zugriff des Kontos auf die Property in der Search Console; verbinde dich nur neu, wenn dieser Zugriff entfernt wurde. Code: {code}",
+  "gsc.sync.unreadable":
+    "Google hat einen Bericht geliefert, den Milo nicht validieren konnte. Daher wurde nichts gespeichert und es wurden keine Zahlen erfunden. Eine neue Verbindung behebt das nicht; teile den Code dem Support mit. Code: {code}",
+  "gsc.warn.withheldPages":
+    "Zurückgehaltene Seitenzeilen: {count}. Ihre URLs enthalten Abfrageparameter oder Fragmente, die private Werte tragen können. Die Seitentabelle lässt sie weg; ihr Traffic bleibt im Property-Gesamtwert enthalten.",
 };

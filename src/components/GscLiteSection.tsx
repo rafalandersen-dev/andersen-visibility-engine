@@ -24,6 +24,8 @@ import {
   formatGscMetric,
   safeGscRow,
   sortGscRows,
+  gscSyncAdvice,
+  gscWithheldPageRows,
 } from "@/lib/gsc";
 import {
   getGscOAuthStatusFn,
@@ -302,6 +304,11 @@ function GscLiteContent({ project, onsite }: { project: Project; onsite?: Onsite
             {latest.dateRange?.end ?? "—"}
           </p>
           {latest.truncated ? <p className="text-xs">{t("gsc.warn.truncated")}</p> : null}
+          {gscWithheldPageRows(latest) ? (
+            <p className="text-xs">
+              {t("gsc.warn.withheldPages", { count: gscWithheldPageRows(latest) })}
+            </p>
+          ) : null}
           {/* Summary cards */}
           <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
             <Card label={t("gsc.stat.clicks")} value={formatGscMetric(summary!.totalClicks)} />
@@ -625,11 +632,14 @@ function GscConnectionCard({ project }: { project: Project }) {
       const res = await syncGscSearchAnalyticsFn({ data: { siteUrl: selectedSiteUrl, range } });
       if (!res.success || !res.import) {
         if (res.status) setStatus((s) => (s ? { ...s, status: res.status! } : s));
+        const advice = res.diagnostic ? gscSyncAdvice(res.diagnostic) : null;
         await persistMeta({
           status: res.status,
-          sync: { ...(project.gscOAuth?.sync ?? {}), lastError: res.error },
+          sync: { ...(project.gscOAuth?.sync ?? {}), lastError: advice?.code ?? res.error },
         });
-        toast.error(res.error || t("gsc.oauth.syncError"));
+        toast.error(
+          advice ? t(advice.key, { code: advice.code }) : res.error || t("gsc.oauth.syncError"),
+        );
         return;
       }
       const imp = res.import;

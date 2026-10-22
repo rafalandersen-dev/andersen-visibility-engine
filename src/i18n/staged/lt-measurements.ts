@@ -246,4 +246,12 @@ export const ltMeasurements: Readonly<Record<string, string>> = {
   "gsc.integrity.separate": "Svetainės analitiką peržiūrėkite atskirai",
   "gsc.integrity.invalid":
     "Nepavyko patvirtinti CSV. Naudokite vieną Query, Page arba Date lentelę, ne daugiau kaip 1 000 eilučių / 2 MB, unikalias eilutes ir stulpelius, paprastas skaitines reikšmes be tūkstančių skyriklių ir tuščius langelius neprieinamiems rodikliams. Pateikite tinkamą nuosavybę ir datų intervalą. Puslapių URL turi priklausyti tai nuosavybei ir neturėti prisijungimo duomenų, užklausos eilučių ar fragmentų.",
+  "gsc.sync.retryLater":
+    "Google Search Console neatsakė laiku arba riboja užklausas. Niekas neišsaugota, o ryšys nepakito; bandykite vėliau. Kodas: {code}",
+  "gsc.sync.accessDenied":
+    "Google atsisakė pateikti šios nuosavybės ataskaitą prijungtai paskyrai. Niekas neišsaugota. Patikrinkite paskyros prieigą prie nuosavybės Search Console; prisijunkite iš naujo tik jei ši prieiga buvo panaikinta. Kodas: {code}",
+  "gsc.sync.unreadable":
+    "Google grąžino ataskaitą, kurios Milo negalėjo patvirtinti, todėl niekas neišsaugota ir jokie skaičiai neišgalvoti. Prisijungimas iš naujo to neišspręs; pasidalykite kodu su palaikymo komanda. Kodas: {code}",
+  "gsc.warn.withheldPages":
+    "Sulaikytos puslapių eilutės: {count}. Jų URL yra užklausos parametrų arba fragmentų, kuriuose gali būti privačių reikšmių. Puslapių lentelė jų nerodo; jų srautas lieka nuosavybės suvestinėje.",
 };
