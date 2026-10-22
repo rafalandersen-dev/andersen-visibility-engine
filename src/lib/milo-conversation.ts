@@ -40,6 +40,7 @@ export const conversationEvent = z
         "usage_limit",
         "budget_unavailable",
         "execution_unknown",
+        "response_unreadable",
         "history_partial",
       ])
       .optional(),
@@ -56,6 +57,8 @@ export const conversationEvent = z
         "technical_evidence",
         "visibility_evidence",
         "authority_evidence",
+        "search_console_evidence",
+        "saved_ai_advice",
         "google_index_inspection",
         "performance_test",
         "site_crawl",
@@ -77,6 +80,8 @@ export const conversationEvent = z
           "technical",
           "visibility",
           "authority",
+          "search_console",
+          "ai_advice",
         ]),
         id: z.string().regex(/^[A-Za-z0-9_-]{1,128}$/),
       })

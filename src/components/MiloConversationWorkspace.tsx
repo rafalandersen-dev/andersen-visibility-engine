@@ -457,7 +457,7 @@ function ConversationSession({
           size="sm"
           variant="outline"
           onClick={refresh}
-          disabled={history.isFetching || selection.fresh}
+          disabled={history.isFetching || (selection.fresh && !request)}
         >
           {t("collaboration.refresh")}
         </Button>
@@ -488,9 +488,13 @@ function ConversationSession({
       )}
       {!selection.fresh && history.isPending && <p role="status">{t("common.loading")}</p>}
       {history.isError && (
-        <p role="alert" className="rounded-xl border p-4">
-          {t("chat.unavailable")}
-        </p>
+        <div role="alert" className="space-y-3 rounded-xl border p-4">
+          <p>{t("chat.unavailable")}</p>
+          {/* Read-only re-check: it never resends, resumes or replays the request. */}
+          <Button size="sm" variant="outline" onClick={refresh} disabled={history.isFetching}>
+            {t("collaboration.refresh")}
+          </Button>
+        </div>
       )}
       {page && (
         <>

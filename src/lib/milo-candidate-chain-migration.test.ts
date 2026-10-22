@@ -84,7 +84,12 @@ const candidates = [
 // Unapplied candidate outside this chain: it only re-pins the email queue wrappers, which this
 // fixture does not create, so it is enumerated (never silently released) but executed by its own
 // test against real pgmq SQL (email-queue-search-path-migration.test.ts).
-const independentCandidates = ["20261021120000_email_queue_search_path.sql"];
+const independentCandidates = [
+  "20261021120000_email_queue_search_path.sql",
+  // Widens only the diagnostics outcome_code CHECK; executed by
+  // milo-conversation-response-unreadable-migration.test.ts on the diagnostics tables.
+  "20261022120000_milo_conversation_response_unreadable.sql",
+];
 const allowed = async (role: string, fn: string) =>
   (
     await db.query<{ allowed: boolean }>("SELECT has_function_privilege($1,$2,'EXECUTE') allowed", [

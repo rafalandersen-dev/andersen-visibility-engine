@@ -112,6 +112,8 @@ export const lvConversation: ConversationCopy = {
   "chat.tool.google_index_inspection": "Google indeksa pārbaude",
   "chat.tool.performance_test": "Lapas ātruma tests",
   "chat.tool.site_crawl": "Vietnes pārmeklēšana",
+  "chat.tool.search_console_evidence": "Saglabātie Search Console importi",
+  "chat.tool.saved_ai_advice": "Saglabātie ieteikumi par MI gatavību",
   "chat.allowProviderChecks":
     "Atļaut šajā pieprasījumā ne vairāk kā divas vietnes pārbaudes (Google indeksa pārbaude, lapas ātrums vai viena vietnes pārmeklēšana) šī projekta tīmekļa vietnei. Tiek izmantoti projekta īpašnieka pievienotie pakalpojumi un esošie pārbaužu ierobežojumi, un rezultāti tiek saglabāti kopā ar projekta tehniskajām pārbaudēm.",
   "chat.providerChecksEnabled": "Vietnes pārbaudes šim pieprasījumam ir atļautas.",

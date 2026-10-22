@@ -109,6 +109,8 @@ const en = {
   "chat.tool.google_index_inspection": "Google index inspection",
   "chat.tool.performance_test": "Page speed test",
   "chat.tool.site_crawl": "Site crawl",
+  "chat.tool.search_console_evidence": "Saved Search Console imports",
+  "chat.tool.saved_ai_advice": "Saved AI readiness advice",
   "chat.allowProviderChecks":
     "Allow up to two site checks in this request (Google index inspection, page speed or one site crawl) for this project's website. Uses the project owner's connected services and existing check limits, and saves the results with the project's technical checks.",
   "chat.providerChecksEnabled": "Site checks allowed for this request.",
@@ -229,6 +231,8 @@ const pl: Copy = {
   "chat.tool.google_index_inspection": "Inspekcja indeksu Google",
   "chat.tool.performance_test": "Test szybkości strony",
   "chat.tool.site_crawl": "Skanowanie witryny",
+  "chat.tool.search_console_evidence": "Zapisane importy Search Console",
+  "chat.tool.saved_ai_advice": "Zapisane zalecenia dotyczące gotowości na AI",
   "chat.allowProviderChecks":
     "Zezwól w tym zadaniu na maksymalnie dwa sprawdzenia witryny (inspekcja indeksu Google, szybkość strony lub jedno skanowanie witryny) dla witryny tego projektu. Korzysta z połączonych usług i obecnych limitów sprawdzeń właściciela projektu, a wyniki zapisuje razem z kontrolami technicznymi projektu.",
   "chat.providerChecksEnabled": "Sprawdzenia witryny dozwolone dla tego zadania.",
@@ -347,6 +351,8 @@ const sv: Copy = {
   "chat.tool.google_index_inspection": "Google-indexinspektion",
   "chat.tool.performance_test": "Test av sidhastighet",
   "chat.tool.site_crawl": "Genomsökning av webbplatsen",
+  "chat.tool.search_console_evidence": "Sparade Search Console-importer",
+  "chat.tool.saved_ai_advice": "Sparade råd om AI-beredskap",
   "chat.allowProviderChecks":
     "Tillåt upp till två webbplatskontroller i den här uppgiften (Google-indexinspektion, sidhastighet eller en genomsökning av webbplatsen) för projektets webbplats. Använder projektägarens anslutna tjänster och befintliga kontrollgränser, och sparar resultaten bland projektets tekniska kontroller.",
   "chat.providerChecksEnabled": "Webbplatskontroller är tillåtna för den här uppgiften.",
@@ -464,6 +470,8 @@ const da: Copy = {
   "chat.tool.google_index_inspection": "Google-indeksinspektion",
   "chat.tool.performance_test": "Test af sidehastighed",
   "chat.tool.site_crawl": "Gennemsøgning af webstedet",
+  "chat.tool.search_console_evidence": "Gemte Search Console-importer",
+  "chat.tool.saved_ai_advice": "Gemte råd om AI-parathed",
   "chat.allowProviderChecks":
     "Tillad op til to webstedskontroller i denne opgave (Google-indeksinspektion, sidehastighed eller én gennemsøgning af webstedet) for projektets websted. Bruger projektejerens forbundne tjenester og eksisterende kontrolgrænser og gemmer resultaterne sammen med projektets tekniske kontroller.",
   "chat.providerChecksEnabled": "Webstedskontroller er tilladt for denne opgave.",

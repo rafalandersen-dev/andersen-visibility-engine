@@ -111,6 +111,8 @@ export const slConversation: ConversationCopy = {
   "chat.tool.google_index_inspection": "Pregled indeksa Google",
   "chat.tool.performance_test": "Preizkus hitrosti strani",
   "chat.tool.site_crawl": "Pregledovanje spletnega mesta",
+  "chat.tool.search_console_evidence": "Shranjeni uvozi iz Search Console",
+  "chat.tool.saved_ai_advice": "Shranjeni nasveti o pripravljenosti na UI",
   "chat.allowProviderChecks":
     "V tej zahtevi dovoli največ dve preverjanji spletnega mesta (Googlov pregled indeksa, hitrost strani ali eno pregledovanje spletnega mesta) za spletno mesto tega projekta. Uporablja povezane storitve lastnika projekta in obstoječe omejitve preverjanj, rezultate pa shrani skupaj s tehničnimi preverjanji projekta.",
   "chat.providerChecksEnabled": "Preverjanja spletnega mesta so za to zahtevo dovoljena.",

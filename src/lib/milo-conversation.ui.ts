@@ -111,6 +111,10 @@ export function referenceDestination(
       return { to: "/app/ai-visibility" as const, search: {} };
     case "authority":
       return { to: "/app/backlinks" as const, search: {} };
+    case "search_console":
+      return { to: "/app/analytics" as const, search: {} };
+    case "ai_advice":
+      return { to: "/app/ai-visibility" as const, search: {} };
     default:
       return null;
   }

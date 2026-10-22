@@ -111,6 +111,8 @@ export const etConversation: ConversationCopy = {
   "chat.tool.google_index_inspection": "Google'i indekseerimise kontroll",
   "chat.tool.performance_test": "Lehe kiiruse test",
   "chat.tool.site_crawl": "Veebisaidi läbiskaneerimine",
+  "chat.tool.search_console_evidence": "Salvestatud Search Console'i impordid",
+  "chat.tool.saved_ai_advice": "Salvestatud soovitused tehisintellektiks valmisoleku kohta",
   "chat.allowProviderChecks":
     "Luba selles päringus kuni kaks veebisaidi kontrolli (Google'i indekseerimise kontroll, lehe kiirus või üks veebisaidi läbiskaneerimine) selle projekti veebisaidile. Kasutatakse projekti omaniku ühendatud teenuseid ja olemasolevaid kontrollipiiranguid ning tulemused salvestatakse projekti tehniliste kontrollide juurde.",
   "chat.providerChecksEnabled": "Veebisaidi kontrollid on selle päringu jaoks lubatud.",

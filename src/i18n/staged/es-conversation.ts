@@ -114,6 +114,8 @@ export const esConversation: ConversationCopy = {
   "chat.tool.google_index_inspection": "Inspección del índice de Google",
   "chat.tool.performance_test": "Prueba de velocidad de la página",
   "chat.tool.site_crawl": "Rastreo del sitio",
+  "chat.tool.search_console_evidence": "Importaciones guardadas de Search Console",
+  "chat.tool.saved_ai_advice": "Recomendaciones guardadas sobre preparación para la IA",
   "chat.allowProviderChecks":
     "Permite hasta dos comprobaciones del sitio en esta solicitud (inspección del índice de Google, velocidad de la página o un rastreo del sitio) para el sitio web de este proyecto. Usa los servicios conectados del propietario del proyecto y los límites de comprobación existentes, y guarda los resultados con las comprobaciones técnicas del proyecto.",
   "chat.providerChecksEnabled": "Comprobaciones del sitio permitidas para esta solicitud.",
