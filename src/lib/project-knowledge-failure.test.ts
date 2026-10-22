@@ -7,6 +7,10 @@ describe("knowledge change failure classification (BU)", () => {
       kind: "known",
       key: "knowledge.ui.websiteUnreadable",
     });
+    expect(knowledgeChangeFailure(new Error("website_source_temporarily_unavailable"))).toEqual({
+      kind: "known",
+      key: "knowledge.ui.websiteTemporarilyUnavailable",
+    });
     expect(knowledgeChangeFailure(new Error("brand_document_no_text"))).toEqual({
       kind: "known",
       key: "knowledge.ui.noText",

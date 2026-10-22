@@ -265,6 +265,8 @@ export const gaKnowledge: Readonly<Record<string, string>> = {
     "Níorbh fhéidir an doiciméad seo a eastóscadh laistigh de na teorainneacha a dtacaítear leo. Úsáid PDF nó DOCX níos lú nach bhfuil criptithe, nó cuir an treoir isteach de láimh.",
   "knowledge.ui.websiteUnreadable":
     "Níor sheol an suíomh gréasáin go leor téacs inléite ar ais, mar sin níor gabhadh aon rud agus tá an t-eolas sábháilte gan athrú. Seiceáil an seoladh nó bain triail eile as níos déanaí.",
+  "knowledge.ui.websiteTemporarilyUnavailable":
+    "Tá an tseirbhís léite suíomhanna gréasáin ag tosú nó gnóthach, mar sin níor gabhadh aon rud agus tá an t-eolas sábháilte gan athrú. Bain triail eile as i gceann nóiméid.",
   "knowledge.ui.changeFailed":
     "Níorbh fhéidir an t-athrú seo a dheimhniú. Athnuaigh agus seiceáil an leagan sábháilte sula mbaineann tú triail eile as.",
   "knowledge.ui.forgetAll":
