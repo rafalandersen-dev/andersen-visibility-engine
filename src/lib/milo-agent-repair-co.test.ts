@@ -456,7 +456,13 @@ type GscView = {
       id: string;
       numericBasisUnavailable?: string;
       topRowsByClicks: Array<Record<string, unknown>>;
-      omittedRows: number;
+      rowScopes: {
+        savedRows: number | null;
+        previewRows: number;
+        savedRowsNotInPreview: number | null;
+        sourceWithheldPageVariants: number | null;
+        sourceRowLimitReached: boolean | null;
+      };
     } & Record<string, unknown>
   >;
 };
@@ -587,8 +593,14 @@ describe("D — owner-only saved Search Console and AI readiness readers", () =>
     expect(latest).toMatchObject({
       source: "api_sync",
       property: "sc-domain:synergymassage.se",
-      sourceTruncated: true,
       basis: "aggregate",
+    });
+    // CS: the provider row limit is its own scope; this pre-recording API sync has no
+    // withheld-variant count, which is unknown (null), never zero.
+    expect(latest.rowScopes).toMatchObject({
+      savedRows: 900,
+      sourceRowLimitReached: true,
+      sourceWithheldPageVariants: null,
     });
     expect(latest.summary).toEqual({
       clicks: 500,
@@ -604,7 +616,8 @@ describe("D — owner-only saved Search Console and AI readiness readers", () =>
       ctr: null,
       position: 12.5,
     });
-    expect(latest.topRowsByClicks.length + latest.omittedRows).toBe(900);
+    expect(latest.rowScopes.previewRows).toBe(latest.topRowsByClicks.length);
+    expect(latest.rowScopes.previewRows + latest.rowScopes.savedRowsNotInPreview!).toBe(900);
     expect(result.evidence).not.toMatch(/foreign|private@example|fixture-private/);
   });
   it("withholds every metric, row and count of legacy imports, as Analytics does", async () => {
@@ -654,7 +667,13 @@ describe("D — owner-only saved Search Console and AI readiness readers", () =>
           savedRows: null,
         },
         topRowsByClicks: [],
-        omittedRows: 0,
+        rowScopes: {
+          savedRows: null,
+          previewRows: 0,
+          savedRowsNotInPreview: null,
+          sourceWithheldPageVariants: null,
+          sourceRowLimitReached: null,
+        },
       });
       expect(item.numericBasisUnavailable).toMatch(/cannot be recovered reliably/);
     }
