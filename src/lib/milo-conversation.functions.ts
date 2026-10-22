@@ -6,13 +6,24 @@ import {
   conversationSend,
   conversationTurnTarget,
 } from "./milo-conversation";
+import { TeamAdmissionBusyError } from "./project-team-admission";
 
 export const sendMiloMessageFn = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((input: unknown) => conversationSend.parse(input))
   .handler(async ({ data, context }) => {
     const { beginConversationTurn } = await import("./milo-conversation.server");
-    const saved = await beginConversationTurn(context.userId, data);
+    let saved;
+    try {
+      saved = await beginConversationTurn(context.userId, data);
+    } catch (error) {
+      // Bounded retries exhausted on a confirmed rollback: THIS call saved and queued
+      // nothing. It says nothing about an earlier attempt of the same request whose
+      // response was lost; the browser keeps such a request uncertain. Any other
+      // failure stays a thrown, uncertain outcome.
+      if (error instanceof TeamAdmissionBusyError) return { notSaved: "busy" as const };
+      throw error;
+    }
     // The database queues independent execution in the same transaction. Losing
     // this browser response never owns, cancels or replays the provider request.
     return { turn: saved.turn };

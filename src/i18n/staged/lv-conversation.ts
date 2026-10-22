@@ -91,6 +91,8 @@ export const lvConversation: ConversationCopy = {
   "chat.sendUnconfirmed":
     "Šo pieprasījumu neizdevās apstiprināt. Atgūstiet sākotnējo pieprasījumu vai pārbaudiet saglabāto vēsturi, pirms to nosūtāt kā jaunu uzdevumu.",
   "chat.recover": "Atgūt sākotnējo pieprasījumu",
+  "chat.notSavedBusy":
+    "Milo pašlaik ir aizņemts, tāpēc šī ziņa netika saglabāta un neviens darbs netika sākts. Jūsu teksts joprojām ir šeit; lūdzu, mēģiniet vēlreiz.",
   "chat.resume": "Sākt saglabāto pieprasījumu",
   "chat.stop": "Apturēt turpmāko darbu",
   "chat.stopHelp":

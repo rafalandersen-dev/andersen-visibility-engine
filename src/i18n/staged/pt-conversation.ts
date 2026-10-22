@@ -93,6 +93,8 @@ export const ptConversation: ConversationCopy = {
   "chat.sendUnconfirmed":
     "Não foi possível confirmar este pedido. Recupera o pedido original ou verifica o histórico antes de o enviar como uma nova tarefa.",
   "chat.recover": "Recuperar pedido original",
+  "chat.notSavedBusy":
+    "O Milo está ocupado neste momento, por isso esta mensagem não foi guardada e nenhum trabalho começou. O seu texto continua aqui; tente novamente.",
   "chat.resume": "Iniciar pedido guardado",
   "chat.stop": "Parar o trabalho seguinte",
   "chat.stopHelp":

@@ -11,6 +11,7 @@ import {
 } from "./milo-conversation";
 import { projectTeamRpc, teamCall } from "./project-team-membership.server";
 import { admittedReadRpc } from "./project-team-read-admission.server";
+import { TeamAdmissionBusyError } from "./project-team-admission";
 import type { TeamReadRpc } from "./project-team-read.server";
 
 const actorSchema = z.string().uuid();
@@ -95,6 +96,13 @@ function retryReadContention(rpc: TeamReadRpc, deadline: number): TeamReadRpc {
   };
 }
 
+/** Total begin attempts when admission is refused with a confirmed rollback
+ * (TeamAdmissionBusyError), the pauses between them, and the absolute budget no
+ * further attempt may start beyond. Small and bounded; never applied to an
+ * uncertain outcome. */
+export const MILO_BEGIN_BUSY_ATTEMPTS = 3;
+export const MILO_BEGIN_BUSY_BACKOFF_MS = [40, 120] as const;
+export const MILO_BEGIN_BUSY_BUDGET_MS = 1500;
 /** Authenticated actor is always distinct from the owner/project input. All
  * RPCs reauthorize in storage; no browser cache or owner-workspace fallback. */
 export async function beginConversationTurn(
@@ -104,26 +112,47 @@ export async function beginConversationTurn(
 ) {
   const actor = actorSchema.parse(actorId),
     input = conversationSend.parse(raw);
-  const result = z
-    .object({ created: z.boolean(), turn: conversationTurn })
-    .strict()
-    .parse(
-      await teamCall(
+  // One immutable request for every permitted attempt: same conversation, turn,
+  // body, locale and consents.
+  const params = Object.freeze({
+    ...args(actor, input),
+    p_body: input.body,
+    p_locale: input.locale,
+    ...(input.allowDraftGeneration !== undefined
+      ? { p_allow_generation: input.allowDraftGeneration }
+      : {}),
+    ...(input.allowProviderChecks !== undefined
+      ? { p_allow_checks: input.allowProviderChecks }
+      : {}),
+  });
+  const deadline = Date.now() + MILO_BEGIN_BUSY_BUDGET_MS;
+  let stored: unknown;
+  for (let attempt = 1; ; attempt++) {
+    try {
+      // A fresh admission per attempt; storage re-runs the membership/scope check.
+      stored = await teamCall(
         "begin_milo_conversation_turn",
-        {
-          ...args(actor, input),
-          p_body: input.body,
-          p_locale: input.locale,
-          ...(input.allowDraftGeneration !== undefined
-            ? { p_allow_generation: input.allowDraftGeneration }
-            : {}),
-          ...(input.allowProviderChecks !== undefined
-            ? { p_allow_checks: input.allowProviderChecks }
-            : {}),
-        },
+        { ...params },
         admittedReadRpc(actor, rpc),
-      ),
-    );
+      );
+      break;
+    } catch (error) {
+      // Only a NOWAIT/admission refusal proves this attempt committed nothing (the
+      // begin transaction, its queue row included, rolled back or never started;
+      // lease release failures are swallowed and never reach here). It proves
+      // nothing about an earlier, separately submitted attempt of the same request. Timeouts, transport
+      // and every other failure are uncertain or final and propagate unchanged.
+      if (!(error instanceof TeamAdmissionBusyError) || attempt >= MILO_BEGIN_BUSY_ATTEMPTS)
+        throw error;
+      const pause = MILO_BEGIN_BUSY_BACKOFF_MS[attempt - 1];
+      if (Date.now() + pause >= deadline) throw error;
+      await new Promise((resolve) => setTimeout(resolve, pause));
+      // A delayed timer or stalled event loop must not start another admission or
+      // begin past the absolute budget: re-check right before the next attempt.
+      if (Date.now() >= deadline) throw error;
+    }
+  }
+  const result = z.object({ created: z.boolean(), turn: conversationTurn }).strict().parse(stored);
   sameTurn(input.turnId, result.turn);
   if (
     result.turn.body !== input.body ||

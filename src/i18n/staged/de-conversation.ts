@@ -95,6 +95,8 @@ export const deConversation: ConversationCopy = {
   "chat.sendUnconfirmed":
     "Diese Anfrage konnte nicht bestätigt werden. Stelle die ursprüngliche Anfrage wieder her oder prüfe den Verlauf, bevor du sie als neue Aufgabe sendest.",
   "chat.recover": "Ursprüngliche Anfrage wiederherstellen",
+  "chat.notSavedBusy":
+    "Milo ist gerade ausgelastet, daher wurde diese Nachricht nicht gespeichert und keine Arbeit gestartet. Dein Text ist noch da; versuche es erneut.",
   "chat.resume": "Gespeicherte Anfrage starten",
   "chat.stop": "Weitere Arbeit stoppen",
   "chat.stopHelp":

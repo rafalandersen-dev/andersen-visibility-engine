@@ -93,6 +93,8 @@ export const esConversation: ConversationCopy = {
   "chat.sendUnconfirmed":
     "No se ha podido confirmar esta solicitud. Recupera la solicitud original o consulta el historial antes de enviarla como una tarea nueva.",
   "chat.recover": "Recuperar solicitud original",
+  "chat.notSavedBusy":
+    "Milo está ocupado ahora mismo, así que este mensaje no se guardó y no empezó ningún trabajo. Tu texto sigue aquí; inténtalo de nuevo.",
   "chat.resume": "Iniciar solicitud guardada",
   "chat.stop": "Detener el trabajo posterior",
   "chat.stopHelp":

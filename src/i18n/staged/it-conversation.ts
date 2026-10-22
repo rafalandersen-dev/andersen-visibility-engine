@@ -94,6 +94,8 @@ export const itConversation: ConversationCopy = {
   "chat.sendUnconfirmed":
     "Non è stato possibile confermare questa richiesta. Recupera la richiesta originale o controlla la cronologia prima di inviarla come nuova attività.",
   "chat.recover": "Recupera richiesta originale",
+  "chat.notSavedBusy":
+    "Milo è occupato in questo momento, quindi questo messaggio non è stato salvato e non è iniziato alcun lavoro. Il tuo testo è ancora qui; riprova.",
   "chat.resume": "Avvia richiesta salvata",
   "chat.stop": "Interrompi il lavoro successivo",
   "chat.stopHelp":

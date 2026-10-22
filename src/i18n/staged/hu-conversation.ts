@@ -92,6 +92,8 @@ export const huConversation: ConversationCopy = {
   "chat.sendUnconfirmed":
     "Ezt a kérést nem sikerült megerősíteni. Állítsd helyre az eredeti kérést, vagy ellenőrizd az előzményeket, mielőtt új feladatként küldenéd el.",
   "chat.recover": "Eredeti kérés helyreállítása",
+  "chat.notSavedBusy":
+    "A Milo most foglalt, ezért ez az üzenet nem lett mentve, és semmilyen munka nem indult el. A szöveged még itt van; próbáld újra.",
   "chat.resume": "Mentett kérés indítása",
   "chat.stop": "További munka leállítása",
   "chat.stopHelp":

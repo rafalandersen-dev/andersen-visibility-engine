@@ -94,6 +94,8 @@ export const nlConversation: ConversationCopy = {
   "chat.sendUnconfirmed":
     "Dit verzoek kon niet worden bevestigd. Herstel het oorspronkelijke verzoek of controleer de geschiedenis voordat je het als nieuwe taak verstuurt.",
   "chat.recover": "Oorspronkelijk verzoek herstellen",
+  "chat.notSavedBusy":
+    "Milo is nu bezet, dus dit bericht is niet opgeslagen en er is geen werk gestart. Je tekst staat er nog; probeer het opnieuw.",
   "chat.resume": "Opgeslagen verzoek starten",
   "chat.stop": "Verdere werkzaamheden stoppen",
   "chat.stopHelp":

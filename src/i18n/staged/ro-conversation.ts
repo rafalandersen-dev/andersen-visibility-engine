@@ -93,6 +93,8 @@ export const roConversation: ConversationCopy = {
   "chat.sendUnconfirmed":
     "Această solicitare nu a putut fi confirmată. Recuperați solicitarea originală sau verificați istoricul salvat înainte de a o trimite ca sarcină nouă.",
   "chat.recover": "Recuperați solicitarea originală",
+  "chat.notSavedBusy":
+    "Milo este ocupat acum, așa că acest mesaj nu a fost salvat și nu a început nicio lucrare. Textul dumneavoastră este încă aici; încercați din nou.",
   "chat.resume": "Porniți solicitarea salvată",
   "chat.stop": "Opriți lucrările ulterioare",
   "chat.stopHelp":

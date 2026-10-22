@@ -26,7 +26,12 @@ import {
   displayedConversationEvents,
   isActiveTurn,
   lastConversationPage,
+  awaitingFirstConfirmation,
+  conversationReadEnabled,
+  sendOutcome,
+  retainedSendOutcome,
   type MiloProject,
+  type SendOutcome,
 } from "@/lib/milo-conversation.ui";
 import { runTeamRequest } from "@/lib/team-request-queue";
 
@@ -271,17 +276,29 @@ export function MiloConversationWorkspace(props: Props) {
             }}
           />
         )}
-        {selected && !directory.isError && erasingId !== selected.id ? (
+        {selected && erasingId !== selected.id ? (
+          // Kept mounted (concealed) while directory authorization fails, so an
+          // in-flight, uncertain or not-saved request keeps its in-memory identity.
+          // Any scope or consent-role change is a different key and discards it.
           <ConversationSession
-            key={`${actorId}:${project.ownerId}:${project.projectId}:${selected.id}`}
+            key={`${actorId}:${project.ownerId}:${project.projectId}:${props.canConsentChecks === true}:${selected.id}`}
             {...props}
             selection={selected}
-            onStarted={() => {
+            concealed={directory.isError}
+            onConfirmed={(id, sent) => {
+              // Only the id-checked fresh flag and, for a confirmed SEND, the URL.
+              // This render's location callback carries its own source location,
+              // so the route ignores it once navigation has moved on.
+              setSelected((value) =>
+                value?.id === id && value.fresh ? { ...value, fresh: false } : value,
+              );
+              if (!sent) return;
               setErasedNotice(false);
-              setSelected((value) => (value ? { ...value, fresh: false } : value));
-              onLocationChange?.(selected.id, true);
+              onLocationChange?.(id, true);
             }}
-            onDirectoryRefresh={refresh}
+            onDirectoryRefresh={() =>
+              void client.invalidateQueries({ queryKey: [...prefix, "directory"] })
+            }
             onUnavailableChange={setHistoryUnavailable}
           />
         ) : selected && erasingId === selected.id ? null : (
@@ -298,14 +315,17 @@ function ConversationSession({
   onOpenResult,
   selection,
   canConsentChecks = false,
-  onStarted,
+  concealed,
+  onConfirmed,
   onDirectoryRefresh,
   onUnavailableChange,
   onLocationChange,
   onConfirmedConversation,
 }: Props & {
   selection: Selection;
-  onStarted: () => void;
+  concealed: boolean;
+  /** A confirmed read (`sent` false) or send (`sent` true) of this conversation. */
+  onConfirmed: (id: string, sent: boolean) => void;
   onDirectoryRefresh: () => void;
   onUnavailableChange: (unavailable: boolean) => void;
 }) {
@@ -320,8 +340,10 @@ function ConversationSession({
   const [request, setRequest] = useState<z.infer<typeof conversationSend>>();
   const [sending, setSending] = useState(false),
     [working, setWorking] = useState(false);
-  const [sendUnconfirmed, setSendUnconfirmed] = useState(false),
+  const [outcome, setOutcome] = useState<SendOutcome>(),
     [actionError, setActionError] = useState(false);
+  const sendUnconfirmed = outcome === "uncertain";
+  const uncertainTurns = useRef(new Set<string>());
   const alive = useRef(true),
     dispatching = useRef(false),
     mutating = useRef(false),
@@ -346,22 +368,47 @@ function ConversationSession({
           ),
         signal,
       ),
-    enabled: !selection.fresh || !!request,
+    enabled: conversationReadEnabled({ fresh: selection.fresh, concealed, outcome }),
     staleTime: 0,
     gcTime: 0,
     retry: false,
+    // No interval read while the begin call itself is in flight: it would compete
+    // with that send for the same actor admission.
     refetchInterval: (query) =>
-      sending || query.state.data?.turns.some(isActiveTurn) ? 3000 : 15000,
+      sending ? false : query.state.data?.turns.some(isActiveTurn) ? 3000 : 15000,
   });
-  const page = history.isError ? undefined : history.data;
+  // Concealment drops cached private history; revealing requires a fresh read.
+  const { ownerId, projectId } = project;
+  useEffect(() => {
+    if (concealed)
+      client.removeQueries({
+        queryKey: [...conversationKey(actorId, { ownerId, projectId }), "history", selection.id],
+      });
+  }, [concealed, client, actorId, ownerId, projectId, selection.id]);
+  const page = history.isError || concealed ? undefined : history.data;
+  const firstUnconfirmed = awaitingFirstConfirmation({ fresh: selection.fresh, outcome });
+  // As before CR: the effect's own committed callbacks, so the route's source-location
+  // guard ignores a confirmation from a conversation navigation has left.
   useEffect(() => {
     if (!page) return;
     onConfirmedConversation?.(selection.id);
     onLocationChange?.(selection.id, true);
   }, [page, selection.id, onConfirmedConversation, onLocationChange]);
+  // A read confirmed this conversation exists: it is no longer a fresh draft. A pure,
+  // id-checked state update; it never navigates.
+  const markConfirmed = useRef(onConfirmed);
   useEffect(() => {
-    onUnavailableChange(history.isError);
-  }, [history.isError, onUnavailableChange]);
+    markConfirmed.current = onConfirmed;
+  });
+  // Only a still-fresh selection: an existing conversation's reads never touch
+  // parent state, so they cannot add an intermediate parent render.
+  useEffect(() => {
+    if (page && selection.fresh) markConfirmed.current(selection.id, false);
+  }, [page, selection.id, selection.fresh]);
+  useEffect(() => {
+    // An unsaved new conversation cannot be read yet; that is not lost access.
+    onUnavailableChange(history.isError && !firstUnconfirmed);
+  }, [history.isError, firstUnconfirmed, onUnavailableChange]);
   const latest = page?.turns.at(-1);
   const active = page?.turns.find(isActiveTurn);
   const requestSaved = page?.turns.some((turn) => turn.turnId === request?.turnId) ?? false;
@@ -402,26 +449,37 @@ function ConversationSession({
     dispatching.current = true;
     setRequest(input);
     setSending(true);
-    setSendUnconfirmed(false);
+    setOutcome(undefined);
     setActionError(false);
     setFollowLatest(true);
-    onStarted();
+    // The URL is promoted and a new conversation read only after confirmation.
+    let result: SendOutcome = "uncertain";
     try {
-      await sendMiloMessageFn({ data: input });
-      if (!alive.current) return;
+      result = sendOutcome(await sendMiloMessageFn({ data: input }), input.turnId);
+    } catch {
+      result = "uncertain";
+    } finally {
+      dispatching.current = false;
+    }
+    // A busy refusal proves only that THIS attempt did not commit. Once a request's
+    // outcome has been uncertain, an earlier attempt may have saved and queued it,
+    // so it stays uncertain (same identity, text and duplicate protection).
+    result = retainedSendOutcome(result, uncertainTurns.current.has(input.turnId));
+    if (result === "uncertain") uncertainTurns.current.add(input.turnId);
+    if (!alive.current) return;
+    setSending(false);
+    setOutcome(result);
+    if (result === "notSaved") return; // Confirmed rollback: nothing saved, text kept.
+    if (result === "saved") {
       setBody("");
       setAllowGeneration(false);
       setAllowChecks(false);
-    } catch {
-      if (alive.current) setSendUnconfirmed(true);
-    } finally {
-      dispatching.current = false;
-      if (alive.current) {
-        setSending(false);
-        refresh();
-        onDirectoryRefresh();
-      }
+      onConfirmed(input.conversationId, true);
     }
+    // History first, then the directory, never both at once.
+    void client
+      .invalidateQueries({ queryKey: prefix })
+      .finally(() => alive.current && onDirectoryRefresh());
   }
   async function act(kind: "resume" | "cancel", turnId: string) {
     if (mutating.current || (kind === "resume" && dispatching.current)) return;
@@ -444,6 +502,9 @@ function ConversationSession({
     }
   }
   const stopId = active?.turnId ?? (sending ? request?.turnId : undefined);
+  // Authorization is failing: show nothing private (no history, request text or
+  // composer). Local request state stays in memory until authorization returns.
+  if (concealed) return <div role="status">{t("chat.unavailable")}</div>;
   return (
     <section className="min-w-0 space-y-5" aria-label={t("chat.title")}>
       <div className="flex flex-wrap items-center justify-between gap-3 border-b pb-4">
@@ -487,7 +548,7 @@ function ConversationSession({
         </div>
       )}
       {!selection.fresh && history.isPending && <p role="status">{t("common.loading")}</p>}
-      {history.isError && (
+      {history.isError && !firstUnconfirmed && (
         <div role="alert" className="space-y-3 rounded-xl border p-4">
           <p>{t("chat.unavailable")}</p>
           {/* Read-only re-check: it never resends, resumes or replays the request. */}
@@ -612,6 +673,17 @@ function ConversationSession({
           >
             {t("chat.recover")}
           </Button>
+        </div>
+      )}
+      {outcome === "notSaved" && request && !sending && (
+        <div role="alert" className="space-y-3 rounded-xl border p-4">
+          <p>{t("chat.notSavedBusy")}</p>
+          {/* Nothing was saved; this resubmits the identical request, never a new one. */}
+          {body === request.body && (
+            <Button variant="outline" disabled={working} onClick={() => void submit(request)}>
+              {t("common.retry")}
+            </Button>
+          )}
         </div>
       )}
       {actionError && <p role="alert">{t("chat.unavailable")}</p>}

@@ -90,6 +90,8 @@ export const skConversation: ConversationCopy = {
   "chat.sendUnconfirmed":
     "Túto požiadavku sa nepodarilo potvrdiť. Obnovte pôvodnú požiadavku alebo skontrolujte históriu, kým ju odošlete ako novú úlohu.",
   "chat.recover": "Obnoviť pôvodnú požiadavku",
+  "chat.notSavedBusy":
+    "Milo je práve zaneprázdnený, preto sa táto správa neuložila a nezačala žiadna práca. Váš text je tu stále; skúste to znova.",
   "chat.resume": "Spustiť uloženú požiadavku",
   "chat.stop": "Zastaviť ďalšiu prácu",
   "chat.stopHelp":

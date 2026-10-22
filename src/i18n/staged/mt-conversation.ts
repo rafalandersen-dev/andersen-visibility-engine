@@ -93,6 +93,8 @@ export const mtConversation: ConversationCopy = {
   "chat.sendUnconfirmed":
     "Din it-talba ma setgħetx tiġi kkonfermata. Irkupra t-talba oriġinali jew iċċekkja l-istorja ssejvjata qabel tibagħtha bħala kompitu ġdid.",
   "chat.recover": "Irkupra t-talba oriġinali",
+  "chat.notSavedBusy":
+    "Milo huwa okkupat bħalissa, għalhekk dan il-messaġġ ma ġiex issejvjat u ma beda l-ebda xogħol. It-test tiegħek għadu hawn; erġa' pprova.",
   "chat.resume": "Ibda t-talba ssejvjata",
   "chat.stop": "Waqqaf ix-xogħol ulterjuri",
   "chat.stopHelp":
