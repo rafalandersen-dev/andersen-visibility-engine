@@ -472,7 +472,7 @@ describe("CQ legacy imports and readers", () => {
       content: {
         imports: {
           basis: string;
-          withheldPageRows: number;
+          rowScopes: { sourceWithheldPageVariants: number | null };
           summary: { clicks: unknown; savedRows: unknown };
           topRowsByClicks: unknown[];
         }[];
@@ -481,8 +481,9 @@ describe("CQ legacy imports and readers", () => {
     const [item] = evidence.content.imports;
     expect(item).toMatchObject({ basis: "legacy", summary: { clicks: null, savedRows: null } });
     expect(item.topRowsByClicks).toEqual([]);
-    // A count is only reported for integrity-v2 API syncs, never from a legacy record.
-    expect(item.withheldPageRows).toBe(0);
+    // A count is only reported for integrity-v2 imports; a legacy record (even with a
+    // forged count) is unknown, never zero.
+    expect(item.rowScopes.sourceWithheldPageVariants).toBeNull();
   });
 
   it("only a positive safe integer count on an integrity-v2 API sync is reported", () => {
@@ -507,9 +508,12 @@ describe("CQ legacy imports and readers", () => {
     stubGoogle({ page: pages([HOME, 40, 900], [BOOK_EN, 2, 82], [SPORT_SV, 2, 50]) });
     const imp = await sync();
     const evidence = JSON.parse(searchConsoleEvidence([imp])) as {
-      content: { imports: { withheldPageRows: number; basis: string }[] };
+      content: { imports: { rowScopes: { sourceWithheldPageVariants: number }; basis: string }[] };
     };
-    expect(evidence.content.imports[0]).toMatchObject({ withheldPageRows: 2, basis: "aggregate" });
+    expect(evidence.content.imports[0]).toMatchObject({
+      rowScopes: { sourceWithheldPageVariants: 2 },
+      basis: "aggregate",
+    });
     expect(JSON.stringify(evidence)).not.toContain("lang=");
     const html = renderToStaticMarkup(
       createElement(GscLiteSection, {

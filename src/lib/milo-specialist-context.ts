@@ -3,7 +3,6 @@ import {
   MAX_ROWS_PER_IMPORT,
   gscImportSummary,
   gscSummaryBasis,
-  gscWithheldPageRows,
   safeGscRow,
   sortGscRows,
 } from "./gsc";
@@ -452,6 +451,25 @@ const gscRow = (clip: (value: unknown, max: number) => string) => (row: GscRow) 
   position: row.position,
 });
 
+/** One fixed statement of how the per-import row counts relate, so a reader cannot
+ * treat privacy-withheld page variants as part of the saved rows left out of the
+ * preview (CS, 22 October: a live reply called 44 withheld variants "of" 219
+ * preview omissions). */
+const GSC_ROW_SCOPE_GUIDE =
+  "rowScopes per import: previewRows and savedRowsNotInPreview partition the saved rows (savedRows = previewRows + savedRowsNotInPreview); savedRowsNotInPreview are saved rows left out of this bounded preview only. sourceWithheldPageVariants are page URLs with a query or fragment excluded at sync before saving: they are NOT saved rows, so never add them to, or count them within, savedRows, previewRows or savedRowsNotInPreview. sourceRowLimitReached: the source hit its row limit, so more rows may exist. null means unknown. When basis is aggregate, summary totals are the separately reported property aggregate: none of these counts reduces or explains them.";
+/** Page variants withheld at the sync privacy boundary, as a count only for imports
+ * whose record can say: an integrity-v2 API sync that recorded it (0 is a real
+ * zero), or an integrity-v2 manual CSV (which refuses such URLs, so none were
+ * withheld). Legacy, over-cap, pre-recording API and unknown-source imports are
+ * unknown (null). */
+function sourceWithheldPageVariants(item: GscImport, trusted: boolean): number | null {
+  if (!trusted) return null;
+  if (item.source === "manual_csv") return 0;
+  if (item.source !== "api") return null;
+  const n = item.withheldPageRows?.queryOrFragment;
+  return typeof n === "number" && Number.isSafeInteger(n) && n >= 0 ? n : null;
+}
+
 /** Saved Search Console imports for this project only, newest first. Uses the same
  * integrity rules as Analytics (gsc.ts): totals are recomputed by gscImportSummary,
  * never the cached summary; rows and metrics are exposed only for integrityVersion 2
@@ -481,9 +499,6 @@ export function searchConsoleEvidence(imports: unknown): string {
         label: clip(item.dateRange?.label, 60),
       },
       ...(item.selectedSiteUrl ? { property: clip(item.selectedSiteUrl, 200) } : {}),
-      sourceTruncated: item.truncated === true,
-      // Page variants with a query/fragment withheld at the privacy boundary at sync.
-      withheldPageRows: gscWithheldPageRows(item),
       basis,
       ...(trusted
         ? {}
@@ -501,7 +516,17 @@ export function searchConsoleEvidence(imports: unknown): string {
         savedRows: trusted ? item.rows.length : null,
       },
       topRowsByClicks: rows,
-      omittedRows: valid.length - rows.length,
+      // previewRows + savedRowsNotInPreview partition savedRows; sourceWithheldPageVariants
+      // were excluded at sync and are not saved rows (see rowScopeGuide). null = unknown.
+      rowScopes: {
+        savedRows: trusted ? item.rows.length : null,
+        previewRows: rows.length,
+        savedRowsNotInPreview: trusted ? valid.length - rows.length : null,
+        sourceWithheldPageVariants: sourceWithheldPageVariants(item, trusted),
+        // Optional historical metadata: only an explicit boolean says either way.
+        sourceRowLimitReached:
+          trusted && typeof item.truncated === "boolean" ? item.truncated : null,
+      },
     };
   });
   const content: Record<string, unknown> = {
@@ -511,12 +536,16 @@ export function searchConsoleEvidence(imports: unknown): string {
     omittedImports: all.length - included.length,
     limitations:
       "Past exports or syncs as saved; null means unknown or not reported, never zero. Legacy imports have no usable numeric basis. No live Search Console request was made.",
+    rowScopeGuide: GSC_ROW_SCOPE_GUIDE,
   };
   content.shortenedFields = shortened.shortened;
   const lists: Trimmable[] = [
     ...included.map((item) => ({
       list: item.topRowsByClicks as unknown[],
-      omitted: () => (item.omittedRows += 1),
+      omitted: () => {
+        item.rowScopes.previewRows -= 1;
+        item.rowScopes.savedRowsNotInPreview = (item.rowScopes.savedRowsNotInPreview ?? 0) + 1;
+      },
     })),
     {
       list: included as unknown[],
@@ -527,7 +556,9 @@ export function searchConsoleEvidence(imports: unknown): string {
     content,
     lists,
     READER_EVIDENCE_MAX_BYTES,
-    all.length > included.length || included.some((item) => item.omittedRows > 0) || cut(shortened),
+    all.length > included.length ||
+      included.some((item) => (item.rowScopes.savedRowsNotInPreview ?? 0) > 0) ||
+      cut(shortened),
   ).evidence;
 }
 
