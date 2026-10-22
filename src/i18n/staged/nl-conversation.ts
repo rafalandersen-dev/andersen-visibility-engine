@@ -116,6 +116,8 @@ export const nlConversation: ConversationCopy = {
   "chat.tool.google_index_inspection": "Google-indexinspectie",
   "chat.tool.performance_test": "Paginasnelheidstest",
   "chat.tool.site_crawl": "Websitecrawl",
+  "chat.tool.search_console_evidence": "Opgeslagen Search Console-imports",
+  "chat.tool.saved_ai_advice": "Opgeslagen advies over AI-gereedheid",
   "chat.allowProviderChecks":
     "Sta in dit verzoek maximaal twee websitecontroles toe (Google-indexinspectie, paginasnelheid of één websitecrawl) voor de website van dit project. Gebruikt de gekoppelde diensten van de projecteigenaar en de bestaande controlelimieten, en slaat de resultaten op bij de technische controles van het project.",
   "chat.providerChecksEnabled": "Websitecontroles toegestaan voor dit verzoek.",

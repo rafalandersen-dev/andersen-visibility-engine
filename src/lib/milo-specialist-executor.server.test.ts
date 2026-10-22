@@ -223,7 +223,15 @@ describe("real bounded specialist conversation execution", () => {
         handoff: "Next",
         assignments: [{ role: "content", task: "Work", tools }],
       });
-      expect((await runConversationSpecialists(actor, target, h.deps)).state).toBe("unknown");
+      // A schema-invalid plan is a confirmed unreadable reply: the turn fails
+      // definitively before any further tool, model or write.
+      const refused = await runConversationSpecialists(actor, target, h.deps);
+      expect(refused.state).toBe("failed");
+      expect(refused.events.at(-1)).toMatchObject({
+        kind: "status",
+        code: "response_unreadable",
+        state: "unavailable",
+      });
       expect(h.tool).toHaveBeenCalledOnce();
       expect(h.model).toHaveBeenCalledOnce();
     }
@@ -572,11 +580,16 @@ describe("real bounded specialist conversation execution", () => {
     const h = harness();
     h.responses[0] = "not json at all";
     const result = await runConversationSpecialists(actor, target, h.deps);
-    expect(result.state).toBe("unknown");
+    expect(result.state).toBe("failed");
     const input = h.diagnostic.mock.calls[0][0] as ConversationDiagnosticInput;
-    // The routing model returned unparseable output: recorded at plan_parse, safe
-    // class from the allowlist, no SQLSTATE. Only the brief tool ran.
-    expect(input.diagnosis).toMatchObject({ stage: "plan_parse", sqlState: null });
+    // The routing model returned unparseable output: a CONFIRMED refusal recorded at
+    // plan_parse with the response_format class and no SQLSTATE. Only the brief ran.
+    expect(input.diagnosis).toMatchObject({
+      stage: "plan_parse",
+      sqlState: null,
+      errorClass: "response_format",
+    });
+    expect(input.outcome).toEqual({ state: "failed", code: "response_unreadable" });
     expect(h.tool.mock.calls.map(([tool]) => tool.name)).toEqual(["project_brief"]);
   });
   it("never lets a diagnostic recording failure change the honest turn outcome", async () => {

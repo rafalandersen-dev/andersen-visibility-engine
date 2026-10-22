@@ -114,6 +114,8 @@ export const bgConversation: ConversationCopy = {
   "chat.tool.google_index_inspection": "Проверка на индекса в Google",
   "chat.tool.performance_test": "Тест за скорост на страницата",
   "chat.tool.site_crawl": "Обхождане на сайта",
+  "chat.tool.search_console_evidence": "Запазени импорти от Search Console",
+  "chat.tool.saved_ai_advice": "Запазени препоръки за готовност за ИИ",
   "chat.allowProviderChecks":
     "Разреши до две проверки на сайта в тази заявка (проверка на индекса в Google, скорост на страницата или едно обхождане на сайта) за уебсайта на този проект. Използва свързаните услуги на собственика на проекта и съществуващите ограничения за проверки и запазва резултатите заедно с техническите проверки на проекта.",
   "chat.providerChecksEnabled": "Проверките на сайта са разрешени за тази заявка.",

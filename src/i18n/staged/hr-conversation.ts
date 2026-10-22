@@ -113,6 +113,8 @@ export const hrConversation: ConversationCopy = {
   "chat.tool.google_index_inspection": "Google provjera indeksiranja",
   "chat.tool.performance_test": "Test brzine stranice",
   "chat.tool.site_crawl": "Pretraživanje web-mjesta",
+  "chat.tool.search_console_evidence": "Spremljeni uvozi iz Search Consolea",
+  "chat.tool.saved_ai_advice": "Spremljeni savjeti o spremnosti za UI",
   "chat.allowProviderChecks":
     "Dopusti u ovom zahtjevu najviše dvije provjere web-mjesta (Google provjera indeksiranja, brzina stranice ili jedno pretraživanje web-mjesta) za web-mjesto ovog projekta. Koriste se povezane usluge vlasnika projekta i postojeća ograničenja provjera, a rezultati se spremaju uz tehničke provjere projekta.",
   "chat.providerChecksEnabled": "Provjere web-mjesta dopuštene su za ovaj zahtjev.",

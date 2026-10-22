@@ -199,12 +199,20 @@ describe("specialist tools reuse authoritative project operations", () => {
     { markdown: "Article" },
     { metaTitle: "x".repeat(1001) },
     { metaTitle: null },
-  ])("rejects unrequested, unsupported or invalid model fields", async (fields) => {
-    const h = proposalHarness();
-    h.model.mockResolvedValue(JSON.stringify({ explanation: "Change", fields }));
-    await expect(runSpecialistTool(h.tool, h.context, h.deps)).rejects.toThrow();
-    expect(h.retain).not.toHaveBeenCalled();
-  });
+  ])(
+    "refuses unrequested, unsupported or invalid model fields as an unavailable receipt",
+    async (fields) => {
+      const h = proposalHarness();
+      h.model.mockResolvedValue(JSON.stringify({ explanation: "Change", fields }));
+      const refused = await runSpecialistTool(h.tool, h.context, h.deps);
+      expect(refused).toEqual({
+        state: "unavailable",
+        evidence: JSON.stringify({ reason: "proposal_reply_unreadable", contentSaved: false }),
+      });
+      expect(h.model).toHaveBeenCalledTimes(1);
+      expect(h.retain).not.toHaveBeenCalled();
+    },
+  );
   it("does not retain a model result after cancellation or a failed final authority check", async () => {
     for (const cancel of [true, false]) {
       const h = proposalHarness();

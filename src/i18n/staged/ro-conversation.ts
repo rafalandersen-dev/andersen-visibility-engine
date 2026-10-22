@@ -114,6 +114,8 @@ export const roConversation: ConversationCopy = {
   "chat.tool.google_index_inspection": "Inspecția indexului Google",
   "chat.tool.performance_test": "Test de viteză a paginii",
   "chat.tool.site_crawl": "Scanarea site-ului",
+  "chat.tool.search_console_evidence": "Importuri Search Console salvate",
+  "chat.tool.saved_ai_advice": "Recomandări salvate privind pregătirea pentru IA",
   "chat.allowProviderChecks":
     "Permiteți în această solicitare cel mult două verificări ale site-ului (inspecția indexului Google, viteza paginii sau o scanare a site-ului) pentru site-ul acestui proiect. Folosește serviciile conectate ale proprietarului proiectului și limitele de verificare existente și salvează rezultatele împreună cu verificările tehnice ale proiectului.",
   "chat.providerChecksEnabled": "Verificările site-ului sunt permise pentru această solicitare.",

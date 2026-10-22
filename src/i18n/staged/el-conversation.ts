@@ -116,6 +116,8 @@ export const elConversation: ConversationCopy = {
   "chat.tool.google_index_inspection": "Επιθεώρηση ευρετηρίου Google",
   "chat.tool.performance_test": "Δοκιμή ταχύτητας σελίδας",
   "chat.tool.site_crawl": "Ανίχνευση ιστότοπου",
+  "chat.tool.search_console_evidence": "Αποθηκευμένες εισαγωγές Search Console",
+  "chat.tool.saved_ai_advice": "Αποθηκευμένες συστάσεις ετοιμότητας για ΤΝ",
   "chat.allowProviderChecks":
     "Να επιτρέπονται έως δύο έλεγχοι ιστότοπου σε αυτό το αίτημα (επιθεώρηση ευρετηρίου Google, ταχύτητα σελίδας ή μία ανίχνευση ιστότοπου) για τον ιστότοπο αυτού του έργου. Χρησιμοποιεί τις συνδεδεμένες υπηρεσίες του κατόχου του έργου και τα υπάρχοντα όρια ελέγχων και αποθηκεύει τα αποτελέσματα μαζί με τους τεχνικούς ελέγχους του έργου.",
   "chat.providerChecksEnabled": "Οι έλεγχοι ιστότοπου επιτρέπονται για αυτό το αίτημα.",

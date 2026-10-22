@@ -111,6 +111,8 @@ export const skConversation: ConversationCopy = {
   "chat.tool.google_index_inspection": "Kontrola indexu Google",
   "chat.tool.performance_test": "Test rýchlosti stránky",
   "chat.tool.site_crawl": "Prehľadanie webu",
+  "chat.tool.search_console_evidence": "Uložené importy zo Search Console",
+  "chat.tool.saved_ai_advice": "Uložené odporúčania k pripravenosti na AI",
   "chat.allowProviderChecks":
     "Povoliť v tejto požiadavke najviac dve kontroly webu (kontrola indexu Google, rýchlosť stránky alebo jedno prehľadanie webu) pre web tohto projektu. Používa pripojené služby vlastníka projektu a existujúce limity kontrol a výsledky ukladá spolu s technickými kontrolami projektu.",
   "chat.providerChecksEnabled": "Kontroly webu sú pre túto požiadavku povolené.",

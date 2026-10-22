@@ -25,6 +25,8 @@ export const specialistTool = z.discriminatedUnion("name", [
   z.object({ name: z.literal("technical_evidence") }).strict(),
   z.object({ name: z.literal("visibility_evidence") }).strict(),
   z.object({ name: z.literal("authority_evidence") }).strict(),
+  z.object({ name: z.literal("search_console_evidence") }).strict(),
+  z.object({ name: z.literal("saved_ai_advice") }).strict(),
   z
     .object({ name: z.literal("google_index_inspection"), url: z.string().url().max(2048) })
     .strict(),
@@ -103,11 +105,15 @@ export const specialistPlan = z
 
 // Owner decision 14 September (D07): current project members may read saved technical,
 // AI-answer/log and backlink evidence; the owning business account pays for access.
+// Search Console imports and saved AI readiness advice are owner workspace data,
+// not D07 member evidence, so they stay owner-only like saved_audit.
 export const ownerOnlyTools: ReadonlyArray<SpecialistTool["name"]> = [
   "project_knowledge",
   "weekly_preparation",
   "saved_audit",
   "draft_generation",
+  "search_console_evidence",
+  "saved_ai_advice",
 ];
 export function toolAllowed(role: SpecialistRole, tool: SpecialistTool, owner: boolean) {
   if (ownerOnlyTools.includes(tool.name) && !owner) return false;
@@ -123,6 +129,9 @@ export function toolAllowed(role: SpecialistRole, tool: SpecialistTool, owner: b
   if (tool.name === "draft_seo_review") return role === "seo" || role === "content";
   if (tool.name === "weekly_preparation") return ["lead", "research", "content"].includes(role);
   if (tool.name === "saved_audit") return ["seo", "research", "performance"].includes(role);
+  if (tool.name === "search_console_evidence")
+    return ["seo", "research", "performance"].includes(role);
+  if (tool.name === "saved_ai_advice") return role === "ai" || role === "research";
   return true;
 }
 export function toolCatalog(owner: boolean) {
@@ -131,7 +140,7 @@ export function toolCatalog(owner: boolean) {
       name: "project_brief",
       arguments: {},
       purpose:
-        "Read this project's safe brief and available draft IDs; owners also see saved content opportunity IDs.",
+        "Read this project's safe brief and newest draft summaries; owners also see saved brand facts, services and content opportunity IDs with any existing draft linked to each.",
     },
     {
       name: "draft_read",
@@ -205,6 +214,18 @@ export function toolCatalog(owner: boolean) {
               "SEO/research/performance specialist: read the latest saved audit; no new website fetch.",
           },
           {
+            name: "search_console_evidence",
+            arguments: {},
+            purpose:
+              "SEO/research/performance specialist: read this project's saved Google Search Console imports (period, source, saved totals and top rows). Saved exports or syncs, not a fresh fetch; null metrics were not reported.",
+          },
+          {
+            name: "saved_ai_advice",
+            arguments: {},
+            purpose:
+              "AI visibility/research specialist: read the latest saved AI readiness advice with its date. Model-estimated readiness scores and suggestions, not observed AI answers or citations.",
+          },
+          {
             name: "weekly_preparation",
             arguments: { weekStart: "YYYY-MM-DD" },
             purpose:
@@ -218,7 +239,7 @@ export function toolCatalog(owner: boolean) {
                 "article|brief|servicePage|landingPage|faq|comparison|gbpPost|meta|socialPack",
             },
             purpose:
-              "Content specialist: generate and retain ONE draft for an existing opportunity only when the user explicitly asks to generate it. Consumes generation allowance and money admission; never publishes.",
+              "Content specialist: generate and retain ONE draft for an existing opportunity only when the user explicitly asks to generate it. If that opportunity already has a saved workspace draft, the existing draft is returned instead and nothing is generated or charged. Consumes generation allowance and money admission; never publishes.",
           },
         ]
       : []),
@@ -295,4 +316,70 @@ export function serializeSpecialistContext(
     if (new TextEncoder().encode(encoded).byteLength <= 56000) return encoded;
   }
   throw new Error("Conversation context exceeds its processing limit.");
+}
+
+/** A model reply that is not exactly one readable object of the required shape.
+ * Raised only after the model call has settled and before anything else is
+ * dispatched or written, so it is a confirmed refusal of that reply, never
+ * supplier uncertainty. The name maps to the diagnostics `response_format` class. */
+export class ModelResponseFormatError extends Error {
+  constructor() {
+    super("The specialist reply could not be read as the required JSON object.");
+    this.name = "AiResponseFormatError";
+  }
+}
+
+const MODEL_JSON_MAX_BYTES = 64000;
+
+/** Spans of balanced top-level `{…}` objects. Strings are tracked only inside an
+ * object, so ordinary prose quotes cannot shift the scan. An unbalanced brace
+ * yields no spans (unreadable), never a guess. */
+function topLevelObjects(text: string): Array<[number, number]> {
+  const spans: Array<[number, number]> = [];
+  let depth = 0,
+    start = -1,
+    inString = false,
+    escaped = false;
+  for (let i = 0; i < text.length; i++) {
+    const ch = text[i];
+    if (depth > 0 && inString) {
+      if (escaped) escaped = false;
+      else if (ch === "\\") escaped = true;
+      else if (ch === '"') inString = false;
+      continue;
+    }
+    if (depth > 0 && ch === '"') inString = true;
+    else if (ch === "{") {
+      if (depth === 0) start = i;
+      depth++;
+    } else if (ch === "}") {
+      if (depth === 0) return [];
+      depth--;
+      if (depth === 0) spans.push([start, i]);
+    }
+  }
+  return depth === 0 && !inString ? spans : [];
+}
+
+/** Bounded, deterministic extraction followed by the strict schema. Accepts a bare
+ * object, one Markdown code fence around it, or one object surrounded by prose.
+ * Several objects, unbalanced braces, invalid JSON or a schema miss are refused
+ * with ModelResponseFormatError — no repair, guess or retry. */
+export function parseModelJson<T>(text: string, schema: z.ZodType<T>): T {
+  try {
+    if (
+      typeof text !== "string" ||
+      new TextEncoder().encode(text).byteLength > MODEL_JSON_MAX_BYTES
+    )
+      throw new ModelResponseFormatError();
+    let body = text.trim();
+    const fence = /^```[A-Za-z]*[ \t]*\r?\n([\s\S]*?)\r?\n?```$/.exec(body);
+    if (fence) body = fence[1].trim();
+    const spans = topLevelObjects(body);
+    if (spans.length !== 1) throw new ModelResponseFormatError();
+    const [start, end] = spans[0];
+    return schema.parse(JSON.parse(body.slice(start, end + 1)));
+  } catch {
+    throw new ModelResponseFormatError();
+  }
 }
