@@ -686,8 +686,19 @@ export function resetStore(): void {
  * Dirty local edits take precedence. A skipped reload requires a later refresh
  * after saving; it must not silently discard edits or undo a concurrent save.
  */
-export async function reloadWorkspaceForUser(userId: string): Promise<void> {
-  if (typeof window === "undefined") return;
+/** What a reload did. `applied`: fresh server truth replaced the clean local
+ * workspace. `unsaved`: refused (before or after the read) because local changes
+ * are not saved — they are never overwritten. `unavailable`: the read failed, passed
+ * its deadline or returned nothing. `skipped`: not this hydrated user any more (sign-out/switch,
+ * a newer reload or a save superseded it). Existing callers may ignore it. */
+export type WorkspaceReloadResult = "applied" | "unsaved" | "unavailable" | "skipped";
+/** CX: a reload read that has not answered within this deadline is abandoned
+ * (aborted where the client supports it) and reported `unavailable`. Its late
+ * response can never apply: nothing awaits it any more. */
+export const WORKSPACE_RELOAD_TIMEOUT_MS = 15_000;
+const RELOAD_TIMED_OUT = Symbol("reload timed out");
+export async function reloadWorkspaceForUser(userId: string): Promise<WorkspaceReloadResult> {
+  if (typeof window === "undefined") return "skipped";
   const epoch = workspaceEpoch;
   const sequence = ++workspaceReloadSequence;
   const baseline = lastSavedDoc;
@@ -697,37 +708,57 @@ export async function reloadWorkspaceForUser(userId: string): Promise<void> {
       baseline as Record<string, unknown>,
       persistedSnapshot(state) as Record<string, unknown>,
     ).isEmpty;
-  if (state.userId !== userId || !state.hydrated || !isClean()) return;
+  if (state.userId !== userId || !state.hydrated) return "skipped";
+  if (!isClean()) return "unsaved";
   try {
-    const { data: bundleRaw } = await supabase.rpc(
+    const abort = new AbortController();
+    let deadline: ReturnType<typeof setTimeout> | undefined;
+    const query = supabase.rpc(
       "read_workspace_bundle" as never,
       {
         p_user_id: userId,
       } as never,
     );
+    const request =
+      typeof (query as { abortSignal?: unknown }).abortSignal === "function"
+        ? query.abortSignal(abort.signal)
+        : query;
+    const read = await Promise.race([
+      request,
+      new Promise<typeof RELOAD_TIMED_OUT>((resolve) => {
+        deadline = setTimeout(() => {
+          abort.abort();
+          resolve(RELOAD_TIMED_OUT);
+        }, WORKSPACE_RELOAD_TIMEOUT_MS);
+      }),
+    ]).finally(() => clearTimeout(deadline));
+    if (read === RELOAD_TIMED_OUT) return "unavailable";
+    const { data: bundleRaw } = read;
     // Guard against a user switch mid-flight: only apply if still the same user.
     if (
-      bundleRaw &&
-      state.userId === userId &&
-      workspaceEpoch === epoch &&
-      workspaceReloadSequence === sequence &&
-      lastSavedDoc === baseline &&
-      isClean()
-    ) {
-      const bundle = bundleRaw as unknown as WorkspaceBundle;
-      const doc = assembleWorkspaceDoc(bundle);
-      // Workspace rows cannot grant or revoke a plan. Keep the latest display
-      // mirror supplied by the separate authoritative entitlement request.
-      state = {
-        ...stateFromRow(userId, doc as Partial<State>, Number(bundle.meta.rev ?? 0)),
-        subscription: state.subscription,
-      };
-      lastSavedDoc = doc as WorkspaceSnapshot; // fresh server truth = fresh baseline
-      notify();
-      touchPersistence("other");
-    }
+      state.userId !== userId ||
+      workspaceEpoch !== epoch ||
+      workspaceReloadSequence !== sequence ||
+      lastSavedDoc !== baseline
+    )
+      return "skipped";
+    if (!isClean()) return "unsaved";
+    if (!bundleRaw) return "unavailable";
+    const bundle = bundleRaw as unknown as WorkspaceBundle;
+    const doc = assembleWorkspaceDoc(bundle);
+    // Workspace rows cannot grant or revoke a plan. Keep the latest display
+    // mirror supplied by the separate authoritative entitlement request.
+    state = {
+      ...stateFromRow(userId, doc as Partial<State>, Number(bundle.meta.rev ?? 0)),
+      subscription: state.subscription,
+    };
+    lastSavedDoc = doc as WorkspaceSnapshot; // fresh server truth = fresh baseline
+    notify();
+    touchPersistence("other");
+    return "applied";
   } catch (e) {
     console.warn("[workspace] reload failed", e);
+    return "unavailable";
   }
 }
 

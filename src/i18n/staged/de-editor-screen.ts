@@ -160,6 +160,9 @@ export const deEditorScreen: Readonly<Record<string, string>> = {
   "editorScreen.faq": "FAQ",
   "editorScreen.regenerate": "Neu generieren",
   "editorScreen.unsaved": "Ungespeicherte Änderungen",
+  "editorScreen.requestedMissing": "Dieser Entwurf ist in diesem Arbeitsbereich nicht verfügbar.",
+  "editorScreen.requestedUnavailable":
+    "Die neuesten Entwürfe konnten nicht geladen werden. Speichere ungespeicherte Änderungen und versuche es erneut.",
   "editorScreen.saved": "Alle Änderungen gespeichert",
   "editorScreen.updated": "Aktualisiert am {date}",
   "editorScreen.exportMarkdown": "Markdown exportieren",

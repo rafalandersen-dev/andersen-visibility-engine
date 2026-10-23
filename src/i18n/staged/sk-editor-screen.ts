@@ -156,6 +156,9 @@ export const skEditorScreen: Readonly<Record<string, string>> = {
   "editorScreen.faq": "Časté otázky",
   "editorScreen.regenerate": "Znova vygenerovať",
   "editorScreen.unsaved": "Neuložené zmeny",
+  "editorScreen.requestedMissing": "Tento koncept nie je v tomto pracovnom priestore dostupný.",
+  "editorScreen.requestedUnavailable":
+    "Najnovšie koncepty sa nepodarilo načítať. Uložte neuložené zmeny a skúste to znova.",
   "editorScreen.saved": "Všetky zmeny boli uložené",
   "editorScreen.updated": "Aktualizované {date}",
   "editorScreen.exportMarkdown": "Exportovať Markdown",

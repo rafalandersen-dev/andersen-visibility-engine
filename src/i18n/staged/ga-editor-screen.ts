@@ -158,6 +158,9 @@ export const gaEditorScreen: Readonly<Record<string, string>> = {
   "editorScreen.faq": "Ceisteanna coitianta",
   "editorScreen.regenerate": "Athghin",
   "editorScreen.unsaved": "Athruithe gan sábháil",
+  "editorScreen.requestedMissing": "Níl an dréacht seo ar fáil sa spás oibre seo.",
+  "editorScreen.requestedUnavailable":
+    "Níorbh fhéidir na dréachtaí is déanaí a lódáil. Sábháil aon athruithe nach bhfuil sábháilte, ansin bain triail eile as.",
   "editorScreen.saved": "Sábháladh na hathruithe go léir",
   "editorScreen.updated": "Nuashonraithe {date}",
   "editorScreen.exportMarkdown": "Easpórtáil Markdown",

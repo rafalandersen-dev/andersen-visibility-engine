@@ -158,6 +158,9 @@ export const esEditorScreen: Readonly<Record<string, string>> = {
   "editorScreen.faq": "Preguntas frecuentes",
   "editorScreen.regenerate": "Regenerar",
   "editorScreen.unsaved": "Cambios sin guardar",
+  "editorScreen.requestedMissing": "Este borrador no está disponible en este espacio de trabajo.",
+  "editorScreen.requestedUnavailable":
+    "No se pudieron cargar los borradores más recientes. Guarda los cambios sin guardar e inténtalo de nuevo.",
   "editorScreen.saved": "Todos los cambios guardados",
   "editorScreen.updated": "Actualizado el {date}",
   "editorScreen.exportMarkdown": "Exportar Markdown",

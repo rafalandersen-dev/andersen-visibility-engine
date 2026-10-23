@@ -158,6 +158,9 @@ export const hrEditorScreen: Readonly<Record<string, string>> = {
   "editorScreen.faq": "Česta pitanja",
   "editorScreen.regenerate": "Ponovno generiraj",
   "editorScreen.unsaved": "Nespremljene promjene",
+  "editorScreen.requestedMissing": "Ovaj nacrt nije dostupan u ovom radnom prostoru.",
+  "editorScreen.requestedUnavailable":
+    "Najnoviji nacrti nisu se mogli učitati. Spremite nespremljene promjene i pokušajte ponovno.",
   "editorScreen.saved": "Sve promjene spremljene",
   "editorScreen.updated": "Ažurirano {date}",
   "editorScreen.exportMarkdown": "Izvezi Markdown",

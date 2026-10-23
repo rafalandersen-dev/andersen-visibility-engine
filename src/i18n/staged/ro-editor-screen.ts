@@ -157,6 +157,9 @@ export const roEditorScreen: Readonly<Record<string, string>> = {
   "editorScreen.faq": "Întrebări frecvente",
   "editorScreen.regenerate": "Regenerați",
   "editorScreen.unsaved": "Modificări nesalvate",
+  "editorScreen.requestedMissing": "Această ciornă nu este disponibilă în acest spațiu de lucru.",
+  "editorScreen.requestedUnavailable":
+    "Cele mai recente ciorne nu au putut fi încărcate. Salvați modificările nesalvate și încercați din nou.",
   "editorScreen.saved": "Toate modificările au fost salvate",
   "editorScreen.updated": "Actualizat {date}",
   "editorScreen.exportMarkdown": "Exportați Markdown",

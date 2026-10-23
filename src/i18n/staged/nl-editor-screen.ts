@@ -158,6 +158,9 @@ export const nlEditorScreen: Readonly<Record<string, string>> = {
   "editorScreen.faq": "FAQ",
   "editorScreen.regenerate": "Opnieuw genereren",
   "editorScreen.unsaved": "Niet-opgeslagen wijzigingen",
+  "editorScreen.requestedMissing": "Dit concept is niet beschikbaar in deze werkruimte.",
+  "editorScreen.requestedUnavailable":
+    "De nieuwste concepten konden niet worden geladen. Sla niet-opgeslagen wijzigingen op en probeer het opnieuw.",
   "editorScreen.saved": "Alle wijzigingen opgeslagen",
   "editorScreen.updated": "Bijgewerkt op {date}",
   "editorScreen.exportMarkdown": "Markdown exporteren",

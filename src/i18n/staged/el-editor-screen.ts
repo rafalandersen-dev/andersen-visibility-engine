@@ -160,6 +160,10 @@ export const elEditorScreen: Readonly<Record<string, string>> = {
   "editorScreen.faq": "Συχνές ερωτήσεις",
   "editorScreen.regenerate": "Εκ νέου δημιουργία",
   "editorScreen.unsaved": "Μη αποθηκευμένες αλλαγές",
+  "editorScreen.requestedMissing":
+    "Αυτό το προσχέδιο δεν είναι διαθέσιμο σε αυτόν τον χώρο εργασίας.",
+  "editorScreen.requestedUnavailable":
+    "Δεν ήταν δυνατή η φόρτωση των πιο πρόσφατων προσχεδίων. Αποθήκευσε τις μη αποθηκευμένες αλλαγές και δοκίμασε ξανά.",
   "editorScreen.saved": "Όλες οι αλλαγές αποθηκεύτηκαν",
   "editorScreen.updated": "Ενημερώθηκε: {date}",
   "editorScreen.exportMarkdown": "Εξαγωγή Markdown",

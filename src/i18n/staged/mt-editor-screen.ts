@@ -159,6 +159,9 @@ export const mtEditorScreen: Readonly<Record<string, string>> = {
   "editorScreen.faq": "Mistoqsijiet frekwenti",
   "editorScreen.regenerate": "Iġġenera mill-ġdid",
   "editorScreen.unsaved": "Bidliet mhux issejvjati",
+  "editorScreen.requestedMissing": "Din l-abbozz mhux disponibbli f'dan l-ispazju tax-xogħol.",
+  "editorScreen.requestedUnavailable":
+    "L-aħħar abbozzi ma setgħux jitgħabbew. Issejvja kwalunkwe bidla mhux issejvjata, imbagħad erġa' pprova.",
   "editorScreen.saved": "Il-bidliet kollha ġew issejvjati",
   "editorScreen.updated": "Aġġornat {date}",
   "editorScreen.exportMarkdown": "Esporta Markdown",

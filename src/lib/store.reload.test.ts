@@ -123,7 +123,7 @@ describe("reloadWorkspaceForUser", () => {
     seedServer(18, [action("pa1", "pending")]);
     await hydrateForUser("user1");
     h.backend.state.errors.read = { message: "boom" };
-    await expect(reloadWorkspaceForUser("user1")).resolves.toBeUndefined();
+    await expect(reloadWorkspaceForUser("user1")).resolves.toBe("unavailable");
     expect(getState().pendingActions[0].status).toBe("pending");
     expect(getState().rev).toBe(18);
   });

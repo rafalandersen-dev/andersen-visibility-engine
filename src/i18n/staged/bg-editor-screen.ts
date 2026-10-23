@@ -157,6 +157,9 @@ export const bgEditorScreen: Readonly<Record<string, string>> = {
   "editorScreen.faq": "Често задавани въпроси",
   "editorScreen.regenerate": "Генерирай отново",
   "editorScreen.unsaved": "Незапазени промени",
+  "editorScreen.requestedMissing": "Тази чернова не е налична в това работно пространство.",
+  "editorScreen.requestedUnavailable":
+    "Най-новите чернови не можаха да се заредят. Запазете незапазените промени и опитайте отново.",
   "editorScreen.saved": "Всички промени са запазени",
   "editorScreen.updated": "Актуализирано {date}",
   "editorScreen.exportMarkdown": "Експортирай Markdown",

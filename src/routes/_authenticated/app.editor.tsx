@@ -3,6 +3,7 @@ import { ArticleImageThumbnail } from "@/components/ArticleImageThumbnail";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { AppShell } from "@/components/AppShell";
 import { Button } from "@/components/ui/button";
+import { useRequestedAsset } from "@/lib/requested-asset";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
@@ -257,6 +258,9 @@ function EditorPage() {
   }, [search.id]);
 
   const asset = useMemo(() => assets.find((a) => a.id === selectedId), [assets, selectedId]);
+  // An explicitly requested asset (e.g. a notification's Open task) may have been
+  // created on the server after this tab loaded; recover it with one bounded reload.
+  const requested = useRequestedAsset(search.id);
 
   return (
     <AppShell title={t("editor.title")} description={t("editor.subtitle")}>
@@ -295,6 +299,34 @@ function EditorPage() {
         {asset ? (
           <div className="min-w-0">
             <Editor key={asset.id} asset={asset} onRequestDelete={() => setDeleteId(asset.id)} />
+          </div>
+        ) : search.id && requested.status !== "present" ? (
+          <div
+            role="status"
+            className="rounded-lg border border-dashed border-border p-12 text-center"
+          >
+            {requested.status === "loading" ? (
+              <div className="font-display text-lg">{t("common.loading")}</div>
+            ) : requested.status === "missing" ? (
+              <>
+                <div className="font-display text-lg mb-1">{t("editor.noAssetSelectedTitle")}</div>
+                <p className="text-sm text-muted-foreground max-w-md mx-auto">
+                  {t("editorScreen.requestedMissing")}
+                </p>
+              </>
+            ) : (
+              <>
+                {requested.status === "unsaved" ? (
+                  <div className="font-display text-lg mb-1">{t("editorScreen.unsaved")}</div>
+                ) : null}
+                <p className="text-sm text-muted-foreground max-w-md mx-auto">
+                  {t("editorScreen.requestedUnavailable")}
+                </p>
+                <Button className="mt-4" variant="outline" onClick={requested.retry}>
+                  {t("common.retry")}
+                </Button>
+              </>
+            )}
           </div>
         ) : (
           <div className="rounded-lg border border-dashed border-border p-12 text-center">

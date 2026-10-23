@@ -158,6 +158,9 @@ export const huEditorScreen: Readonly<Record<string, string>> = {
   "editorScreen.faq": "GYIK",
   "editorScreen.regenerate": "Újragenerálás",
   "editorScreen.unsaved": "Nem mentett módosítások",
+  "editorScreen.requestedMissing": "Ez a piszkozat nem érhető el ebben a munkaterületben.",
+  "editorScreen.requestedUnavailable":
+    "A legújabb piszkozatokat nem sikerült betölteni. Mentsd a nem mentett módosításokat, majd próbáld újra.",
   "editorScreen.saved": "Minden módosítás mentve",
   "editorScreen.updated": "Frissítve: {date}",
   "editorScreen.exportMarkdown": "Markdown exportálása",
