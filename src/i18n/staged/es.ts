@@ -50,7 +50,7 @@ export const ES_STAGED_BATCHES = [
     copy: esAnalyticsScreen,
     namespaces: ["analyticsScreen"],
     sourceRevision: "5a9416d74f532b65f78c0f19b89d221c6b2af6c2",
-    sourceHash: "d86d151031ad82c4dbc559e9816ad14cecaa3e4f1b0de2ff8de3c484de5b02c5",
+    sourceHash: "04eaafb940167093319015d367692b7ba088651ec8e791146edb646e5b74b724",
   },
   {
     name: "audit screen",
@@ -275,7 +275,7 @@ export const ES_STAGED_BATCHES = [
       "workflow",
     ],
     sourceRevision: "5a9416d74f532b65f78c0f19b89d221c6b2af6c2",
-    sourceHash: "d09e361f8affe1c2ee3903432c21b1e6453dcd4b99a9996658ec1ec14989ee70",
+    sourceHash: "1e9eeb70de2eb0a03fdfd3224f3643010b33cd658e7a4274934edb7ffd3cc6ec",
   },
   {
     name: "citation review",

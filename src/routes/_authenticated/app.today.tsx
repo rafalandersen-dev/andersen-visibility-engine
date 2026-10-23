@@ -5,8 +5,9 @@ import { useStore } from "@/lib/store";
 import { useAuth } from "@/lib/auth";
 import { useAppLanguage, useT } from "@/i18n";
 import { computeLaunchChecklist } from "@/lib/launch";
-import { GHOST_STAGES, upNext } from "@/lib/pipeline";
+import { GHOST_STAGES, nextAction, upNext } from "@/lib/pipeline";
 import { growthWork, contentCover } from "@/lib/growth-work";
+import { todayFocus } from "@/lib/today-focus";
 import {
   CONTENT_LANGUAGE_OPTIONS,
   projectContentLanguage,
@@ -60,7 +61,11 @@ function Dashboard() {
     (item) => item.projectId === active.id && !item.deletedAt,
   );
   const work = growthWork(rawOpportunities, content);
-  const next = work.scheduled[0];
+  const focus = todayFocus(
+    state.opportunities.filter((item) => item.projectId === active.id),
+    content,
+  );
+  const next = focus?.asset;
   const cover = next && contentCover(next);
   const tasks = upNext(work.rows.map(({ item, stage }) => ({ item, stage })));
   const suggestions = state.discoverySuggestions.filter(
@@ -154,55 +159,72 @@ function Dashboard() {
                 : undefined
           }
         />
-        {next ? (
-          <section className="milo-cockpit-hero" aria-label={t("today.next")}>
+        {focus ? (
+          <section
+            className="milo-cockpit-hero"
+            aria-label={t(focus.stage === "armed" ? "today.next" : "today.attention")}
+          >
             {cover ? (
               <img src={cover} alt="" className="milo-cockpit-image" />
             ) : (
               <div className="milo-cockpit-excerpt">
                 <p>
-                  {next.metaDescription ||
-                    next.markdown.replace(/[#*_`]/g, "").slice(0, 240) ||
-                    next.title}
+                  {next?.metaDescription ||
+                    next?.markdown.replace(/[#*_`]/g, "").slice(0, 240) ||
+                    next?.title ||
+                    focus.item?.title}
                 </p>
               </div>
             )}
             <div className="milo-cockpit-copy">
-              <div className="text-xs font-medium text-muted-foreground">{t("today.next")}</div>
-              <h2>{next.title}</h2>
-              <StageChip stage="armed" />
+              <div className="text-xs font-medium text-muted-foreground">
+                {t(focus.stage === "armed" ? "today.next" : "today.attention")}
+              </div>
+              <h2>{next?.title ?? focus.item?.title}</h2>
+              <StageChip stage={focus.stage} />
               <dl className="mt-5 space-y-2 text-sm text-muted-foreground">
-                <div className="flex gap-2">
-                  <CalendarBlank size={18} className="shrink-0" />
-                  <dt className="sr-only">{t("plan.date")}</dt>
-                  <dd>
-                    {date(next.scheduledPublishAt!, {
-                      weekday: "long",
-                      day: "numeric",
-                      month: "long",
-                      hour: "2-digit",
-                      minute: "2-digit",
-                    })}
-                  </dd>
-                </div>
+                {focus.stage === "armed" && next?.scheduledPublishAt && (
+                  <div className="flex gap-2">
+                    <CalendarBlank size={18} className="shrink-0" />
+                    <dt className="sr-only">{t("plan.date")}</dt>
+                    <dd>
+                      {date(next.scheduledPublishAt!, {
+                        weekday: "long",
+                        day: "numeric",
+                        month: "long",
+                        hour: "2-digit",
+                        minute: "2-digit",
+                      })}
+                    </dd>
+                  </div>
+                )}
                 <div className="flex flex-wrap gap-x-2">
-                  <dt className="sr-only">{t("shell.language")}</dt>
-                  <dd>{languageName(next.language ?? projectContentLanguage(active))}</dd>
-                  <dd>· {timezone}</dd>
+                  <dt className="sr-only">{t("onboarding.contentLanguage")}</dt>
+                  <dd>{languageName(next?.language ?? projectContentLanguage(active))}</dd>
+                  {focus.stage === "armed" && <dd>· {timezone}</dd>}
                 </div>
               </dl>
               <div className="mt-7 flex flex-wrap gap-3">
                 <Button asChild className="h-11 px-6">
-                  <Link to="/app/editor" search={{ id: next.id }}>
-                    {t("today.review")}
-                    <ArrowRight size={17} />
-                  </Link>
+                  {next ? (
+                    <Link to="/app/editor" search={{ id: next.id }}>
+                      {t(nextAction(focus.stage))}
+                      <ArrowRight size={17} />
+                    </Link>
+                  ) : (
+                    <Link to="/app/plan" search={{ selected: focus.item!.id }}>
+                      {t(nextAction(focus.stage))}
+                      <ArrowRight size={17} />
+                    </Link>
+                  )}
                 </Button>
-                <Button asChild variant="ghost" className="h-11 text-primary">
-                  <Link to="/app/plan" search={{ view: "calendar", scheduleAsset: next.id }}>
-                    {t("today.changeDate")}
-                  </Link>
-                </Button>
+                {focus.stage === "armed" && next && (
+                  <Button asChild variant="ghost" className="h-11 text-primary">
+                    <Link to="/app/plan" search={{ view: "calendar", scheduleAsset: next.id }}>
+                      {t("today.changeDate")}
+                    </Link>
+                  </Button>
+                )}
               </div>
             </div>
           </section>
@@ -243,36 +265,39 @@ function Dashboard() {
               </Link>
             </div>
           </div>
-          {work.scheduled.slice(1, 4).map((asset) => (
-            <Link
-              key={asset.id}
-              to="/app/editor"
-              search={{ id: asset.id }}
-              className="milo-next-row group"
-            >
-              <span className="text-sm text-muted-foreground">
-                {date(asset.scheduledPublishAt!, { day: "numeric", month: "short" })}
-              </span>
-              {contentCover(asset) ? (
-                <img src={contentCover(asset)} alt="" />
-              ) : (
-                <FileText size={28} className="text-muted-foreground max-md:hidden" />
-              )}
-              <span className="min-w-0">
-                <strong className="block text-sm font-medium group-hover:text-primary">
-                  {asset.title}
-                </strong>
-                <span className="mt-1 block text-xs text-muted-foreground">
-                  {languageName(asset.language ?? projectContentLanguage(active))} ·{" "}
-                  {date(asset.scheduledPublishAt!, { hour: "2-digit", minute: "2-digit" })}
+          {work.scheduled
+            .filter((asset) => asset.id !== next?.id)
+            .slice(0, 3)
+            .map((asset) => (
+              <Link
+                key={asset.id}
+                to="/app/editor"
+                search={{ id: asset.id }}
+                className="milo-next-row group"
+              >
+                <span className="text-sm text-muted-foreground">
+                  {date(asset.scheduledPublishAt!, { day: "numeric", month: "short" })}
                 </span>
-              </span>
-              <span className="milo-next-status">
-                <StageChip stage="armed" />
-              </span>
-              <CaretRight size={17} className="text-muted-foreground" />
-            </Link>
-          ))}
+                {contentCover(asset) ? (
+                  <img src={contentCover(asset)} alt="" />
+                ) : (
+                  <FileText size={28} className="text-muted-foreground max-md:hidden" />
+                )}
+                <span className="min-w-0">
+                  <strong className="block text-sm font-medium group-hover:text-primary">
+                    {asset.title}
+                  </strong>
+                  <span className="mt-1 block text-xs text-muted-foreground">
+                    {languageName(asset.language ?? projectContentLanguage(active))} ·{" "}
+                    {date(asset.scheduledPublishAt!, { hour: "2-digit", minute: "2-digit" })}
+                  </span>
+                </span>
+                <span className="milo-next-status">
+                  <StageChip stage="armed" />
+                </span>
+                <CaretRight size={17} className="text-muted-foreground" />
+              </Link>
+            ))}
           <div className="flex flex-wrap gap-x-8 gap-y-3 border-t border-border py-5 text-sm text-muted-foreground">
             <Link
               to="/app/plan"

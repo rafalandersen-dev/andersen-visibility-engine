@@ -1,5 +1,8 @@
 /** Authoring only; unavailable in the runtime and picker. */
 export const frAnalyticsScreen: Readonly<Record<string, string>> = {
+  "analyticsScreen.dataSources": "Sources de données et configuration du suivi",
+  "analyticsScreen.advancedEvidence":
+    "Avancé : preuves issues des journaux du serveur et du réseau edge",
   "analyticsScreen.loadFailed": "Impossible de charger les analyses.",
   "analyticsScreen.copied": "Extrait de code copié",
   "analyticsScreen.copyFailed": "Impossible de copier",

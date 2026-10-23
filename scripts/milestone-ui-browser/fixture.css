@@ -1,0 +1,83 @@
+.fixture-bar {
+  position: sticky;
+  top: 0;
+  z-index: 100;
+  background: #17212b;
+  color: white;
+  padding: 10px 16px;
+  border-bottom: 3px solid #e8b763;
+  font: 13px system-ui;
+}
+.fixture-bar button,
+.fixture-bar select {
+  background: white;
+  color: #17212b;
+  border: 1px solid #b7c0c9;
+  border-radius: 5px;
+  padding: 5px 8px;
+  margin: 3px;
+}
+.fixture-bar button[aria-pressed="true"] {
+  background: #cae0ff;
+}
+.fixture-shell {
+  max-width: 1400px;
+  margin: auto;
+  padding: 28px 24px;
+}
+.fixture-stub {
+  padding: 10px;
+  border: 1px dashed #adb5be;
+  border-radius: 8px;
+  color: #6b7280;
+  font: 12px system-ui;
+  margin: 8px 0;
+}
+.fixture-log {
+  white-space: pre-wrap;
+  color: #17212b;
+  max-height: 220px;
+  overflow: auto;
+  background: #f6f7f9;
+  padding: 12px;
+  font: 12px ui-monospace;
+  overflow-wrap: anywhere;
+}
+.fixture-toast {
+  position: fixed;
+  bottom: 14px;
+  right: 14px;
+  background: #17212b;
+  color: #fff;
+  padding: 12px;
+  border-radius: 8px;
+  z-index: 110;
+  max-width: 80vw;
+}
+.fixture-error {
+  padding: 20px;
+  background: #fff1f1;
+  color: #9e1818;
+  white-space: pre-wrap;
+}
+.fixture-caption {
+  font: 12px system-ui;
+  color: #c7d4df;
+}
+.fixture-bar details {
+  margin-top: 4px;
+}
+@media (max-width: 600px) {
+  .fixture-shell {
+    padding: 20px 12px;
+  }
+  .fixture-bar {
+    position: relative;
+    padding: 8px;
+  }
+  .fixture-bar button,
+  .fixture-bar select {
+    padding: 6px;
+    font-size: 12px;
+  }
+}

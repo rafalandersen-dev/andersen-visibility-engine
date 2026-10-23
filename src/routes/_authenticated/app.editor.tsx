@@ -35,7 +35,11 @@ import {
 } from "@/lib/store";
 import { useAppLanguage, useT } from "@/i18n";
 import { EditorialLesson } from "@/components/EditorialLesson";
-import { PublicationApprovalStatus } from "@/components/PublicationApprovalStatus";
+import {
+  PublicationApprovalStatus,
+  type PublicationApprovalSnapshot,
+} from "@/components/PublicationApprovalStatus";
+import { useAuth } from "@/lib/auth";
 import { publicationVersion } from "@/lib/publication-version";
 import { setPublicationApprovalFn } from "@/lib/publication-approval.functions";
 import {
@@ -59,6 +63,7 @@ import {
 } from "@/lib/image-storage.functions";
 import { reusedImageMeta } from "@/lib/image-storage";
 import { editorFormDirty, mergeEditorFormFields } from "@/lib/editor-form";
+import { editorApprovalState, editorPrimaryAction } from "@/lib/editor-primary-action";
 import {
   HOOK_TYPES,
   validateHook,
@@ -364,7 +369,12 @@ function EditorPage() {
 function Editor({ asset, onRequestDelete }: { asset: ContentAsset; onRequestDelete: () => void }) {
   const t = useT();
   const locale = useAppLanguage();
+  const { user } = useAuth();
   const [f, setF] = useState<ContentAsset>(asset);
+  const [approvalRevision, setApprovalRevision] = useState(0);
+  const [approvalSnapshot, setApprovalSnapshot] = useState<PublicationApprovalSnapshot | null>(
+    null,
+  );
   const [busy, setBusy] = useState<string | null>(null);
   const [contentOpen, setContentOpen] = useState(false);
   // ---- Go-live scheduling (increment 2) ----
@@ -1051,6 +1061,16 @@ function Editor({ asset, onRequestDelete }: { asset: ContentAsset; onRequestDele
   // Derived from the live store copy, not the local form: publish actions do not
   // bump updatedAt, so `f` can lag behind the real publish state.
   const editorStage = pipelineStage({ asset: live });
+  const approvalState = project
+    ? editorApprovalState(approvalSnapshot, {
+        asset: f,
+        project,
+        paths: activePaths,
+        revision: approvalRevision,
+        userId: user?.id,
+      })
+    : "unavailable";
+  const primaryAction = editorPrimaryAction({ ...live, status: f.status }, isDirty, approvalState);
 
   const goLiveInstant = parseDateTimeLocalInput(goLiveLocal);
   const goLiveValid = Boolean(goLiveInstant && !Number.isNaN(goLiveInstant.getTime()));
@@ -1189,7 +1209,6 @@ function Editor({ asset, onRequestDelete }: { asset: ContentAsset; onRequestDele
    * owner's reported surprise, and it is now structurally impossible: approving
    * and publishing are different verbs and this one never distributes.
    */
-  const [approvalRevision, setApprovalRevision] = useState(0);
   async function approve(approved = true) {
     if (!project || busy) return;
     setBusy("approval");
@@ -1302,67 +1321,106 @@ function Editor({ asset, onRequestDelete }: { asset: ContentAsset; onRequestDele
             paths={activePaths}
             dirty={isDirty}
             revision={approvalRevision}
+            onStateChange={setApprovalSnapshot}
           />
         </div>
       )}
-      <div className="flex flex-wrap items-center justify-between gap-3 px-5 py-4 border-b border-border">
-        <div className="flex items-center gap-3">
-          <span className="text-[10px] uppercase tracking-[0.22em] text-muted-foreground">
-            {t("editor.status")}
-          </span>
-          <Select
-            value={f.status}
-            // Plain status write. Selecting "Approved" here used to invoke approve(),
-            // which published live with no confirmation — an irreversible act on a
-            // control that reads as reversible. Approving never distributes now, so
-            // this is a straightforward save either way.
-            onValueChange={(v) => save(v as ContentStatus)}
-          >
-            <SelectTrigger className="h-8 w-36 text-xs">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              {(["Draft", "In Review", "Approved", "Rejected", "Exported"] as ContentStatus[]).map(
-                (s) => (
+      <div className="flex flex-wrap items-center justify-between gap-3 px-5 py-4">
+        <span
+          className={
+            isDirty ? "text-xs font-medium text-amber-600" : "text-xs text-muted-foreground"
+          }
+        >
+          {isDirty
+            ? t("editorScreen.unsaved")
+            : `${t("editor.status")}: ${t(`status.${f.status}`)}`}
+        </span>
+        {primaryAction === "save" ? (
+          <Button size="sm" onClick={() => save()}>
+            <Save className="h-3.5 w-3.5" /> {t("common.save")}
+          </Button>
+        ) : primaryAction === "markInReview" ? (
+          <Button size="sm" onClick={() => save("In Review")}>
+            {t("editor.action.markInReview")}
+          </Button>
+        ) : primaryAction === "approve" ? (
+          <Button size="sm" onClick={() => approve()} disabled={Boolean(busy)}>
+            <Check className="h-3.5 w-3.5" /> {t("editor.action.approve")}
+          </Button>
+        ) : (
+          <Button size="sm" asChild>
+            <a href="#publication-controls">{t("editor.action.reviewPublication")}</a>
+          </Button>
+        )}
+      </div>
+      <details className="px-5 pb-4 border-b border-border">
+        <summary className="w-fit cursor-pointer rounded-sm text-xs text-muted-foreground hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2">
+          {t("editor.action.moreActions")}
+        </summary>
+        <div className="mt-3 flex flex-wrap items-center justify-between gap-3">
+          <div className="flex items-center gap-3">
+            <span className="text-[10px] uppercase tracking-[0.22em] text-muted-foreground">
+              {t("editor.status")}
+            </span>
+            <Select
+              value={f.status}
+              // Plain status write. Selecting "Approved" here used to invoke approve(),
+              // which published live with no confirmation — an irreversible act on a
+              // control that reads as reversible. Approving never distributes now, so
+              // this is a straightforward save either way.
+              onValueChange={(v) => save(v as ContentStatus)}
+            >
+              <SelectTrigger className="h-8 w-36 text-xs">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {(
+                  ["Draft", "In Review", "Approved", "Rejected", "Exported"] as ContentStatus[]
+                ).map((s) => (
                   <SelectItem key={s} value={s}>
                     {t(`status.${s}`)}
                   </SelectItem>
-                ),
-              )}
-            </SelectContent>
-          </Select>
-        </div>
-        <div className="flex flex-wrap gap-2">
-          {sourceOppId ? (
-            <Button size="sm" variant="outline" onClick={() => setContentOpen(true)}>
-              <FilePlus2 className="h-3.5 w-3.5" /> {t("editor.action.createContent")}
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="flex flex-wrap gap-2">
+            {sourceOppId ? (
+              <Button size="sm" variant="outline" onClick={() => setContentOpen(true)}>
+                <FilePlus2 className="h-3.5 w-3.5" /> {t("editor.action.createContent")}
+              </Button>
+            ) : null}
+            <Button size="sm" variant="ghost" onClick={() => save("Draft")}>
+              <FileEdit className="h-3.5 w-3.5" /> {t("editor.action.saveDraft")}
             </Button>
-          ) : null}
-          <Button size="sm" variant="ghost" onClick={() => save("Draft")}>
-            <FileEdit className="h-3.5 w-3.5" /> {t("editor.action.saveDraft")}
-          </Button>
-          <Button size="sm" variant="outline" onClick={() => save("In Review")}>
-            {t("editor.action.markInReview")}
-          </Button>
-          <Button size="sm" variant="outline" onClick={() => approve()} disabled={Boolean(busy)}>
-            <Check className="h-3.5 w-3.5" /> {t("editor.action.approve")}
-          </Button>
-          <Button size="sm" variant="ghost" onClick={() => approve(false)} disabled={Boolean(busy)}>
-            {t("approval.withdraw")}
-          </Button>
-          <Button size="sm" variant="ghost" onClick={() => save("Rejected")}>
-            <FileX className="h-3.5 w-3.5" /> {t("editor.action.reject")}
-          </Button>
-          <Button
-            size="sm"
-            variant="ghost"
-            className="text-muted-foreground hover:text-destructive"
-            onClick={onRequestDelete}
-          >
-            <Trash2 className="h-3.5 w-3.5" /> {t("editor.action.delete")}
-          </Button>
+            <Button size="sm" variant="outline" onClick={() => save("In Review")}>
+              {t("editor.action.markInReview")}
+            </Button>
+            <Button size="sm" variant="outline" onClick={() => approve()} disabled={Boolean(busy)}>
+              <Check className="h-3.5 w-3.5" /> {t("editor.action.approve")}
+            </Button>
+            <Button
+              size="sm"
+              variant="ghost"
+              onClick={() => approve(false)}
+              disabled={Boolean(busy)}
+            >
+              {t("approval.withdraw")}
+            </Button>
+            <Button size="sm" variant="ghost" onClick={() => save("Rejected")}>
+              <FileX className="h-3.5 w-3.5" /> {t("editor.action.reject")}
+            </Button>
+            <Button
+              size="sm"
+              variant="ghost"
+              className="text-muted-foreground hover:text-destructive"
+              onClick={onRequestDelete}
+            >
+              <Trash2 className="h-3.5 w-3.5" /> {t("editor.action.delete")}
+            </Button>
+          </div>
         </div>
-      </div>
+      </details>
 
       {/* Link-safety resolver — every unresolved internal link must be given one
           explicit state before this article can be sent or published anywhere. */}
@@ -1388,7 +1446,11 @@ function Editor({ asset, onRequestDelete }: { asset: ContentAsset; onRequestDele
       ) : null}
 
       {/* Publishing v1 — send approved content to the connected website as a draft */}
-      <div className="px-5 py-3 border-b border-border">
+      <div
+        id="publication-controls"
+        tabIndex={-1}
+        className="scroll-mt-4 px-5 py-3 border-b border-border focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring"
+      >
         {!publishConfigured ? (
           <p className="text-sm text-muted-foreground inline-flex items-center gap-1.5">
             <Globe className="h-3.5 w-3.5 text-gold/80" />
@@ -1836,7 +1898,7 @@ function Editor({ asset, onRequestDelete }: { asset: ContentAsset; onRequestDele
         : null}
 
       <Tabs defaultValue="content" className="px-5 pt-3">
-        <TabsList>
+        <TabsList className="h-auto max-w-full flex-wrap justify-start">
           <TabsTrigger value="content">{t("editorScreen.tab.content")}</TabsTrigger>
           <TabsTrigger value="meta">{t("editorScreen.tab.metadata")}</TabsTrigger>
           <TabsTrigger value="structure">{t("editorScreen.tab.structure")}</TabsTrigger>

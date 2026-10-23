@@ -1,5 +1,7 @@
 /** Bulgarian authoring only; not registered in the runtime or language picker. */
 export const bgAnalyticsScreen: Readonly<Record<string, string>> = {
+  "analyticsScreen.dataSources": "Източници на данни и настройки за проследяване",
+  "analyticsScreen.advancedEvidence": "Разширено: доказателства от сървърни и периферни журнали",
   "analyticsScreen.loadFailed": "Анализите не можаха да бъдат заредени.",
   "analyticsScreen.copied": "Кодовият фрагмент е копиран",
   "analyticsScreen.copyFailed": "Копирането е неуспешно",

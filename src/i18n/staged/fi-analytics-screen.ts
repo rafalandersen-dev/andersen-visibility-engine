@@ -1,5 +1,7 @@
 /** Finnish authoring only; not registered in the runtime or language picker. */
 export const fiAnalyticsScreen: Readonly<Record<string, string>> = {
+  "analyticsScreen.dataSources": "Tietolähteet ja seurannan asetukset",
+  "analyticsScreen.advancedEvidence": "Lisäasetukset: palvelin- ja reunalokin näyttö",
   "analyticsScreen.loadFailed": "Analytiikkaa ei voitu ladata.",
   "analyticsScreen.copied": "Koodikatkelma kopioitu",
   "analyticsScreen.copyFailed": "Kopiointi epäonnistui",

@@ -39,6 +39,13 @@ const SNIPPET_ORIGIN = "https://milogrowth.com";
 const visualQa = import.meta.env.DEV && import.meta.env.VITE_MILO_VISUAL_QA === "true";
 
 function AnalyticsPage() {
+  const projectId = useStore((s) => s.activeProjectId);
+  // Reset results and pending reads on a project switch; old results must never
+  // appear beneath the newly selected project's heading.
+  return <ProjectAnalytics key={projectId ?? "no-project"} />;
+}
+
+function ProjectAnalytics() {
   const navigate = useNavigate();
   const t = useT();
   const locale = useAppLanguage();
@@ -120,7 +127,6 @@ function AnalyticsPage() {
         </div>
       }
     >
-      <LogEvidencePanel projectId={project.id} />
       {loading && !data ? (
         <div className="rounded-lg border border-dashed border-border p-12 text-center text-muted-foreground">
           <Loader2 className="mx-auto h-6 w-6 animate-spin" />{" "}
@@ -137,8 +143,8 @@ function AnalyticsPage() {
         </div>
       ) : data && !data.hasData ? (
         <div className="space-y-8">
-          <EmptyState snippet={snippet} onCopy={copySnippet} />
           <GscLiteSection project={project} />
+          <EmptyState />
         </div>
       ) : data ? (
         <div className="space-y-8">
@@ -493,10 +499,25 @@ function AnalyticsPage() {
             )}
           </section>
 
-          <SetupSnippet snippet={snippet} onCopy={copySnippet} />
           <PrivacyNote />
         </div>
       ) : null}
+      <details className="mt-8 rounded-xl border border-border bg-card p-5">
+        <summary className="cursor-pointer rounded-sm text-sm font-medium focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-ring">
+          {t("analyticsScreen.dataSources")}
+        </summary>
+        <div className="mt-5 space-y-5">
+          <SetupSnippet snippet={snippet} onCopy={copySnippet} />
+          <details className="rounded-lg border border-border p-4">
+            <summary className="cursor-pointer rounded-sm text-sm font-medium focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-ring">
+              {t("analyticsScreen.advancedEvidence")}
+            </summary>
+            <div className="mt-4">
+              <LogEvidencePanel projectId={project.id} />
+            </div>
+          </details>
+        </div>
+      </details>
     </AppShell>
   );
 }
@@ -772,7 +793,7 @@ function PrivacyNote() {
   return <p className="text-xs text-muted-foreground">{t("analytics.privacy")}</p>;
 }
 
-function EmptyState({ snippet, onCopy }: { snippet: string; onCopy: () => void }) {
+function EmptyState() {
   const t = useT();
   return (
     <div className="space-y-6">
@@ -783,7 +804,6 @@ function EmptyState({ snippet, onCopy }: { snippet: string; onCopy: () => void }
           {t("analytics.emptyDesc")}
         </p>
       </div>
-      <SetupSnippet snippet={snippet} onCopy={onCopy} />
       <PrivacyNote />
     </div>
   );

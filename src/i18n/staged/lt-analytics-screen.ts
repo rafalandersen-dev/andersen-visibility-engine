@@ -1,5 +1,7 @@
 /** Lithuanian authoring only; not registered in the runtime or language picker. */
 export const ltAnalyticsScreen: Readonly<Record<string, string>> = {
+  "analyticsScreen.dataSources": "Duomenų šaltiniai ir stebėjimo nustatymai",
+  "analyticsScreen.advancedEvidence": "Išplėstiniai: serverio ir kraštinių žurnalų įrodymai",
   "analyticsScreen.loadFailed": "Nepavyko įkelti analitikos.",
   "analyticsScreen.copied": "Kodo fragmentas nukopijuotas",
   "analyticsScreen.copyFailed": "Nepavyko nukopijuoti",

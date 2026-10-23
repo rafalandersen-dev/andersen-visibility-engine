@@ -1,5 +1,7 @@
 /** Italian authoring only; not registered in runtime. */
 export const itAnalyticsScreen: Readonly<Record<string, string>> = {
+  "analyticsScreen.dataSources": "Fonti dei dati e configurazione del tracciamento",
+  "analyticsScreen.advancedEvidence": "Avanzate: evidenze dai log del server e dell'edge",
   "analyticsScreen.loadFailed": "Impossibile caricare le analisi.",
   "analyticsScreen.copied": "Frammento di codice copiato",
   "analyticsScreen.copyFailed": "Impossibile copiare",

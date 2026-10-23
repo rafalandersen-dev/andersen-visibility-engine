@@ -82,6 +82,8 @@ export const gaWorkflowEditor: Readonly<Record<string, string>> = {
   "editor.action.createContent": "Cruthaigh ábhar",
   "editor.action.saveDraft": "Sábháil an dréacht",
   "editor.action.markInReview": "Marcáil mar faoi athbhreithniú",
+  "editor.action.moreActions": "Tuilleadh gníomhartha",
+  "editor.action.reviewPublication": "Athbhreithnigh an foilsiú",
   "editor.action.approve": "Ceadaigh",
   "editor.action.reject": "Diúltaigh",
   "editor.action.delete": "Scrios",

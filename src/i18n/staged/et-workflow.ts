@@ -105,6 +105,8 @@ export const etWorkflow: Readonly<Record<string, string>> = {
   "editor.action.createContent": "Loo sisu",
   "editor.action.saveDraft": "Salvesta mustand",
   "editor.action.markInReview": "Märgi ülevaatamisel olevaks",
+  "editor.action.moreActions": "Veel toiminguid",
+  "editor.action.reviewPublication": "Vaata avaldamine üle",
   "editor.action.approve": "Kiida heaks",
   "editor.action.reject": "Lükka tagasi",
   "editor.action.delete": "Kustuta",

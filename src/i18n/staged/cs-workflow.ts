@@ -104,6 +104,8 @@ export const csWorkflow: Readonly<Record<string, string>> = {
   "editor.action.createContent": "Vytvořit obsah",
   "editor.action.saveDraft": "Uložit návrh",
   "editor.action.markInReview": "Označit ke kontrole",
+  "editor.action.moreActions": "Další akce",
+  "editor.action.reviewPublication": "Zkontrolovat publikaci",
   "editor.action.approve": "Schválit",
   "editor.action.reject": "Odmítnout",
   "editor.action.delete": "Odstranit",

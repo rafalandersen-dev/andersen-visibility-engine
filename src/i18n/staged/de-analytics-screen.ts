@@ -1,5 +1,7 @@
 /** German authoring only. */
 export const deAnalyticsScreen: Readonly<Record<string, string>> = {
+  "analyticsScreen.dataSources": "Datenquellen und Tracking-Einrichtung",
+  "analyticsScreen.advancedEvidence": "Erweitert: Server- und Edge-Protokollnachweise",
   "analyticsScreen.loadFailed": "Analysen konnten nicht geladen werden.",
   "analyticsScreen.copied": "Code-Snippet kopiert",
   "analyticsScreen.copyFailed": "Kopieren fehlgeschlagen",

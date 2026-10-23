@@ -1,5 +1,7 @@
 /** Estonian authoring only; not registered in the runtime or language picker. */
 export const etAnalyticsScreen: Readonly<Record<string, string>> = {
+  "analyticsScreen.dataSources": "Andmeallikad ja jälgimise seadistus",
+  "analyticsScreen.advancedEvidence": "Täpsem: serveri ja servavõrgu logide tõendusandmed",
   "analyticsScreen.loadFailed": "Analüütikat ei õnnestunud laadida.",
   "analyticsScreen.copied": "Koodilõik on kopeeritud",
   "analyticsScreen.copyFailed": "Kopeerimine ebaõnnestus",

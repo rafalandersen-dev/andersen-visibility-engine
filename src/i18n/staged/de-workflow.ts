@@ -103,6 +103,8 @@ export const deWorkflow: Readonly<Record<string, string>> = {
   "editor.action.createContent": "Inhalt erstellen",
   "editor.action.saveDraft": "Entwurf speichern",
   "editor.action.markInReview": "Als in Prüfung markieren",
+  "editor.action.moreActions": "Weitere Aktionen",
+  "editor.action.reviewPublication": "Veröffentlichung prüfen",
   "editor.action.approve": "Freigeben",
   "editor.action.reject": "Ablehnen",
   "editor.action.delete": "Löschen",

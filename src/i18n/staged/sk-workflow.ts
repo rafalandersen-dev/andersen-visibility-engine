@@ -104,6 +104,8 @@ export const skWorkflow: Readonly<Record<string, string>> = {
   "editor.action.createContent": "Vytvoriť obsah",
   "editor.action.saveDraft": "Uložiť návrh",
   "editor.action.markInReview": "Označiť ako na kontrole",
+  "editor.action.moreActions": "Ďalšie akcie",
+  "editor.action.reviewPublication": "Skontrolovať publikáciu",
   "editor.action.approve": "Schváliť",
   "editor.action.reject": "Odmietnuť",
   "editor.action.delete": "Odstrániť",
