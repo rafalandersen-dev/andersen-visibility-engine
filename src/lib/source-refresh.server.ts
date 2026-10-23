@@ -127,13 +127,37 @@ export async function readSourceRefresh(target: KnowledgeScope, rpc?: KnowledgeR
   }));
 }
 
+/** The homepage read for a website source, choosing its transport exactly like
+ * the accepted manual capture (`captureProjectWebsiteKnowledge`): an explicit
+ * `transport` wins; `undefined` reads the default-OFF pinned-hop environment
+ * switch; `null` forces the released in-process path. A configured hop that fails
+ * (retryable or not) yields no page — never an in-process fallback — so refresh
+ * records `unknown` and keeps the last successful observation. Homepage purpose
+ * only; every scope/SSRF/redirect/TLS/size check stays in the transport itself. */
+async function readHomepage(
+  url: string,
+  transport: import("./pinned-hop/client.server").PinnedHopConfig | null | undefined,
+): Promise<string> {
+  const pinned = await import("./pinned-hop/client.server");
+  const configured = transport !== undefined ? transport : pinned.pinnedHopConfigFromEnv();
+  if (!configured) return (await import("./homepage-fetch.server")).fetchHomepageHtml(url);
+  const outcome = await pinned.fetchHomepageViaPinnedHop(url, configured);
+  return outcome.retryable ? "" : outcome.html;
+}
+
 /** One configured source per request. Database ownership/lease admission precedes
  * all network activity. Capture failure records unknown and retains last success;
- * a failed finish is never replayed or reported as confirmed success. */
+ * a failed finish is never replayed or reported as confirmed success. `fetchPage`
+ * is a test seam that replaces the whole homepage read; `transport` mirrors the
+ * manual capture's pinned-hop seam. */
 export async function refreshProjectSource(
   target: KnowledgeScope,
   input: { sourceId: string; expectedRevision: number },
-  dependencies: { rpc?: KnowledgeRpc; fetchPage?: (url: string) => Promise<string> } = {},
+  dependencies: {
+    rpc?: KnowledgeRpc;
+    fetchPage?: (url: string) => Promise<string>;
+    transport?: import("./pinned-hop/client.server").PinnedHopConfig | null;
+  } = {},
 ) {
   const scope = scopeSchema.parse(target);
   const sourceId = z.string().uuid().parse(input.sourceId);
@@ -174,9 +198,9 @@ export async function refreshProjectSource(
             await import("./source-refresh-shopify.server")
           ).captureConfiguredShopifyCatalog(scope, source)
         : await (async () => {
-            const fetchPage =
-              dependencies.fetchPage ?? (await import("./homepage-fetch.server")).fetchHomepageHtml;
-            const html = await fetchPage(source.url!);
+            const html = dependencies.fetchPage
+              ? await dependencies.fetchPage(source.url!)
+              : await readHomepage(source.url!, dependencies.transport);
             if (!html.trim()) throw new Error("unavailable");
             return observePublicPage(html);
           })();

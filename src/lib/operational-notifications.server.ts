@@ -1,8 +1,12 @@
 import { readWorkspaceRow } from "./workspace.server";
 import { normalizeAutoSchedulerConfig } from "./auto-scheduler";
-import { schedulerPeriodSchema } from "./weekly-preparation";
+import { localWeekStart, schedulerPeriodSchema } from "./weekly-preparation";
 import { z } from "zod";
-import { operationalNotifications } from "./operational-notifications";
+import {
+  operationalNotifications,
+  type WeeklyNotificationStage,
+} from "./operational-notifications";
+import { readWeeklyStages } from "./weekly-stage.server";
 import { schedulerDemand, schedulerCapacityNotifications } from "./scheduler-capacity";
 import { readGenerationCapacity } from "./generation-capacity.server";
 import { operationalEmailAllowedFor } from "./operational-email-gate";
@@ -66,6 +70,8 @@ interface Admin {
   from(table: string): Query;
   rpc(name: string, args?: Record<string, unknown>): PromiseLike<Response>;
 }
+/** Bounds the per-scan weekly stage reads (two short RPCs per project). */
+const MAX_WEEKLY_NOTIFICATION_PROJECTS = 50;
 async function admin(): Promise<Admin> {
   const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
   return supabaseAdmin as unknown as Admin;
@@ -151,6 +157,43 @@ export async function refreshOperationalNotifications(
       throw new Error("notification_scheduler_control_unavailable");
   }
   const engine = (id: string) => controls.find((c) => c.projectId === id)?.engine ?? "monthly";
+  // Saved weekly work for the current and next project-local week, for weekly AND
+  // paused engines: pausing after preparation must not hide drafts awaiting review.
+  // A failed read aborts the scan (like every other source) so it can never resolve
+  // existing reminders by omission.
+  const weeklyProjects = (enabledProjects as unknown as Project[]).filter((p) =>
+    ["weekly", "paused"].includes(engine(p.id)),
+  );
+  if (weeklyProjects.length > MAX_WEEKLY_NOTIFICATION_PROJECTS)
+    throw new Error("notification_scan_too_large");
+  const weeklyStages: WeeklyNotificationStage[] = [];
+  for (const project of weeklyProjects) {
+    const current = localWeekStart(
+      now,
+      normalizeAutoSchedulerConfig(project.autoScheduler).timeZone,
+    );
+    const next = new Date(Date.parse(`${current}T00:00:00Z`) + 7 * 86400000)
+      .toISOString()
+      .slice(0, 10);
+    for (const period of [`week:${current}`, `week:${next}`]) {
+      const stages = await notificationOperation(
+        readWeeklyStages({ ownerId: userId, projectId: project.id }, period, (name, args) =>
+          db.rpc(name, args),
+        ),
+      );
+      for (const s of stages)
+        weeklyStages.push({
+          projectId: project.id,
+          period,
+          publishAt: s.publishAt,
+          stage: s.stage,
+          state: s.state,
+          requestId: s.requestId,
+          outputId: s.outputId,
+          deliveredAt: s.deliveredAt,
+        });
+    }
+  }
   const notificationProjects = (snapshot.projects as unknown as Project[]).map((p) =>
     engine(p.id) === "paused"
       ? {
@@ -165,6 +208,7 @@ export async function refreshOperationalNotifications(
     opportunities: snapshot.opportunities as unknown as Opportunity[],
     scheduled,
     schedulerLeases,
+    weeklyStages,
     now,
   });
   const demand = schedulerDemand({

@@ -192,10 +192,20 @@ describe("server notification snapshot boundary", () => {
         },
       });
       mocks.rpc.mockImplementation(async (name) => ({
-        data: name === "read_workspace_scheduler_controls" ? [{ projectId: "p", engine }] : true,
+        data:
+          name === "read_workspace_scheduler_controls"
+            ? [{ projectId: "p", engine }]
+            : // CW: weekly/paused projects now also read their saved weekly stages.
+              name === "read_weekly_preparation_stages"
+              ? []
+              : true,
         error: null,
       }));
-      await refreshOperationalNotifications("owner", new Date("2026-09-07T10:00:00Z"));
+      await refreshOperationalNotifications(
+        // A real account id: weekly/paused projects now read their saved stages by uuid scope.
+        "00000000-0000-4000-8000-0000000000a1",
+        new Date("2026-09-07T10:00:00Z"),
+      );
       const events = mocks.rpc.mock.calls.find(
         (call) => call[0] === "sync_operational_notifications",
       )![1].p_events;
