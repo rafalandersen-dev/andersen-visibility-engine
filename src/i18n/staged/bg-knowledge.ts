@@ -147,7 +147,8 @@ export const bgKnowledge: Readonly<Record<string, string>> = {
   "refresh.lastAttempt": "Последен опит",
   "refresh.lastSuccess": "Последно успешно наблюдение",
   "refresh.never": "Все още не е проверен",
-  "refresh.unknown": "Недостъпно — последните успешни доказателства са запазени",
+  "refresh.unknown":
+    "Недостъпно — последните успешни доказателства са запазени. Опитайте отново 10 минути след последния опит.",
   "refresh.running": "Проверка на източника",
   "refresh.ok": "Наблюдавано",
   "refresh.public-page": "Само публичната страница",

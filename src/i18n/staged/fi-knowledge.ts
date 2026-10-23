@@ -148,7 +148,8 @@ export const fiKnowledge: Readonly<Record<string, string>> = {
   "refresh.lastAttempt": "Viimeisin yritys",
   "refresh.lastSuccess": "Viimeisin onnistunut havainto",
   "refresh.never": "Ei vielä tarkistettu",
-  "refresh.unknown": "Ei saatavilla — viimeisin onnistunut näyttö säilytetty",
+  "refresh.unknown":
+    "Ei saatavilla — viimeisin onnistunut näyttö säilytetty. Yritä uudelleen 10 minuuttia viimeisimmän yrityksen jälkeen.",
   "refresh.running": "Tarkistetaan lähdettä",
   "refresh.ok": "Havaittu",
   "refresh.public-page": "Vain julkinen sivu",

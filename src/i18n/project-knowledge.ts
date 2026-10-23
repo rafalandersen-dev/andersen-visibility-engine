@@ -148,7 +148,8 @@ export const projectKnowledge = {
     "refresh.lastAttempt": "Last attempt",
     "refresh.lastSuccess": "Last successful observation",
     "refresh.never": "Not yet checked",
-    "refresh.unknown": "Unavailable — last successful evidence retained",
+    "refresh.unknown":
+      "Unavailable — last successful evidence retained. Try again 10 minutes after the last attempt.",
     "refresh.running": "Checking source",
     "refresh.ok": "Observed",
     "refresh.public-page": "Public page only",
@@ -447,7 +448,8 @@ export const projectKnowledge = {
     "refresh.lastAttempt": "Ostatnia próba",
     "refresh.lastSuccess": "Ostatnia udana obserwacja",
     "refresh.never": "Jeszcze nie sprawdzono",
-    "refresh.unknown": "Niedostępne — zachowano ostatnie udane dane",
+    "refresh.unknown":
+      "Niedostępne — zachowano ostatnie udane dane. Spróbuj ponownie po upływie 10 minut od ostatniej próby.",
     "refresh.running": "Sprawdzanie źródła",
     "refresh.ok": "Zaobserwowano",
     "refresh.public-page": "Tylko strona publiczna",
@@ -752,7 +754,8 @@ export const projectKnowledge = {
     "refresh.lastAttempt": "Senaste försök",
     "refresh.lastSuccess": "Senaste lyckade observation",
     "refresh.never": "Inte kontrollerad än",
-    "refresh.unknown": "Otillgänglig — senaste lyckade underlag bevarat",
+    "refresh.unknown":
+      "Otillgänglig — senaste lyckade underlag bevarat. Försök igen 10 minuter efter det senaste försöket.",
     "refresh.running": "Kontrollerar källan",
     "refresh.ok": "Observerad",
     "refresh.public-page": "Endast offentlig sida",
@@ -1052,7 +1055,8 @@ export const projectKnowledge = {
     "refresh.lastAttempt": "Seneste forsøg",
     "refresh.lastSuccess": "Seneste vellykkede observation",
     "refresh.never": "Ikke kontrolleret endnu",
-    "refresh.unknown": "Utilgængelig — seneste vellykkede grundlag bevaret",
+    "refresh.unknown":
+      "Utilgængelig — seneste vellykkede grundlag bevaret. Prøv igen 10 minutter efter det seneste forsøg.",
     "refresh.running": "Kontrollerer kilden",
     "refresh.ok": "Observeret",
     "refresh.public-page": "Kun offentlig side",

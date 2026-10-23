@@ -152,7 +152,8 @@ export const itKnowledge: Readonly<Record<string, string>> = {
   "refresh.lastAttempt": "Ultimo tentativo",
   "refresh.lastSuccess": "Ultima osservazione riuscita",
   "refresh.never": "Non ancora controllata",
-  "refresh.unknown": "Non disponibile — ultime evidenze acquisite con successo conservate",
+  "refresh.unknown":
+    "Non disponibile — ultime evidenze acquisite con successo conservate. Riprova 10 minuti dopo l’ultimo tentativo.",
   "refresh.running": "Controllo della fonte",
   "refresh.ok": "Osservato",
   "refresh.public-page": "Solo pagina pubblica",

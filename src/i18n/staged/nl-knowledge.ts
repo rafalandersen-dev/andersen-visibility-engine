@@ -154,7 +154,8 @@ export const nlKnowledge: Readonly<Record<string, string>> = {
   "refresh.lastAttempt": "Laatste poging",
   "refresh.lastSuccess": "Laatste geslaagde observatie",
   "refresh.never": "Nog niet gecontroleerd",
-  "refresh.unknown": "Niet beschikbaar — laatste geslaagde onderbouwing bewaard",
+  "refresh.unknown":
+    "Niet beschikbaar — laatste geslaagde onderbouwing bewaard. Probeer het 10 minuten na de laatste poging opnieuw.",
   "refresh.running": "Bron controleren",
   "refresh.ok": "Waargenomen",
   "refresh.public-page": "Alleen openbare pagina",

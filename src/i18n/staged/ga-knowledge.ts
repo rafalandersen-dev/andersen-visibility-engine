@@ -154,7 +154,8 @@ export const gaKnowledge: Readonly<Record<string, string>> = {
   "refresh.lastAttempt": "An iarracht dheireanach",
   "refresh.lastSuccess": "An bhreathnóireacht rathúil dheireanach",
   "refresh.never": "Gan seiceáil fós",
-  "refresh.unknown": "Níl sé ar fáil — coinníodh an fhianaise rathúil dheireanach",
+  "refresh.unknown":
+    "Níl sé ar fáil — coinníodh an fhianaise rathúil dheireanach. Bain triail eile as 10 nóiméad tar éis na hiarrachta deireanaí.",
   "refresh.running": "An fhoinse á seiceáil",
   "refresh.ok": "Breathnaithe",
   "refresh.public-page": "Leathanach poiblí amháin",

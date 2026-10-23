@@ -281,7 +281,8 @@ export const frKnowledge: Readonly<Record<string, string>> = {
   "refresh.lastAttempt": "Dernière tentative",
   "refresh.lastSuccess": "Dernière observation réussie",
   "refresh.never": "Pas encore vérifié",
-  "refresh.unknown": "Indisponible — derniers éléments obtenus conservés",
+  "refresh.unknown":
+    "Indisponible — derniers éléments obtenus conservés. Réessayez 10 minutes après la dernière tentative.",
   "refresh.running": "Vérification de la source",
   "refresh.ok": "Observé",
   "refresh.public-page": "Page publique uniquement",

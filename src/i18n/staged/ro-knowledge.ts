@@ -151,7 +151,8 @@ export const roKnowledge: Readonly<Record<string, string>> = {
   "refresh.lastAttempt": "Ultima încercare",
   "refresh.lastSuccess": "Ultima observație reușită",
   "refresh.never": "Neverificat încă",
-  "refresh.unknown": "Indisponibil — ultimele dovezi reușite sunt păstrate",
+  "refresh.unknown":
+    "Indisponibil — ultimele dovezi reușite sunt păstrate. Încercați din nou la 10 minute după ultima încercare.",
   "refresh.running": "Se verifică sursa",
   "refresh.ok": "Observat",
   "refresh.public-page": "Doar pagina publică",

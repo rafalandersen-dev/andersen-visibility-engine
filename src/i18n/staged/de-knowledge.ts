@@ -281,7 +281,8 @@ export const deKnowledge: Readonly<Record<string, string>> = {
   "refresh.lastAttempt": "Letzter Versuch",
   "refresh.lastSuccess": "Letzte erfolgreiche Beobachtung",
   "refresh.never": "Noch nicht geprüft",
-  "refresh.unknown": "Nicht verfügbar — letzte erfolgreiche Nachweise behalten",
+  "refresh.unknown":
+    "Nicht verfügbar — letzte erfolgreiche Nachweise behalten. Versuche es 10 Minuten nach dem letzten Versuch erneut.",
   "refresh.running": "Quelle wird geprüft",
   "refresh.ok": "Beobachtet",
   "refresh.public-page": "Nur öffentliche Seite",

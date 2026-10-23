@@ -148,7 +148,8 @@ export const hrKnowledge: Readonly<Record<string, string>> = {
   "refresh.lastAttempt": "Posljednji pokušaj",
   "refresh.lastSuccess": "Posljednje uspješno opažanje",
   "refresh.never": "Još nije provjereno",
-  "refresh.unknown": "Nedostupno — posljednji uspješni dokazi zadržani",
+  "refresh.unknown":
+    "Nedostupno — posljednji uspješni dokazi zadržani. Pokušajte ponovno 10 minuta nakon posljednjeg pokušaja.",
   "refresh.running": "Provjera izvora",
   "refresh.ok": "Opaženo",
   "refresh.public-page": "Samo javna stranica",

@@ -147,7 +147,8 @@ export const skKnowledge: Readonly<Record<string, string>> = {
   "refresh.lastAttempt": "Posledný pokus",
   "refresh.lastSuccess": "Posledné úspešné pozorovanie",
   "refresh.never": "Zatiaľ neskontrolované",
-  "refresh.unknown": "Nedostupné — posledné úspešné dôkazy zachované",
+  "refresh.unknown":
+    "Nedostupné — posledné úspešné dôkazy zachované. Skúste to znova 10 minút po poslednom pokuse.",
   "refresh.running": "Kontroluje sa zdroj",
   "refresh.ok": "Pozorované",
   "refresh.public-page": "Iba verejná stránka",
