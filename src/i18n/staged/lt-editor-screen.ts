@@ -157,6 +157,9 @@ export const ltEditorScreen: Readonly<Record<string, string>> = {
   "editorScreen.faq": "DUK",
   "editorScreen.regenerate": "Generuoti iš naujo",
   "editorScreen.unsaved": "Neišsaugoti pakeitimai",
+  "editorScreen.requestedMissing": "Šis juodraštis šioje darbo erdvėje nepasiekiamas.",
+  "editorScreen.requestedUnavailable":
+    "Nepavyko įkelti naujausių juodraščių. Išsaugokite neišsaugotus pakeitimus ir bandykite dar kartą.",
   "editorScreen.saved": "Visi pakeitimai išsaugoti",
   "editorScreen.updated": "Atnaujinta {date}",
   "editorScreen.exportMarkdown": "Eksportuoti Markdown",

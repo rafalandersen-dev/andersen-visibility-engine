@@ -158,6 +158,9 @@ export const itEditorScreen: Readonly<Record<string, string>> = {
   "editorScreen.faq": "FAQ",
   "editorScreen.regenerate": "Rigenera",
   "editorScreen.unsaved": "Modifiche non salvate",
+  "editorScreen.requestedMissing": "Questa bozza non è disponibile in questo spazio di lavoro.",
+  "editorScreen.requestedUnavailable":
+    "Non è stato possibile caricare le bozze più recenti. Salva le modifiche non salvate e riprova.",
   "editorScreen.saved": "Tutte le modifiche salvate",
   "editorScreen.updated": "Aggiornato il {date}",
   "editorScreen.exportMarkdown": "Esporta Markdown",

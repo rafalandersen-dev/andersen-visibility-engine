@@ -156,6 +156,9 @@ export const lvEditorScreen: Readonly<Record<string, string>> = {
   "editorScreen.faq": "BUJ",
   "editorScreen.regenerate": "Ģenerēt no jauna",
   "editorScreen.unsaved": "Nesaglabātas izmaiņas",
+  "editorScreen.requestedMissing": "Šis melnraksts šajā darbvietā nav pieejams.",
+  "editorScreen.requestedUnavailable":
+    "Jaunākos melnrakstus neizdevās ielādēt. Saglabājiet nesaglabātās izmaiņas un mēģiniet vēlreiz.",
   "editorScreen.saved": "Visas izmaiņas saglabātas",
   "editorScreen.updated": "Atjaunināts {date}",
   "editorScreen.exportMarkdown": "Eksportēt Markdown",

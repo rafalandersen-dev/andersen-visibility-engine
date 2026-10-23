@@ -159,6 +159,9 @@ export const frEditorScreen: Readonly<Record<string, string>> = {
   "editorScreen.faq": "FAQ",
   "editorScreen.regenerate": "Régénérer",
   "editorScreen.unsaved": "Modifications non enregistrées",
+  "editorScreen.requestedMissing": "Ce brouillon n'est pas disponible dans cet espace de travail.",
+  "editorScreen.requestedUnavailable":
+    "Les brouillons les plus récents n'ont pas pu être chargés. Enregistrez les modifications non enregistrées, puis réessayez.",
   "editorScreen.saved": "Toutes les modifications sont enregistrées",
   "editorScreen.updated": "Mis à jour {date}",
   "editorScreen.exportMarkdown": "Exporter le Markdown",

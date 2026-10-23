@@ -189,7 +189,7 @@ export const CS_STAGED_BATCHES = [
     copy: csEditorScreen,
     namespaces: ["editorScreen"],
     sourceRevision: "7b7c947",
-    sourceHash: "1e827d2744ea1f2d3364b54983f06b42082f45ab6dfb0eda7b1375fdddd9ec9f",
+    sourceHash: "541d9eb0143c53f9f6995353a0f17830e8603f3a91e43a94fca6187c398d6b92",
   },
   {
     name: "plan screen",

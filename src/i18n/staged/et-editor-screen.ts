@@ -155,6 +155,9 @@ export const etEditorScreen: Readonly<Record<string, string>> = {
   "editorScreen.faq": "KKK",
   "editorScreen.regenerate": "Genereeri uuesti",
   "editorScreen.unsaved": "Salvestamata muudatused",
+  "editorScreen.requestedMissing": "See mustand pole selles tööruumis saadaval.",
+  "editorScreen.requestedUnavailable":
+    "Uusimaid mustandeid ei õnnestunud laadida. Salvesta salvestamata muudatused ja proovi uuesti.",
   "editorScreen.saved": "Kõik muudatused on salvestatud",
   "editorScreen.updated": "Uuendatud {date}",
   "editorScreen.exportMarkdown": "Ekspordi Markdown",

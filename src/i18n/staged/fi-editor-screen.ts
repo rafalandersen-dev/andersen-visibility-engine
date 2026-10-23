@@ -156,6 +156,9 @@ export const fiEditorScreen: Readonly<Record<string, string>> = {
   "editorScreen.faq": "Usein kysytyt kysymykset",
   "editorScreen.regenerate": "Luo uudelleen",
   "editorScreen.unsaved": "Tallentamattomia muutoksia",
+  "editorScreen.requestedMissing": "Tämä luonnos ei ole saatavilla tässä työtilassa.",
+  "editorScreen.requestedUnavailable":
+    "Uusimpia luonnoksia ei voitu ladata. Tallenna tallentamattomat muutokset ja yritä uudelleen.",
   "editorScreen.saved": "Kaikki muutokset tallennettu",
   "editorScreen.updated": "Päivitetty {date}",
   "editorScreen.exportMarkdown": "Vie Markdown",

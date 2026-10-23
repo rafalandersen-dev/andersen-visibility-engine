@@ -158,6 +158,9 @@ export const ptEditorScreen: Readonly<Record<string, string>> = {
   "editorScreen.faq": "Perguntas frequentes",
   "editorScreen.regenerate": "Gerar novamente",
   "editorScreen.unsaved": "Alterações por guardar",
+  "editorScreen.requestedMissing": "Este rascunho não está disponível neste espaço de trabalho.",
+  "editorScreen.requestedUnavailable":
+    "Não foi possível carregar os rascunhos mais recentes. Guarde as alterações não guardadas e tente novamente.",
   "editorScreen.saved": "Todas as alterações guardadas",
   "editorScreen.updated": "Atualizado em {date}",
   "editorScreen.exportMarkdown": "Exportar Markdown",

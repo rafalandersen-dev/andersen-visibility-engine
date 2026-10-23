@@ -160,6 +160,9 @@ export const editorScreenCopy: Record<OnboardingLanguage, Readonly<Record<string
     "editorScreen.faq": "FAQ",
     "editorScreen.regenerate": "Regenerate",
     "editorScreen.unsaved": "Unsaved changes",
+    "editorScreen.requestedMissing": "This draft is not available in this workspace.",
+    "editorScreen.requestedUnavailable":
+      "The latest drafts could not be loaded. Save any unsaved changes, then try again.",
     "editorScreen.saved": "All changes saved",
     "editorScreen.updated": "Updated {date}",
     "editorScreen.exportMarkdown": "Export Markdown",
@@ -326,6 +329,9 @@ export const editorScreenCopy: Record<OnboardingLanguage, Readonly<Record<string
     "editorScreen.faq": "FAQ",
     "editorScreen.regenerate": "Wygeneruj ponownie",
     "editorScreen.unsaved": "Niezapisane zmiany",
+    "editorScreen.requestedMissing": "Ten szkic nie jest dostępny w tym obszarze roboczym.",
+    "editorScreen.requestedUnavailable":
+      "Nie udało się wczytać najnowszych szkiców. Zapisz niezapisane zmiany i spróbuj ponownie.",
     "editorScreen.saved": "Wszystkie zmiany zapisane",
     "editorScreen.updated": "Zaktualizowano {date}",
     "editorScreen.exportMarkdown": "Eksportuj Markdown",
@@ -491,6 +497,9 @@ export const editorScreenCopy: Record<OnboardingLanguage, Readonly<Record<string
     "editorScreen.faq": "Vanliga frågor",
     "editorScreen.regenerate": "Generera på nytt",
     "editorScreen.unsaved": "Osparade ändringar",
+    "editorScreen.requestedMissing": "Det här utkastet är inte tillgängligt i den här arbetsytan.",
+    "editorScreen.requestedUnavailable":
+      "De senaste utkasten kunde inte läsas in. Spara eventuella osparade ändringar och försök sedan igen.",
     "editorScreen.saved": "Alla ändringar sparade",
     "editorScreen.updated": "Uppdaterad {date}",
     "editorScreen.exportMarkdown": "Exportera Markdown",
@@ -656,6 +665,9 @@ export const editorScreenCopy: Record<OnboardingLanguage, Readonly<Record<string
     "editorScreen.faq": "Ofte stillede spørgsmål",
     "editorScreen.regenerate": "Generér igen",
     "editorScreen.unsaved": "Ikke-gemte ændringer",
+    "editorScreen.requestedMissing": "Dette udkast er ikke tilgængeligt i dette arbejdsområde.",
+    "editorScreen.requestedUnavailable":
+      "De seneste udkast kunne ikke indlæses. Gem eventuelle ikke-gemte ændringer, og prøv igen.",
     "editorScreen.saved": "Alle ændringer er gemt",
     "editorScreen.updated": "Opdateret {date}",
     "editorScreen.exportMarkdown": "Eksportér Markdown",

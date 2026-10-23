@@ -157,6 +157,9 @@ export const slEditorScreen: Readonly<Record<string, string>> = {
   "editorScreen.faq": "Pogosta vprašanja",
   "editorScreen.regenerate": "Ponovno ustvari",
   "editorScreen.unsaved": "Neshranjene spremembe",
+  "editorScreen.requestedMissing": "Ta osnutek v tem delovnem prostoru ni na voljo.",
+  "editorScreen.requestedUnavailable":
+    "Najnovejših osnutkov ni bilo mogoče naložiti. Shranite neshranjene spremembe in poskusite znova.",
   "editorScreen.saved": "Vse spremembe shranjene",
   "editorScreen.updated": "Posodobljeno {date}",
   "editorScreen.exportMarkdown": "Izvozi Markdown",

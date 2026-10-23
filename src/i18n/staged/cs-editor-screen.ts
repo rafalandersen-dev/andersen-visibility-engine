@@ -155,6 +155,9 @@ export const csEditorScreen: Readonly<Record<string, string>> = {
   "editorScreen.faq": "Časté dotazy",
   "editorScreen.regenerate": "Znovu vygenerovat",
   "editorScreen.unsaved": "Neuložené změny",
+  "editorScreen.requestedMissing": "Tento koncept není v tomto pracovním prostoru dostupný.",
+  "editorScreen.requestedUnavailable":
+    "Nejnovější koncepty se nepodařilo načíst. Uložte neuložené změny a zkuste to znovu.",
   "editorScreen.saved": "Všechny změny uloženy",
   "editorScreen.updated": "Aktualizováno {date}",
   "editorScreen.exportMarkdown": "Exportovat Markdown",
