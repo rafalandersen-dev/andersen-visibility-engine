@@ -16,6 +16,7 @@ import {
 } from "./milo-specialist";
 import {
   aiAdviceEvidence,
+  draftEvidence,
   findOpportunityDraft,
   knowledgeEvidence,
   projectBriefEvidence,
@@ -356,44 +357,12 @@ DATA: ${serializeSpecialistContext({ locale: context.proposal.locale, userTask: 
       draftHash: snapshot.draftHash,
       observedAt: new Date().toISOString(),
     };
-    if (tool.name === "draft_read")
-      return result(
-        {
-          draft: {
-            id: draft.id,
-            title: draft.title,
-            status: draft.status,
-            metaTitle: draft.metaTitle,
-            metaDescription: draft.metaDescription,
-            markdown: clipUtf8(draft.markdown, 5000),
-            partialBody: new TextEncoder().encode(draft.markdown).byteLength > 5000,
-          },
-          version,
-        },
-        { kind: "draft", id: draft.id },
-      );
-    return result(
-      {
-        source: "saved_draft_structure",
-        liveWebsiteChecked: false,
-        rankingMeasured: false,
-        draftId: draft.id,
-        title: draft.title,
-        ...version,
-        wordCount: draft.markdown.trim() ? draft.markdown.trim().split(/\s+/u).length : 0,
-        h2Count: (draft.markdown.match(/^##\s+.+/gm) ?? []).length,
-        h3Count: (draft.markdown.match(/^###\s+.+/gm) ?? []).length,
-        metaTitleCharacters: [...draft.metaTitle].length,
-        metaDescriptionCharacters: [...draft.metaDescription].length,
-        hasTitle: !!draft.title.trim(),
-        hasBody: !!draft.markdown.trim(),
-        limitations:
-          "Text syntax counts include code/examples. No SEO score, index check, source verification or publication approval was produced.",
-        bodyExcerpt: clipUtf8(draft.markdown, 4500),
-        partialBody: new TextEncoder().encode(draft.markdown).byteLength > 4500,
-      },
-      { kind: "draft", id: draft.id },
-    );
+    // Valid, bounded evidence that always keeps the draft id and version (CT).
+    return {
+      state: "completed",
+      evidence: draftEvidence(tool.name === "draft_read" ? "read" : "seo_review", draft, version),
+      reference: { kind: "draft", id: draft.id },
+    };
   }
   if (tool.name === "project_knowledge") {
     const knowledge = await deps.knowledge(target, "text");

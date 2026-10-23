@@ -67,7 +67,14 @@ const time = (value: unknown) => {
  * escaping of the final evidence can inflate fixed text far beyond its byte cap. */
 type Trimmable =
   | { list: unknown[]; omitted: () => void; min?: number }
-  | { text: Record<string, unknown>; key: string; shortened: () => void; counted?: boolean };
+  | {
+      text: Record<string, unknown>;
+      key: string;
+      shortened: () => void;
+      counted?: boolean;
+      /** Runs after every halving, so counts describing the field stay true. */
+      after?: () => void;
+    };
 
 const textStep = (
   text: Record<string, unknown>,
@@ -88,6 +95,7 @@ function shrink(step: Trimmable): boolean {
   if (typeof value !== "string" || !value) return false;
   const half = Math.floor(bytes(value) / 2);
   step.text[step.key] = half > 0 ? clipUtf8(value, half) : "";
+  step.after?.();
   if (!step.counted) {
     step.counted = true;
     step.shortened();
@@ -624,4 +632,111 @@ export function aiAdviceEvidence(analyses: unknown, projectId: string): string {
     READER_EVIDENCE_MAX_BYTES,
     (content.omittedGaps as number) > 0 || cut(capped),
   ).evidence;
+}
+
+/** The saved draft as one `draft_read` / `draft_seo_review` observation. */
+export type DraftEvidenceInput = {
+  id: string;
+  title: unknown;
+  status?: unknown;
+  metaTitle?: unknown;
+  metaDescription?: unknown;
+  markdown: string;
+};
+export type DraftEvidenceVersion = {
+  workspaceRevision: number | null;
+  draftHash: string | null;
+  observedAt: string;
+};
+/** Body excerpt budgets before final fitting (the previous per-tool excerpt sizes). */
+const DRAFT_EXCERPT_BYTES = { read: 5000, seo_review: 4500 } as const;
+
+/** Bounded, valid draft evidence (CT, 23 October: the generic tool result clipped the
+ * whole serialized JSON, cutting through strings and dropping the trailing version
+ * and partial marker). The draft id, version and full-draft structure counts are
+ * fixed and always retained; only the body excerpt and then metadata text shrink,
+ * until the FINAL serialized evidence, escaping included, fits
+ * READER_EVIDENCE_MAX_BYTES. `body` states whether the excerpt is the complete body
+ * and its original/excerpt sizes; `shortenedFields` names shortened metadata.
+ * Metadata that is not text is unknown (null), never empty. */
+export function draftEvidence(
+  kind: "read" | "seo_review",
+  draft: DraftEvidenceInput,
+  version: DraftEvidenceVersion,
+): string {
+  const shortened = new Set<string>();
+  const text = (key: string, value: unknown, max: number) => {
+    if (typeof value !== "string") return null;
+    const clipped = clipUtf8(value, max);
+    if (clipped !== value) shortened.add(key);
+    return clipped;
+  };
+  const originalBytes = bytes(draft.markdown);
+  const body: Record<string, unknown> = {
+    excerpt: clipUtf8(draft.markdown, DRAFT_EXCERPT_BYTES[kind]),
+    complete: true,
+    originalBytes,
+    excerptBytes: 0,
+  };
+  const measureBody = () => {
+    body.excerptBytes = bytes(body.excerpt as string);
+    body.complete = body.excerptBytes === originalBytes;
+  };
+  measureBody();
+  const meta: Record<string, unknown> = {
+    title: text("title", draft.title, 300),
+    metaTitle: text("metaTitle", draft.metaTitle, 300),
+    metaDescription: text("metaDescription", draft.metaDescription, 1000),
+  };
+  const characters = (value: unknown) => (typeof value === "string" ? [...value].length : null);
+  const markdown = draft.markdown.trim();
+  const content: Record<string, unknown> =
+    kind === "read"
+      ? {
+          source: "saved_draft",
+          draft: {
+            id: draft.id,
+            title: meta.title,
+            status: typeof draft.status === "string" ? clipUtf8(draft.status, 40) : null,
+            metaTitle: meta.metaTitle,
+            metaDescription: meta.metaDescription,
+          },
+          version,
+          body,
+        }
+      : {
+          source: "saved_draft_structure",
+          liveWebsiteChecked: false,
+          rankingMeasured: false,
+          draftId: draft.id,
+          title: meta.title,
+          ...version,
+          countsCover: "complete_saved_draft",
+          wordCount: markdown ? markdown.split(/\s+/u).length : 0,
+          h2Count: (draft.markdown.match(/^##\s+.+/gm) ?? []).length,
+          h3Count: (draft.markdown.match(/^###\s+.+/gm) ?? []).length,
+          metaTitleCharacters: characters(draft.metaTitle),
+          metaDescriptionCharacters: characters(draft.metaDescription),
+          hasTitle: typeof draft.title === "string" && !!draft.title.trim(),
+          hasBody: !!markdown,
+          limitations:
+            "Counts cover the complete saved draft; body.excerpt is only a bounded preview. Text syntax counts include code/examples. No SEO score, index check, source verification or publication approval was produced.",
+          body,
+        };
+  const metaHolder = kind === "read" ? (content.draft as Record<string, unknown>) : content;
+  const shortenedFields = () => [...shortened].sort();
+  content.shortenedFields = shortenedFields();
+  const metaKeys = kind === "read" ? ["metaDescription", "metaTitle", "title"] : ["title"];
+  // The body excerpt shrinks first; metadata only if the excerpt is already empty.
+  const steps: Trimmable[] = [
+    { text: body, key: "excerpt", shortened: () => {}, after: measureBody },
+    ...metaKeys.map((key) =>
+      textStep(metaHolder, key, () => {
+        shortened.add(key);
+        content.shortenedFields = shortenedFields();
+      }),
+    ),
+  ];
+  return fitted(content, steps, READER_EVIDENCE_MAX_BYTES, !body.complete || shortened.size > 0)
+    .evidence;
 }
