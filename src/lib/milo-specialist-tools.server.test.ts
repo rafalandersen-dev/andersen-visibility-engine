@@ -250,8 +250,10 @@ describe("specialist tools reuse authoritative project operations", () => {
       h.context,
       h.deps,
     );
-    const data = JSON.parse(JSON.parse(result.evidence).content);
+    // CT: content is a valid JSON object, not a clipped JSON string.
+    const data = JSON.parse(result.evidence).content;
     expect(data).toMatchObject({
+      countsCover: "complete_saved_draft",
       h2Count: 2,
       h3Count: 1,
       liveWebsiteChecked: false,
