@@ -80,6 +80,9 @@ const candidates = [
   // Candidate change evidence (R/R1/R2, 2026-09-28): v4 wrappers, artifacts/approvals/receipts, inspector
   // chains; unapplied until reviewed, additive over v3.
   "20260928120000_citation_change_evidence.sql",
+  // CV candidate (23 October): cancel no longer turns an expired-lease (unknown) turn into
+  // cancelled; it redefines only cancel_milo_conversation_turn over the released packet.
+  "20261023120000_milo_conversation_cancel_expired_unknown.sql",
 ];
 // Unapplied candidate outside this chain: it only re-pins the email queue wrappers, which this
 // fixture does not create, so it is enumerated (never silently released) but executed by its own
@@ -171,6 +174,8 @@ describe("candidate migration chain", () => {
     "count_project_team_seats(uuid,text)",
     "create_project_team_invitation(uuid,uuid,text,uuid,text,text,integer,integer)",
     "change_project_team_member(uuid,uuid,text,uuid,bigint,text,boolean,integer,integer)",
+    // Redefined by the CV candidate 20261023120000 (CREATE OR REPLACE re-grants service_role only).
+    "cancel_milo_conversation_turn(uuid,uuid,text,uuid,uuid)",
     // Redefined by the applied 20260920180000 migration (CREATE OR REPLACE keeps service_role-only).
     "claim_milo_conversation_turn(uuid,uuid,text,uuid,uuid)",
     "advance_milo_conversation_turn(uuid,uuid,text,uuid,uuid,uuid,integer,jsonb,text)",
