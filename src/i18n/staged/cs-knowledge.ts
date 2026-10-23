@@ -147,7 +147,8 @@ export const csKnowledge: Readonly<Record<string, string>> = {
   "refresh.lastAttempt": "Poslední pokus",
   "refresh.lastSuccess": "Poslední úspěšné zjištění",
   "refresh.never": "Zatím nezkontrolováno",
-  "refresh.unknown": "Nedostupné — poslední úspěšně získané podklady uchovány",
+  "refresh.unknown":
+    "Nedostupné — poslední úspěšně získané podklady uchovány. Zkuste to znovu 10 minut po posledním pokusu.",
   "refresh.running": "Kontrola zdroje",
   "refresh.ok": "Zjištěno",
   "refresh.public-page": "Pouze veřejná stránka",

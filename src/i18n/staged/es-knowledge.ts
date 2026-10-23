@@ -280,7 +280,8 @@ export const esKnowledge: Readonly<Record<string, string>> = {
   "refresh.lastAttempt": "Último intento",
   "refresh.lastSuccess": "Última observación correcta",
   "refresh.never": "Todavía no se ha comprobado",
-  "refresh.unknown": "No disponible: se conservan las últimas pruebas obtenidas correctamente",
+  "refresh.unknown":
+    "No disponible: se conservan las últimas pruebas obtenidas correctamente. Vuelve a intentarlo 10 minutos después del último intento.",
   "refresh.running": "Comprobando fuente",
   "refresh.ok": "Observado",
   "refresh.public-page": "Solo página pública",

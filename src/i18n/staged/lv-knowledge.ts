@@ -152,7 +152,8 @@ export const lvKnowledge: Readonly<Record<string, string>> = {
   "refresh.lastAttempt": "Pēdējais mēģinājums",
   "refresh.lastSuccess": "Pēdējais veiksmīgais novērojums",
   "refresh.never": "Vēl nav pārbaudīts",
-  "refresh.unknown": "Nav pieejams — pēdējie veiksmīgie pierādījumi saglabāti",
+  "refresh.unknown":
+    "Nav pieejams — pēdējie veiksmīgie pierādījumi saglabāti. Mēģiniet vēlreiz 10 minūtes pēc pēdējā mēģinājuma.",
   "refresh.running": "Notiek avota pārbaude",
   "refresh.ok": "Novērots",
   "refresh.public-page": "Tikai publiskā lapa",

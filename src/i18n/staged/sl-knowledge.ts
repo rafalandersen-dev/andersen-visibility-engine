@@ -148,7 +148,8 @@ export const slKnowledge: Readonly<Record<string, string>> = {
   "refresh.lastAttempt": "Zadnji poskus",
   "refresh.lastSuccess": "Zadnje uspešno opažanje",
   "refresh.never": "Še ni preverjeno",
-  "refresh.unknown": "Ni na voljo — zadnja uspešna dokazila ohranjena",
+  "refresh.unknown":
+    "Ni na voljo — zadnja uspešna dokazila ohranjena. Poskusite znova 10 minut po zadnjem poskusu.",
   "refresh.running": "Preverjanje vira",
   "refresh.ok": "Opaženo",
   "refresh.public-page": "Samo javna stran",

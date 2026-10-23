@@ -151,7 +151,8 @@ export const ltKnowledge: Readonly<Record<string, string>> = {
   "refresh.lastAttempt": "Paskutinis bandymas",
   "refresh.lastSuccess": "Paskutinis sėkmingas stebėjimas",
   "refresh.never": "Dar netikrinta",
-  "refresh.unknown": "Nepasiekiama — paskutiniai sėkmingi įrodymai išsaugoti",
+  "refresh.unknown":
+    "Nepasiekiama — paskutiniai sėkmingi įrodymai išsaugoti. Bandykite dar kartą praėjus 10 minučių nuo paskutinio bandymo.",
   "refresh.running": "Tikrinamas šaltinis",
   "refresh.ok": "Stebėta",
   "refresh.public-page": "Tik viešas puslapis",

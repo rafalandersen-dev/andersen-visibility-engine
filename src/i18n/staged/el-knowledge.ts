@@ -155,7 +155,8 @@ export const elKnowledge: Readonly<Record<string, string>> = {
   "refresh.lastAttempt": "Τελευταία προσπάθεια",
   "refresh.lastSuccess": "Τελευταία επιτυχής παρατήρηση",
   "refresh.never": "Δεν έχει ελεγχθεί ακόμη",
-  "refresh.unknown": "Μη διαθέσιμη — διατηρήθηκαν τα τελευταία επιτυχή τεκμήρια",
+  "refresh.unknown":
+    "Μη διαθέσιμη — διατηρήθηκαν τα τελευταία επιτυχή τεκμήρια. Δοκιμάστε ξανά 10 λεπτά μετά την τελευταία προσπάθεια.",
   "refresh.running": "Έλεγχος πηγής",
   "refresh.ok": "Παρατηρήθηκε",
   "refresh.public-page": "Μόνο δημόσια σελίδα",

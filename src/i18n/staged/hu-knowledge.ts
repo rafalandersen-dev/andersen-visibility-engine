@@ -150,7 +150,8 @@ export const huKnowledge = {
   "refresh.lastAttempt": "Utolsó kísérlet",
   "refresh.lastSuccess": "Utolsó sikeres megfigyelés",
   "refresh.never": "Még nincs ellenőrizve",
-  "refresh.unknown": "Nem érhető el — az utolsó sikeres bizonyíték megőrizve",
+  "refresh.unknown":
+    "Nem érhető el — az utolsó sikeres bizonyíték megőrizve. Próbálja újra 10 perccel az utolsó kísérlet után.",
   "refresh.running": "Forrás ellenőrzése",
   "refresh.ok": "Megfigyelve",
   "refresh.public-page": "Csak nyilvános oldal",

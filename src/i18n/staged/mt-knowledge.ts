@@ -153,7 +153,8 @@ export const mtKnowledge: Readonly<Record<string, string>> = {
   "refresh.lastAttempt": "L-aħħar tentattiv",
   "refresh.lastSuccess": "L-aħħar osservazzjoni b’suċċess",
   "refresh.never": "Għadu ma ġiex iċċekkjat",
-  "refresh.unknown": "Mhux disponibbli — l-aħħar evidenza b’suċċess inżammet",
+  "refresh.unknown":
+    "Mhux disponibbli — l-aħħar evidenza b’suċċess inżammet. Erġa’ pprova 10 minuti wara l-aħħar tentattiv.",
   "refresh.running": "Qed jiġi ċċekkjat is-sors",
   "refresh.ok": "Osservat",
   "refresh.public-page": "Paġna pubblika biss",

@@ -178,7 +178,7 @@ export const FR_STAGED_BATCHES = [
     copy: frCitationChange,
     namespaces: ["citationChange"],
     sourceRevision: "citation change evidence candidate 20260928120000 (R/R1/R2)",
-    sourceHash: "576b6f207594745c1c3e082e0bba5d773318eb96241d4d5cf18187b680cdc2d5",
+    sourceHash: "1e4b4ca8d390967bb9420df4148f75cd81ba4516ed137e06496ba213a3652c59",
   },
 ] as const;
 

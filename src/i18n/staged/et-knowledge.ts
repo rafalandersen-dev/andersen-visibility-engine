@@ -147,7 +147,8 @@ export const etKnowledge: Readonly<Record<string, string>> = {
   "refresh.lastAttempt": "Viimane katse",
   "refresh.lastSuccess": "Viimane edukas vaatlus",
   "refresh.never": "Veel kontrollimata",
-  "refresh.unknown": "Pole saadaval — viimased edukalt saadud tõendusandmed on säilitatud",
+  "refresh.unknown":
+    "Pole saadaval — viimased edukalt saadud tõendusandmed on säilitatud. Proovige uuesti 10 minutit pärast viimast katset.",
   "refresh.running": "Allika kontrollimine",
   "refresh.ok": "Vaadeldud",
   "refresh.public-page": "Ainult avalik leht",

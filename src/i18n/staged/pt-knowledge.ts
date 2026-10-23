@@ -152,7 +152,8 @@ export const ptKnowledge: Readonly<Record<string, string>> = {
   "refresh.lastAttempt": "Última tentativa",
   "refresh.lastSuccess": "Última observação bem-sucedida",
   "refresh.never": "Ainda não verificada",
-  "refresh.unknown": "Indisponível — últimas evidências obtidas preservadas",
+  "refresh.unknown":
+    "Indisponível — últimas evidências obtidas preservadas. Tente novamente 10 minutos após a última tentativa.",
   "refresh.running": "A verificar fonte",
   "refresh.ok": "Observado",
   "refresh.public-page": "Apenas página pública",
