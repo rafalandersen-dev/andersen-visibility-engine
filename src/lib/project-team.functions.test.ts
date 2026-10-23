@@ -8,6 +8,7 @@ const h = vi.hoisted(() => ({
   list: vi.fn(),
   read: vi.fn(),
   rpc: vi.fn(),
+  admit: vi.fn(),
   edit: vi.fn(),
   policyRead: vi.fn(),
   policyChange: vi.fn(),
@@ -46,7 +47,11 @@ vi.mock("./project-team-membership.server", () => ({
 }));
 vi.mock("./project-team-read-admission.server", () => ({
   readAdmittedTeamProject: h.read,
-  admittedReadRpc: () => h.rpc,
+  admittedReadRpc: (...args: unknown[]) => {
+    h.admit(...args);
+    return h.rpc;
+  },
+  READ_ADMISSION_BUDGET_MS: 1500,
 }));
 vi.mock("./project-team-edit.server", () => ({ saveProjectTeamDraft: h.edit }));
 vi.mock("./project-team-seats.server", () => ({
@@ -111,6 +116,10 @@ describe("team authentication entry points", () => {
     expect(h.roster).toHaveBeenCalledWith(actor, { projectId: "p" });
     await invoke(endpoints.listMyProjectTeamsFn, {});
     expect(h.list).toHaveBeenCalledWith(actor, h.rpc);
+    // CU: the page-load discovery read opts into the bounded acquire retry.
+    expect(h.admit).toHaveBeenLastCalledWith(actor, undefined, {
+      acquireUntil: expect.any(Number),
+    });
     expect(() => invoke(endpoints.listMyProjectTeamsFn, { actorId: owner })).toThrow();
   });
   it("binds draft edits to the authenticated actor and rejects approval/evidence fields", async () => {

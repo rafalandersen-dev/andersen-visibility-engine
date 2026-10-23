@@ -50,8 +50,15 @@ export const listMyProjectTeamsFn = createServerFn({ method: "POST" })
   .inputValidator((v: unknown) => z.object({}).strict().parse(v))
   .handler(async ({ context }) => {
     const { listMyProjectTeams } = await import("./project-team-membership.server");
-    const { admittedReadRpc } = await import("./project-team-read-admission.server");
-    return listMyProjectTeams(context.userId, admittedReadRpc(context.userId));
+    const { admittedReadRpc, READ_ADMISSION_BUDGET_MS } =
+      await import("./project-team-read-admission.server");
+    // Page-load discovery read: a refused acquire is retried within a fixed bound.
+    return listMyProjectTeams(
+      context.userId,
+      admittedReadRpc(context.userId, undefined, {
+        acquireUntil: Date.now() + READ_ADMISSION_BUDGET_MS,
+      }),
+    );
   });
 export const readTeamProjectFn = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
