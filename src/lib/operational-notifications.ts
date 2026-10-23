@@ -53,6 +53,20 @@ function deadline(value: string, timeZone: string): Date {
   if (!Number.isFinite(date.getTime())) throw new Error("invalid_notification_deadline");
   return date;
 }
+/** A saved weekly preparation stage (`read_weekly_preparation_stages`), with the
+ * project and week it was read for. `state` is already `unknown` for a running stage
+ * whose lease is gone. */
+export interface WeeklyNotificationStage {
+  projectId: string;
+  period: string;
+  publishAt: string;
+  stage: "research" | "content" | "image";
+  state: string;
+  requestId: string;
+  outputId: string | null;
+  deliveredAt: string | null;
+}
+const WEEKLY_STAGES = ["research", "content", "image"] as const;
 /** Server snapshot only; queued publication data must come from the queue table. */
 export function operationalNotifications(args: {
   projects: Project[];
@@ -67,6 +81,9 @@ export function operationalNotifications(args: {
     acquiredAt: string;
     leaseUntil: string;
   }>;
+  /** Saved weekly stages for the current and next local week, read for weekly and
+   * paused engines so pausing after preparation never hides saved work. */
+  weeklyStages?: WeeklyNotificationStage[];
 }): OperationalNotificationEvent[] {
   const events: OperationalNotificationEvent[] = [];
   for (const project of args.projects) {
@@ -130,6 +147,45 @@ export function operationalNotifications(args: {
         );
       }
     }
+    // Weekly preparation (CW): each draft the weekly agents actually saved and
+    // delivered for a future slot asks for the owner's review once, through the
+    // existing approval channel. Derived from retained+delivered stages, never from a
+    // summary action. The key is stable per content stage, so the inbox and digest
+    // deduplicate it across scans, edits and pause/resume; it resolves when the
+    // draft is approved, rejected, exported, published, removed, cancelled or its slot
+    // passes. `detail` records how many of the slot's stages were delivered.
+    const weekly = (args.weeklyStages ?? []).filter((s) => s.projectId === project.id);
+    for (const content of weekly) {
+      if (
+        content.stage !== "content" ||
+        content.state !== "retained" ||
+        !content.deliveredAt ||
+        !content.outputId ||
+        Date.parse(content.publishAt) <= args.now.getTime()
+      )
+        continue;
+      const slot = weekly.filter(
+        (s) =>
+          s.period === content.period && Date.parse(s.publishAt) === Date.parse(content.publishAt),
+      );
+      if (slot.some((s) => s.state === "cancelled")) continue;
+      const asset = byId.get(content.outputId);
+      if (
+        !asset ||
+        asset.livePublishStatus === "published" ||
+        ["Approved", "Rejected", "Exported"].includes(asset.status) ||
+        events.some((e) => e.kind === "approval_due" && e.targetId === asset.id)
+      )
+        continue;
+      const delivered = WEEKLY_STAGES.filter((stage) =>
+        slot.some((s) => s.stage === stage && s.state === "retained" && s.deliveredAt),
+      ).length;
+      add("approval_due", asset.id, asset.title, content.publishAt, `weekly:${content.requestId}`, {
+        plannedPeriod: content.period,
+        total: WEEKLY_STAGES.length,
+        missing: WEEKLY_STAGES.length - delivered,
+      });
+    }
     for (const opportunity of args.opportunities.filter((o) => o.projectId === project.id)) {
       if (
         !opportunity.dueAt ||
@@ -158,7 +214,9 @@ export function operationalNotifications(args: {
         left >= 0 &&
         left <= 24 * 60 * 60_000 &&
         asset.status !== "Approved" &&
-        asset.status !== "Exported"
+        asset.status !== "Exported" &&
+        // One approval reminder per draft: a weekly slot reminder already covers it.
+        !events.some((e) => e.kind === "approval_due" && e.targetId === asset.id)
       ) {
         add(
           "approval_due",
