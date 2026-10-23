@@ -10,7 +10,7 @@ import {
   conversationTurnTarget,
 } from "./milo-conversation";
 import { projectTeamRpc, teamCall } from "./project-team-membership.server";
-import { admittedReadRpc } from "./project-team-read-admission.server";
+import { admittedReadRpc, READ_ADMISSION_BUDGET_MS } from "./project-team-read-admission.server";
 import { TeamAdmissionBusyError } from "./project-team-admission";
 import type { TeamReadRpc } from "./project-team-read.server";
 
@@ -77,9 +77,13 @@ export const MILO_READ_DEADLINE_MS = 5000;
  * RPC pass straight through, never deadline-gated, so admission cleanup always runs; a
  * non-55P03 result, a success, or a THROWN transport failure is returned/propagated on
  * the first occurrence. */
-function retryReadContention(rpc: TeamReadRpc, deadline: number): TeamReadRpc {
+function retryReadContention(
+  rpc: TeamReadRpc,
+  deadline: number,
+  readName: "read_milo_conversation" | "list_milo_conversations" = "read_milo_conversation",
+): TeamReadRpc {
   return async (name, args) => {
-    if (name !== "read_milo_conversation") return rpc(name, args);
+    if (name !== readName) return rpc(name, args);
     for (let attempt = 1; ; attempt++) {
       // Before EVERY read attempt (first included), so the admission-acquire delay counts
       // against the budget: never launch a storage read past the deadline.
@@ -208,7 +212,9 @@ export async function readConversation(
   return readConversationPage(
     actor,
     input,
-    admittedReadRpc(actor, retryReadContention(rpc, deadline)),
+    admittedReadRpc(actor, retryReadContention(rpc, deadline), {
+      acquireUntil: Math.min(deadline, Date.now() + READ_ADMISSION_BUDGET_MS),
+    }),
   );
 }
 /** Private executor-only continuity read. Identical parsing and response
@@ -236,6 +242,7 @@ export async function listConversations(
 ) {
   const actor = actorSchema.parse(actorId),
     input = conversationList.parse(raw);
+  const deadline = Date.now() + MILO_READ_DEADLINE_MS;
   const result = conversationDirectory.parse(
     await teamCall(
       "list_milo_conversations",
@@ -243,7 +250,13 @@ export async function listConversations(
         ...args(actor, input),
         p_offset: input.offset,
       },
-      admittedReadRpc(actor, rpc),
+      // CU: a refused acquire is retried within a fixed bound, and the directory read
+      // gets the same clean-rollback 55P03 retry as the page read: it is SELECT-only, and
+      // its access check takes FOR SHARE NOWAIT locks (auth.users, workspace_meta,
+      // membership). Same lease, one absolute deadline; nothing else is retried.
+      admittedReadRpc(actor, retryReadContention(rpc, deadline, "list_milo_conversations"), {
+        acquireUntil: Math.min(deadline, Date.now() + READ_ADMISSION_BUDGET_MS),
+      }),
     ),
   );
   scoped(actor, input, result);
