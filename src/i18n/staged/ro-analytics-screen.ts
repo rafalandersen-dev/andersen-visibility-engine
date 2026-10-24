@@ -1,5 +1,7 @@
 /** Romanian authoring only; not registered in the runtime or language picker. */
 export const roAnalyticsScreen: Readonly<Record<string, string>> = {
+  "analyticsScreen.dataSources": "Surse de date și configurarea urmăririi",
+  "analyticsScreen.advancedEvidence": "Avansat: dovezi din jurnalele serverului și edge",
   "analyticsScreen.loadFailed": "Analiza nu a putut fi încărcată.",
   "analyticsScreen.copied": "Fragmentul de cod a fost copiat",
   "analyticsScreen.copyFailed": "Copierea nu a reușit",

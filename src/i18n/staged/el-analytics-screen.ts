@@ -1,5 +1,8 @@
 /** Greek authoring only; not registered in the runtime or language picker. */
 export const elAnalyticsScreen: Readonly<Record<string, string>> = {
+  "analyticsScreen.dataSources": "Πηγές δεδομένων και ρυθμίσεις παρακολούθησης",
+  "analyticsScreen.advancedEvidence":
+    "Για προχωρημένους: τεκμήρια αρχείων καταγραφής διακομιστή και edge",
   "analyticsScreen.loadFailed": "Δεν ήταν δυνατή η φόρτωση των αναλυτικών στοιχείων.",
   "analyticsScreen.copied": "Το απόσπασμα κώδικα αντιγράφηκε",
   "analyticsScreen.copyFailed": "Δεν ήταν δυνατή η αντιγραφή",

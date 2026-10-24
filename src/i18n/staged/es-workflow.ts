@@ -103,6 +103,8 @@ export const esWorkflow: Readonly<Record<string, string>> = {
   "editor.action.createContent": "Crear contenido",
   "editor.action.saveDraft": "Guardar borrador",
   "editor.action.markInReview": "Marcar en revisión",
+  "editor.action.moreActions": "Más acciones",
+  "editor.action.reviewPublication": "Revisar la publicación",
   "editor.action.approve": "Aprobar",
   "editor.action.reject": "Rechazar",
   "editor.action.delete": "Eliminar",

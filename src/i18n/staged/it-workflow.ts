@@ -104,6 +104,8 @@ export const itWorkflow: Readonly<Record<string, string>> = {
   "editor.action.createContent": "Crea contenuto",
   "editor.action.saveDraft": "Salva la bozza",
   "editor.action.markInReview": "Segna come in revisione",
+  "editor.action.moreActions": "Altre azioni",
+  "editor.action.reviewPublication": "Verifica la pubblicazione",
   "editor.action.approve": "Approva",
   "editor.action.reject": "Rifiuta",
   "editor.action.delete": "Elimina",

@@ -103,6 +103,8 @@ export const fiWorkflow: Readonly<Record<string, string>> = {
   "editor.action.createContent": "Luo sisältöä",
   "editor.action.saveDraft": "Tallenna luonnos",
   "editor.action.markInReview": "Merkitse tarkistettavaksi",
+  "editor.action.moreActions": "Lisää toimintoja",
+  "editor.action.reviewPublication": "Tarkista julkaisu",
   "editor.action.approve": "Hyväksy",
   "editor.action.reject": "Hylkää",
   "editor.action.delete": "Poista",

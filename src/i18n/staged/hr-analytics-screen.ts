@@ -1,5 +1,7 @@
 /** Croatian authoring only; not registered in the runtime or language picker. */
 export const hrAnalyticsScreen: Readonly<Record<string, string>> = {
+  "analyticsScreen.dataSources": "Izvori podataka i postavke praćenja",
+  "analyticsScreen.advancedEvidence": "Napredno: dokazi iz poslužiteljskih i rubnih zapisnika",
   "analyticsScreen.loadFailed": "Analitiku nije bilo moguće učitati.",
   "analyticsScreen.copied": "Isječak koda kopiran",
   "analyticsScreen.copyFailed": "Kopiranje nije uspjelo",

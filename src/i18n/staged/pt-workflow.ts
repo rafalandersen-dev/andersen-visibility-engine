@@ -103,6 +103,8 @@ export const ptWorkflow: Readonly<Record<string, string>> = {
   "editor.action.createContent": "Criar conteúdo",
   "editor.action.saveDraft": "Guardar rascunho",
   "editor.action.markInReview": "Marcar como em revisão",
+  "editor.action.moreActions": "Mais ações",
+  "editor.action.reviewPublication": "Rever a publicação",
   "editor.action.approve": "Aprovar",
   "editor.action.reject": "Rejeitar",
   "editor.action.delete": "Eliminar",

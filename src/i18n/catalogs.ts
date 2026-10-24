@@ -1,4 +1,5 @@
 import { publicStudiesCopy } from "./public-studies";
+import { milestoneUxCopy } from "./milestone-ux";
 import { conversationCopy } from "./conversation";
 import { UI_LANGUAGE_CODES } from "./ui-languages";
 import { publicPricingCopy } from "./public-pricing";
@@ -99,6 +100,7 @@ const OVERRIDES: readonly Record<OnboardingLanguage, Dictionary>[] = [
   publicHomeCopy,
   publicPricingCopy,
   publicStudiesCopy,
+  milestoneUxCopy,
 ];
 export { UI_LANGUAGE_CODES };
 export function isUiLanguage(value: unknown): value is OnboardingLanguage {

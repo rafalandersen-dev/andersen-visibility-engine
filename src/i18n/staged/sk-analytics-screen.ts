@@ -1,5 +1,7 @@
 /** Slovak authoring only; not registered in the runtime or language picker. */
 export const skAnalyticsScreen: Readonly<Record<string, string>> = {
+  "analyticsScreen.dataSources": "Zdroje údajov a nastavenie sledovania",
+  "analyticsScreen.advancedEvidence": "Rozšírené: dôkazy zo serverových a edge záznamov",
   "analyticsScreen.loadFailed": "Analytiku sa nepodarilo načítať.",
   "analyticsScreen.copied": "Úryvok kódu bol skopírovaný",
   "analyticsScreen.copyFailed": "Kopírovanie sa nepodarilo",

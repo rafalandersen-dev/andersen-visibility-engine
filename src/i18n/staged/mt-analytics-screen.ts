@@ -1,6 +1,8 @@
 /** Maltese authoring only; not registered in the runtime or language picker.
  * "Milo Analytics" stays a product name; thousands use a regular space ("50 000"). */
 export const mtAnalyticsScreen: Readonly<Record<string, string>> = {
+  "analyticsScreen.dataSources": "Sorsi tad-dejta u konfigurazzjoni tat-traċċar",
+  "analyticsScreen.advancedEvidence": "Avvanzat: evidenza mil-logs tas-server u tal-edge",
   "analyticsScreen.loadFailed": "L-analitika ma setgħetx titgħabba.",
   "analyticsScreen.copied": "Is-snippet tal-kodiċi ġie kkopjat",
   "analyticsScreen.copyFailed": "L-ikkupjar falla",

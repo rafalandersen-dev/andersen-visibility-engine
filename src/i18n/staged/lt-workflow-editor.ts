@@ -82,6 +82,8 @@ export const ltWorkflowEditor: Readonly<Record<string, string>> = {
   "editor.action.createContent": "Kurti turinį",
   "editor.action.saveDraft": "Išsaugoti juodraštį",
   "editor.action.markInReview": "Pažymėti kaip peržiūrimą",
+  "editor.action.moreActions": "Daugiau veiksmų",
+  "editor.action.reviewPublication": "Peržiūrėti publikaciją",
   "editor.action.approve": "Patvirtinti",
   "editor.action.reject": "Atmesti",
   "editor.action.delete": "Ištrinti",
