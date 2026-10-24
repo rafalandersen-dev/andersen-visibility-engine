@@ -83,6 +83,8 @@ const candidates = [
   // CV candidate (23 October): cancel no longer turns an expired-lease (unknown) turn into
   // cancelled; it redefines only cancel_milo_conversation_turn over the released packet.
   "20261023120000_milo_conversation_cancel_expired_unknown.sql",
+  // DB controlled team-mail rollout: additive scoped scan/claim over the real team tables.
+  "20261024110000_team_notification_scoped_rollout.sql",
 ];
 // Unapplied candidate outside this chain: it only re-pins the email queue wrappers, which this
 // fixture does not create, so it is enumerated (never silently released) but executed by its own
@@ -156,6 +158,8 @@ describe("candidate migration chain", () => {
     expect(unapplied).toEqual([...candidates, ...independentCandidates].sort());
   });
   it.each([
+    "claim_project_team_notification_digest_scoped(uuid,text,uuid,timestamptz)",
+    "project_team_notification_scan_target_scoped(uuid,text,uuid,timestamptz)",
     "read_citation_protocol(uuid,text)",
     "save_citation_panel_draft(uuid,text,uuid,integer,jsonb)",
     "lock_citation_panel(uuid,text,uuid,integer)",
