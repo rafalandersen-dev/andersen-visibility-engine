@@ -9,6 +9,12 @@ const owner = "00000000-0000-4000-8000-000000000001",
   recipient = "00000000-0000-4000-8000-000000000002",
   id = "00000000-0000-4000-8000-000000000003";
 const claim = { id, owner_id: owner, recipient_id: recipient, project_id: "p", lease_token: id };
+const scope = () => ({
+  owner_id: owner,
+  project_id: "p",
+  recipient_id: recipient,
+  expires_at: new Date(Date.now() + 3_600_000).toISOString(),
+});
 const body = {
   locale: "en",
   items: [
@@ -27,7 +33,7 @@ function deps(data: unknown = body) {
   return {
     rpc: vi.fn(async (name: string) => ({
       data:
-        name === "claim_project_team_notification_digest"
+        name === "claim_project_team_notification_digest_scoped"
           ? [claim]
           : name === "begin_project_team_notification_delivery"
             ? data
@@ -44,7 +50,7 @@ it.each(EMAIL_LANGUAGE_CODES)(
   "accepts a saved %s team-digest preference through the existing once-only worker",
   async (locale) => {
     const d = deps({ ...body, locale });
-    expect(await deliverOneTeamDigest(d)).toBe("accepted");
+    expect(await deliverOneTeamDigest(d, scope())).toBe("accepted");
     expect(d.send).toHaveBeenCalledExactlyOnceWith(
       expect.objectContaining({ html: expect.stringContaining(`lang="${locale}"`) }),
     );
@@ -62,7 +68,7 @@ describe("team notification delivery", () => {
   });
   it("refreshes the owner source but delivers only to the verified recipient", async () => {
     const d = deps();
-    expect(await deliverOneTeamDigest(d)).toBe("accepted");
+    expect(await deliverOneTeamDigest(d, scope())).toBe("accepted");
     expect(d.refresh).toHaveBeenCalledWith(owner);
     expect(d.recipient).toHaveBeenCalledWith(recipient);
     expect(d.send).toHaveBeenCalledWith(
@@ -79,7 +85,7 @@ describe("team notification delivery", () => {
   });
   it("never sends when final admission cancels", async () => {
     const d = deps(null);
-    expect(await deliverOneTeamDigest(d)).toBe("cancelled");
+    expect(await deliverOneTeamDigest(d, scope())).toBe("cancelled");
     expect(d.send).not.toHaveBeenCalled();
   });
   it.each([
@@ -88,13 +94,13 @@ describe("team notification delivery", () => {
     { ...body, items: [{ ...body.items[0], detail: { timeZone: "UTC", secret: "private" } }] },
   ])("rejects out-of-scope or extra payload fields", async (data) => {
     const d = deps(data);
-    expect(await deliverOneTeamDigest(d)).toBe("unknown");
+    expect(await deliverOneTeamDigest(d, scope())).toBe("unknown");
     expect(d.send).not.toHaveBeenCalled();
   });
   it("defers failed recipient preflight without entering transport", async () => {
     const d = deps();
     d.recipient.mockRejectedValue(new Error("unverified"));
-    expect(await deliverOneTeamDigest(d)).toBe("deferred");
+    expect(await deliverOneTeamDigest(d, scope())).toBe("deferred");
     expect(d.send).not.toHaveBeenCalled();
     expect(d.rpc).not.toHaveBeenCalledWith(
       "begin_project_team_notification_delivery",
@@ -104,7 +110,7 @@ describe("team notification delivery", () => {
   it("records ambiguous transport once without retry", async () => {
     const d = deps();
     d.send.mockRejectedValue(new Error("timeout"));
-    expect(await deliverOneTeamDigest(d)).toBe("unknown");
+    expect(await deliverOneTeamDigest(d, scope())).toBe("unknown");
     expect(d.send).toHaveBeenCalledTimes(1);
   });
   it("does not resend after a lost success-record response", async () => {
@@ -114,7 +120,7 @@ describe("team notification delivery", () => {
       if (name === "finish_project_team_notification_delivery") throw new Error("lost reply");
       return original(name);
     });
-    await expect(deliverOneTeamDigest(d)).rejects.toThrow();
+    await expect(deliverOneTeamDigest(d, scope())).rejects.toThrow();
     expect(d.send).toHaveBeenCalledTimes(1);
   });
 });
@@ -150,4 +156,33 @@ it("does not retry a failed owner refresh for each recipient and still serves ot
   ).toEqual({ queued: 1, failed: 2 });
   expect(d.refresh).toHaveBeenCalledTimes(2);
   expect(d.rpc).toHaveBeenCalledTimes(1);
+});
+
+it("does not touch a queue after the rollout expires", async () => {
+  const d = deps();
+  expect(
+    await deliverOneTeamDigest(d, {
+      ...scope(),
+      expires_at: new Date(Date.now() - 1).toISOString(),
+    }),
+  ).toBe("empty");
+  expect(d.rpc).not.toHaveBeenCalled();
+});
+it("refuses a foreign claim before refresh, address lookup or reconciliation", async () => {
+  const d = deps();
+  d.rpc.mockResolvedValue({ data: [{ ...claim, project_id: "other" }], error: null });
+  await expect(deliverOneTeamDigest(d, scope())).rejects.toThrow("team_digest_scope_mismatch");
+  expect(d.rpc).toHaveBeenCalledTimes(1);
+  expect(d.refresh).not.toHaveBeenCalled();
+  expect(d.send).not.toHaveBeenCalled();
+});
+it("does not send if the rollout expires during preflight", async () => {
+  const d = deps();
+  const s = scope();
+  d.recipient.mockImplementation(async () => {
+    s.expires_at = new Date(Date.now() - 1).toISOString();
+    return { email: "member@example.test", unsubscribeToken: "test-only" };
+  });
+  expect(await deliverOneTeamDigest(d, s)).toBe("deferred");
+  expect(d.send).not.toHaveBeenCalled();
 });

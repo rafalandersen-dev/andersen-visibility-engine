@@ -380,6 +380,45 @@ describe("weekly executor integrated orchestration without live providers", () =
     expect(h.image).toHaveBeenCalledTimes(1);
     expect(workspace.content).toHaveLength(1);
   });
+  it("yields after a slow recovered source and resumes on the next visit without paid replay", async () => {
+    vi.useFakeTimers({ toFake: ["Date"] });
+    const actual =
+      await vi.importActual<typeof import("./weekly-sources.server")>("./weekly-sources.server");
+    let saved = false;
+    h.refresh.mockImplementationOnce((target, assertActive) =>
+      actual.refreshWeeklySources(target, assertActive, {
+        sources: async () => [{ id: "source", revision: 1, kind: "website", status: "active" }],
+        refresh: async () => {
+          vi.setSystemTime(Date.now() + 70_000);
+          saved = true;
+          return { status: "ok" };
+        },
+        observations: async () => [
+          { sourceId: "source", sourceRevision: 1, status: "ok", lastAttempt: now.toISOString() },
+        ],
+      }),
+    );
+    expect(await runWeeklyProject(scope, now)).toMatchObject({ action: "recovery-required" });
+    expect(saved).toBe(true);
+    expect(h.runStage).not.toHaveBeenCalled();
+    expect(h.generate).not.toHaveBeenCalled();
+    expect(h.discover).not.toHaveBeenCalled();
+    expect(h.release).toHaveBeenCalledTimes(1);
+    // Normal following visit sees the persisted successful source during cooldown.
+    h.refresh.mockImplementationOnce((target, assertActive) =>
+      actual.refreshWeeklySources(target, assertActive, {
+        sources: async () => [{ id: "source", revision: 1, kind: "website", status: "active" }],
+        refresh: async () => ({ status: "cooldown" }),
+        observations: async () => [
+          { sourceId: "source", sourceRevision: 1, status: "ok", lastAttempt: now.toISOString() },
+        ],
+      }),
+    );
+    await runWeeklyProject(scope, now);
+    expect(stages.filter((s) => s.stage === "research")).toHaveLength(1);
+    expect(h.generate).not.toHaveBeenCalled();
+    expect(h.image).not.toHaveBeenCalled();
+  });
   it.each(["unavailable", "replaced", "uncertain"])(
     "reports source review before generation when refresh evidence is %s",
     async (condition) => {
