@@ -585,11 +585,17 @@ function ProjectSetup() {
           })()}
         </Section>
 
-        {!creating && active ? <WeeklyPreparationPanel key={active.id} project={active} /> : null}
+        {!creating && active ? (
+          <WeeklyPreparationPanel key={`weekly:${active.id}`} project={active} />
+        ) : null}
 
-        {!creating && active ? <BrandIntelligenceCard key={active.id} project={active} /> : null}
+        {!creating && active ? (
+          <BrandIntelligenceCard key={`brand:${active.id}`} project={active} />
+        ) : null}
 
-        {!creating && active ? <PublishingCard key={active.id} project={active} /> : null}
+        {!creating && active ? (
+          <PublishingCard key={`publishing:${active.id}`} project={active} />
+        ) : null}
 
         {!creating && active ? <ClaudeConnectorCard /> : null}
       </div>
