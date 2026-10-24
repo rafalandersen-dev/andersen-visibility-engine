@@ -3,6 +3,7 @@ import { teamCommentTarget } from "./project-team";
 import { teamCall, projectTeamRpc } from "./project-team-membership.server";
 import type { TeamReadRpc } from "./project-team-read.server";
 import type { ContentAsset, Project } from "./types";
+import { recoverTeamReviewRead } from "./project-team-review-read-recovery.server";
 const contextSchema = teamCommentTarget
   .extend({
     actorId: z.string().uuid(),
@@ -31,7 +32,7 @@ export async function readTeamReviewContext(
         p_project: input.projectId,
         p_asset: input.assetId,
       },
-      rpc,
+      recoverTeamReviewRead(rpc),
     ),
   );
   if (
