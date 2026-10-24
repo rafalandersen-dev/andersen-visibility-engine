@@ -175,7 +175,7 @@ describe("honest unavailability, no retry", () => {
     });
     const out = await fetchHomepageViaPinnedHop(
       "https://probe-target.test",
-      config(base, { fetchImpl }),
+      config(base, { fetchImpl, startupBudgetMs: 70_000 }),
     );
     expect(out).toMatchObject({ html: "", code: "transport_unavailable", retryable: true });
     expect(hops).toBe(1);

@@ -9,13 +9,15 @@
  *
  * Honest outcomes: a cold, busy or unreachable service yields a retryable
  * `transport_unavailable` / `transport_busy` / `timeout` inside the caller's
- * budget. Nothing is retried automatically. A response that is late, foreign
+ * budget. Configured intake first waits for bounded service readiness; no
+ * destination hop is retried. A response that is late, foreign
  * (other request/hop/nonce), oversized, unsigned or malformed is refused.
  * Admission/technical context is refused before any DNS or network call.
  */
 import { isIP } from "node:net";
 import { HOMEPAGE_TIMEOUT_MS, isPublicHomepageAddress, pageUrl } from "../homepage-fetch.server";
 import { resolveTechnicalAddresses } from "../technical-dns.server";
+import { PINNED_HOP_STARTUP_MS, waitForPinnedHopReadiness } from "./readiness.server";
 import {
   HOP_LABELS,
   HOP_MAX_INDEX,
@@ -23,6 +25,7 @@ import {
   HOP_MAX_REQUEST_BYTES,
   HOP_MAX_RESPONSE_BYTES,
   HOP_MIN_MS,
+  HOP_MIN_KEY_BYTES,
   HOP_SIGNATURE_HEADER,
   challengeResponseSchema,
   fromBase64,
@@ -40,6 +43,8 @@ export type PinnedHopConfig = {
   key: string | CryptoKey;
   /** Caller budget for the whole homepage read, app-local monotonic clock. */
   budgetMs?: number;
+  /** Separate bounded service readiness before the unchanged homepage budget. */
+  startupBudgetMs?: number;
   fetchImpl?: typeof fetch;
   resolve?: (
     hostname: string,
@@ -131,6 +136,31 @@ export async function fetchHomepageViaPinnedHop(
   const budget = config.budgetMs ?? PINNED_HOP_DEFAULT_BUDGET_MS;
   if (!Number.isInteger(budget) || budget < 1 || budget > HOMEPAGE_TIMEOUT_MS)
     throw new Error("hop_budget_invalid"); // configuration error, before any network
+  if (typeof config.key === "string" && utf8(config.key).byteLength < HOP_MIN_KEY_BYTES)
+    throw new Error("hop_key_too_short");
+  const startupBudget = config.startupBudgetMs ?? 0;
+  if (
+    !Number.isInteger(startupBudget) ||
+    startupBudget < 0 ||
+    startupBudget > PINNED_HOP_STARTUP_MS
+  )
+    throw new Error("hop_startup_budget_invalid");
+  // Validate the target before readiness; technical/admission contexts were
+  // already refused above. Readiness cannot authorize any destination hop.
+  if (startupBudget) {
+    try {
+      urlOrStop(raw);
+    } catch (error) {
+      return {
+        html: "",
+        code: error instanceof HopStop ? error.code : "blocked_url",
+        retryable: false,
+        hops: 0,
+      };
+    }
+    if (!(await waitForPinnedHopReadiness({ ...config, startupBudgetMs: startupBudget })))
+      return { html: "", code: "transport_unavailable", retryable: true, hops: 0 };
+  }
   const started = now();
   const deadline = started + budget;
   // App-local monotonic deadline checked explicitly at every asynchronous
@@ -316,5 +346,5 @@ export function pinnedHopConfigFromEnv(): PinnedHopConfig | null {
   const endpoint = env?.MILO_PINNED_HOP_URL?.trim();
   const key = env?.MILO_PINNED_HOP_KEY;
   if (!endpoint || !key || !/^https:\/\//i.test(endpoint)) return null;
-  return { endpoint, key };
+  return { endpoint, key, startupBudgetMs: PINNED_HOP_STARTUP_MS };
 }

@@ -34,8 +34,8 @@ export async function captureProjectWebsiteKnowledge(
   const ai = await import("./ai.functions");
   let site: Awaited<ReturnType<typeof ai.fetchSiteContext>>;
   if (transport) {
-    // Homepage purpose only; a cold/busy/unreachable service is a truthful,
-    // retryable refusal before any write. No automatic retry.
+    // Homepage purpose only; bounded on-demand readiness precedes the signed
+    // read. No destination read or uncertain write is automatically replayed.
     const outcome = await pinned.fetchHomepageViaPinnedHop(sourceUrl, transport);
     if (outcome.retryable) throw new Error("website_source_temporarily_unavailable");
     site = outcome.html

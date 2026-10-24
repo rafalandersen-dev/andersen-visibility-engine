@@ -38,6 +38,7 @@ beforeAll(async () => {
     "20260911080000_project_team_notification_recipients.sql",
     "20260911090000_project_team_notification_outbox.sql",
     "20260911100000_project_team_invitation_delivery.sql",
+    "20261024110000_team_notification_scoped_rollout.sql",
   ])
     await db.exec(readFileSync(`supabase/migrations/${file}`, "utf8"));
 }, 30000);
@@ -1701,6 +1702,113 @@ describe("scoped team notification outbox", () => {
       ],
     );
   };
+  it("scoped rollout scans and claims only the chosen recipient, leaving unrelated pending and expired work untouched", async () => {
+    await prepare();
+    await db.query(
+      "INSERT INTO public.workspace_entities(user_id,collection,entity_id,data) VALUES($1,'projects','q','{}') ON CONFLICT DO NOTHING",
+      [owner],
+    );
+    await db.query(
+      "INSERT INTO public.project_team_members(owner_id,project_id,actor_id,role) VALUES($1,'p',$2,'viewer'),($1,'q',$3,'viewer'),($2,'p',$3,'viewer')",
+      [owner, other, actor],
+    );
+    await db.query(
+      "INSERT INTO public.project_team_notification_recipients(owner_id,project_id,recipient_id,assigned,opted_in,membership_revision) VALUES($1,'p',$2,true,true,1),($1,'q',$3,true,true,1),($2,'p',$3,true,true,1)",
+      [owner, other, actor],
+    );
+    await db.query(
+      "INSERT INTO public.project_team_notification_outbox(owner_id,project_id,recipient_id,settings_revision,membership_revision,status,available_at,lease_until,attempts) SELECT o,p,r,1,1,s,now()-interval '1 hour',now()-interval '1 hour',3 FROM (VALUES($1::uuid,'p',$2::uuid),($1::uuid,'q',$3::uuid),($2::uuid,'p',$3::uuid)) target(o,p,r) CROSS JOIN unnest(ARRAY['pending','leased','sending']) s",
+      [owner, other, actor],
+    );
+    const before = (
+      await db.query(
+        "SELECT to_jsonb(o) row FROM public.project_team_notification_outbox o ORDER BY id",
+      )
+    ).rows;
+    const selected = await queue();
+    expect(
+      (
+        await db.query(
+          "SELECT * FROM public.project_team_notification_scan_target_scoped($1,'p',$2,now()+interval '1 hour')",
+          [owner, actor],
+        )
+      ).rows,
+    ).toEqual([{ owner_id: owner, project_id: "p", recipient_id: actor }]);
+    expect(
+      (
+        await db.query(
+          "SELECT * FROM public.claim_project_team_notification_digest_scoped($1,'p',$2,now()+interval '1 hour')",
+          [owner, actor],
+        )
+      ).rows,
+    ).toEqual([
+      expect.objectContaining({
+        id: selected,
+        owner_id: owner,
+        project_id: "p",
+        recipient_id: actor,
+      }),
+    ]);
+    expect(
+      (
+        await db.query(
+          "SELECT to_jsonb(o) row FROM public.project_team_notification_outbox o WHERE id<>$1 ORDER BY id",
+          [selected],
+        )
+      ).rows,
+    ).toEqual(before);
+    expect(
+      (
+        await db.query(
+          "SELECT count(*)::int n FROM public.project_team_notification_recipients WHERE last_scan_at IS NOT NULL",
+        )
+      ).rows,
+    ).toEqual([{ n: 1 }]);
+    expect(
+      (
+        await db.query(
+          "SELECT * FROM public.claim_project_team_notification_digest_scoped($1,'p',$2,now()+interval '1 hour')",
+          [owner, actor],
+        )
+      ).rows,
+    ).toEqual([]);
+  });
+  it("expired or oversized rollout windows do not scan, reconcile or claim; browser roles cannot execute", async () => {
+    await prepare();
+    await queue();
+    for (const interval of ["-1 second", "25 hours"])
+      for (const fn of [
+        "project_team_notification_scan_target_scoped",
+        "claim_project_team_notification_digest_scoped",
+      ]) {
+        expect(
+          (
+            await db.query(`SELECT * FROM public.${fn}($1,'p',$2,now()+$3::interval)`, [
+              owner,
+              actor,
+              interval,
+            ])
+          ).rows,
+        ).toEqual([]);
+      }
+    expect(
+      (await db.query("SELECT status,attempts FROM public.project_team_notification_outbox")).rows,
+    ).toEqual([{ status: "pending", attempts: 0 }]);
+    expect(
+      (await db.query("SELECT last_scan_at FROM public.project_team_notification_recipients")).rows,
+    ).toEqual([{ last_scan_at: null }]);
+    for (const role of ["anon", "authenticated"]) {
+      await db.exec(`SET ROLE ${role}`);
+      for (const fn of [
+        "project_team_notification_scan_target_scoped",
+        "claim_project_team_notification_digest_scoped",
+      ])
+        await expect(
+          db.query(`SELECT * FROM public.${fn}($1,'p',$2,now()+interval '1 hour')`, [owner, actor]),
+        ).rejects.toThrow("permission denied");
+      await db.exec("RESET ROLE");
+    }
+  });
   it("still refuses excessive outstanding work across recipients", async () => {
     await prepare();
     await db.query(

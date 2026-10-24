@@ -6,6 +6,13 @@ import {
   type OperationalEmailDependencies,
 } from "./operational-email.server";
 import { refreshOperationalNotifications } from "./operational-notifications.server";
+import {
+  teamNotificationEmailScope,
+  teamEmailScopeActive,
+  teamEmailScopeMatches,
+  teamEmailScopeArgs,
+  type TeamEmailScope,
+} from "./project-team-email-scope";
 const target = z
   .object({
     owner_id: z.string().uuid(),
@@ -16,12 +23,20 @@ const target = z
 const claimSchema = target
   .extend({ id: z.string().uuid(), lease_token: z.string().uuid() })
   .strict();
-export async function deliverOneTeamDigest(deps: OperationalEmailDependencies) {
-  const claimed = await deps.rpc("claim_project_team_notification_digest");
+export async function deliverOneTeamDigest(
+  deps: OperationalEmailDependencies,
+  scope: TeamEmailScope,
+) {
+  if (!teamEmailScopeActive(scope)) return "empty";
+  const claimed = await deps.rpc(
+    "claim_project_team_notification_digest_scoped",
+    teamEmailScopeArgs(scope),
+  );
   if (claimed.error) throw new Error("team_digest_unavailable");
   const claims = z.array(claimSchema).max(1).parse(claimed.data);
   if (!claims.length) return "empty";
   const c = claims[0];
+  if (!teamEmailScopeMatches(scope, c)) throw new Error("team_digest_scope_mismatch");
   const finish = async (outcome: string) => {
     const r = await deps.rpc("finish_project_team_notification_delivery", {
       p_id: c.id,
@@ -34,6 +49,7 @@ export async function deliverOneTeamDigest(deps: OperationalEmailDependencies) {
   try {
     if (!(await deps.refresh(c.owner_id))) throw new Error("stale_source");
     recipient = await deps.recipient(c.recipient_id);
+    if (!teamEmailScopeActive(scope)) throw new Error("team_digest_scope_expired");
   } catch {
     await finish("preflight_unavailable");
     return "deferred";
@@ -87,6 +103,7 @@ export async function deliverOneTeamDigest(deps: OperationalEmailDependencies) {
       })
       .strict()
       .parse(prepared.data);
+    if (!teamEmailScopeActive(scope)) throw new Error("team_digest_scope_expired");
     const result = await deps.send({
       id: c.id,
       ...recipient,
@@ -133,54 +150,65 @@ export async function queueTeamDigestTargets(
   return { queued, failed };
 }
 export async function runTeamNotificationWorker() {
-  if (process.env.TEAM_NOTIFICATION_EMAIL_ENABLED !== "true")
+  const scope = teamNotificationEmailScope();
+  if (process.env.TEAM_NOTIFICATION_EMAIL_ENABLED !== "true" || !scope)
     return { enabled: false, queued: 0, processed: 0, failed: 0 };
   const apiKey = process.env.LOVABLE_API_KEY;
   if (!apiKey) throw new Error("team_transport_unavailable");
   const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
   const db = supabaseAdmin as unknown as Pick<OperationalEmailDependencies, "rpc">;
-  const targets = await db.rpc("project_team_notification_scan_targets");
+  const targets = await db.rpc(
+    "project_team_notification_scan_target_scoped",
+    teamEmailScopeArgs(scope),
+  );
   if (targets.error) throw new Error("team_targets_unavailable");
-  const { queued, failed } = await queueTeamDigestTargets(targets.data, {
+  const scopedTargets = z.array(target).max(1).parse(targets.data);
+  if (scopedTargets.some((t) => !teamEmailScopeMatches(scope, t)))
+    throw new Error("team_targets_scope_mismatch");
+  if (!teamEmailScopeActive(scope)) return { enabled: false, queued: 0, processed: 0, failed: 0 };
+  const { queued, failed } = await queueTeamDigestTargets(scopedTargets, {
     rpc: (name, args) => db.rpc(name, args),
     refresh: refreshOperationalNotifications,
   });
   let processed = 0;
   const { sendLovableEmail } = await import("@lovable.dev/email-js");
   for (let i = 0; i < 2; i++) {
-    const status = await deliverOneTeamDigest({
-      rpc: (name, args) => db.rpc(name, args),
-      refresh: refreshOperationalNotifications,
-      recipient: resolveOperationalEmailRecipient,
-      send: async (p) => {
-        let timer: ReturnType<typeof setTimeout> | undefined;
-        try {
-          return await Promise.race([
-            sendLovableEmail(
-              {
-                to: p.email,
-                from: "Milo Growth <noreply@milogrowth.com>",
-                sender_domain: "notify.milogrowth.com",
-                subject: p.subject,
-                html: p.html,
-                text: p.text,
-                purpose: "transactional",
-                label: "team-project-digest",
-                idempotency_key: `milo-team-${p.id}`,
-                message_id: p.id,
-                unsubscribe_token: p.unsubscribeToken,
-              },
-              { apiKey, sendUrl: process.env.LOVABLE_SEND_URL },
-            ),
-            new Promise<never>((_, reject) => {
-              timer = setTimeout(() => reject(new Error("transport_timeout")), 25000);
-            }),
-          ]);
-        } finally {
-          if (timer) clearTimeout(timer);
-        }
+    const status = await deliverOneTeamDigest(
+      {
+        rpc: (name, args) => db.rpc(name, args),
+        refresh: refreshOperationalNotifications,
+        recipient: resolveOperationalEmailRecipient,
+        send: async (p) => {
+          let timer: ReturnType<typeof setTimeout> | undefined;
+          try {
+            return await Promise.race([
+              sendLovableEmail(
+                {
+                  to: p.email,
+                  from: "Milo Growth <noreply@milogrowth.com>",
+                  sender_domain: "notify.milogrowth.com",
+                  subject: p.subject,
+                  html: p.html,
+                  text: p.text,
+                  purpose: "transactional",
+                  label: "team-project-digest",
+                  idempotency_key: `milo-team-${p.id}`,
+                  message_id: p.id,
+                  unsubscribe_token: p.unsubscribeToken,
+                },
+                { apiKey, sendUrl: process.env.LOVABLE_SEND_URL },
+              ),
+              new Promise<never>((_, reject) => {
+                timer = setTimeout(() => reject(new Error("transport_timeout")), 25000);
+              }),
+            ]);
+          } finally {
+            if (timer) clearTimeout(timer);
+          }
+        },
       },
-    });
+      scope,
+    );
     if (status === "empty") break;
     processed++;
   }
