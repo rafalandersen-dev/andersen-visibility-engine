@@ -99,6 +99,12 @@ const independentCandidates = [
   "20261022120000_milo_conversation_response_unreadable.sql",
   // Executes against the real weekly and expense chain in its dedicated suite.
   "20261028170000_bounded_weekly_test_windows.sql",
+  // Additive table-privacy follow-up to the bounded window candidate (28 October): conditionally
+  // revokes the four bounded tables from the optional environment role sandbox_exec. It binds to
+  // those tables, which this fixture does not create, so it is enumerated here (never silently
+  // treated as released) and executed against the real chain by
+  // weekly-test-window-table-privacy-migration.test.ts.
+  "20261028211000_bounded_window_table_privacy.sql",
 ];
 const allowed = async (role: string, fn: string) =>
   (
