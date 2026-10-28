@@ -82,6 +82,12 @@ beforeAll(async () => {
     [user, other],
   );
   await db.exec(readFileSync("supabase/migrations/20260912030000_eu_email_languages.sql", "utf8"));
+  await db.exec(
+    readFileSync(
+      "supabase/migrations/20261028120000_operational_email_preflight_recovery.sql",
+      "utf8",
+    ),
+  );
   upgradedPreferences = (
     await db.query(
       "SELECT user_id,enabled,locale FROM operational_email_preferences ORDER BY user_id",
@@ -342,12 +348,12 @@ describe("operational email outbox", () => {
     await enable();
     await sync();
     await queue();
-    await claim();
-    await db.exec(
-      "UPDATE operational_email_outbox SET attempts=3,lease_until=now()-interval '1 minute'",
-    );
+    for (let i = 0; i < 3; i++) {
+      await claim();
+      await db.exec("UPDATE operational_email_outbox SET lease_until=now()-interval '1 minute'");
+    }
     expect(await claim()).toBeUndefined();
-    expect((await state())[0].status).toBe("failed");
+    expect(await state()).toEqual([{ status: "failed", attempts: 3 }]);
   });
   it("changes only the signed-in preference and cancels its pending digest on opt-out", async () => {
     await enable();
@@ -400,5 +406,247 @@ describe("operational email outbox", () => {
     expect(await queue()).toBeNull();
     await db.exec("UPDATE operational_email_outbox SET created_at=now()-interval '2 hours'");
     expect(await queue()).toBeTruthy();
+  });
+});
+describe("operational email preflight recovery", () => {
+  it("requeues the same incident after three real preflight failures and a later rescan", async () => {
+    await enable();
+    await sync();
+    const original = await queue();
+    for (let i = 0; i < 3; i++) {
+      const c = await claim();
+      expect(await finish(c, "preflight_unavailable")).toBe(true);
+      await db.exec("UPDATE operational_email_outbox SET available_at=now()-interval '1 minute'");
+    }
+    expect(await state()).toEqual([{ status: "failed", attempts: 3 }]);
+    await db.exec("UPDATE operational_email_outbox SET created_at=now()-interval '2 hours'");
+    await sync();
+    const recovered = await queue();
+    expect(recovered).toBeTruthy();
+    expect(recovered).not.toBe(original);
+    expect(
+      (await db.query("SELECT status FROM operational_email_outbox ORDER BY created_at")).rows,
+    ).toEqual([{ status: "failed" }, { status: "pending" }]);
+    expect((await db.query("SELECT outbox_id FROM operational_email_items")).rows).toEqual([
+      { outbox_id: recovered },
+    ]);
+    const c = await claim();
+    expect(await begin(c)).toBeTruthy();
+    expect(await finish(c, "accepted")).toBe(true);
+    expect(
+      (await db.query("SELECT status,reason FROM operational_email_outbox ORDER BY created_at"))
+        .rows,
+    ).toEqual([
+      { status: "failed", reason: "attempts_exhausted" },
+      { status: "accepted", reason: "accepted" },
+    ]);
+  });
+  it("requeues after three expired pre-transport leases retire the outbox row, refusing the stale token", async () => {
+    await enable();
+    await sync();
+    await queue();
+    let c = await claim();
+    for (let i = 0; i < 2; i++) {
+      await db.exec("UPDATE operational_email_outbox SET lease_until=now()-interval '1 minute'");
+      c = await claim();
+    }
+    await db.exec("UPDATE operational_email_outbox SET lease_until=now()-interval '1 minute'");
+    expect(await claim()).toBeUndefined();
+    expect((await state())[0]).toEqual({ status: "failed", attempts: 3 });
+    expect(await begin(c)).toBeNull();
+    expect(await finish(c, "accepted")).toBe(false);
+    await db.exec("UPDATE operational_email_outbox SET created_at=now()-interval '2 hours'");
+    await sync();
+    const recovered = await queue();
+    expect(recovered).toBeTruthy();
+    expect(
+      (
+        await db.query<{ id: string; status: string }>(
+          "SELECT id,status FROM operational_email_outbox ORDER BY created_at",
+        )
+      ).rows,
+    ).toEqual([
+      { id: expect.any(String), status: "failed" },
+      { id: recovered, status: "pending" },
+    ]);
+    expect(await finish(c, "accepted")).toBe(false);
+  });
+  it.each([
+    ["pending", async () => {}],
+    [
+      "leased",
+      async () => {
+        await claim();
+      },
+    ],
+    [
+      "sending",
+      async () => {
+        await begin(await claim());
+      },
+    ],
+    [
+      "accepted",
+      async () => {
+        const c = await claim();
+        await begin(c);
+        expect(await finish(c, "accepted")).toBe(true);
+      },
+    ],
+    [
+      "unknown",
+      async () => {
+        const c = await claim();
+        await begin(c);
+        expect(await finish(c, "unknown")).toBe(true);
+      },
+    ],
+    [
+      "cancelled",
+      async () => {
+        await db.query("SELECT set_config('request.jwt.claim.sub',$1,false)", [user]);
+        await db.exec(
+          "SET ROLE authenticated; SELECT set_operational_email_preference(false,'pl'); SELECT set_operational_email_preference(true,'pl'); RESET ROLE",
+        );
+      },
+    ],
+  ] as [string, () => Promise<void>][])(
+    "excludes the same incident while its outbox row is %s",
+    async (status, setup) => {
+      await enable();
+      await sync();
+      await queue();
+      await setup();
+      expect((await state())[0].status).toBe(status);
+      const outboxBefore = (
+        await db.query<{ n: number }>("SELECT count(*)::int AS n FROM operational_email_outbox")
+      ).rows;
+      const itemsBefore = (
+        await db.query<{ n: number }>("SELECT count(*)::int AS n FROM operational_email_items")
+      ).rows;
+      await db.exec("UPDATE operational_email_outbox SET created_at=now()-interval '2 hours'");
+      await sync();
+      expect(await queue()).toBeNull();
+      expect(
+        (await db.query<{ n: number }>("SELECT count(*)::int AS n FROM operational_email_outbox"))
+          .rows,
+      ).toEqual(outboxBefore);
+      expect(
+        (await db.query<{ n: number }>("SELECT count(*)::int AS n FROM operational_email_items"))
+          .rows,
+      ).toEqual(itemsBefore);
+    },
+  );
+  it("never lets a preflight failure recreate a row once transport has begun, and leaves it unreassigned", async () => {
+    await enable();
+    await sync();
+    await queue();
+    const c = await claim();
+    await begin(c);
+    expect(await finish(c, "preflight_unavailable")).toBe(false);
+    expect((await state())[0].status).toBe("sending");
+  });
+  it("does not recover items with fewer than three attempts, a different reason, no finished_at, or a cancelled row", async () => {
+    await enable();
+    await sync([{ ...event, key: "e-low" }]);
+    await queue();
+    const c = await claim();
+    await finish(c, "preflight_unavailable");
+    await db.exec(
+      "UPDATE operational_email_outbox SET status='failed',attempts=2,reason='attempts_exhausted',finished_at=now()",
+    );
+    await db.exec("UPDATE operational_email_outbox SET created_at=now()-interval '2 hours'");
+    await sync([{ ...event, key: "e-low" }]);
+    expect(await queue()).toBeNull();
+    await db.exec("UPDATE operational_email_outbox SET attempts=3,reason='disabled'");
+    expect(await queue()).toBeNull();
+    await db.exec(
+      "UPDATE operational_email_outbox SET reason='attempts_exhausted',finished_at=NULL",
+    );
+    expect(await queue()).toBeNull();
+    await db.exec(
+      "UPDATE operational_email_outbox SET finished_at=now(),status='cancelled',reason='resolved'",
+    );
+    expect(await queue()).toBeNull();
+  });
+  it("never recovers a notification owned by another account through a mismatched exhausted outbox row", async () => {
+    await enable();
+    await enable(other);
+    await sync([{ ...event, key: "e-cross" }]);
+    await queue();
+    const c = await claim();
+    await finish(c, "preflight_unavailable");
+    await db.exec(
+      "UPDATE operational_email_outbox SET attempts=3,status='failed',reason='attempts_exhausted',finished_at=now()",
+    );
+    await sync([{ ...event, key: "e-cross" }], other);
+    const otherNotification = (
+      await db.query<{ id: string }>("SELECT id FROM operational_notifications WHERE user_id=$1", [
+        other,
+      ])
+    ).rows[0].id;
+    const strandedOutbox = (
+      await db.query<{ id: string }>("SELECT id FROM operational_email_outbox")
+    ).rows[0].id;
+    await db.query("INSERT INTO operational_email_items(notification_id,outbox_id) VALUES($1,$2)", [
+      otherNotification,
+      strandedOutbox,
+    ]);
+    expect(await queue(other)).toBeNull();
+    await db.exec("UPDATE operational_email_outbox SET created_at=now()-interval '2 hours'");
+    await sync([{ ...event, key: "e-cross" }]);
+    expect(await queue()).toBeTruthy();
+  });
+  it("still respects opt-out, read, resolved incidents, a stale scan and the hourly limit for recovered items", async () => {
+    await enable();
+    await sync([{ ...event, key: "e-opt" }]);
+    await queue();
+    const c = await claim();
+    await finish(c, "preflight_unavailable");
+    await db.exec(
+      "UPDATE operational_email_outbox SET attempts=3,status='failed',reason='attempts_exhausted',finished_at=now()",
+    );
+    await db.exec("UPDATE operational_email_outbox SET created_at=now()-interval '2 hours'");
+    await sync([{ ...event, key: "e-opt" }]);
+    await db.exec("UPDATE operational_email_preferences SET enabled=false");
+    expect(await queue()).toBeNull();
+    await db.exec("UPDATE operational_email_preferences SET enabled=true");
+    await db.exec("UPDATE workspace_meta SET rev=2");
+    expect(await queue()).toBeNull();
+    await db.exec("UPDATE workspace_meta SET rev=1");
+    await db.exec(
+      "UPDATE operational_notification_scans SET scanned_at=now()-interval '10 minutes'",
+    );
+    expect(await queue()).toBeNull();
+    await db.exec("UPDATE operational_notification_scans SET scanned_at=now()");
+    await db.exec("UPDATE operational_notifications SET read_at=now() WHERE target_id='a'");
+    expect(await queue()).toBeNull();
+    await db.exec("UPDATE operational_notifications SET read_at=NULL");
+    await db.exec("UPDATE operational_notification_scans SET scanned_at=now()-interval '1 second'");
+    await sync([]);
+    expect(await queue()).toBeNull();
+    await db.exec("UPDATE operational_notification_scans SET scanned_at=now()-interval '1 second'");
+    await sync([{ ...event, key: "e-opt" }]);
+    await db.query("INSERT INTO operational_email_outbox(user_id,created_at) VALUES($1,now())", [
+      user,
+    ]);
+    expect(await queue()).toBeNull();
+    await db.exec(
+      "DELETE FROM operational_email_outbox WHERE status='pending' AND id<>(SELECT id FROM operational_email_outbox WHERE status='failed')",
+    );
+    expect(await queue()).toBeTruthy();
+  });
+  it("keeps queue_operational_email_digest service-only under anon and authenticated roles", async () => {
+    await db.exec("SET ROLE anon");
+    await expect(db.query("SELECT queue_operational_email_digest($1)", [user])).rejects.toThrow(
+      /permission denied/,
+    );
+    await db.exec("RESET ROLE");
+    await db.query("SELECT set_config('request.jwt.claim.sub',$1,false)", [user]);
+    await db.exec("SET ROLE authenticated");
+    await expect(db.query("SELECT queue_operational_email_digest($1)", [user])).rejects.toThrow(
+      /permission denied/,
+    );
+    await db.exec("RESET ROLE");
   });
 });

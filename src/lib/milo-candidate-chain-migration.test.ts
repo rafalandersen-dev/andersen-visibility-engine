@@ -85,6 +85,9 @@ const candidates = [
   "20261023120000_milo_conversation_cancel_expired_unknown.sql",
   // DB controlled team-mail rollout: additive scoped scan/claim over the real team tables.
   "20261024110000_team_notification_scoped_rollout.sql",
+  // Preflight/lease recovery (28 October): CREATE OR REPLACEs only queue_operational_email_digest
+  // over the released operational_email_outbox chain so a terminally exhausted item can be rescanned.
+  "20261028120000_operational_email_preflight_recovery.sql",
 ];
 // Unapplied candidate outside this chain: it only re-pins the email queue wrappers, which this
 // fixture does not create, so it is enumerated (never silently released) but executed by its own
@@ -219,6 +222,9 @@ describe("candidate migration chain", () => {
     "read_ai_citation_improvements_v2(uuid,text)",
     "read_ai_citation_improvement_v2(uuid,text,uuid)",
     "read_ai_citation_finding_for_review_v2(uuid,uuid,text,uuid)",
+    // Redefined by the preflight/lease recovery candidate 20261028120000 (CREATE OR REPLACE
+    // re-grants service_role only over the released operational_email_outbox function).
+    "queue_operational_email_digest(uuid)",
   ])("%s is executable by service_role only", async (fn) => {
     expect(await allowed("service_role", fn)).toBe(true);
     for (const role of ["anon", "authenticated", "public"])
