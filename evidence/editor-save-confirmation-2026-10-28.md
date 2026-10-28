@@ -37,8 +37,8 @@ unrelated save in that same test no longer hangs on the same never-released prom
 mounted ref: a save superseded by a later save on the same asset, or one whose network
 confirmation settles after this `Editor` instance unmounted (it's keyed by `asset.id`, so an
 asset switch already unmounts it), no longer fires a toast. Local-form-only edits (`f`) that
-haven't reached the store are unaffected — the global diff guard in #2 already covers those via
-`hasUnsavedWorkspaceChanges`.
+haven't reached the store require the additional local-form guard in #4;
+`hasUnsavedWorkspaceChanges` alone cannot observe them.
 
 ## Prior round, verified
 The three fixes above (`EditorSaveBar` `notReady` branch, `confirmWorkspaceSave`'s
@@ -72,3 +72,11 @@ started..." and "isStale: returning false still confirms...") were written but *
 this session — no test runner was invoked. Typecheck/lint/build were likewise not run. The root
 will rerun the affected suites, typecheck, lint, build, browser acceptance and the PR187 merge
 check.
+
+## Independent release checks
+
+Codex executed the final affected suite: 95 tests across 6 files passed, TypeScript passed, scoped ESLint passed after formatting only EditorSaveBar.test.ts, and the production build passed. Independent code review accepted the current-form, session, mount and superseding-request guards. The new predicate tests cover the helper gate; they do not mount the full editor. Live post-release verification remains pending.
+
+A read-only three-way merge probe against draft PR187 found two editor action-bar conflicts. PR187 remains unchanged and unreleased. Its eventual integration must wire its new Save/status actions to confirmSave and retain the saved footer and current-form guards. This patch does not import that redesign.
+
+Codex performed only release integration: one test-file formatter pass, restoration of generated route-tree churn, and this evidence correction/verification addendum. Application source and tests were authored by Claude.
