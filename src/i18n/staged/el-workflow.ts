@@ -105,6 +105,8 @@ export const elWorkflow: Readonly<Record<string, string>> = {
   "editor.action.createContent": "Δημιουργία περιεχομένου",
   "editor.action.saveDraft": "Αποθήκευση προσχεδίου",
   "editor.action.markInReview": "Σήμανση ως υπό έλεγχο",
+  "editor.action.moreActions": "Περισσότερες ενέργειες",
+  "editor.action.reviewPublication": "Έλεγχος δημοσίευσης",
   "editor.action.approve": "Έγκριση",
   "editor.action.reject": "Απόρριψη",
   "editor.action.delete": "Διαγραφή",

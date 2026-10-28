@@ -1,5 +1,7 @@
 /** Latvian authoring only; not registered in the runtime or language picker. */
 export const lvAnalyticsScreen: Readonly<Record<string, string>> = {
+  "analyticsScreen.dataSources": "Datu avoti un izsekošanas iestatījumi",
+  "analyticsScreen.advancedEvidence": "Papildu: servera un malas žurnālu pierādījumi",
   "analyticsScreen.loadFailed": "Analītiku neizdevās ielādēt.",
   "analyticsScreen.copied": "Koda fragments nokopēts",
   "analyticsScreen.copyFailed": "Neizdevās nokopēt",

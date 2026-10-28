@@ -1,5 +1,7 @@
 /** Hungarian authoring only; not registered in the runtime or language picker. */
 export const huAnalyticsScreen: Readonly<Record<string, string>> = {
+  "analyticsScreen.dataSources": "Adatforrások és követési beállítások",
+  "analyticsScreen.advancedEvidence": "Haladó: szerver- és peremhálózati naplóbizonyítékok",
   "analyticsScreen.loadFailed": "Nem sikerült betölteni az analitikát.",
   "analyticsScreen.copied": "Kódrészlet másolva",
   "analyticsScreen.copyFailed": "Nem sikerült másolni",

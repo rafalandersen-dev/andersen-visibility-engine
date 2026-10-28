@@ -1,5 +1,7 @@
 /** Dutch authoring only; excluded from runtime. */
 export const nlAnalyticsScreen: Readonly<Record<string, string>> = {
+  "analyticsScreen.dataSources": "Gegevensbronnen en trackinginstellingen",
+  "analyticsScreen.advancedEvidence": "Geavanceerd: onderbouwing uit server- en edgelogs",
   "analyticsScreen.loadFailed": "Analyses konden niet worden geladen.",
   "analyticsScreen.copied": "Codefragment gekopieerd",
   "analyticsScreen.copyFailed": "Kopiëren mislukt",

@@ -57,21 +57,26 @@ export function PublishingChecklist({
           </ul>
         </details>
       ) : null}
-      <p className="text-[11px] text-muted-foreground">
-        {t(schema.generated ? "publishingFidelity.generated" : "publishingFidelity.empty")}{" "}
-        {schema.generated &&
-          t(
-            schema.connector === "none"
-              ? "publishingFidelity.none"
-              : schema.connector === "custom"
-                ? "publishingFidelity.custom"
-                : "publishingFidelity.planned",
-            { connector: schema.connector },
+      <details className="text-xs">
+        <summary className="w-fit cursor-pointer rounded-sm text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2">
+          {t("editorScreen.schemaNotes")}
+        </summary>
+        <p className="mt-1.5 text-[11px] text-muted-foreground">
+          {t(schema.generated ? "publishingFidelity.generated" : "publishingFidelity.empty")}{" "}
+          {schema.generated &&
+            t(
+              schema.connector === "none"
+                ? "publishingFidelity.none"
+                : schema.connector === "custom"
+                  ? "publishingFidelity.custom"
+                  : "publishingFidelity.planned",
+              { connector: schema.connector },
+            )}
+          {schema.generated && schema.connector !== "custom" && (
+            <> {t("publishingFidelity.unverified")}</>
           )}
-        {schema.generated && schema.connector !== "custom" && (
-          <> {t("publishingFidelity.unverified")}</>
-        )}
-      </p>
+        </p>
+      </details>
     </div>
   );
 }

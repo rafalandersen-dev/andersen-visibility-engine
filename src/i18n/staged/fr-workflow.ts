@@ -106,6 +106,8 @@ export const frWorkflow: Readonly<Record<string, string>> = {
   "editor.action.createContent": "Créer du contenu",
   "editor.action.saveDraft": "Enregistrer le brouillon",
   "editor.action.markInReview": "Marquer comme en cours de révision",
+  "editor.action.moreActions": "Plus d’actions",
+  "editor.action.reviewPublication": "Vérifier la publication",
   "editor.action.approve": "Approuver",
   "editor.action.reject": "Rejeter",
   "editor.action.delete": "Supprimer",

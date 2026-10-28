@@ -1,9 +1,8 @@
 import {
   CONTENT_LANGUAGES,
   CONTENT_LANGUAGE_OPTIONS,
-  contentLanguageName,
   contentLanguagePatch,
-  type ContentLanguageCode,
+  projectContentLanguage,
 } from "@/lib/content-languages";
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { AppShell } from "@/components/AppShell";
@@ -91,6 +90,7 @@ function ProjectSetup() {
   const navigate = useNavigate();
   const [form, setForm] = useState<Project>(active ?? blankProject());
   const [creating, setCreating] = useState(Boolean(search.new) || !active);
+  const contentLanguage = projectContentLanguage(form);
 
   useEffect(() => {
     const newProject = Boolean(search.new) || !active;
@@ -124,9 +124,11 @@ function ProjectSetup() {
       toast.error(t("setupScreen.missing", { fields: missing.join(", ") }));
       return;
     }
+    // Reconcile the compatibility fields only when the user explicitly saves.
+    const savedForm = { ...form, ...contentLanguagePatch(contentLanguage) };
     if (creating) {
       try {
-        addProject(form, { isOwner });
+        addProject(savedForm, { isOwner });
         toast.success(t("setup.toast.created"));
       } catch (e) {
         if (e instanceof ProjectLimitError) {
@@ -142,7 +144,7 @@ function ProjectSetup() {
       // connector config, Brand Intelligence, auto-scheduler toggles — with
       // the stale copies captured at mount ("saving one section reverts
       // another"). An explicit ownership list makes that impossible.
-      updateProject(active.id, projectFormPatch(form));
+      updateProject(active.id, projectFormPatch(savedForm));
       toast.success(t("setup.toast.saved"));
     }
     setCreating(false);
@@ -217,7 +219,7 @@ function ProjectSetup() {
           <Field label={t("onboarding.contentLanguage")}>
             {(id) => (
               <Select
-                value={form.primaryLanguage}
+                value={contentLanguage}
                 onValueChange={(v) =>
                   setForm((f) => ({ ...f, ...contentLanguagePatch(v as Language) }))
                 }
@@ -226,9 +228,9 @@ function ProjectSetup() {
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  {LANGS.map((l) => (
-                    <SelectItem key={l} value={l}>
-                      {l}
+                  {CONTENT_LANGUAGE_OPTIONS.map((l) => (
+                    <SelectItem key={l.value} value={l.label}>
+                      {l.native === l.label ? l.label : `${l.native} · ${l.label}`}
                     </SelectItem>
                   ))}
                 </SelectContent>
@@ -238,7 +240,7 @@ function ProjectSetup() {
           <Field label={t("setupScreen.additional")}>
             {(id) => (
               <div id={id} role="group" className="flex gap-2 flex-wrap pt-1.5">
-                {LANGS.filter((l) => l !== form.primaryLanguage).map((l) => {
+                {LANGS.filter((l) => l !== contentLanguage).map((l) => {
                   const on = form.additionalLanguages.includes(l);
                   return (
                     <button
@@ -393,30 +395,6 @@ function ProjectSetup() {
                   {LANGUAGE_OPTIONS.map((l) => (
                     <SelectItem key={l.value} value={l.value}>
                       {t(`lang.${l.value}`)}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            )}
-          </Field>
-          <Field label={t("setup.markets.contentLanguage")}>
-            {(id) => (
-              <Select
-                value={form.primaryContentLanguage ?? ""}
-                onValueChange={(v) =>
-                  setForm((f) => ({
-                    ...f,
-                    ...contentLanguagePatch(contentLanguageName(v as ContentLanguageCode)),
-                  }))
-                }
-              >
-                <SelectTrigger id={id}>
-                  <SelectValue placeholder={t("setup.markets.selectLanguage")} />
-                </SelectTrigger>
-                <SelectContent>
-                  {CONTENT_LANGUAGE_OPTIONS.map((l) => (
-                    <SelectItem key={l.value} value={l.value}>
-                      {l.native === l.label ? l.label : `${l.native} · ${l.label}`}
                     </SelectItem>
                   ))}
                 </SelectContent>

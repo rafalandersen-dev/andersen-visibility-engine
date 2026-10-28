@@ -80,6 +80,8 @@ export const roWorkflowEditor: Readonly<Record<string, string>> = {
   "editor.action.createContent": "Creați conținut",
   "editor.action.saveDraft": "Salvați ciorna",
   "editor.action.markInReview": "Marcați pentru verificare",
+  "editor.action.moreActions": "Mai multe acțiuni",
+  "editor.action.reviewPublication": "Verificați publicarea",
   "editor.action.approve": "Aprobați",
   "editor.action.reject": "Respingeți",
   "editor.action.delete": "Ștergeți",

@@ -69,7 +69,9 @@ function PricingPage() {
               <Link to="/">{t("publicBeta.home")}</Link>
             </Button>
             <Button asChild size="sm">
-              <Link to="/auth">{t("onboarding.getStarted")}</Link>
+              <Link to="/auth" search={{ mode: "register" }}>
+                {t("onboarding.getStarted")}
+              </Link>
             </Button>
           </div>
         </div>
@@ -196,7 +198,7 @@ function PricingBody({ t, language }: Pick<ReturnType<typeof useAuthLanguage>, "
                 ))}
               </ul>
               <Button asChild className="w-full" variant={meta.recommended ? "default" : "outline"}>
-                <Link to="/auth" className="mt-6">
+                <Link to="/auth" search={{ mode: "register" }} className="mt-6">
                   {pid === "freePreview"
                     ? t("publicPricing.startPreview")
                     : t("onboarding.getStarted")}

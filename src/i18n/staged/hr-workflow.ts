@@ -105,6 +105,8 @@ export const hrWorkflow: Readonly<Record<string, string>> = {
   "editor.action.createContent": "Izradi sadržaj",
   "editor.action.saveDraft": "Spremi nacrt",
   "editor.action.markInReview": "Označi za pregled",
+  "editor.action.moreActions": "Više radnji",
+  "editor.action.reviewPublication": "Pregledaj objavu",
   "editor.action.approve": "Odobri",
   "editor.action.reject": "Odbij",
   "editor.action.delete": "Izbriši",

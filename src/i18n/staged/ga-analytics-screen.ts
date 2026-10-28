@@ -1,6 +1,8 @@
 /** Irish authoring only; not registered in the runtime or language picker.
  * "Milo Analytics" stays a product name; thousands use a regular space ("50 000"). */
 export const gaAnalyticsScreen: Readonly<Record<string, string>> = {
+  "analyticsScreen.dataSources": "Foinsí sonraí agus socrú rianaithe",
+  "analyticsScreen.advancedEvidence": "Ardroghanna: fianaise ó logaí freastalaí agus imill",
   "analyticsScreen.loadFailed": "Níorbh fhéidir an anailísíocht a lódáil.",
   "analyticsScreen.copied": "Cóipeáladh an mhír chóid",
   "analyticsScreen.copyFailed": "Theip ar an gcóipeáil",

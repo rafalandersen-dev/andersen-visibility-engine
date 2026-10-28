@@ -105,6 +105,8 @@ export const bgWorkflow: Readonly<Record<string, string>> = {
   "editor.action.createContent": "Създай съдържание",
   "editor.action.saveDraft": "Запази черновата",
   "editor.action.markInReview": "Отбележи в преглед",
+  "editor.action.moreActions": "Още действия",
+  "editor.action.reviewPublication": "Прегледай публикацията",
   "editor.action.approve": "Одобри",
   "editor.action.reject": "Отхвърли",
   "editor.action.delete": "Изтрий",

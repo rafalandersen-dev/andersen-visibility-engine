@@ -103,6 +103,8 @@ export const huWorkflow = {
   "editor.action.createContent": "Tartalom létrehozása",
   "editor.action.saveDraft": "Vázlat mentése",
   "editor.action.markInReview": "Megjelölés ellenőrzés alattiként",
+  "editor.action.moreActions": "További műveletek",
+  "editor.action.reviewPublication": "Közzététel ellenőrzése",
   "editor.action.approve": "Jóváhagyás",
   "editor.action.reject": "Elutasítás",
   "editor.action.delete": "Törlés",

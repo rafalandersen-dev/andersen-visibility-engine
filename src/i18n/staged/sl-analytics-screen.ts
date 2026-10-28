@@ -1,5 +1,7 @@
 /** Slovenian authoring only; not registered in the runtime or language picker. */
 export const slAnalyticsScreen: Readonly<Record<string, string>> = {
+  "analyticsScreen.dataSources": "Viri podatkov in nastavitev sledenja",
+  "analyticsScreen.advancedEvidence": "Napredno: dokazila iz strežniških in robnih dnevnikov",
   "analyticsScreen.loadFailed": "Analitike ni bilo mogoče naložiti.",
   "analyticsScreen.copied": "Izsek kode kopiran",
   "analyticsScreen.copyFailed": "Kopiranje ni uspelo",
