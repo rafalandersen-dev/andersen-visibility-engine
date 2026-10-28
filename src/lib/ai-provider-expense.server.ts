@@ -274,8 +274,14 @@ export async function generateBudgetedText(
   return (await generateBudgetedTextResult(context, prompt, maxOutputTokens, modelId)).text;
 }
 
+/** Image parity with text: a trusted durable runner's cancellation and final
+ * authority check are honoured here too. The image adapter already forwards the
+ * signal to the real HTTP request (image-gen.server.ts), so an abort reaches the
+ * actual supplier call. When no hook or signal is supplied the behaviour is
+ * exactly what it was: reserve, then dispatch with the reservation's own signal. */
 export async function generateBudgetedImage(context: NativeExpenseContext, prompt: string) {
   validateImageRequest(prompt);
+  context.signal?.throwIfAborted();
   if (!(process.env.OPENAI_API_KEY ?? "").trim()) throw new AiProviderConfigurationError();
   const result = await withReservedAiExpense(
     request(
@@ -285,7 +291,13 @@ export async function generateBudgetedImage(context: NativeExpenseContext, promp
       await defaultCaps(context.userId),
     ),
     async (signal) => {
-      const result = await generateImageResult(prompt, signal);
+      const combined = context.signal ? AbortSignal.any([signal, context.signal]) : signal;
+      combined.throwIfAborted();
+      await context.beforeDispatch?.();
+      // The hook may have been refused, or cancellation may have arrived while
+      // it was awaiting: recheck before the supplier request is issued.
+      combined.throwIfAborted();
+      const result = await generateImageResult(prompt, combined);
       return {
         value: result.bytes,
         evidence: evidence(result.usage, result.providerRequestId, "image"),

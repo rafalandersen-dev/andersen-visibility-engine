@@ -131,6 +131,75 @@ describe("native provider money admission", () => {
     ).rejects.toThrow();
     expect(mocks.fetch).not.toHaveBeenCalled();
   });
+  // Image parity with the three text cases above (bounded weekly observation,
+  // 2026-10-28): the same trusted cancellation/final-authority contract now
+  // applies to the image path, which already forwards the signal to its fetch.
+  it("image does not reserve or dispatch when a durable runner is already cancelled", async () => {
+    const controller = new AbortController();
+    controller.abort();
+    await expect(
+      generateBudgetedImage({ ...context, signal: controller.signal }, "private image prompt"),
+    ).rejects.toThrow();
+    expect(mocks.rpc).not.toHaveBeenCalled();
+    expect(mocks.fetch).not.toHaveBeenCalled();
+  });
+  it("image rechecks durable authority after reservation and refuses revoked work", async () => {
+    const beforeDispatch = vi.fn(async () => {
+      expect(mocks.rpc).toHaveBeenCalledWith("reserve_ai_expense", expect.any(Object));
+      expect(mocks.fetch).not.toHaveBeenCalled();
+      throw new Error("revoked");
+    });
+    await expect(
+      generateBudgetedImage({ ...context, beforeDispatch }, "private image prompt"),
+    ).rejects.toThrow("revoked");
+    expect(beforeDispatch).toHaveBeenCalledOnce();
+    expect(mocks.fetch).not.toHaveBeenCalled();
+    expect(mocks.rpc.mock.calls.map(([name]) => name)).toEqual([
+      "reserve_ai_expense",
+      "reconcile_ai_expense",
+    ]);
+    expect(mocks.rpc.mock.calls[1][1]).toMatchObject({ p_actual: null, p_outcome: "uncertain" });
+  });
+  it("image does not dispatch if cancellation arrives while the authority check awaits", async () => {
+    const controller = new AbortController();
+    await expect(
+      generateBudgetedImage(
+        {
+          ...context,
+          signal: controller.signal,
+          beforeDispatch: async () => {
+            controller.abort();
+          },
+        },
+        "private image prompt",
+      ),
+    ).rejects.toThrow();
+    expect(mocks.fetch).not.toHaveBeenCalled();
+  });
+  it("image forwards a durable runner's cancellation to the real supplier request", async () => {
+    // The image adapter passes the combined signal into directProviderFetch, so
+    // an abort after dispatch reaches the actual HTTP request.
+    const controller = new AbortController();
+    // OBSERVE inside the callback, ASSERT outside it. The adapter wraps the
+    // supplier call in its own try/catch, so an expect() thrown in here would
+    // be swallowed and the case would pass without proving anything.
+    let observed: AbortSignal | undefined;
+    let abortedAtDispatch: boolean | undefined;
+    mocks.fetch.mockImplementation(async (_url: string, init: RequestInit) => {
+      observed = init.signal ?? undefined;
+      controller.abort();
+      abortedAtDispatch = init.signal?.aborted;
+      throw new DOMException("aborted", "AbortError");
+    });
+    await expect(
+      generateBudgetedImage({ ...context, signal: controller.signal }, "private image prompt"),
+    ).rejects.toThrow();
+    expect(mocks.fetch).toHaveBeenCalledOnce();
+    expect(observed).toBeInstanceOf(AbortSignal);
+    // The runner's own abort propagated into the signal the request carries.
+    expect(abortedAtDispatch).toBe(true);
+    expect(observed!.aborted).toBe(true);
+  });
   it.each(["provider_failure", "invalid_result"])(
     "returning quota after %s retains the provider's unknown expense",
     async (kind) => {

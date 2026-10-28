@@ -31,6 +31,15 @@ import {
   weeklySummarySchema,
   weeklyOpportunitySchema,
 } from "./weekly-executor";
+import {
+  createWeeklyTestWindowGuard,
+  readWeeklyTestWindow as readWeeklyTestWindowRaw,
+  weeklyTestWindowAllows,
+  weeklyTestWindowOpen,
+  type WeeklyTestWindow,
+  type WeeklyTestWindowGuard,
+  type WeeklyTestWindowStage,
+} from "./weekly-test-window.server";
 import { attachBestHook } from "./auto-scheduler.server";
 import { assertPublicationApproved } from "./publication-approval.server";
 import { buildActiveInternalPaths } from "./publish-targets";
@@ -72,6 +81,12 @@ const assertSchedulerLease = (...args: Parameters<typeof assertSchedulerLeaseRaw
   bounded(assertSchedulerLeaseRaw(...args));
 const releaseSchedulerLease = (...args: Parameters<typeof releaseSchedulerLeaseRaw>) =>
   bounded(releaseSchedulerLeaseRaw(...args));
+/** Optional bounded-observation policy. `null` means this project is not part of
+ * the observation and keeps its exact ordinary behaviour; an UNREADABLE policy
+ * throws rather than defaulting to "absent", so a registered project can never
+ * lose its bound to a read outage. */
+const readWeeklyTestWindow = (...args: Parameters<typeof readWeeklyTestWindowRaw>) =>
+  bounded(readWeeklyTestWindowRaw(...args));
 
 const scopeSchema = z
   .object({ ownerId: z.string().uuid(), projectId: z.string().regex(/^[A-Za-z0-9_-]{1,64}$/) })
@@ -157,6 +172,7 @@ export async function runWeeklyProject(scope: Scope, now = new Date()) {
   scope = scopeSchema.parse(scope);
   const started = Date.now();
   let state = await snapshot(scope);
+  const testWindow = await readWeeklyTestWindow(scope);
   const cfg = normalizeAutoSchedulerConfig(state.project.autoScheduler);
   const currentWeek = localWeekStart(now, cfg.timeZone);
   const nextWeek = new Date(Date.parse(currentWeek + "T00:00:00Z") + 7 * 86400000)
@@ -215,6 +231,22 @@ export async function runWeeklyProject(scope: Scope, now = new Date()) {
   };
   if (!readiness.enabled || readiness.control.engine !== "weekly" || !readiness.due)
     return report();
+  // Pre-T0, T1-exact, post-T1, revoked or a drifted scheduler revision/
+  // configuration: no lease is claimed and no stage is started. Retention,
+  // recovery and reconciliation remain reachable through their own RPCs.
+  if (testWindow && !weeklyTestWindowOpen(testWindow)) {
+    action = "recovery-required";
+    return report();
+  }
+  if (
+    testWindow &&
+    (testWindow.expectedRevision !== readiness.control.revision ||
+      cfg.mode !== "approve_first" ||
+      cfg.summaryEmail !== undefined)
+  ) {
+    action = "context-changed";
+    return report();
+  }
   await rpc("reconcile_weekly_preparation", {
     p_user: scope.ownerId,
     p_project: scope.projectId,
@@ -237,6 +269,19 @@ export async function runWeeklyProject(scope: Scope, now = new Date()) {
           JSON.stringify(cfg)
       )
         throw new Error("weekly_context_changed");
+      // Repeat the policy check on a FRESH read before any external source work
+      // or provider stage: a stop or expiry during this visit must take effect
+      // without a local monitor, and the window identity may never change.
+      if (testWindow) {
+        const current = await readWeeklyTestWindow(scope);
+        if (
+          !current ||
+          current.windowId !== testWindow.windowId ||
+          Date.parse(current.endsAt) !== Date.parse(testWindow.endsAt) ||
+          !weeklyTestWindowOpen(current)
+        )
+          throw new Error("weekly_test_window_closed");
+      }
     }
     await assertActive();
     let stages = await readWeeklyStages(scope, period);
@@ -304,6 +349,9 @@ export async function runWeeklyProject(scope: Scope, now = new Date()) {
       )
         return false;
       if (Date.parse(s.publishAt) <= now.getTime()) return false;
+      // The two authorized instants stay authoritative even when ordinary
+      // weekly planning has advanced to another week.
+      if (testWindow && !weeklyTestWindowAllows(testWindow, s.publishAt)) return false;
       if (owned.some((stage) => stage.stage === "image" && stage.deliveredAt)) return false;
       return owned.length > 0 || readiness.missing.some((m) => m.slotId === s.slotId);
     });
@@ -320,6 +368,25 @@ export async function runWeeklyProject(scope: Scope, now = new Date()) {
       revision: readiness.control.revision,
       publishAt: slot.publishAt,
     };
+    /** The final gate for ONE bound attempt, revalidated against a fresh server
+     * clock and the exact request/job identity immediately before the provider
+     * call. Absent for every unregistered project, so nothing else changes. */
+    const guardFor = (
+      stage: WeeklyTestWindowStage,
+      identity: { requestId: string },
+    ): WeeklyTestWindowGuard | undefined =>
+      testWindow
+        ? createWeeklyTestWindowGuard({
+            scope,
+            window: testWindow as WeeklyTestWindow,
+            publishAt: slot.publishAt,
+            stage,
+            requestId: identity.requestId,
+            jobId: token,
+          })
+        : undefined;
+    const guarded = (guard: WeeklyTestWindowGuard | undefined) =>
+      guard ? { signal: guard.signal, beforeDispatch: guard.beforeDispatch } : {};
     if (!researchStage) {
       const provenance = await refreshWeeklySources(scope, async () => {
         if (Date.now() - started > 60000) throw new Error("weekly_visit_deadline");
@@ -353,31 +420,39 @@ export async function runWeeklyProject(scope: Scope, now = new Date()) {
           if ((await context(scope, state)).contextHash !== ctx.contextHash)
             throw new Error("weekly_context_changed");
           if (Date.now() - started > 60000) throw new Error("weekly_visit_deadline");
-          const opportunity = candidate ?? {
-            ...(
-              await generateOpportunitiesCore(
-                scope.ownerId,
-                {
-                  project: state.project,
-                  services: state.services,
-                  existingTitles: state.opportunities.map((o) => o.title).slice(0, 100),
-                },
-                {
-                  enforceLimit: true,
-                  expectedKnowledgeHash: ctx.knowledgeHash,
-                  attempt: { requestId: identity.requestId, jobId: token },
-                },
-              )
-            ).opportunities[0],
-            id: identity.outputId,
-            projectId: scope.projectId,
-          };
-          return {
-            opportunity: weeklyOpportunitySchema.parse(opportunity),
-            ...ctx,
-            provenance,
-            origin: candidate ? "owner-plan" : "generated-hypothesis",
-          };
+          // An owner-plan candidate reaches no provider at all; its allowance is
+          // still consumed and is never returned to the lifetime capacity.
+          const guard = candidate ? undefined : guardFor("research", identity);
+          try {
+            const opportunity = candidate ?? {
+              ...(
+                await generateOpportunitiesCore(
+                  scope.ownerId,
+                  {
+                    project: state.project,
+                    services: state.services,
+                    existingTitles: state.opportunities.map((o) => o.title).slice(0, 100),
+                  },
+                  {
+                    enforceLimit: true,
+                    expectedKnowledgeHash: ctx.knowledgeHash,
+                    attempt: { requestId: identity.requestId, jobId: token },
+                    ...guarded(guard),
+                  },
+                )
+              ).opportunities[0],
+              id: identity.outputId,
+              projectId: scope.projectId,
+            };
+            return {
+              opportunity: weeklyOpportunitySchema.parse(opportunity),
+              ...ctx,
+              provenance,
+              origin: candidate ? "owner-plan" : "generated-hypothesis",
+            };
+          } finally {
+            guard?.release();
+          }
         },
       });
       action = "research-retained";
@@ -439,25 +514,31 @@ export async function runWeeklyProject(scope: Scope, now = new Date()) {
         parseResult: (v) => weeklyReceiptSchema.parse(v),
         work: async (identity) => {
           if (Date.now() - started > 60000) throw new Error("weekly_visit_deadline");
-          const gen = await bounded(
-            generateContentCore(
-              scope.ownerId,
-              {
-                project: state.project,
-                services: state.services,
-                opportunity,
-                assetType: "article",
-              },
-              {
-                enforceLimit: true,
-                attempt: { requestId: identity.requestId, jobId: token },
-                assetId: identity.outputId,
-                expectedKnowledgeHash: research.knowledgeHash,
-              },
-            ),
-            180000,
-          );
-          return weeklyReceiptSchema.parse({ receiptId: gen.generationReceiptId });
+          const guard = guardFor("content", identity);
+          try {
+            const gen = await bounded(
+              generateContentCore(
+                scope.ownerId,
+                {
+                  project: state.project,
+                  services: state.services,
+                  opportunity,
+                  assetType: "article",
+                },
+                {
+                  enforceLimit: true,
+                  attempt: { requestId: identity.requestId, jobId: token },
+                  assetId: identity.outputId,
+                  expectedKnowledgeHash: research.knowledgeHash,
+                  ...guarded(guard),
+                },
+              ),
+              180000,
+            );
+            return weeklyReceiptSchema.parse({ receiptId: gen.generationReceiptId });
+          } finally {
+            guard?.release();
+          }
         },
       });
       action = "content-retained";
@@ -534,25 +615,31 @@ export async function runWeeklyProject(scope: Scope, now = new Date()) {
         parseResult: (v) => weeklyReceiptSchema.parse(v),
         work: async (identity) => {
           if (Date.now() - started > 60000) throw new Error("weekly_visit_deadline");
-          const gen = await bounded(
-            generateArticleImageCore(
-              scope.ownerId,
-              {
-                projectId: scope.projectId,
-                assetId: asset!.id,
-                articleTitle: asset!.title,
-                concept,
-                project: state.project,
-              },
-              {
-                attempt: { requestId: identity.requestId, jobId: token },
-                imageId: identity.outputId,
-                expectedKnowledgeHash: visualHash,
-              },
-            ),
-            180000,
-          );
-          return weeklyReceiptSchema.parse({ receiptId: gen.generationReceiptId });
+          const guard = guardFor("image", identity);
+          try {
+            const gen = await bounded(
+              generateArticleImageCore(
+                scope.ownerId,
+                {
+                  projectId: scope.projectId,
+                  assetId: asset!.id,
+                  articleTitle: asset!.title,
+                  concept,
+                  project: state.project,
+                },
+                {
+                  attempt: { requestId: identity.requestId, jobId: token },
+                  imageId: identity.outputId,
+                  expectedKnowledgeHash: visualHash,
+                  ...guarded(guard),
+                },
+              ),
+              180000,
+            );
+            return weeklyReceiptSchema.parse({ receiptId: gen.generationReceiptId });
+          } finally {
+            guard?.release();
+          }
         },
       });
       stages = await readWeeklyStages(scope, period);

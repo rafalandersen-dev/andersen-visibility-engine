@@ -51,7 +51,15 @@ async function generateArticleImageCoreImpl(
     articleTitle?: string;
     project: Pick<Project, "businessName" | "businessType" | "toneOfVoice">;
   },
-  execution: { attempt?: NativeExpenseContext["attempt"]; imageId?: string; expectedKnowledgeHash?: string } = {},
+  // `signal`/`beforeDispatch` are TRUSTED server-runner options, exactly like
+  // the content core's: they are never accepted from the browser handler below.
+  execution: {
+    attempt?: NativeExpenseContext["attempt"];
+    imageId?: string;
+    expectedKnowledgeHash?: string;
+    signal?: AbortSignal;
+    beforeDispatch?: () => Promise<void>;
+  } = {},
 ): Promise<GeneratedArticleImage> {
   // Pro/Agency plan gate first (active even while metering enforcement is off),
   // then the metered claim — both before the model call so a refusal costs nothing.
@@ -89,7 +97,13 @@ async function generateArticleImageCoreImpl(
       let bytes: Uint8Array;
       try {
         bytes = await generateBudgetedImage(
-          { userId, operation: "generateArticleImageCore", attempt },
+          {
+            userId,
+            operation: "generateArticleImageCore",
+            attempt,
+            ...(execution.signal ? { signal: execution.signal } : {}),
+            ...(execution.beforeDispatch ? { beforeDispatch: execution.beforeDispatch } : {}),
+          },
           prompt,
         );
       } catch (e) {
