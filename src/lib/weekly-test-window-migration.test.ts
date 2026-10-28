@@ -141,6 +141,12 @@ const claim = async (project = "p", user = owner) =>
   ).rows[0].token;
 const release = (token: string, project = "p", user = owner) =>
   db.query("SELECT public.release_auto_scheduler_lease($1,$2,$3)", [user, project, token]);
+/** Register with the default bounds: T0 one hour ago, T1 exactly 168 hours
+ * later. Both are derived from ONE materialized `clock_timestamp()` sample,
+ * because the window sits on the exact 168-hour upper bound — a second,
+ * later clock reading for T1 would make the span longer than the policy
+ * allows and the RPC would legitimately refuse it. Explicit `startsAt` /
+ * `endsAt` overrides (partial or full) still win via `coalesce`. */
 async function register(
   overrides: {
     project?: string;
@@ -154,10 +160,12 @@ async function register(
   } = {},
 ) {
   const { rows } = await db.query<{ w: Window }>(
-    `SELECT public.register_weekly_test_window($1,$2,
-       coalesce($3::timestamptz,clock_timestamp()-interval '1 hour'),
-       coalesce($4::timestamptz,clock_timestamp()-interval '1 hour'+interval '168 hours'),
-       $5,$6::jsonb,ARRAY[$7::timestamptz,$8::timestamptz],$9::jsonb,$10) w`,
+    `WITH anchor AS MATERIALIZED (SELECT clock_timestamp()-interval '1 hour' AS t)
+     SELECT public.register_weekly_test_window($1,$2,
+       coalesce($3::timestamptz,anchor.t),
+       coalesce($4::timestamptz,anchor.t+interval '168 hours'),
+       $5,$6::jsonb,ARRAY[$7::timestamptz,$8::timestamptz],$9::jsonb,$10) w
+     FROM anchor`,
     [
       owner,
       overrides.project ?? "p",
@@ -176,13 +184,15 @@ async function register(
 /** Register with a RAW slot-array expression, so array shapes a privileged
  * caller could really send — multidimensional, NULL entries, a rebased lower
  * bound — reach the RPC exactly as written instead of being normalised by the
- * `ARRAY[$7,$8]` form above. Extra bind parameters start at `$5`. */
+ * `ARRAY[$7,$8]` form above. Extra bind parameters start at `$5`. The default
+ * bounds use the same single clock anchor as `register` above. */
 async function registerRawSlots(expression: string, extra: unknown[] = []) {
   const { rows } = await db.query<{ w: Window }>(
-    `SELECT public.register_weekly_test_window($1,'p',
-       clock_timestamp()-interval '1 hour',
-       clock_timestamp()-interval '1 hour'+interval '168 hours',
-       1,$2::jsonb,${expression},$3::jsonb,$4) w`,
+    `WITH anchor AS MATERIALIZED (SELECT clock_timestamp()-interval '1 hour' AS t)
+     SELECT public.register_weekly_test_window($1,'p',
+       anchor.t,anchor.t+interval '168 hours',
+       1,$2::jsonb,${expression},$3::jsonb,$4) w
+     FROM anchor`,
     [owner, JSON.stringify(CONFIG), JSON.stringify(CONTRACTS), LIFETIME, ...extra],
   );
   return rows[0].w;
@@ -270,12 +280,30 @@ const counts = async () =>
               (SELECT count(*) FROM public.ai_expense_requests)::integer requests`,
     )
   ).rows[0];
+/** The RETURNED and the STORED duration of one window, compared in database
+ * precision. `Date.parse` truncates to milliseconds and would hide a drift of
+ * a few microseconds at the exact 168-hour bound, so the comparison is done by
+ * PostgreSQL itself; `span` is reported for a readable failure. */
+async function boundSpans(win: Window) {
+  const { rows } = await db.query<{ stored: boolean; returned: boolean; span: string }>(
+    `SELECT (t.ends_at-t.starts_at)=interval '168 hours' stored,
+            ($3::timestamptz-$2::timestamptz)=interval '168 hours' returned,
+            (t.ends_at-t.starts_at)::text span
+       FROM public.weekly_test_windows t WHERE t.window_id=$1`,
+    [win.windowId, win.startsAt, win.endsAt],
+  );
+  return rows[0];
+}
 /** Shift the window so a chosen effective state is reached, keeping the table's
- * own duration invariant intact. Simulates elapsed time, not a policy renewal. */
+ * own duration invariant intact. Simulates elapsed time, not a policy renewal.
+ * The offsets used below are exactly 168 hours apart, so both bounds must come
+ * from ONE materialized clock sample: two readings would push the stored span
+ * past the table's `ends_at<=starts_at+interval '168 hours'` CHECK. */
 const shift = (startsOffset: string, endsOffset: string) =>
   db.query(
-    `UPDATE public.weekly_test_windows SET starts_at=clock_timestamp()+$1::interval,
-       ends_at=clock_timestamp()+$2::interval`,
+    `WITH anchor AS MATERIALIZED (SELECT clock_timestamp() AS t)
+     UPDATE public.weekly_test_windows SET starts_at=anchor.t+$1::interval,
+       ends_at=anchor.t+$2::interval FROM anchor`,
     [startsOffset, endsOffset],
   );
 async function runAllSix(lease: string) {
@@ -480,6 +508,42 @@ describe("registration is explicit, one-shot and non-funding", () => {
       "weekly_test_window_lifetime",
     );
     expect(await counts()).toMatchObject({ w: 0, s: 0, c: 0 });
+  });
+  it("admits the default bounds as exactly 168 hours on both registration paths", async () => {
+    await setControl("p");
+    await setControl("q");
+    // The default window sits ON the upper bound, so the registration helpers
+    // must anchor T0 and T1 to a single server clock sample; two samples make
+    // the span exceed 168 hours and the RPC refuses it.
+    expect(await boundSpans(await register({ project: "q" }))).toMatchObject({
+      stored: true,
+      returned: true,
+    });
+    expect(
+      await boundSpans(
+        await registerRawSlots("ARRAY[$5::timestamptz,$6::timestamptz]", [slotA, slotB]),
+      ),
+    ).toMatchObject({ stored: true, returned: true });
+    expect(await counts()).toMatchObject({ w: 2, s: 4, c: 6, a: 0, permits: 0, requests: 0 });
+  });
+  it("refuses an explicit bound one microsecond over 168 hours", async () => {
+    await setControl("p");
+    // One anchor, three bounds derived from it: the only difference between the
+    // refused and the admitted registration is the single extra microsecond.
+    const anchored = (
+      await db.query<{ starts: string; overlong: string; exact: string }>(
+        `WITH anchor AS MATERIALIZED (SELECT clock_timestamp()-interval '1 hour' AS t)
+         SELECT t::text starts,(t+interval '168 hours 1 microsecond')::text overlong,
+                (t+interval '168 hours')::text exact FROM anchor`,
+      )
+    ).rows[0];
+    await expect(
+      register({ startsAt: anchored.starts, endsAt: anchored.overlong }),
+    ).rejects.toThrow("invalid_weekly_test_window");
+    expect(await counts()).toEqual({ w: 0, s: 0, c: 0, a: 0, permits: 0, requests: 0 });
+    expect(
+      await boundSpans(await register({ startsAt: anchored.starts, endsAt: anchored.exact })),
+    ).toMatchObject({ stored: true, returned: true });
   });
   it("refuses any slot array that is not exactly two one-dimensional non-null instants", async () => {
     await setControl("p");
@@ -977,9 +1041,11 @@ describe("stop, expiry, retention and recreation", () => {
     ["a stop", "UPDATE public.weekly_test_windows SET revoked=true,revoked_at=clock_timestamp();"],
     [
       "T1",
-      // Keeps the table's own duration invariant intact: T1 has just passed.
-      "UPDATE public.weekly_test_windows SET starts_at=clock_timestamp()-interval '168 hours 1 second'," +
-        "ends_at=clock_timestamp()-interval '1 second';",
+      // Keeps the table's own duration invariant intact: T1 has just passed and
+      // the span is exactly 168 hours, so both bounds come from ONE clock.
+      "WITH anchor AS MATERIALIZED (SELECT clock_timestamp() AS t)" +
+        " UPDATE public.weekly_test_windows SET starts_at=anchor.t-interval '168 hours 1 second'," +
+        "ends_at=anchor.t-interval '1 second' FROM anchor;",
     ],
   ])(
     "refuses a new lease token when %s lands after the lease lock, inserting nothing",
