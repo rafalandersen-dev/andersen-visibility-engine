@@ -1,5 +1,7 @@
 /** Spanish authoring only; not registered in the runtime or language picker. */
 export const esAnalyticsScreen: Readonly<Record<string, string>> = {
+  "analyticsScreen.dataSources": "Fuentes de datos y configuración del seguimiento",
+  "analyticsScreen.advancedEvidence": "Avanzado: pruebas de registros de servidor y edge",
   "analyticsScreen.loadFailed": "No se ha podido cargar la analítica.",
   "analyticsScreen.copied": "Fragmento copiado",
   "analyticsScreen.copyFailed": "No se ha podido copiar",

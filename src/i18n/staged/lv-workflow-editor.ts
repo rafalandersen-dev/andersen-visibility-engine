@@ -82,6 +82,8 @@ export const lvWorkflowEditor: Readonly<Record<string, string>> = {
   "editor.action.createContent": "Izveidot saturu",
   "editor.action.saveDraft": "Saglabāt melnrakstu",
   "editor.action.markInReview": "Atzīmēt kā pārskatīšanā",
+  "editor.action.moreActions": "Vairāk darbību",
+  "editor.action.reviewPublication": "Pārskatīt publikāciju",
   "editor.action.approve": "Apstiprināt",
   "editor.action.reject": "Noraidīt",
   "editor.action.delete": "Dzēst",

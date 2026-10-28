@@ -1,5 +1,7 @@
 /** Czech authoring only; not registered in the runtime or language picker. */
 export const csAnalyticsScreen: Readonly<Record<string, string>> = {
+  "analyticsScreen.dataSources": "Zdroje dat a nastavení sledování",
+  "analyticsScreen.advancedEvidence": "Pokročilé: podklady ze serverových a edge logů",
   "analyticsScreen.loadFailed": "Analytiku se nepodařilo načíst.",
   "analyticsScreen.copied": "Úryvek kódu byl zkopírován",
   "analyticsScreen.copyFailed": "Kopírování se nezdařilo",

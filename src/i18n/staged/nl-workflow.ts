@@ -104,6 +104,8 @@ export const nlWorkflow: Readonly<Record<string, string>> = {
   "editor.action.createContent": "Content maken",
   "editor.action.saveDraft": "Concept opslaan",
   "editor.action.markInReview": "Markeren als in beoordeling",
+  "editor.action.moreActions": "Meer acties",
+  "editor.action.reviewPublication": "Publicatie controleren",
   "editor.action.approve": "Goedkeuren",
   "editor.action.reject": "Afwijzen",
   "editor.action.delete": "Verwijderen",

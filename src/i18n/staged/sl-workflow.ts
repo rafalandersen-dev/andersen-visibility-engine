@@ -105,6 +105,8 @@ export const slWorkflow: Readonly<Record<string, string>> = {
   "editor.action.createContent": "Ustvari vsebino",
   "editor.action.saveDraft": "Shrani osnutek",
   "editor.action.markInReview": "Označi kot v pregledu",
+  "editor.action.moreActions": "Več dejanj",
+  "editor.action.reviewPublication": "Preglej objavo",
   "editor.action.approve": "Odobri",
   "editor.action.reject": "Zavrni",
   "editor.action.delete": "Izbriši",

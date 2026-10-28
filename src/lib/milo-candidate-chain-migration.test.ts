@@ -97,9 +97,17 @@ const independentCandidates = [
   // Widens only the diagnostics outcome_code CHECK; executed by
   // milo-conversation-response-unreadable-migration.test.ts on the diagnostics tables.
   "20261022120000_milo_conversation_response_unreadable.sql",
+  // Executes against the real weekly and expense chain in its dedicated suite.
+  "20261028170000_bounded_weekly_test_windows.sql",
   // Dormant Stripe lifecycle has a dedicated entitlement/receipt fixture in
   // stripe-lifecycle-migration.test.ts; keep its unapplied status explicit.
   "20261028183000_stripe_subscription_lifecycle.sql",
+  // Additive table-privacy follow-up to the bounded window candidate (28 October): conditionally
+  // revokes the four bounded tables from the optional environment role sandbox_exec. It binds to
+  // those tables, which this fixture does not create, so it is enumerated here (never silently
+  // treated as released) and executed against the real chain by
+  // weekly-test-window-table-privacy-migration.test.ts.
+  "20261028211000_bounded_window_table_privacy.sql",
 ];
 const allowed = async (role: string, fn: string) =>
   (

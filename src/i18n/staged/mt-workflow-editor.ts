@@ -82,6 +82,8 @@ export const mtWorkflowEditor: Readonly<Record<string, string>> = {
   "editor.action.createContent": "Oħloq kontenut",
   "editor.action.saveDraft": "Issejvja l-abbozz",
   "editor.action.markInReview": "Immarka bħala taħt reviżjoni",
+  "editor.action.moreActions": "Aktar azzjonijiet",
+  "editor.action.reviewPublication": "Irrevedi l-pubblikazzjoni",
   "editor.action.approve": "Approva",
   "editor.action.reject": "Iċħad",
   "editor.action.delete": "Ħassar",

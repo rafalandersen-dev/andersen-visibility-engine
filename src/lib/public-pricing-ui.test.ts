@@ -102,6 +102,10 @@ it.each(UI_LANGUAGE_CODES)(
     for (const key of ["hold", "manageBody", "activationHold", "purchasesHold", "eligibility"])
       expect(html).toContain(escaped(translate(language, `publicPricing.${key}`)));
     expect(state.choose).not.toHaveBeenCalled();
+    const signupLinks = [...html.matchAll(/<a\b[^>]*href="\/auth"[^>]*>/g)];
+    expect(signupLinks).toHaveLength(PLAN_IDS.length + 1);
+    for (const [link] of signupLinks)
+      expect(link).toContain('data-search="{&quot;mode&quot;:&quot;register&quot;}"');
   },
 );
 

@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { weeklyReadiness } from "./weekly-readiness";
+import { localWeekStart } from "./weekly-preparation";
 import { normalizeAutoSchedulerConfig } from "./auto-scheduler";
 import type { ContentAsset, Opportunity, Project } from "./types";
 import type { GenerationResult } from "./generation-result";
@@ -24,6 +25,14 @@ const h = vi.hoisted(() => ({
   arm: vi.fn(),
   mirror: vi.fn(),
   approved: vi.fn(),
+  testWindow: vi.fn(),
+}));
+// The bounded-observation policy is OPTIONAL. Every existing case below keeps
+// `null` (project not registered) so ordinary behaviour is unchanged; the
+// dedicated cases at the end supply a window and use the REAL guard.
+vi.mock("./weekly-test-window.server", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("./weekly-test-window.server")>()),
+  readWeeklyTestWindow: h.testWindow,
 }));
 vi.mock("./ai-usage.server", () => ({ assertImageGenerationAllowed: h.imageAllowed }));
 vi.mock("./publish.server", () => ({ writeScheduleMirror: h.mirror }));
@@ -164,6 +173,7 @@ beforeEach(() => {
   h.acquire.mockResolvedValue("00000000-0000-4000-8000-000000000010");
   h.release.mockResolvedValue(undefined);
   h.rpc.mockResolvedValue({ data: true, error: null });
+  h.testWindow.mockResolvedValue(null);
   h.readiness.mockImplementation(async (_scope, weekStart, date) => ({
     ...weeklyReadiness({
       projectId: "p",
@@ -555,5 +565,218 @@ describe("weekly executor integrated orchestration without live providers", () =
     expect(await runWeeklyProject(scope, now)).toMatchObject({ action: "recovery-required" });
     expect(h.runStage).toHaveBeenCalledTimes(1);
     expect(h.generate).not.toHaveBeenCalled();
+  });
+});
+
+describe("optional bounded observation policy", () => {
+  // The REAL guard runs here (only the policy READ is a seam), so the guard's
+  // fresh database check and its forwarding into the three cores are exercised.
+  const windowId = "00000000-0000-4000-8000-0000000000aa";
+  const currentWeek = localWeekStart(now, "Europe/Stockholm");
+  const nextWeek = new Date(Date.parse(currentWeek + "T00:00:00Z") + 7 * 86400000)
+    .toISOString()
+    .slice(0, 10);
+  let plannedSlots: string[];
+  const makeWindow = (slots: string[], overrides: Record<string, unknown> = {}) => ({
+    windowId,
+    ownerId: scope.ownerId,
+    projectId: "p",
+    startsAt: new Date(now.getTime() - 3600_000).toISOString(),
+    endsAt: new Date(now.getTime() + 160 * 3600_000).toISOString(),
+    expectedRevision: control.revision,
+    expectedConfiguration: { ...workspace.projects[0].autoScheduler },
+    lifetimeCeilingMicrousd: 2_200_000,
+    revoked: false,
+    revokedAt: null,
+    state: "active",
+    fresh: true,
+    serverNow: now.toISOString(),
+    remainingMs: 160 * 3600_000,
+    slots,
+    contracts: {
+      research: {
+        provider: "openai",
+        model: "gpt-5.6-terra",
+        operation: "generateOpportunitiesCore",
+        ceilingMicrousd: 500_000,
+      },
+      content: {
+        provider: "openai",
+        model: "gpt-5.6-terra",
+        operation: "generateContentCore",
+        ceilingMicrousd: 500_000,
+      },
+      image: {
+        provider: "openai",
+        model: "gpt-image-2-2026-04-21",
+        operation: "generateArticleImageCore",
+        ceilingMicrousd: 100_000,
+      },
+    },
+    authorizedMicrousd: 0,
+    allowances: [],
+  });
+  const guardReply = (window: ReturnType<typeof makeWindow>) => ({
+    data: {
+      ok: true,
+      windowId,
+      serverNow: now.toISOString(),
+      endsAt: window.endsAt,
+      remainingMs: 160 * 3600_000,
+    },
+    error: null,
+  });
+  beforeEach(() => {
+    vi.setSystemTime(now);
+    plannedSlots = weeklyReadiness({
+      projectId: "p",
+      weekStart: nextWeek,
+      now,
+      schedule: normalizeAutoSchedulerConfig(workspace.projects[0].autoScheduler),
+      preparation: prep,
+      assets: [],
+      booked: [],
+      queue: [],
+    }).slots.map((s) => s.publishAt);
+    expect(plannedSlots.length).toBeGreaterThan(0);
+    // No owner-planned opportunity, so research must reach the provider core.
+    workspace.opportunities = [];
+    h.discover.mockImplementation(async (_user, _args, execution) => {
+      await execution.beforeDispatch?.();
+      return {
+        opportunities: [
+          {
+            id: "generated",
+            projectId: "p",
+            title: "Generated hypothesis",
+            language: "English",
+            contentType: "Blog Article",
+            searchIntent: "Informational",
+            targetAudience: "Customers",
+            businessValue: "Education",
+            recommendedCta: "Learn more",
+            priority: "High",
+          },
+        ],
+      };
+    });
+    const generate = h.generate.getMockImplementation()!;
+    h.generate.mockImplementation(async (user, args, execution) => {
+      await execution.beforeDispatch?.();
+      return generate(user, args, execution);
+    });
+    const image = h.image.getMockImplementation()!;
+    h.image.mockImplementation(async (user, args, execution) => {
+      await execution.beforeDispatch?.();
+      return image(user, args, execution);
+    });
+  });
+
+  it("forwards the guard and its cancellation signal into all three provider cores", async () => {
+    const window = makeWindow(plannedSlots.slice(0, 2));
+    h.testWindow.mockResolvedValue(window);
+    h.rpc.mockImplementation(async (name: string) =>
+      name === "assert_weekly_test_window_dispatch"
+        ? guardReply(window)
+        : { data: true, error: null },
+    );
+    for (let i = 0; i < 3; i++) await runWeeklyProject(scope, now);
+    for (const core of [h.discover, h.generate, h.image]) {
+      expect(core).toHaveBeenCalledOnce();
+      const execution = core.mock.calls[0][2];
+      expect(typeof execution.beforeDispatch).toBe("function");
+      expect(execution.signal).toBeInstanceOf(AbortSignal);
+      expect(execution.signal.aborted).toBe(false);
+    }
+    // Each stage revalidated the bound window against a fresh server clock.
+    expect(
+      h.rpc.mock.calls.filter(([name]) => name === "assert_weekly_test_window_dispatch"),
+    ).toHaveLength(3);
+    expect(
+      h.rpc.mock.calls.find(([name]) => name === "assert_weekly_test_window_dispatch")![1],
+    ).toMatchObject({ p_user: scope.ownerId, p_project: "p", p_stage: "research" });
+  });
+
+  it("keeps the two authorized instants authoritative and prepares nothing else", async () => {
+    // Ordinary planning offers this week's slots; the policy allows neither.
+    h.testWindow.mockResolvedValue(
+      makeWindow([
+        new Date(now.getTime() + 120 * 3600_000).toISOString(),
+        new Date(now.getTime() + 140 * 3600_000).toISOString(),
+      ]),
+    );
+    expect(await runWeeklyProject(scope, now)).toMatchObject({ action: "review-required" });
+    expect(h.runStage).not.toHaveBeenCalled();
+    expect(h.discover).not.toHaveBeenCalled();
+    expect(h.generate).not.toHaveBeenCalled();
+    expect(h.image).not.toHaveBeenCalled();
+  });
+
+  it.each(["pending", "expired", "revoked"] as const)(
+    "starts no work and claims no lease while the policy is %s",
+    async (state) => {
+      h.testWindow.mockResolvedValue({
+        ...makeWindow(plannedSlots.slice(0, 2)),
+        state,
+        revoked: state === "revoked",
+      });
+      expect(await runWeeklyProject(scope, now)).toMatchObject({ action: "recovery-required" });
+      expect(h.acquire).not.toHaveBeenCalled();
+      expect(h.runStage).not.toHaveBeenCalled();
+      // Assertions outside the runner's own catch: no core was ever invoked.
+      expect(h.discover).not.toHaveBeenCalled();
+      expect(h.generate).not.toHaveBeenCalled();
+      expect(h.image).not.toHaveBeenCalled();
+    },
+  );
+
+  it("stops mid-visit when the policy is revoked between the repeated checks", async () => {
+    const window = makeWindow(plannedSlots.slice(0, 2));
+    h.testWindow
+      .mockResolvedValueOnce(window)
+      .mockResolvedValue({ ...window, state: "revoked", revoked: true });
+    expect(await runWeeklyProject(scope, now)).toMatchObject({ action: "recovery-required" });
+    expect(h.discover).not.toHaveBeenCalled();
+    expect(h.generate).not.toHaveBeenCalled();
+    expect(h.image).not.toHaveBeenCalled();
+  });
+
+  it("stops when the registered scheduler revision no longer matches", async () => {
+    h.testWindow.mockResolvedValue({
+      ...makeWindow(plannedSlots.slice(0, 2)),
+      expectedRevision: control.revision + 1,
+    });
+    expect(await runWeeklyProject(scope, now)).toMatchObject({ action: "context-changed" });
+    expect(h.acquire).not.toHaveBeenCalled();
+    expect(h.runStage).not.toHaveBeenCalled();
+  });
+
+  it("leaves no publication queue entry, approval or mail for the controlled fixture", async () => {
+    const window = makeWindow(plannedSlots.slice(0, 2));
+    h.testWindow.mockResolvedValue(window);
+    h.rpc.mockImplementation(async (name: string) =>
+      name === "assert_weekly_test_window_dispatch"
+        ? guardReply(window)
+        : { data: true, error: null },
+    );
+    for (let i = 0; i < 6; i++) await runWeeklyProject(scope, now);
+    expect(workspace.content.every((a) => a.status === "Draft")).toBe(true);
+    expect(queue).toHaveLength(0);
+    expect(h.arm).not.toHaveBeenCalled();
+    expect(h.approved).not.toHaveBeenCalled();
+    expect(h.mirror).not.toHaveBeenCalled();
+    // Exactly the two authorized instants, three stages each, and no more.
+    const identities = stages.map((s) => `${s.publishAt}|${s.stage}|${s.requestId}|${s.outputId}`);
+    expect(stages).toHaveLength(6);
+    expect(new Set(stages.map((s) => s.publishAt))).toEqual(new Set(plannedSlots.slice(0, 2)));
+    // Repeated natural visits retain the same stage/output identities and never
+    // advance to a third date.
+    for (let i = 0; i < 3; i++) await runWeeklyProject(scope, now);
+    expect(stages.map((s) => `${s.publishAt}|${s.stage}|${s.requestId}|${s.outputId}`)).toEqual(
+      identities,
+    );
+    expect(h.discover).toHaveBeenCalledTimes(2);
+    expect(h.generate).toHaveBeenCalledTimes(2);
+    expect(h.image).toHaveBeenCalledTimes(2);
   });
 });
