@@ -2073,10 +2073,14 @@ export const generateOpportunitiesCore = createServerOnlyFn(generateOpportunitie
 async function generateOpportunitiesCoreImpl(
   userId: string,
   data: { project: Project; services: ServiceItem[]; existingTitles: string[] },
+  // `signal`/`beforeDispatch` are TRUSTED server-runner options, exactly like
+  // generateContentCoreImpl's: the JWT handler below never forwards them.
   metering: {
     enforceLimit?: boolean;
     attempt?: NativeExpenseContext["attempt"];
     expectedKnowledgeHash?: string;
+    signal?: AbortSignal;
+    beforeDispatch?: () => Promise<void>;
   } = {},
 ) {
   {
@@ -2119,7 +2123,13 @@ async function generateOpportunitiesCoreImpl(
         serviceCount: services.length,
       });
       const payload = await generateJsonText(
-        { userId: userId, operation: "generateOpportunitiesCore", attempt: metering.attempt },
+        {
+          userId: userId,
+          operation: "generateOpportunitiesCore",
+          attempt: metering.attempt,
+          ...(metering.signal ? { signal: metering.signal } : {}),
+          ...(metering.beforeDispatch ? { beforeDispatch: metering.beforeDispatch } : {}),
+        },
         `You are an SEO and AI-visibility strategist for small businesses.
 
 Generate 6 high-quality content opportunities for this business.
