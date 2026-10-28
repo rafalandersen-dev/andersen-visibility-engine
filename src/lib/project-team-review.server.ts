@@ -5,6 +5,7 @@ import { readProjectTeamMedia } from "./project-team-media.server";
 import { samePublicationVersion } from "./publication-version";
 import { projectTeamRpc, teamCall } from "./project-team-membership.server";
 import type { TeamReadRpc } from "./project-team-read.server";
+import { recoverTeamReviewRead } from "./project-team-review-read-recovery.server";
 type Dependencies = {
   preview?: typeof readProjectTeamPreview;
   media?: typeof readProjectTeamMedia;
@@ -129,7 +130,7 @@ export async function readProjectTeamReviewHistory(
           p_project: scope.projectId,
           p_asset: scope.assetId,
         },
-        rpc,
+        recoverTeamReviewRead(rpc),
       ),
     );
   if (

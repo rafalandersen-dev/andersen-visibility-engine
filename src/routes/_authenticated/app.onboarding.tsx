@@ -452,31 +452,34 @@ function OwnedOnboardingWizard({ ownerId }: { ownerId: string }) {
       return;
     }
 
-    // Best-effort foundation — each independent and non-fatal.
+    // Setup remains saved if generation is unavailable. Only fulfilled work may
+    // be described as ready, and a failed plan must not start a fallback draft.
+    let planReady = false;
+    let foundationComplete = false;
     try {
       setGenStatus(t("onboarding.genStatus.foundation"));
       const tasks: Promise<unknown>[] = [];
       tasks.push(
         (async () => {
-          try {
-            await generateSeoOpportunities(projectId);
-            if (alive.current) await generateContentCalendar(projectId);
-          } catch {
-            /* non-fatal */
+          await generateSeoOpportunities(projectId);
+          if (alive.current) {
+            await generateContentCalendar(projectId);
+            planReady = true;
           }
         })(),
       );
       if (w.websiteUrl.trim()) {
-        tasks.push(runSiteAudit(projectId, w.websiteUrl.trim()).catch(() => {}));
+        tasks.push(runSiteAudit(projectId, w.websiteUrl.trim()));
       }
       const comps = w.competitorUrls.map((c) => c.trim()).filter(Boolean);
       if (comps.length) {
-        tasks.push(runCompetitorGap(projectId, comps).catch(() => {}));
+        tasks.push(runCompetitorGap(projectId, comps));
       }
-      await Promise.allSettled(tasks);
-      toast.success(t("onboarding.toast.ready"));
+      const outcomes = await Promise.allSettled(tasks);
+      foundationComplete = planReady && outcomes.every((outcome) => outcome.status === "fulfilled");
     } catch {
-      toast.message(t("onboarding.toast.partial"));
+      // The partial outcome is shown after navigation so the route-change toast
+      // cleanup cannot hide the explanation from the newly configured user.
     }
 
     // TTFV (Europe move 2): write the user's FIRST draft right now, from the
@@ -490,7 +493,7 @@ function OwnedOnboardingWizard({ ownerId }: { ownerId: string }) {
       const project = s.projects.find((p) => p.id === projectId);
       const opps = s.opportunities.filter((o) => o.projectId === projectId);
       const top = pickSampleOpportunity(opps, project?.primaryLanguage ?? "English");
-      if (top) {
+      if (planReady && top) {
         setGenStatus(t("onboarding.genStatus.sample"));
         const asset = await generateContentForOpportunity(
           top.id,
@@ -511,8 +514,11 @@ function OwnedOnboardingWizard({ ownerId }: { ownerId: string }) {
       await navigate({ to: "/app/editor", search: { id: sampleAssetId } as never });
       // After navigation so the route-change toast sweep can't eat it.
       toast.success(t("onboarding.toast.sampleReady"));
+      if (!foundationComplete) toast.message(t("onboarding.toast.partial"));
     } else {
-      navigate({ to: "/app" });
+      await navigate({ to: "/app" });
+      if (foundationComplete) toast.success(t("onboarding.toast.ready"));
+      else toast.message(t("onboarding.toast.partial"));
     }
     // Only now: the Generate button must stay dead until the route is gone
     // (a re-click would addProject() a duplicate — CreateContentDialog pattern).

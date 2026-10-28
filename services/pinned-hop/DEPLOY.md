@@ -25,10 +25,11 @@ If either app variable is missing, or the URL is not HTTPS, the transport stays 
 
 ## Runtime constraints that matter on a free/sleeping host
 
-- **Cold start.** The app gives the whole hop sequence a single `HOMEPAGE_TIMEOUT_MS` budget of 8 s, with per-hop `HOP_MAX_MS` of 8 s and `HOP_MIN_MS` of 0.5 s. A host that sleeps when idle and needs tens of seconds to wake (Render Free was recorded on 7 October at 50 s or more) will make the **first** capture after an idle period fail with the retryable `timeout`. A later attempt, once the service is awake, can succeed.
-  - This is a correctness-preserving failure: nothing is saved and the existing source is not overwritten.
-  - It is still a real usability limit, so acceptance should begin with a `GET /healthz` warm-up.
+- **Cold start.** Configured app intake performs readiness on demand before the signed homepage sequence. At most four unsigned `GET /healthz` probes start at approximately 0/20/40/60 seconds; each has an8second ceiling within a70second startup deadline. No background keep-alive is added. Readiness never contacts a destination or sends the shared key. A ready response does not grant authority: the subsequent fresh challenge, all DNS/URL/redirect/TLS checks and the unchanged8second homepage budget still apply. No destination hop, source write, unknown outcome or paid work is automatically replayed.
+  - Startup failure retains the previous source observation and reports unavailable. Source refresh keeps its2minute lease and10minute admission cooldown.
+  - A startup that consumes a weekly worker's60second pre-generation allowance may save source evidence and yield; the next normal visit can use that evidence. The worker's deadline and pause/access checks are unchanged.
+  - Production acceptance must start after real idle time without operator prewarming. Local fault tests are not production evidence.
 - **Restart.** Challenges are bound to one process incarnation, with a 20 s TTL. A restart between challenge and hop is refused, which is fail-closed.
-- **Capacity.** At most 32 sockets, bounded pending challenges and per-request byte limits (`HOP_MAX_*`). A single small instance suffices for owner-initiated intake; no load measurement exists.
+- **Capacity.** At most 4 sockets, bounded pending challenges and per-request byte limits (`HOP_MAX_*`). A single small instance suffices for owner-initiated intake; no load measurement exists.
 
 No plan upgrade is recommended from this evidence alone. Decide only after measured warm and cold behaviour on the provisioned host.

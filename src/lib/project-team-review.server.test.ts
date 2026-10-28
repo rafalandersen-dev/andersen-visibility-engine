@@ -51,6 +51,18 @@ function deps() {
   };
 }
 describe("exact collaborator review acknowledgement", () => {
+  it.each([false, true])(
+    "never retries the final review write on a lock refusal: approved=%s",
+    async (approved) => {
+      const d = deps();
+      const rpc = vi.fn(async () => ({ data: null, error: { code: "55P03" } }));
+      await expect(
+        saveProjectTeamReview(actor, { ...input, approved }, { ...d, rpc }),
+      ).rejects.toThrow("Team access is busy");
+      expect(rpc).toHaveBeenCalledOnce();
+      expect(d.preview).toHaveBeenCalledTimes(2);
+    },
+  );
   it("verifies and saves all 40 media acknowledgements for a larger article", async () => {
     const d = deps();
     const media = Array.from({ length: 40 }, (_, i) => ({

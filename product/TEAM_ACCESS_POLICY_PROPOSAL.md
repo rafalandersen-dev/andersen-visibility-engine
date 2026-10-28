@@ -261,3 +261,12 @@ Server projection now substitutes known media URLs only in generated image `src`
 ## Image URL attribute normalization
 
 Image source attributes are now decoded once using the standards-based `entities` attribute decoder before matching the raw saved URL. Literal ampersands, `&amp;`, decimal and hexadecimal references all match the intended saved image without changing visible article text. Literal entity text in an actual URL is not decoded twice. The existing pinned transitive `entities` 4.5.0 package is now an explicit runtime dependency, with both locks updated. Nineteen focused preview tests, TypeScript, changed-file lint and both lock agreement checks pass; no migration source changed.
+
+
+## Controlled digest acceptance — 24 October 2026
+
+Team delivery now additionally requires `TEAM_NOTIFICATION_EMAIL_SCOPE`: a strict JSON object with `owner_id`, `project_id`, `recipient_id` and `expires_at`. The expiry must be in the future and within24hours. Missing, malformed, expired or overlong scopes disable delivery even when `TEAM_NOTIFICATION_EMAIL_ENABLED=true`. This is a single-recipient controlled rollout, not general team-mail activation.
+
+The worker uses service-only scoped scanner/claim functions. Their selection, expired-lease reconciliation and scan timestamps are restricted to the exact tuple; unrelated queues remain untouched. Current membership, role-bound owner assignment and recipient consent, verified current address, suppression, unsubscribe, source freshness and final-send admission remain mandatory. The app rechecks the rollout expiry before transport. Uncertain sends are never replayed; provider acceptance and actual mailbox receipt remain separate evidence.
+
+Apply migration20261024110000 before enabling the scope. Enable only after release verification, use an owner-controlled synthetic project and recipient, and disable transport plus remove temporary membership/consent after the acceptance. Do not publish the scope as a durable permission grant or infer inbox delivery from worker counts.

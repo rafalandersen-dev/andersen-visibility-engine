@@ -2,6 +2,7 @@ import { z } from "zod";
 import { teamCommentTarget } from "./project-team";
 import { projectTeamRpc, teamCall } from "./project-team-membership.server";
 import type { TeamReadRpc } from "./project-team-read.server";
+import { recoverTeamReviewRead } from "./project-team-review-read-recovery.server";
 export async function readTeamReviewAuthority(
   actorId: string,
   raw: z.infer<typeof teamCommentTarget>,
@@ -25,7 +26,7 @@ export async function readTeamReviewAuthority(
           p_project: input.projectId,
           p_asset: input.assetId,
         },
-        rpc,
+        recoverTeamReviewRead(rpc),
       ),
     );
   if (
