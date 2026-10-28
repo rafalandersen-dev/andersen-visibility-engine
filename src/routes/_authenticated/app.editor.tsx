@@ -32,7 +32,10 @@ import {
   approveProjectInternalPath,
   getState,
   reloadWorkspaceForUser,
+  useWorkspaceSaveStatus,
 } from "@/lib/store";
+import { confirmWorkspaceSave } from "@/lib/editor-save";
+import { EditorSaveBar } from "@/components/EditorSaveBar";
 import { useAppLanguage, useT } from "@/i18n";
 import { EditorialLesson } from "@/components/EditorialLesson";
 import { PublicationApprovalStatus } from "@/components/PublicationApprovalStatus";
@@ -186,7 +189,6 @@ import {
   Globe,
   Loader2,
   Rocket,
-  Save,
   Send,
   Sparkles,
   Trash2,
@@ -879,6 +881,25 @@ function Editor({ asset, onRequestDelete }: { asset: ContentAsset; onRequestDele
   // since the last Milo Score (kept in sync by the fromStore effect below).
   const fromStoreRef = useRef<ContentAsset | undefined>(asset);
 
+  // Binds a save's success feedback to the view instance and request that
+  // started it (this component is keyed by asset.id, so switching assets
+  // already unmounts it). Without this, a Save superseded by a later Save on
+  // the same asset — or one whose confirmation settles after unmount — could
+  // still fire its toast for a context that no longer exists.
+  const mountedRef = useRef(true);
+  useEffect(() => {
+    mountedRef.current = true;
+    return () => {
+      mountedRef.current = false;
+    };
+  }, []);
+  const saveRequestIdRef = useRef(0);
+  // Latest live form, read by confirmSave's callback to detect edits typed
+  // after this save started but before the network confirmed it — those are
+  // not covered by this save and must not be reported as saved (P2).
+  const latestFormRef = useRef<ContentAsset>(f);
+  latestFormRef.current = f;
+
   const save = (status?: ContentStatus) => {
     // If content changed since the last Milo Score, mark the score stale so the
     // panel prompts a re-evaluation (status-only saves don't mark it stale).
@@ -923,12 +944,42 @@ function Editor({ asset, onRequestDelete }: { asset: ContentAsset; onRequestDele
         currentContentAssetId: next.id,
       });
     }
-    toast.success(
-      status
-        ? t("editorScreen.marked", { status: t(`status.${status}`) })
-        : t("editorScreen.savedNotification"),
-    );
     return next;
+  };
+
+  /**
+   * Save, then report success only once the write is durably confirmed by the
+   * server (saveWorkspaceNow settles the real network round trip). `save()` is
+   * synchronous and local-store-only — a success toast right after it, before
+   * the network confirms, is the false-confirmation bug: offline, the store
+   * commit still succeeds locally and `save()` would otherwise "lie" that the
+   * change is saved. Failure/conflict/unconfirmed is already surfaced by the
+   * shell's workspace save status bar with its own Retry; this just withholds
+   * the success toast until there is something true to say.
+   */
+  const confirmSave = (status?: ContentStatus) => {
+    const requestId = ++saveRequestIdRef.current;
+    let saved: ContentAsset | undefined;
+    return confirmWorkspaceSave(
+      () => {
+        saved = save(status);
+      },
+      () => {
+        // Stale: this view unmounted (asset switch, navigation) or a later
+        // Save on this same asset has already started — only the latest
+        // request's confirmation is shown.
+        if (!mountedRef.current || saveRequestIdRef.current !== requestId) return;
+        toast.success(
+          status
+            ? t("editorScreen.marked", { status: t(`status.${status}`) })
+            : t("editorScreen.savedNotification"),
+        );
+      },
+      // Edits typed into the form after this save started but before its
+      // confirmation settled aren't covered by it — the store confirms what
+      // was saved, not the newer, still-unsaved form on screen.
+      () => !!saved && editorFormDirty(latestFormRef.current, saved),
+    );
   };
 
   // Unsaved-changes detection. An uploaded-but-unsaved image lives only in `f`
@@ -936,6 +987,11 @@ function Editor({ asset, onRequestDelete }: { asset: ContentAsset; onRequestDele
   // this guard the user loses it on refresh (and orphans the Storage object).
   const storedNow = getState().content.find((c) => c.id === f.id);
   const isDirty = editorFormDirty(f, storedNow);
+  // AS: global workspace persistence status — this asset can be in sync with the
+  // in-memory store (isDirty false) while the last network save for it is still
+  // pending, unconfirmed, or refused by a conflict. The footer must not claim
+  // "saved" in that window; see confirmSave above for the toast half of the fix.
+  const workspaceSaveStatus = useWorkspaceSaveStatus();
 
   useEffect(() => {
     if (!isDirty) return;
@@ -1028,7 +1084,7 @@ function Editor({ asset, onRequestDelete }: { asset: ContentAsset; onRequestDele
     a.download = `${f.slug || "asset"}.${type}`;
     a.click();
     URL.revokeObjectURL(url);
-    save("Exported");
+    void confirmSave("Exported");
   };
 
   const copy = async () => {
@@ -1316,7 +1372,7 @@ function Editor({ asset, onRequestDelete }: { asset: ContentAsset; onRequestDele
             // which published live with no confirmation — an irreversible act on a
             // control that reads as reversible. Approving never distributes now, so
             // this is a straightforward save either way.
-            onValueChange={(v) => save(v as ContentStatus)}
+            onValueChange={(v) => void confirmSave(v as ContentStatus)}
           >
             <SelectTrigger className="h-8 w-36 text-xs">
               <SelectValue />
@@ -1338,10 +1394,10 @@ function Editor({ asset, onRequestDelete }: { asset: ContentAsset; onRequestDele
               <FilePlus2 className="h-3.5 w-3.5" /> {t("editor.action.createContent")}
             </Button>
           ) : null}
-          <Button size="sm" variant="ghost" onClick={() => save("Draft")}>
+          <Button size="sm" variant="ghost" onClick={() => void confirmSave("Draft")}>
             <FileEdit className="h-3.5 w-3.5" /> {t("editor.action.saveDraft")}
           </Button>
-          <Button size="sm" variant="outline" onClick={() => save("In Review")}>
+          <Button size="sm" variant="outline" onClick={() => void confirmSave("In Review")}>
             {t("editor.action.markInReview")}
           </Button>
           <Button size="sm" variant="outline" onClick={() => approve()} disabled={Boolean(busy)}>
@@ -1350,7 +1406,7 @@ function Editor({ asset, onRequestDelete }: { asset: ContentAsset; onRequestDele
           <Button size="sm" variant="ghost" onClick={() => approve(false)} disabled={Boolean(busy)}>
             {t("approval.withdraw")}
           </Button>
-          <Button size="sm" variant="ghost" onClick={() => save("Rejected")}>
+          <Button size="sm" variant="ghost" onClick={() => void confirmSave("Rejected")}>
             <FileX className="h-3.5 w-3.5" /> {t("editor.action.reject")}
           </Button>
           <Button
@@ -3071,19 +3127,16 @@ function Editor({ asset, onRequestDelete }: { asset: ContentAsset; onRequestDele
 
       <div className="flex flex-wrap items-center gap-2 px-5 py-4 border-t border-border bg-secondary/30">
         {/* Always-visible editor-wide Save — persists every tab's edits (incl.
-            uploaded images) to the store. save() preserves the current status
-            and never approves; repeated clicks are idempotent (no re-upload). */}
-        <Button size="sm" variant="default" onClick={() => save()}>
-          <Save className="h-3.5 w-3.5" /> {t("common.save")}
-        </Button>
-        {isDirty ? (
-          <span className="inline-flex items-center gap-1.5 text-xs font-medium text-amber-600">
-            <span className="h-1.5 w-1.5 rounded-full bg-amber-500" aria-hidden="true" />
-            {t("editorScreen.unsaved")}
-          </span>
-        ) : (
-          <span className="text-xs text-muted-foreground">{t("editorScreen.saved")}</span>
-        )}
+            uploaded images) to the store and waits for the real network
+            confirmation before reporting success (confirmSave/EditorSaveBar).
+            save() itself preserves the current status and never approves;
+            repeated clicks are idempotent (no re-upload). */}
+        <EditorSaveBar
+          isDirty={isDirty}
+          workspaceSaveStatus={workspaceSaveStatus}
+          onSave={() => void confirmSave()}
+          t={t}
+        />
         <span className="mx-1 hidden h-4 w-px bg-border sm:inline-block" aria-hidden="true" />
         <Button size="sm" variant="outline" onClick={() => exportText("md")}>
           <Download className="h-3.5 w-3.5" /> {t("editorScreen.exportMarkdown")}
