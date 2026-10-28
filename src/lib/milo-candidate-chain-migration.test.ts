@@ -97,6 +97,8 @@ const independentCandidates = [
   // Widens only the diagnostics outcome_code CHECK; executed by
   // milo-conversation-response-unreadable-migration.test.ts on the diagnostics tables.
   "20261022120000_milo_conversation_response_unreadable.sql",
+  // Executes against the real weekly and expense chain in its dedicated suite.
+  "20261028170000_bounded_weekly_test_windows.sql",
 ];
 const allowed = async (role: string, fn: string) =>
   (
