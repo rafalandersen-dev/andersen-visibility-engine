@@ -3,7 +3,26 @@ const fs = require("node:fs");
 const path = require("node:path");
 const root = path.resolve(__dirname, "../..");
 const source = __dirname;
-const out = "/tmp/milo-milestone-ui-browser";
+// Output location is unchanged by default. MILO_FIXTURE_OUT and the os.tmpdir()
+// fallback only exist so the gate can also run in a sandboxed checkout where
+// /tmp itself is not writable; they change where build artifacts land, never
+// what is built or asserted.
+const preferredOut = process.env.MILO_FIXTURE_OUT || "/tmp/milo-milestone-ui-browser";
+function makeOutDir() {
+  for (const dir of [
+    preferredOut,
+    path.join(require("node:os").tmpdir(), "milo-milestone-ui-browser"),
+  ]) {
+    try {
+      fs.mkdirSync(dir, { recursive: true });
+      return dir;
+    } catch (error) {
+      if (error.code !== "EPERM" && error.code !== "EACCES") throw error;
+    }
+  }
+  throw Error("No writable fixture output directory (tried " + preferredOut + " and os.tmpdir())");
+}
+let out = preferredOut;
 const ts = require(path.join(root, "node_modules/typescript"));
 const esbuild = require(path.join(root, "node_modules/esbuild"));
 const stubNames = new Set([
@@ -45,7 +64,7 @@ function exportNames(file) {
   return result;
 }
 async function main() {
-  fs.mkdirSync(out, { recursive: true });
+  out = makeOutDir();
   const smoke = process.argv.includes("--ssr-smoke");
   const metafile = await esbuild.build({
     entryPoints: [path.join(source, smoke ? "smoke.jsx" : "entry.jsx")],

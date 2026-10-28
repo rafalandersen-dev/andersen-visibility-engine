@@ -80,6 +80,21 @@ export const reloadWorkspaceForUser = async () => {
 };
 export const useWorkspaceSaveStatus = () => ({ kind: fixture.failSave ? "error" : "saved" });
 export const getWorkspaceSaveStatus = () => ({ kind: fixture.failSave ? "error" : "saved" });
-export const getWorkspaceSaveContext = () => ({ userId: fixture.state.userId, epoch: 1 });
-export const hasUnsavedWorkspaceChanges = () => false;
+// The editor's Save goes through confirmWorkspaceSave -> runDiscoverySave, which
+// reads this context and refuses to report success unless the workspace is
+// hydrated for a known user. Synthetic memory is always "hydrated" (there is
+// nothing to fetch), and the epoch never changes because this fixture has no
+// sign-out/re-hydration; without `hydrated` every fixture save classified as
+// "notReady" and no save in the fixture could ever confirm.
+export const getWorkspaceSaveContext = () => ({
+  userId: fixture.state.userId,
+  epoch: 1,
+  hydrated: true,
+});
+// Diffed against the synthetic baseline that saveWorkspaceNow/reset records, not
+// a constant: the "a newer edit landed while this save was in flight" guard is
+// the one confirmWorkspaceSave exists for, and a hardcoded false would bypass it
+// and let the fixture claim a success the real store would withhold.
+export const hasUnsavedWorkspaceChanges = () =>
+  JSON.stringify(fixture.saved) !== JSON.stringify(fixture.state);
 export const uid = () => crypto.randomUUID();

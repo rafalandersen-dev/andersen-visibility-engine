@@ -11,6 +11,8 @@ import { Route as Analytics } from "@/routes/_authenticated/app.analytics";
 import { publicationVersion, samePublicationVersion } from "@/lib/publication-version";
 import { buildActiveInternalPaths } from "@/lib/publish-targets";
 import { editorPrimaryAction } from "@/lib/editor-primary-action";
+import { confirmWorkspaceSave } from "@/lib/editor-save";
+import { upsertContent, hasUnsavedWorkspaceChanges } from "@/lib/store";
 import assert from "node:assert/strict";
 let failed = 0;
 for (const [name, route] of Object.entries({
@@ -108,6 +110,39 @@ export const smokeDone = (async () => {
   assert.equal(samePublicationVersion((await read()).version, expectedVersion), true);
   await assert.rejects(() => fetch("https://denied.example.invalid"), /Fixture denies fetch/);
   await assert.rejects(() => fixture.invoke("unsupportedLiveOperation", []), /blocks unsupported/);
+
+  // Every editor action in the reconciled header writes through
+  // confirmWorkspaceSave. Check that contract against the fixture store itself,
+  // because the editor's own copy of it only runs under browser effects: the
+  // confirmation must be withheld unless the synthetic save really settled, and
+  // a status write must not be reported as saved while a newer edit is pending.
+  reset("ready");
+  const article = () => fixture.state.content[0];
+  const confirmStatus = async (status, isStale) => {
+    let confirmed = false;
+    await confirmWorkspaceSave(
+      () => upsertContent({ ...article(), status }),
+      () => {
+        confirmed = true;
+      },
+      isStale,
+    );
+    return confirmed;
+  };
+  fixture.failSave = false;
+  assert.equal(await confirmStatus("In Review"), true, "a settled fixture save confirms once");
+  assert.equal(article().status, "In Review", "the store keeps the write either way");
+  assert.equal(hasUnsavedWorkspaceChanges(), false, "no unsaved diff remains after confirmation");
+  assert.equal(
+    await confirmStatus("Approved", () => true),
+    false,
+    "a newer unsaved form is never reported as saved",
+  );
+  fixture.failSave = true;
+  assert.equal(await confirmStatus("Rejected"), false, "a refused save never reports success");
+  assert.equal(article().status, "Rejected", "the local write survives for retry");
+  fixture.failSave = false;
+
   console.log(
     JSON.stringify({
       fixtureApprovalContracts: "passed",
@@ -119,6 +154,8 @@ export const smokeDone = (async () => {
         "unavailable",
         "explicit-approval-write",
       ],
+      confirmedSaveContract: "passed",
+      saveCases: ["confirmed-once", "stale-newer-form", "refused-save"],
       fetchAndUnsupportedOperations: "denied",
       browserEffects: "not covered by this smoke",
     }),
