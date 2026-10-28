@@ -89,6 +89,7 @@ import { Route as LovableEmailTransactionalPreviewRouteImport } from './routes/l
 import { Route as LovableEmailQueueProcessRouteImport } from './routes/lovable/email/queue/process'
 import { Route as LovableEmailAuthWebhookRouteImport } from './routes/lovable/email/auth/webhook'
 import { Route as LovableEmailAuthPreviewRouteImport } from './routes/lovable/email/auth/preview'
+import { Route as ApiPublicWebhooksStripeRouteImport } from './routes/api/public/webhooks/stripe'
 import { Route as ApiPublicWebhooksStripeSandboxRouteImport } from './routes/api/public/webhooks/stripe-sandbox'
 import { Route as ApiPublicWebhooksPaddleRouteImport } from './routes/api/public/webhooks/paddle'
 import { Route as ApiGoogleSearchConsoleCronSyncRouteImport } from './routes/api.google.search-console.cron-sync'
@@ -520,6 +521,12 @@ const LovableEmailAuthPreviewRoute = LovableEmailAuthPreviewRouteImport.update({
   path: '/lovable/email/auth/preview',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiPublicWebhooksStripeRoute =
+  ApiPublicWebhooksStripeRouteImport.update({
+    id: '/api/public/webhooks/stripe',
+    path: '/api/public/webhooks/stripe',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 const ApiPublicWebhooksStripeSandboxRoute =
   ApiPublicWebhooksStripeSandboxRouteImport.update({
     id: '/api/public/webhooks/stripe-sandbox',
@@ -622,6 +629,7 @@ export interface FileRoutesByFullPath {
   '/api/google/search-console/callback': typeof ApiGoogleSearchConsoleCallbackRoute
   '/api/google/search-console/cron-sync': typeof ApiGoogleSearchConsoleCronSyncRoute
   '/api/public/webhooks/paddle': typeof ApiPublicWebhooksPaddleRoute
+  '/api/public/webhooks/stripe': typeof ApiPublicWebhooksStripeRoute
   '/api/public/webhooks/stripe-sandbox': typeof ApiPublicWebhooksStripeSandboxRoute
   '/lovable/email/auth/preview': typeof LovableEmailAuthPreviewRoute
   '/lovable/email/auth/webhook': typeof LovableEmailAuthWebhookRoute
@@ -707,6 +715,7 @@ export interface FileRoutesByTo {
   '/api/google/search-console/callback': typeof ApiGoogleSearchConsoleCallbackRoute
   '/api/google/search-console/cron-sync': typeof ApiGoogleSearchConsoleCronSyncRoute
   '/api/public/webhooks/paddle': typeof ApiPublicWebhooksPaddleRoute
+  '/api/public/webhooks/stripe': typeof ApiPublicWebhooksStripeRoute
   '/api/public/webhooks/stripe-sandbox': typeof ApiPublicWebhooksStripeSandboxRoute
   '/lovable/email/auth/preview': typeof LovableEmailAuthPreviewRoute
   '/lovable/email/auth/webhook': typeof LovableEmailAuthWebhookRoute
@@ -794,6 +803,7 @@ export interface FileRoutesById {
   '/api/google/search-console/callback': typeof ApiGoogleSearchConsoleCallbackRoute
   '/api/google/search-console/cron-sync': typeof ApiGoogleSearchConsoleCronSyncRoute
   '/api/public/webhooks/paddle': typeof ApiPublicWebhooksPaddleRoute
+  '/api/public/webhooks/stripe': typeof ApiPublicWebhooksStripeRoute
   '/api/public/webhooks/stripe-sandbox': typeof ApiPublicWebhooksStripeSandboxRoute
   '/lovable/email/auth/preview': typeof LovableEmailAuthPreviewRoute
   '/lovable/email/auth/webhook': typeof LovableEmailAuthWebhookRoute
@@ -881,6 +891,7 @@ export interface FileRouteTypes {
     | '/api/google/search-console/callback'
     | '/api/google/search-console/cron-sync'
     | '/api/public/webhooks/paddle'
+    | '/api/public/webhooks/stripe'
     | '/api/public/webhooks/stripe-sandbox'
     | '/lovable/email/auth/preview'
     | '/lovable/email/auth/webhook'
@@ -966,6 +977,7 @@ export interface FileRouteTypes {
     | '/api/google/search-console/callback'
     | '/api/google/search-console/cron-sync'
     | '/api/public/webhooks/paddle'
+    | '/api/public/webhooks/stripe'
     | '/api/public/webhooks/stripe-sandbox'
     | '/lovable/email/auth/preview'
     | '/lovable/email/auth/webhook'
@@ -1052,6 +1064,7 @@ export interface FileRouteTypes {
     | '/api/google/search-console/callback'
     | '/api/google/search-console/cron-sync'
     | '/api/public/webhooks/paddle'
+    | '/api/public/webhooks/stripe'
     | '/api/public/webhooks/stripe-sandbox'
     | '/lovable/email/auth/preview'
     | '/lovable/email/auth/webhook'
@@ -1107,6 +1120,7 @@ export interface RootRouteChildren {
   ApiGoogleSearchConsoleCallbackRoute: typeof ApiGoogleSearchConsoleCallbackRoute
   ApiGoogleSearchConsoleCronSyncRoute: typeof ApiGoogleSearchConsoleCronSyncRoute
   ApiPublicWebhooksPaddleRoute: typeof ApiPublicWebhooksPaddleRoute
+  ApiPublicWebhooksStripeRoute: typeof ApiPublicWebhooksStripeRoute
   ApiPublicWebhooksStripeSandboxRoute: typeof ApiPublicWebhooksStripeSandboxRoute
   LovableEmailAuthPreviewRoute: typeof LovableEmailAuthPreviewRoute
   LovableEmailAuthWebhookRoute: typeof LovableEmailAuthWebhookRoute
@@ -1677,6 +1691,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof LovableEmailAuthPreviewRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/public/webhooks/stripe': {
+      id: '/api/public/webhooks/stripe'
+      path: '/api/public/webhooks/stripe'
+      fullPath: '/api/public/webhooks/stripe'
+      preLoaderRoute: typeof ApiPublicWebhooksStripeRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/public/webhooks/stripe-sandbox': {
       id: '/api/public/webhooks/stripe-sandbox'
       path: '/api/public/webhooks/stripe-sandbox'
@@ -1830,6 +1851,7 @@ const rootRouteChildren: RootRouteChildren = {
   ApiGoogleSearchConsoleCallbackRoute: ApiGoogleSearchConsoleCallbackRoute,
   ApiGoogleSearchConsoleCronSyncRoute: ApiGoogleSearchConsoleCronSyncRoute,
   ApiPublicWebhooksPaddleRoute: ApiPublicWebhooksPaddleRoute,
+  ApiPublicWebhooksStripeRoute: ApiPublicWebhooksStripeRoute,
   ApiPublicWebhooksStripeSandboxRoute: ApiPublicWebhooksStripeSandboxRoute,
   LovableEmailAuthPreviewRoute: LovableEmailAuthPreviewRoute,
   LovableEmailAuthWebhookRoute: LovableEmailAuthWebhookRoute,

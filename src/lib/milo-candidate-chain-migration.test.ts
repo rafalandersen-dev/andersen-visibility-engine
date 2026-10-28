@@ -97,6 +97,9 @@ const independentCandidates = [
   // Widens only the diagnostics outcome_code CHECK; executed by
   // milo-conversation-response-unreadable-migration.test.ts on the diagnostics tables.
   "20261022120000_milo_conversation_response_unreadable.sql",
+  // Dormant Stripe lifecycle has a dedicated entitlement/receipt fixture in
+  // stripe-lifecycle-migration.test.ts; keep its unapplied status explicit.
+  "20261028183000_stripe_subscription_lifecycle.sql",
 ];
 const allowed = async (role: string, fn: string) =>
   (
