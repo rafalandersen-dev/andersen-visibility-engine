@@ -3,6 +3,7 @@ import { expect, it } from "vitest";
 import { UI_CATALOGS, isUiLanguage } from "../catalogs";
 import { euEmailCopy } from "../email-copy-eu";
 import { GA_STAGED_BATCHES, GA_STAGED_CATALOG } from "./ga";
+import { gaBillingScreen } from "./ga-billing-screen";
 
 const numericTokens = /\b\d+(?:\.\d+)?(?=\b|(?:st|nd|rd|th|d)\b)/g;
 // Product names and technical terms that are correctly identical in Irish.
@@ -69,18 +70,32 @@ it("keeps staged Irish outside runtime and assigns each authored key once", () =
   const keys = GA_STAGED_BATCHES.flatMap((batch) => Object.keys(batch.copy));
   expect(new Set(keys).size).toBe(keys.length);
   expect(Object.keys(GA_STAGED_CATALOG).sort()).toEqual(keys.sort());
-  expect(keys).toHaveLength(4567);
+  expect(keys).toHaveLength(4693);
   expect(Object.isFrozen(GA_STAGED_CATALOG)).toBe(true);
 });
 it("covers the complete current English interface key set", () => {
   expect(Object.keys(GA_STAGED_CATALOG).sort()).toEqual(Object.keys(UI_CATALOGS.en).sort());
 });
 it("does not copy English text into authored Irish values", () => {
+  // The R21 billing additions are DECLARED English fallback (see
+  // ./billing-screen-fallback.ts), not text copied by accident. They are
+  // excluded by their exact partition — the billing keys this locale has no
+  // translation for — so any other English value still fails, and so does any
+  // drift in the size of that partition.
+  const fallback = new Set(
+    Object.keys(UI_CATALOGS.en).filter(
+      (key) => key.split(".")[0] === "billingScreen" && !(key in gaBillingScreen),
+    ),
+  );
+  expect(fallback.size).toBe(126);
   const unchanged = Object.entries(GA_STAGED_CATALOG).filter(
-    ([key, value]) => value === UI_CATALOGS.en[key] && !properNames.has(key),
+    ([key, value]) => value === UI_CATALOGS.en[key] && !properNames.has(key) && !fallback.has(key),
   );
   expect(unchanged.map(([key]) => key)).toEqual([]);
   for (const key of properNames) expect(GA_STAGED_CATALOG[key]).toBe(UI_CATALOGS.en[key]);
+  for (const key of fallback) expect(GA_STAGED_CATALOG[key], key).toBe(UI_CATALOGS.en[key]);
+  for (const [key, value] of Object.entries(gaBillingScreen))
+    expect(GA_STAGED_CATALOG[key], key).toBe(value);
 });
 it("keeps Irish collaborator roles consistent with existing invitation emails", () => {
   for (const role of ["viewer", "editor", "reviewer"] as const)

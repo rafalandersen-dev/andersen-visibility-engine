@@ -3,6 +3,7 @@ import { expect, it } from "vitest";
 import { UI_CATALOGS, isUiLanguage } from "../catalogs";
 import { euEmailCopy } from "../email-copy-eu";
 import { MT_STAGED_BATCHES, MT_STAGED_CATALOG } from "./mt";
+import { mtBillingScreen } from "./mt-billing-screen";
 
 const numericTokens = /\b\d+(?:\.\d+)?(?=\b|(?:st|nd|rd|th|d)\b)/g;
 // Product names and technical terms that are correctly identical in Maltese.
@@ -75,18 +76,32 @@ it("keeps staged Maltese outside runtime and assigns each authored key once", ()
   const keys = MT_STAGED_BATCHES.flatMap((batch) => Object.keys(batch.copy));
   expect(new Set(keys).size).toBe(keys.length);
   expect(Object.keys(MT_STAGED_CATALOG).sort()).toEqual(keys.sort());
-  expect(keys).toHaveLength(4567);
+  expect(keys).toHaveLength(4693);
   expect(Object.isFrozen(MT_STAGED_CATALOG)).toBe(true);
 });
 it("covers the complete current English interface key set", () => {
   expect(Object.keys(MT_STAGED_CATALOG).sort()).toEqual(Object.keys(UI_CATALOGS.en).sort());
 });
 it("does not copy English text into authored Maltese values", () => {
+  // The R21 billing additions are DECLARED English fallback (see
+  // ./billing-screen-fallback.ts), not text copied by accident. They are
+  // excluded by their exact partition — the billing keys this locale has no
+  // translation for — so any other English value still fails, and so does any
+  // drift in the size of that partition.
+  const fallback = new Set(
+    Object.keys(UI_CATALOGS.en).filter(
+      (key) => key.split(".")[0] === "billingScreen" && !(key in mtBillingScreen),
+    ),
+  );
+  expect(fallback.size).toBe(126);
   const unchanged = Object.entries(MT_STAGED_CATALOG).filter(
-    ([key, value]) => value === UI_CATALOGS.en[key] && !properNames.has(key),
+    ([key, value]) => value === UI_CATALOGS.en[key] && !properNames.has(key) && !fallback.has(key),
   );
   expect(unchanged.map(([key]) => key)).toEqual([]);
   for (const key of properNames) expect(MT_STAGED_CATALOG[key]).toBe(UI_CATALOGS.en[key]);
+  for (const key of fallback) expect(MT_STAGED_CATALOG[key], key).toBe(UI_CATALOGS.en[key]);
+  for (const [key, value] of Object.entries(mtBillingScreen))
+    expect(MT_STAGED_CATALOG[key], key).toBe(value);
 });
 it("keeps Maltese collaborator roles consistent with existing invitation emails", () => {
   for (const role of ["viewer", "editor", "reviewer"] as const)

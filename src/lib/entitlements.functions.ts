@@ -20,7 +20,22 @@ export const getMyEntitlementFn = createServerFn({ method: "POST" })
     return { entitlement, effectivePlanId: effectivePlanId(entitlement) };
   });
 
-/** Owner-only manual override (beta / comped / reset to free). */
+/**
+ * Owner-only manual override (beta / comped / reset to free).
+ *
+ * The owner role is NOT sufficient. A manual write replaces whatever the
+ * entitlement row says, so applying one on top of a live or unresolved Stripe
+ * agreement would silently contradict the provider — and the UI's disabled
+ * state is no protection at all against a direct call to this function. The
+ * narrow server-side clearance below therefore runs for every manual status,
+ * including the Free reset, and FAILS CLOSED: unknown, stale, malformed or
+ * unreadable billing state holds the write instead of allowing it.
+ *
+ * It deliberately does not reach the provider, add a policy or widen this
+ * endpoint: valid manual and Paddle accounts keep the behaviour they have
+ * today, and the clearance only refuses what it can positively see is
+ * unresolved or cannot see at all.
+ */
 export const setManualEntitlementFn = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((input: unknown) =>
@@ -37,6 +52,11 @@ export const setManualEntitlementFn = createServerFn({ method: "POST" })
       _role: "owner",
     });
     if (!isOwner) throw new Error("Forbidden");
+
+    const { evaluateManualEntitlementClearance } = await import("./stripe-commercial.server");
+    const clearance = await evaluateManualEntitlementClearance(String(context.userId));
+    // A finite local code only: no provider text, id, key or operator detail.
+    if (!clearance.allowed) throw new Error(`manual_override_held:${clearance.reason}`);
 
     const { writeEntitlement, readEntitlement } = await import("./entitlements.server");
     const free = data.status === "freePreview";

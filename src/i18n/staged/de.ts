@@ -25,6 +25,7 @@ import { deServicesScreen } from "./de-services-screen";
 import { deAuditScreen } from "./de-audit-screen";
 import { deAnalyticsScreen } from "./de-analytics-screen";
 import { deBillingScreen } from "./de-billing-screen";
+import { stagedBillingScreen } from "./billing-screen-fallback";
 import { deEvidenceScreen } from "./de-evidence-screen";
 import { dePlanScreen } from "./de-plan-screen";
 import { deCitationReview } from "./de-citation-review";
@@ -64,7 +65,11 @@ export const DE_STAGED_BATCHES = [
   { name: "services screen", copy: deServicesScreen, namespaces: ["servicesScreen"] },
   { name: "audit screen", copy: deAuditScreen, namespaces: ["auditScreen"] },
   { name: "analytics screen", copy: deAnalyticsScreen, namespaces: ["analyticsScreen"] },
-  { name: "billing screen", copy: deBillingScreen, namespaces: ["billingScreen"] },
+  {
+    name: "billing screen",
+    copy: stagedBillingScreen(deBillingScreen),
+    namespaces: ["billingScreen"],
+  },
   { name: "evidence screen", copy: deEvidenceScreen, namespaces: ["evidenceScreen"] },
   { name: "plan screen", copy: dePlanScreen, namespaces: ["planScreen"] },
   { name: "editor screen", copy: deEditorScreen, namespaces: ["editorScreen"] },

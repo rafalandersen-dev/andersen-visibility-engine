@@ -92,10 +92,11 @@ function TermsPage() {
           <Link className="underline underline-offset-4" to="/pricing">
             pricing page
           </Link>
-          . Paid plans are billed monthly in advance, per project (Agency per workspace), and renew
-          automatically until cancelled. Prices are shown in your local currency where available and
-          exclude VAT unless stated otherwise; VAT is added at checkout based on your location and
-          VAT status.
+          . Paid plans are billed monthly in advance as one subscription per business account, which
+          includes that plan&apos;s bundle of projects and pooled AI and seat allowances for the
+          whole account, and renew automatically until cancelled. Prices are shown in your local
+          currency where available and exclude VAT unless stated otherwise; VAT is added at checkout
+          based on your location and VAT status.
         </p>
         <p>
           Public paid checkout remains on hold while Stripe setup and billing validation are

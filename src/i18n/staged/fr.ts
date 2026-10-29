@@ -9,6 +9,7 @@ import { frAuthScreen } from "./fr-auth-screen";
 import { frSharedUi } from "./fr-shared-ui";
 import { frAnalyticsScreen } from "./fr-analytics-screen";
 import { frBillingScreen } from "./fr-billing-screen";
+import { stagedBillingScreen } from "./billing-screen-fallback";
 import { frSetupScreen } from "./fr-setup-screen";
 import { frServicesScreen } from "./fr-services-screen";
 import { frAuditScreen } from "./fr-audit-screen";
@@ -51,7 +52,11 @@ export const FR_STAGED_BATCHES = [
   { name: "authentication screen", copy: frAuthScreen, namespaces: ["authScreen"] },
   { name: "shared UI", copy: frSharedUi, namespaces: ["sharedUi"] },
   { name: "analytics screen", copy: frAnalyticsScreen, namespaces: ["analyticsScreen"] },
-  { name: "billing screen", copy: frBillingScreen, namespaces: ["billingScreen"] },
+  {
+    name: "billing screen",
+    copy: stagedBillingScreen(frBillingScreen),
+    namespaces: ["billingScreen"],
+  },
   { name: "setup screen", copy: frSetupScreen, namespaces: ["setupScreen"] },
   { name: "services screen", copy: frServicesScreen, namespaces: ["servicesScreen"] },
   { name: "audit screen", copy: frAuditScreen, namespaces: ["auditScreen"] },
