@@ -24,6 +24,7 @@ import { elServicesScreen } from "./el-services-screen";
 import { elAuditScreen } from "./el-audit-screen";
 import { elAnalyticsScreen } from "./el-analytics-screen";
 import { elBillingScreen } from "./el-billing-screen";
+import { stagedBillingScreen } from "./billing-screen-fallback";
 import { elAuthScreen } from "./el-auth-screen";
 import { elSharedUi } from "./el-shared-ui";
 import { elCore } from "./el-core";
@@ -235,10 +236,10 @@ export const EL_STAGED_BATCHES = [
   },
   {
     name: "billing screen",
-    copy: elBillingScreen,
+    copy: stagedBillingScreen(elBillingScreen),
     namespaces: ["billingScreen"],
-    sourceRevision: "57b6fe5",
-    sourceHash: "d0e701bae4247d1129cc13dd6df6d9b569e725edbf5136255b68ca3fb2307194",
+    sourceRevision: "5804ec62b92d2a2d957a7b3fb536b7c5225ff128 (126 added keys: English fallback)",
+    sourceHash: "392ef009ccb9de83e3b6d64691a9a1aaee3ea0f59008db22c806638b5873477f",
   },
   {
     name: "authentication",

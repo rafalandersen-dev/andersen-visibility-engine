@@ -20,6 +20,7 @@ import { csEditorScreen } from "./cs-editor-screen";
 import { csPlanScreen } from "./cs-plan-screen";
 import { csEvidenceScreen } from "./cs-evidence-screen";
 import { csBillingScreen } from "./cs-billing-screen";
+import { stagedBillingScreen } from "./billing-screen-fallback";
 import { csAnalyticsScreen } from "./cs-analytics-screen";
 import { csAuditScreen } from "./cs-audit-screen";
 import { csServicesScreen } from "./cs-services-screen";
@@ -207,10 +208,10 @@ export const CS_STAGED_BATCHES = [
   },
   {
     name: "billing screen",
-    copy: csBillingScreen,
+    copy: stagedBillingScreen(csBillingScreen),
     namespaces: ["billingScreen"],
-    sourceRevision: "0dd4047",
-    sourceHash: "d0e701bae4247d1129cc13dd6df6d9b569e725edbf5136255b68ca3fb2307194",
+    sourceRevision: "5804ec62b92d2a2d957a7b3fb536b7c5225ff128 (126 added keys: English fallback)",
+    sourceHash: "392ef009ccb9de83e3b6d64691a9a1aaee3ea0f59008db22c806638b5873477f",
   },
   {
     name: "analytics screen",

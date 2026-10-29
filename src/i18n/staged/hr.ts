@@ -21,6 +21,7 @@ import { hrPlanScreen } from "./hr-plan-screen";
 import { hrEvidenceScreen } from "./hr-evidence-screen";
 import { hrAnalyticsScreen } from "./hr-analytics-screen";
 import { hrBillingScreen } from "./hr-billing-screen";
+import { stagedBillingScreen } from "./billing-screen-fallback";
 import { hrSetupScreen } from "./hr-setup-screen";
 import { hrServicesScreen } from "./hr-services-screen";
 import { hrAuditScreen } from "./hr-audit-screen";
@@ -214,10 +215,10 @@ export const HR_STAGED_BATCHES = [
   },
   {
     name: "billing screen",
-    copy: hrBillingScreen,
+    copy: stagedBillingScreen(hrBillingScreen),
     namespaces: ["billingScreen"],
-    sourceRevision: "84890e0",
-    sourceHash: "d0e701bae4247d1129cc13dd6df6d9b569e725edbf5136255b68ca3fb2307194",
+    sourceRevision: "5804ec62b92d2a2d957a7b3fb536b7c5225ff128 (126 added keys: English fallback)",
+    sourceHash: "392ef009ccb9de83e3b6d64691a9a1aaee3ea0f59008db22c806638b5873477f",
   },
   {
     name: "setup screen",

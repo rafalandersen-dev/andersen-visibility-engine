@@ -20,6 +20,7 @@ import { nlEditorScreen } from "./nl-editor-screen";
 import { nlPlanScreen } from "./nl-plan-screen";
 import { nlEvidenceScreen } from "./nl-evidence-screen";
 import { nlBillingScreen } from "./nl-billing-screen";
+import { stagedBillingScreen } from "./billing-screen-fallback";
 import { nlAnalyticsScreen } from "./nl-analytics-screen";
 import { nlAuditScreen } from "./nl-audit-screen";
 import { nlServicesScreen } from "./nl-services-screen";
@@ -215,10 +216,10 @@ export const NL_STAGED_BATCHES = [
   },
   {
     name: "billing screen",
-    copy: nlBillingScreen,
+    copy: stagedBillingScreen(nlBillingScreen),
     namespaces: ["billingScreen"],
-    sourceRevision: "770590a",
-    sourceHash: "d0e701bae4247d1129cc13dd6df6d9b569e725edbf5136255b68ca3fb2307194",
+    sourceRevision: "5804ec62b92d2a2d957a7b3fb536b7c5225ff128 (126 added keys: English fallback)",
+    sourceHash: "392ef009ccb9de83e3b6d64691a9a1aaee3ea0f59008db22c806638b5873477f",
   },
   {
     name: "setup screen",

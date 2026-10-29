@@ -8,6 +8,7 @@ import { lvAuditScreen } from "./lv-audit-screen";
 import { lvBetaGuide } from "./lv-beta-guide";
 import { lvBetaScreen } from "./lv-beta-screen";
 import { lvBillingScreen } from "./lv-billing-screen";
+import { stagedBillingScreen } from "./billing-screen-fallback";
 import { lvCollaboration } from "./lv-collaboration";
 import { lvCommerce } from "./lv-commerce";
 import { lvConfiguration } from "./lv-configuration";
@@ -107,10 +108,10 @@ export const LV_STAGED_BATCHES = [
   },
   {
     name: "billing screen",
-    copy: lvBillingScreen,
+    copy: stagedBillingScreen(lvBillingScreen),
     namespaces: ["billingScreen"],
-    sourceRevision: "ff9b085",
-    sourceHash: "d0e701bae4247d1129cc13dd6df6d9b569e725edbf5136255b68ca3fb2307194",
+    sourceRevision: "5804ec62b92d2a2d957a7b3fb536b7c5225ff128 (126 added keys: English fallback)",
+    sourceHash: "392ef009ccb9de83e3b6d64691a9a1aaee3ea0f59008db22c806638b5873477f",
   },
   {
     name: "evidence screen",

@@ -21,6 +21,7 @@ import { fiPlanScreen } from "./fi-plan-screen";
 import { fiEvidenceScreen } from "./fi-evidence-screen";
 import { fiAnalyticsScreen } from "./fi-analytics-screen";
 import { fiBillingScreen } from "./fi-billing-screen";
+import { stagedBillingScreen } from "./billing-screen-fallback";
 import { fiSetupScreen } from "./fi-setup-screen";
 import { fiServicesScreen } from "./fi-services-screen";
 import { fiAuditScreen } from "./fi-audit-screen";
@@ -216,10 +217,10 @@ export const FI_STAGED_BATCHES = [
   },
   {
     name: "billing screen",
-    copy: fiBillingScreen,
+    copy: stagedBillingScreen(fiBillingScreen),
     namespaces: ["billingScreen"],
-    sourceRevision: "7e386ca",
-    sourceHash: "d0e701bae4247d1129cc13dd6df6d9b569e725edbf5136255b68ca3fb2307194",
+    sourceRevision: "5804ec62b92d2a2d957a7b3fb536b7c5225ff128 (126 added keys: English fallback)",
+    sourceHash: "392ef009ccb9de83e3b6d64691a9a1aaee3ea0f59008db22c806638b5873477f",
   },
   {
     name: "setup screen",
