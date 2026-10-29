@@ -53,9 +53,10 @@ function RefundsPage() {
 
       <LegalSection heading="Monthly subscriptions">
         <p>
-          Starter, Growth, Pro and Agency plans are billed monthly in advance, per project (or per
-          workspace for Agency). The free preview plan is not billed. A subscription renews
-          automatically each month until you cancel.
+          Starter, Growth, Pro and Agency plans are billed monthly in advance as one subscription
+          per business account. Each plan includes its own bundle of projects and pooled AI and seat
+          allowances for the whole account. The free preview plan is not billed. A subscription
+          renews automatically each month until you cancel.
         </p>
       </LegalSection>
 

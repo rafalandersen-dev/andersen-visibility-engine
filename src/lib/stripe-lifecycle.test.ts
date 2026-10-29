@@ -45,6 +45,7 @@ const mocks = vi.hoisted(() => ({ rpc: vi.fn(), fetch: vi.fn() }));
 vi.mock("@/integrations/supabase/client.server", () => ({ supabaseAdmin: { rpc: mocks.rpc } }));
 
 import {
+  STRIPE_PROJECTION_RPC,
   createStripeLifecycleCheckout,
   createStripeLifecyclePortal,
   readPurchasedWorkingSeats,
@@ -907,7 +908,10 @@ const DEFAULT_RPC: Record<string, unknown> = {
   stripe_customer_projection: [
     { user_id: OWNER, subscription_id: null, plan_id: null, status: null },
   ],
-  stripe_apply_subscription_projection: "applied_grant",
+  // The GUARDED wrapper is the projection entry point (20261028223000): it holds
+  // this lease, refuses to widen an allowance while a paid change is unresolved,
+  // and otherwise delegates to the accepted foundation function unchanged.
+  stripe_commercial_guarded_projection: "applied_grant",
   stripe_claim_replay_receipt: [],
   stripe_owner_customer: "cus_1",
   stripe_upsert_customer: null,
@@ -941,7 +945,7 @@ const stored = (over: Record<string, unknown> = {}) => [
 const rpcArgs = (name: string) =>
   mocks.rpc.mock.calls.filter((call) => call[0] === name).map((call) => call[1]);
 const rpcNames = () => mocks.rpc.mock.calls.map((call) => call[0]);
-const applied = () => rpcArgs("stripe_apply_subscription_projection");
+const applied = () => rpcArgs(STRIPE_PROJECTION_RPC);
 const finished = () => rpcArgs("stripe_finish_webhook_receipt");
 
 beforeEach(() => {
@@ -1075,7 +1079,7 @@ describe("webhook admission", () => {
     routes["GET /v1/account"] = () => json({ id: "acct_other" });
     expect((await deliver(event())).status).toBe(503);
     expect(rpcNames()).toContain("stripe_release_account_lease");
-    expect(rpcNames()).not.toContain("stripe_apply_subscription_projection");
+    expect(rpcNames()).not.toContain(STRIPE_PROJECTION_RPC);
   });
   it("acknowledges a checkout session that names no customer", async () => {
     routes["GET /v1/checkout/sessions/cs_live_1"] = () =>
@@ -1088,7 +1092,7 @@ describe("webhook admission", () => {
     );
     expect(await response.json()).toEqual({ ok: true, ignored: "session_without_customer" });
     expect(finished()[0]).toMatchObject({ p_status: "ignored" });
-    expect(rpcNames()).not.toContain("stripe_apply_subscription_projection");
+    expect(rpcNames()).not.toContain(STRIPE_PROJECTION_RPC);
     // With no resolvable owner there is nothing to settle, and nothing is guessed.
     expect(rpcNames()).not.toContain("stripe_expire_checkout_session");
   });
@@ -1102,7 +1106,7 @@ describe("webhook admission", () => {
     rpcTable({ stripe_claim_account_lease: rpcFails("stripe_lease_held") });
     expect((await deliver(event())).status).toBe(503);
     expect(mocks.fetch).not.toHaveBeenCalled();
-    expect(rpcNames()).not.toContain("stripe_apply_subscription_projection");
+    expect(rpcNames()).not.toContain(STRIPE_PROJECTION_RPC);
   });
   it("fences every receipt transition with the lease it actually holds", async () => {
     await deliver(event({ type: "charge.refunded" }));
@@ -1152,7 +1156,7 @@ describe("authoritative reconciliation", () => {
   it("renews the lease before writing and writes nothing without it", async () => {
     rpcTable({ stripe_renew_account_lease: false });
     expect((await deliver(event())).status).toBe(503);
-    expect(rpcNames()).not.toContain("stripe_apply_subscription_projection");
+    expect(rpcNames()).not.toContain(STRIPE_PROJECTION_RPC);
     // Not even an acknowledgement: the receipt stays exactly as it was.
     expect(rpcNames()).not.toContain("stripe_finish_webhook_receipt");
   });
@@ -1238,13 +1242,13 @@ describe("authoritative reconciliation", () => {
     Object.assign(routes, override);
     const response = await deliver(event());
     expect(response.status).toBe(503);
-    expect(rpcNames()).not.toContain("stripe_apply_subscription_projection");
+    expect(rpcNames()).not.toContain(STRIPE_PROJECTION_RPC);
     expect(finished()[0]).toMatchObject({ p_status: "uncertain" });
   });
   it("stays uncertain when the customer is not mapped to a user", async () => {
     rpcTable({ stripe_customer_projection: [] });
     expect((await deliver(event())).status).toBe(503);
-    expect(rpcNames()).not.toContain("stripe_apply_subscription_projection");
+    expect(rpcNames()).not.toContain(STRIPE_PROJECTION_RPC);
   });
   it("stays uncertain when two grant-eligible subscriptions are plausible", async () => {
     routes["GET /v1/subscriptions"] = () =>
@@ -1255,7 +1259,7 @@ describe("authoritative reconciliation", () => {
         ]),
       );
     expect((await deliver(event())).status).toBe(503);
-    expect(rpcNames()).not.toContain("stripe_apply_subscription_projection");
+    expect(rpcNames()).not.toContain(STRIPE_PROJECTION_RPC);
   });
 
   /* --- incomplete evidence on a live subscription: retry, never revoke --- */
@@ -1317,14 +1321,14 @@ describe("authoritative reconciliation", () => {
     // Nothing is granted AND nothing is revoked: the entitlement it already has
     // survives, and the receipt is retried.
     expect((await deliver(event())).status).toBe(503);
-    expect(rpcNames()).not.toContain("stripe_apply_subscription_projection");
+    expect(rpcNames()).not.toContain(STRIPE_PROJECTION_RPC);
     expect(finished()[0]).toMatchObject({ p_status: "uncertain" });
   });
   it("does not grant an active subscription whose invoice is authoritatively unpaid", async () => {
     routes["GET /v1/subscriptions"] = () =>
       json(list([subscription({ latest_invoice: paidInvoice("sub_live_1", { status: "open" }) })]));
     expect((await deliver(event())).status).toBe(503);
-    expect(rpcNames()).not.toContain("stripe_apply_subscription_projection");
+    expect(rpcNames()).not.toContain(STRIPE_PROJECTION_RPC);
   });
 
   /* ------------------------ replacement and revoke ----------------------- */
@@ -1352,14 +1356,14 @@ describe("authoritative reconciliation", () => {
         ]),
       );
     expect((await deliver(event())).status).toBe(503);
-    expect(rpcNames()).not.toContain("stripe_apply_subscription_projection");
+    expect(rpcNames()).not.toContain(STRIPE_PROJECTION_RPC);
 
     // Absent from a complete list is not proof of replacement either.
     vi.clearAllMocks();
     withStored();
     routes["GET /v1/subscriptions"] = () => json(list([subscription()]));
     expect((await deliver(event())).status).toBe(503);
-    expect(rpcNames()).not.toContain("stripe_apply_subscription_projection");
+    expect(rpcNames()).not.toContain(STRIPE_PROJECTION_RPC);
 
     // Shown canceled in the same complete read: an explicitly verified
     // replacement, named in p_replaces.
@@ -1404,7 +1408,7 @@ describe("authoritative reconciliation", () => {
         ]),
       );
     expect((await deliver(event())).status).toBe(503);
-    expect(rpcNames()).not.toContain("stripe_apply_subscription_projection");
+    expect(rpcNames()).not.toContain(STRIPE_PROJECTION_RPC);
   });
   it.each([
     ["canceled", "void"],
@@ -1420,7 +1424,7 @@ describe("authoritative reconciliation", () => {
         plan_id: "pro",
         status: "active",
       }),
-      stripe_apply_subscription_projection: "applied_no_grant",
+      [STRIPE_PROJECTION_RPC]: "applied_no_grant",
     });
     routes["GET /v1/subscriptions"] = () =>
       json(
@@ -1447,7 +1451,7 @@ describe("authoritative reconciliation", () => {
         plan_id: "growth",
         status: "active",
       }),
-      stripe_apply_subscription_projection: "applied_no_grant",
+      [STRIPE_PROJECTION_RPC]: "applied_no_grant",
     });
     routes["GET /v1/subscriptions"] = () =>
       json(
@@ -1481,30 +1485,30 @@ describe("authoritative reconciliation", () => {
     });
     routes["GET /v1/subscriptions"] = () => json(list([]));
     expect((await deliver(event())).status).toBe(503);
-    expect(rpcNames()).not.toContain("stripe_apply_subscription_projection");
+    expect(rpcNames()).not.toContain(STRIPE_PROJECTION_RPC);
   });
   it("acknowledges an event for a customer that has no subscription at all", async () => {
     routes["GET /v1/subscriptions"] = () => json(list([]));
     const response = await deliver(event());
     expect(await response.json()).toEqual({ ok: true, ignored: "no_current_subscription" });
-    expect(rpcNames()).not.toContain("stripe_apply_subscription_projection");
+    expect(rpcNames()).not.toContain(STRIPE_PROJECTION_RPC);
   });
   it("acknowledges an unmapped customer whose only subscription is incomplete", async () => {
     routes["GET /v1/subscriptions"] = () =>
       json(list([subscription({ status: "incomplete", latest_invoice: null })]));
     const response = await deliver(event());
     expect(await response.json()).toEqual({ ok: true, ignored: "no_current_subscription" });
-    expect(rpcNames()).not.toContain("stripe_apply_subscription_projection");
+    expect(rpcNames()).not.toContain(STRIPE_PROJECTION_RPC);
   });
   it.each(["unknown_customer", "grant_unverified", "something_new"])(
     "treats the projection result %s as uncertain, never as success",
     async (result) => {
-      rpcTable({ stripe_apply_subscription_projection: result });
+      rpcTable({ [STRIPE_PROJECTION_RPC]: result });
       expect((await deliver(event())).status).toBe(503);
     },
   );
   it("passes a stale projection through as acknowledged", async () => {
-    rpcTable({ stripe_apply_subscription_projection: "stale_ignored" });
+    rpcTable({ [STRIPE_PROJECTION_RPC]: "stale_ignored" });
     expect(await (await deliver(event())).json()).toEqual({ ok: true, ignored: "stale_ignored" });
   });
   it("never grants in test mode even for an active, paid subscription", async () => {
@@ -1513,7 +1517,7 @@ describe("authoritative reconciliation", () => {
     routes["GET /v1/subscriptions"] = () => json(list([testSubscription()]));
     rpcTable({
       stripe_claim_account_lease: 2,
-      stripe_apply_subscription_projection: "applied_no_grant",
+      [STRIPE_PROJECTION_RPC]: "applied_no_grant",
     });
     const response = await deliver(
       event({ livemode: false, data: { object: { id: "sub_test_1", object: "subscription" } } }),
@@ -1526,6 +1530,145 @@ describe("authoritative reconciliation", () => {
       p_grants: false,
     });
     for (const call of calls) expect(call.headers.Authorization).toBe("Bearer rk_test_fixture");
+  });
+});
+
+/**
+ * The one adapter invariant the commercial packet depends on.
+ *
+ * The commercial projection gate can only protect an allowance it is actually
+ * consulted about. A LIVE active/trialing subscription that is paid and current
+ * but whose exact evidence cannot be read is UNCERTAIN, and uncertainty must be
+ * stopped BEFORE the projection — not softened into a grant-shaped snapshot
+ * carried with `p_grants: false`, which would overwrite the observed row with a
+ * bigger plan while granting nothing, and so raise the bar every later grant is
+ * compared against.
+ */
+describe("uncertain commercial proof never reaches the live projection", () => {
+  const grantShaped = { p_status: "active", p_invoice_paid: true };
+
+  it.each<[string, Record<string, unknown>]>([
+    // Each row is an active, apparently paid LIVE subscription whose exact
+    // evidence cannot be read.
+    ["an unreadable latest invoice", { latest_invoice: { id: "in_1", object: "invoice" } }],
+    ["an absent latest invoice", { latest_invoice: null }],
+    ["an invoice for another subscription", { latest_invoice: paidInvoice("sub_somewhere_else") }],
+    [
+      "a paid invoice with no paid_at",
+      { latest_invoice: paidInvoice("sub_live_1", { status_transitions: { paid_at: null } }) },
+    ],
+    [
+      "items this account's catalogue cannot resolve",
+      {
+        items: {
+          object: "list",
+          has_more: false,
+          data: [subscriptionItem({ price: { id: "price_unknown", product: "prod_x" } })],
+        },
+      },
+    ],
+    [
+      "a paginated item list",
+      { items: { object: "list", has_more: true, data: [subscriptionItem()] } },
+    ],
+  ])(
+    "makes ZERO projection calls for an active, apparently paid subscription with %s",
+    async (_label, over) => {
+      rpcTable({
+        stripe_customer_projection: stored({
+          subscription_id: "sub_live_1",
+          plan_id: "growth",
+          status: "active",
+        }),
+      });
+      routes["GET /v1/subscriptions"] = () => json(list([subscription(over)]));
+      // Retryable, not acknowledged: the evidence does not support either a
+      // grant or a revoke.
+      expect((await deliver(event())).status).toBe(503);
+      expect(rpcNames()).not.toContain(STRIPE_PROJECTION_RPC);
+      expect(applied()).toEqual([]);
+      // And nothing else wrote an allowance either.
+      expect(rpcNames()).not.toContain("stripe_apply_subscription_projection");
+    },
+  );
+
+  it("never passes a grant-shaped LIVE snapshot with p_grants: false", async () => {
+    // Exhaustive over every reachable shape this suite can produce for the
+    // mapped subscription: a projection that reports `active`/`trialing` with a
+    // paid invoice is only ever sent as a GRANT.
+    const shapes: Record<string, unknown>[] = [
+      {},
+      { status: "trialing" },
+      { status: "past_due", latest_invoice: paidInvoice("sub_live_1", { status: "open" }) },
+      { status: "unpaid", latest_invoice: paidInvoice("sub_live_1", { status: "open" }) },
+      { status: "canceled", latest_invoice: paidInvoice("sub_live_1", { status: "void" }) },
+      { status: "paused", latest_invoice: paidInvoice("sub_live_1", { status: "open" }) },
+      { cancel_at_period_end: true },
+      { latest_invoice: null },
+      { items: { object: "list", has_more: true, data: [subscriptionItem()] } },
+    ];
+    for (const [index, shape] of shapes.entries()) {
+      rpcTable({
+        stripe_customer_projection: stored({
+          subscription_id: "sub_live_1",
+          plan_id: "growth",
+          status: "active",
+        }),
+        [STRIPE_PROJECTION_RPC]: "applied_no_grant",
+      });
+      routes["GET /v1/subscriptions"] = () => json(list([subscription(shape)]));
+      await deliver(event({ id: `evt_shape_${index}` }));
+      for (const args of applied())
+        expect(
+          !(
+            (args.p_status === "active" || args.p_status === "trialing") &&
+            args.p_invoice_paid === true &&
+            args.p_grants === false
+          ),
+          `${JSON.stringify(shape)} -> ${JSON.stringify(args)}`,
+        ).toBe(true);
+    }
+  });
+
+  it("still applies a LEGITIMATE non-granting past_due observation, with its own plan", async () => {
+    // The corrected rule must not block a real revoke: an explicitly
+    // non-granting status on the exact mapped subscription is applied, and the
+    // commercial gate deliberately never holds it.
+    rpcTable({
+      stripe_customer_projection: stored({
+        subscription_id: "sub_live_1",
+        plan_id: "pro",
+        status: "active",
+      }),
+      [STRIPE_PROJECTION_RPC]: "applied_no_grant",
+    });
+    routes["GET /v1/subscriptions"] = () =>
+      json(
+        list([
+          subscription({
+            status: "past_due",
+            latest_invoice: paidInvoice("sub_live_1", { status: "open" }),
+          }),
+        ]),
+      );
+    expect((await deliver(event())).status).toBe(200);
+    expect(applied()).toHaveLength(1);
+    expect(applied()[0]).toMatchObject({
+      p_grants: false,
+      p_status: "past_due",
+      p_invoice_paid: false,
+    });
+    // It was NOT grant-shaped, which is the whole distinction.
+    expect(applied()[0]).not.toMatchObject(grantShaped);
+  });
+
+  it("wires ONLY the accepted guarded RPC as the projection write entry point", async () => {
+    // The gate cannot be bypassed from application code: there is no direct
+    // call to the foundation's own projection function anywhere.
+    expect(STRIPE_PROJECTION_RPC).toBe("stripe_commercial_guarded_projection");
+    expect((await deliver(event())).status).toBe(200);
+    expect(rpcNames()).toContain(STRIPE_PROJECTION_RPC);
+    expect(rpcNames()).not.toContain("stripe_apply_subscription_projection");
   });
 });
 
@@ -1568,7 +1711,7 @@ describe("checkout session events settle only their own request", () => {
     // readable here: uncertain, and no request is touched.
     expect((await deliver(sessionEvent("checkout.session.completed"))).status).toBe(503);
     expect(rpcNames()).not.toContain("stripe_expire_checkout_session");
-    expect(rpcNames()).not.toContain("stripe_apply_subscription_projection");
+    expect(rpcNames()).not.toContain(STRIPE_PROJECTION_RPC);
   });
   it("expires a request only when the provider itself reports the session expired", async () => {
     routes["GET /v1/checkout/sessions/cs_live_1"] = () =>
@@ -1683,7 +1826,7 @@ describe("bounded durable replay", () => {
         fetch: mocks.fetch as unknown as typeof fetch,
       }),
     ).toEqual({ attempted: 1, applied: 0, ignored: 0, uncertain: 1 });
-    expect(rpcNames()).not.toContain("stripe_apply_subscription_projection");
+    expect(rpcNames()).not.toContain(STRIPE_PROJECTION_RPC);
   });
   it("counts an uncertain re-attempt without writing anything", async () => {
     rpcTable({ stripe_claim_replay_receipt: queue(replayRow()) });
@@ -1695,7 +1838,7 @@ describe("bounded durable replay", () => {
       fetch: mocks.fetch as unknown as typeof fetch,
     });
     expect(result).toEqual({ attempted: 1, applied: 0, ignored: 0, uncertain: 1 });
-    expect(rpcNames()).not.toContain("stripe_apply_subscription_projection");
+    expect(rpcNames()).not.toContain(STRIPE_PROJECTION_RPC);
   });
   it("does nothing when there is no backlog", async () => {
     expect(
@@ -1784,7 +1927,7 @@ describe("bounded durable replay", () => {
     });
     expect(exclusions()).toEqual([[], ["evt_1"], ["evt_1", "evt_2"], ["evt_1", "evt_2", "evt_3"]]);
     expect(finished().map((args) => args.p_event)).toEqual(["evt_1", "evt_2", "evt_3"]);
-    expect(rpcNames()).not.toContain("stripe_apply_subscription_projection");
+    expect(rpcNames()).not.toContain(STRIPE_PROJECTION_RPC);
   });
   it("excludes a receipt whose lease was reclaimed during its own reads", async () => {
     // The first receipt loses its lease while reading (so it writes nothing and
@@ -1906,7 +2049,7 @@ describe("caller-scoped checkout creation", () => {
       p_mode: "test",
       p_kind: "checkout",
     });
-    expect(rpcNames()).not.toContain("stripe_apply_subscription_projection");
+    expect(rpcNames()).not.toContain(STRIPE_PROJECTION_RPC);
     expect(rpcArgs("stripe_claim_checkout_request")[0].p_fingerprint).toMatch(/^[0-9a-f]{64}$/);
   });
   it("verifies the account before creating a customer or a session", async () => {

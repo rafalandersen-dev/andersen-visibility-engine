@@ -108,6 +108,9 @@ const independentCandidates = [
   // treated as released) and executed against the real chain by
   // weekly-test-window-table-privacy-migration.test.ts.
   "20261028211000_bounded_window_table_privacy.sql",
+  // Dormant commercial operations extend the Stripe foundation and execute in
+  // stripe-commercial-migration.test.ts; preserve their explicit unapplied status.
+  "20261028223000_stripe_commercial_operations.sql",
 ];
 const allowed = async (role: string, fn: string) =>
   (

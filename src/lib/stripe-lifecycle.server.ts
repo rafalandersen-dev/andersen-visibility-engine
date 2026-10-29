@@ -78,11 +78,36 @@ const LEASE_TTL_SECONDS = 60;
  * The window is measured from the request's immutable creation time and
  * re-evaluated against a fresh clock before every duplicable mutation, never
  * once at the start of an attempt whose later steps all await. */
-const IDEMPOTENCY_RETENTION_MS = 24 * 3600 * 1000;
+export const IDEMPOTENCY_RETENTION_MS = 24 * 3600 * 1000;
 const MAX_REPLAY_LIMIT = 25;
-const LIST_LIMIT = 100;
+export const LIST_LIMIT = 100;
+
+/**
+ * The single write entry point for the projection.
+ *
+ * It names the GUARDED wrapper from the additive commercial migration
+ * (20261028223000), which requires this exact lease, refuses a projection that
+ * would widen an allowance while a paid plan/seat change is unresolved, and
+ * otherwise delegates to the accepted foundation's
+ * `stripe_apply_subscription_projection` UNCHANGED and in the same transaction.
+ * The foundation function is not modified, re-created or re-granted; it is
+ * simply no longer called directly, so the gate cannot be bypassed from
+ * application code.
+ */
+export const STRIPE_PROJECTION_RPC = "stripe_commercial_guarded_projection";
 
 export class StripeLifecycleError extends Error {
+  /**
+   * The underlying database/transport message, when there was one.
+   *
+   * `code` stays the stable `<rpc>_failed` label every existing caller matches
+   * on. `detail` is additive and purely informational to this module: a caller
+   * that must distinguish a DETERMINISTIC SQL rejection (a `RAISE EXCEPTION`
+   * the frozen functions define) from a transport failure that proves nothing
+   * cannot do it from `code` alone, and guessing "rejection" for both is how an
+   * ambiguous error became a terminal refusal.
+   */
+  detail = "";
   constructor(readonly code: string) {
     super(code);
     this.name = "StripeLifecycleError";
@@ -336,7 +361,13 @@ async function rpc(): Promise<Rpc> {
 async function call(name: string, args: Json): Promise<unknown> {
   const invoke = await rpc();
   const { data, error } = await invoke(name, args);
-  if (error) throw new StripeLifecycleError(`${name}_failed`);
+  if (error) {
+    const failure = new StripeLifecycleError(`${name}_failed`);
+    // Carried, not interpreted, and never returned to a caller.
+    const message = (error as { message?: unknown } | null)?.message;
+    failure.detail = typeof message === "string" ? message : "";
+    throw failure;
+  }
   return data;
 }
 
@@ -670,7 +701,12 @@ async function reconcileReceipt(
 
   let result: unknown;
   try {
-    result = await call("stripe_apply_subscription_projection", {
+    // The GUARDED wrapper (20261028223000) is the write entry point: it holds
+    // this exact lease, refuses to widen an allowance while a paid plan/seat
+    // change is still unresolved, and otherwise delegates to the accepted
+    // foundation's stripe_apply_subscription_projection unchanged, in the same
+    // transaction. Both migrations are therefore applied together.
+    result = await call(STRIPE_PROJECTION_RPC, {
       p_account: accountId,
       p_mode: mode,
       ...fence,
@@ -697,9 +733,16 @@ async function reconcileReceipt(
     return { status: "uncertain", reason: "projection_refused" };
   }
   const outcome = str(result);
-  // An unknown customer or a grant the database would not confirm are both
-  // UNCERTAIN results, never successes.
-  if (outcome === "unknown_customer" || outcome === "grant_unverified")
+  // An unknown customer, a grant the database would not confirm, and a
+  // projection held behind an unresolved commercial operation are all UNCERTAIN
+  // results, never successes. `operation_pending_hold` wrote NOTHING and left the
+  // receipt retryable, so the previously verified allowance stands: a paid
+  // historical invoice, a replay or an out-of-order redelivery cannot widen it.
+  if (
+    outcome === "unknown_customer" ||
+    outcome === "grant_unverified" ||
+    outcome === "operation_pending_hold"
+  )
     return { status: "uncertain", reason: outcome };
   if (outcome === "superseded_ignored" || outcome === "stale_ignored")
     return { status: "ignored", reason: outcome };
@@ -1595,3 +1638,24 @@ export async function readPurchasedWorkingSeats(userId: string): Promise<number>
 }
 
 export { call as stripeLifecycleRpc };
+
+/* -------------------------------------------------------------------------- */
+/* Shared transport for the commercial operations module                      */
+/* -------------------------------------------------------------------------- */
+
+/**
+ * The provider transport and the account verification, exported for
+ * `stripe-commercial.server.ts` so the commercial operations reuse EXACTLY this
+ * module's pinned API version, mode-specific key, bounded body, redirect
+ * handling, timeout and status policy — rather than a second, slightly
+ * different HTTP path. Behaviour is unchanged; these are the existing internals
+ * under names the commercial module can import.
+ *
+ * `fetchImpl` is always injected, so tests drive a local fake and no real
+ * provider call is possible from this code path.
+ */
+export const stripeProviderCall = stripeCall;
+export const verifyStripeAccount = verifyAccount;
+export const stripeAccountVerifier = accountVerifier;
+export { clockFrom as stripeClockFrom };
+export type { Verify as StripeAccountVerify, Json as StripeJson };

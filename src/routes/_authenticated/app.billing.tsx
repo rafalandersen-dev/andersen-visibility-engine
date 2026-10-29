@@ -1,5 +1,6 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { StripeSandboxPanel } from "@/components/StripeSandboxPanel";
+import { StripeCommercialPanel } from "@/components/billing/StripeCommercialPanel";
 import { AppShell } from "@/components/AppShell";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -29,17 +30,43 @@ import {
   deriveBillingMarket,
   planPrice,
   addOnPrice,
-  getCurrentPlanId,
-  isActivePaid,
   type PlanId,
   type CustomerType,
   type BillingMarket,
-  type SubscriptionStatus,
 } from "@/lib/billing";
 import { createPaddlePortalSessionFn } from "@/lib/billing.functions";
 import { setManualEntitlementFn } from "@/lib/entitlements.functions";
-import { ShieldCheck, Crown, Check, ExternalLink, Loader2, Link2, CircleMinus } from "lucide-react";
-import { useState } from "react";
+import {
+  cancelStripeSubscriptionFn,
+  confirmStripeSubscriptionChangeFn,
+  getStripeCommercialSummaryFn,
+  prepareStripeSubscriptionChangeFn,
+  reverseStripeCancellationFn,
+} from "@/lib/stripe-commercial.functions";
+import {
+  canPrepareQuote,
+  canResumeIntent,
+  canStartCancellation,
+  canOpenPaddlePortal,
+  canStartReversal,
+  canUseManualOverride,
+  cancellationAvailable,
+  commercialReasonKey,
+  commercialUiReducer,
+  confirmChangeRequest,
+  createSessionGuard,
+  createSingleFlight,
+  focusIfConnected,
+  freeSelectionAvailable,
+  initialCommercialUiState,
+  routeCancellation,
+  routeFreeSelection,
+  termsFromQuote,
+  type CommercialIntentKind,
+  type SellablePlanId,
+} from "@/lib/stripe-commercial-ui";
+import { Crown, Check, Loader2, Link2, CircleMinus } from "lucide-react";
+import { useCallback, useEffect, useReducer, useRef, useState } from "react";
 import { toast } from "sonner";
 
 export const Route = createFileRoute("/_authenticated/app/billing")({
@@ -47,16 +74,19 @@ export const Route = createFileRoute("/_authenticated/app/billing")({
   component: BillingPage,
 });
 
-const visualQa = import.meta.env.DEV && import.meta.env.VITE_MILO_VISUAL_QA === "true";
+/** Opaque caller-side intent identity. The server owns every provider id, and
+ * this one is only ever created for a NEW intent — never to replace an
+ * operation that already exists. */
+function newIntentId(): string {
+  return globalThis.crypto.randomUUID();
+}
 
 function BillingPage() {
   const t = useT();
   const locale = useAppLanguage();
   const money = (amount: number) => formatBillingMoney(amount, currency, locale);
   const { isOwner, user } = useAuth();
-  const projects = useStore((s) => s.projects);
   const billingProfile = useStore((s) => s.billingProfile);
-  const subscription = useStore((s) => s.subscription);
 
   // ---- Profile form ----
   const [customerType, setCustomerType] = useState<CustomerType>(
@@ -72,20 +102,99 @@ function BillingPage() {
   const [savingProfile, setSavingProfile] = useState(false);
   const [portalBusy, setPortalBusy] = useState<"manage" | "cancel" | null>(null);
 
+  // The CATALOGUE market. It follows the editable form immediately and is
+  // deliberately not allowed anywhere near the verified current subscription:
+  // selecting another country changes the offer shown, never the agreement the
+  // customer already has.
   const market: BillingMarket = billingCountry
     ? deriveBillingMarket(billingCountry)
     : (billingProfile?.billingMarket ?? "European Union");
   const currency = MARKET_CURRENCY[market];
-  const currentPlanId: PlanId = visualQa ? "pro" : getCurrentPlanId(subscription);
-  const status: SubscriptionStatus = visualQa ? "active" : (subscription?.status ?? "freePreview");
-  const paid = visualQa || isActivePaid(subscription);
+
+  /* ---------------------------------------------------------------------- */
+  /* The authoritative billing summary                                      */
+  /* ---------------------------------------------------------------------- */
+
+  const [commercial, dispatchCommercial] = useReducer(
+    commercialUiReducer,
+    initialCommercialUiState,
+  );
+  // Request tokens are strictly increasing and never reused, so a response from
+  // an earlier request — or from a previous signed-in user — is discarded
+  // rather than allowed to overwrite current data.
+  const summaryToken = useRef(0);
+  const quoteToken = useRef(0);
+  // Guards the FIRST awaited response: two clicks before it arrives send one
+  // request, not two.
+  const singleFlight = useRef(createSingleFlight()).current;
+  const userId = user?.id ?? null;
+  const summary = commercial.summary;
+
+  // The live session generation. See `createSessionGuard`: it is what stops
+  // an obsolete callback from enqueuing a read or settling an operation that
+  // is no longer its own, including across A → B → A and unmount.
+  const session = useRef(createSessionGuard()).current;
+  const sessionCurrent = (epoch: number) => session.current(epoch);
+
+  useEffect(() => () => session.stop(), [session]);
+
+  const loadSummary = useCallback(
+    async (epoch: number) => {
+      // An obsolete callback must not even START a read: its token would
+      // replace the current session's in-flight request.
+      if (!sessionCurrent(epoch)) return;
+      const token = ++summaryToken.current;
+      dispatchCommercial({ type: "summary/request", epoch, token });
+      let response: unknown;
+      try {
+        response = await getStripeCommercialSummaryFn();
+      } catch {
+        // A transport or validation rejection is UNAVAILABLE. It is never
+        // converted into verified Free or into an invented provider.
+        response = { ok: false, reason: "billing_read_unavailable" };
+      }
+      if (!sessionCurrent(epoch)) return;
+      // The reducer validates the payload; nothing here trusts its type.
+      dispatchCommercial({ type: "summary/resolved", epoch, token, response });
+    },
+    // `sessionCurrent` reads a ref and is stable for the component's lifetime.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [],
+  );
+
+  // A READ on mount and on identity change. No effect in this route reaches a
+  // commercial mutation.
+  useEffect(() => {
+    const epoch = session.next();
+    dispatchCommercial({ type: "identity", userId, epoch });
+    if (!userId) return;
+    void loadSummary(epoch);
+  }, [userId, loadSummary, session]);
+
+  /* ---------------------------------------------------------------------- */
+  /* Profile                                                                */
+  /* ---------------------------------------------------------------------- */
+
+  /**
+   * A billing-country edit changes the catalogue a preview would be priced
+   * from, so an unconfirmed preview stops applying immediately — before any
+   * Save, and including a preview still in flight. It changes nothing about
+   * the verified current agreement or its currency.
+   */
+  function changeBillingCountry(code: string) {
+    setBillingCountry(code);
+    dispatchCommercial({ type: "preview/invalidated" });
+  }
 
   async function saveProfile() {
     setSavingProfile(true);
     try {
       const newMarket = billingCountry ? deriveBillingMarket(billingCountry) : undefined;
+      // Only a VERIFIED paid agreement locks a market; the editable form never
+      // decides that on its own.
+      const paidAgreement = summary?.access === "paid";
       const needsReview =
-        paid &&
+        paidAgreement &&
         billingProfile?.billingMarket &&
         newMarket &&
         newMarket !== billingProfile.billingMarket;
@@ -97,7 +206,7 @@ function BillingPage() {
         billingCountry: billingCountry || undefined,
         vatId: customerType === "business" ? vatId.trim() || undefined : undefined,
         billingMarket: newMarket,
-        billingMarketLockedAt: paid
+        billingMarketLockedAt: paidAgreement
           ? billingProfile?.billingMarketLockedAt
           : newMarket
             ? new Date().toISOString()
@@ -107,47 +216,39 @@ function BillingPage() {
         updatedAt: new Date().toISOString(),
       });
       await saveWorkspaceNow();
+      // The saved billing country decides which catalogue a preview is priced
+      // from, so an unconfirmed preview no longer applies. The verified
+      // current money and any dispatched intent are untouched.
+      dispatchCommercial({ type: "preview/invalidated" });
       toast.success(t("billing.profileSaved"));
       if (needsReview) toast.message(t("billing.marketReview"));
-    } catch (e) {
-      toast.error(e instanceof Error ? e.message : t("billingScreen.saveFailed"));
+    } catch {
+      toast.error(t("billingScreen.saveFailed"));
     } finally {
       setSavingProfile(false);
     }
   }
 
-  async function choosePlan(planId: PlanId) {
-    if (planId === "freePreview") {
-      // Downgrades are an entitlement change: owners can self-serve, everyone
-      // else cancels through the Paddle portal (the webhook then downgrades).
-      if (!isOwner) {
-        await openSubscriptionPortal("cancel");
-        return;
-      }
-      await setManualEntitlementFn({ data: { planId: "freePreview", status: "freePreview" } });
-      await refreshEntitlement();
-      toast.success(t("billing.profileSaved"));
-      return;
-    }
-    toast.message(t("publicPricing.hold"));
-  }
-
-  async function manualActivate(planId: PlanId, manualStatus: "manualBeta" | "manualComped") {
-    try {
-      await setManualEntitlementFn({ data: { planId, status: manualStatus } });
-      await refreshEntitlement();
-      toast.success(t("billing.profileSaved"));
-    } catch (e) {
-      toast.error(e instanceof Error ? e.message : t("billingScreen.planFailed"));
-    }
-  }
+  /* ---------------------------------------------------------------------- */
+  /* Provider routing                                                       */
+  /* ---------------------------------------------------------------------- */
 
   async function openSubscriptionPortal(intent: "manage" | "cancel") {
-    // No ids sent up: the server resolves the caller's own Paddle customer and
-    // subscription from the entitlements row (P1-10). The client-side
-    // subscription copy is only a UX hint and is not trusted for this.
-    if (!subscription?.paddleCustomerId) {
-      toast.message(t("billingScreen.portalUnlinked"));
+    // Routing follows the VERIFIED provider from the read adapter. The store's
+    // `paddleCustomerId` is not consulted: it carries whatever provider id the
+    // entitlement had, so a Stripe or manual account would be sent to a Paddle
+    // portal that is not theirs.
+    //
+    // And it follows CURRENT evidence, like every other action here. A portal
+    // session is a provider call, so a Paddle flag from a read that has since
+    // failed — or one still in flight — cannot authorise it. The disabled
+    // button is not the guard; this is.
+    if (!canOpenPaddlePortal(commercial)) {
+      toast.message(
+        summary?.provider === "paddle"
+          ? t(commercialReasonKey(summary.heldReason ?? "operation_unavailable"))
+          : t("billingScreen.commercial.manageUnavailable"),
+      );
       return;
     }
     setPortalBusy(intent);
@@ -159,13 +260,296 @@ function BillingPage() {
         window.location.href = target;
         return;
       }
-      toast.error(portal.error ?? portal.message ?? t("billingScreen.portalFailed"));
-    } catch (error) {
-      toast.error(error instanceof Error ? error.message : t("billingScreen.portalFailed"));
+      toast.error(t("billingScreen.portalFailed"));
+    } catch {
+      toast.error(t("billingScreen.portalFailed"));
     } finally {
       setPortalBusy(null);
     }
   }
+
+  /** The one entry point every "end my subscription" control uses. */
+  async function requestCancellation(opener?: HTMLElement | null) {
+    switch (routeCancellation(commercial)) {
+      case "cancelIntent":
+        openCommercialDialog("cancel", opener);
+        return;
+      case "paddlePortal":
+        await openSubscriptionPortal("cancel");
+        return;
+      case "held":
+        toast.message(t(commercialReasonKey(summary?.heldReason ?? "held")));
+        return;
+      default:
+        toast.message(
+          summary
+            ? t("billingScreen.commercial.manageUnavailable")
+            : t("billingScreen.commercial.unavailable"),
+        );
+    }
+  }
+
+  async function choosePlan(planId: PlanId, opener?: HTMLElement | null) {
+    if (planId !== "freePreview") {
+      toast.message(t("publicPricing.hold"));
+      return;
+    }
+    // Moving a Stripe subscription to Free is a CANCELLATION intent with its
+    // own explicit confirmation and verified date. It must never reach the
+    // manual entitlement setter, which would silently contradict the provider.
+    switch (routeFreeSelection(commercial, { isOwner })) {
+      case "cancelIntent":
+      case "paddlePortal":
+        await requestCancellation(opener);
+        return;
+      case "manualReset":
+        await applyManualEntitlement("freePreview", "freePreview");
+        return;
+      case "held":
+        toast.message(t(commercialReasonKey(summary?.heldReason ?? "operation_unavailable")));
+        return;
+      default:
+        toast.message(
+          summary
+            ? t("billingScreen.commercial.manageUnavailable")
+            : t("billingScreen.commercial.unavailable"),
+        );
+    }
+  }
+
+  /* ---------------------------------------------------------------------- */
+  /* Owner manual override                                                  */
+  /* ---------------------------------------------------------------------- */
+
+  /**
+   * The client-side half of the manual guard. The server refuses the same
+   * cases independently, because a disabled button stops nobody who calls the
+   * function directly — which is exactly what this handler must also not do.
+   */
+  async function applyManualEntitlement(
+    planId: PlanId,
+    status: "manualBeta" | "manualComped" | "freePreview",
+  ) {
+    if (!isOwner) return;
+    // One centralised gate. A boolean from a read that has since failed, or
+    // from a refresh still in flight, is not permission.
+    if (!canUseManualOverride(commercial)) {
+      toast.message(t("billingScreen.commercial.manualHeldToast"));
+      return;
+    }
+    const epoch = session.epoch();
+    try {
+      await setManualEntitlementFn({ data: { planId, status } });
+      await refreshEntitlement();
+      await loadSummary(epoch);
+      if (sessionCurrent(epoch)) toast.success(t("billing.profileSaved"));
+    } catch (error) {
+      if (!sessionCurrent(epoch)) return;
+      // Never render the raw message: it may carry a server-side code.
+      const held = error instanceof Error && error.message.startsWith("manual_override_held");
+      toast.error(
+        held ? t("billingScreen.commercial.manualHeldToast") : t("billingScreen.planFailed"),
+      );
+    }
+  }
+
+  /* ---------------------------------------------------------------------- */
+  /* Commercial operations                                                  */
+  /* ---------------------------------------------------------------------- */
+
+  function selectionChanged(planId: SellablePlanId, seatQuantity: number) {
+    dispatchCommercial({ type: "selection/changed", planId, seatQuantity });
+  }
+
+  async function prepareQuote(opener?: HTMLElement | null) {
+    const selection = commercial.selection;
+    if (!selection || !canPrepareQuote(commercial)) return;
+    const epoch = session.epoch();
+    const token = ++quoteToken.current;
+    const request = {
+      quoteId: newIntentId(),
+      planId: selection.planId,
+      seatQuantity: selection.seatQuantity,
+    };
+    openCommercialDialog("change", opener);
+    // The exact question is recorded, so the reducer can bind the answer to it
+    // rather than merely parsing whatever comes back.
+    dispatchCommercial({ type: "quote/request", epoch, token, request });
+    let response: unknown;
+    try {
+      response = await prepareStripeSubscriptionChangeFn({ data: request });
+    } catch {
+      response = { ok: false, reason: "preview_unavailable" };
+    }
+    if (!sessionCurrent(epoch)) return;
+    dispatchCommercial({ type: "quote/resolved", epoch, token, response });
+  }
+
+  /**
+   * One dispatch, one durable operation, one settlement.
+   *
+   * The epoch and the operation id travel with the completion so a late answer
+   * can only ever settle the exact request it belongs to — never another
+   * account's operation, and never a different operation of this account's.
+   */
+  async function dispatchIntent(
+    begin: () => void,
+    send: () => Promise<unknown>,
+    settle: "change" | "cancellation",
+    operationId: string,
+    resuming: boolean,
+  ) {
+    const epoch = session.epoch();
+    await singleFlight(async () => {
+      if (resuming) dispatchCommercial({ type: "intent/resume", epoch, operationId });
+      else begin();
+      let response: unknown;
+      let failed = false;
+      try {
+        response = await send();
+      } catch {
+        // No answer at all. The request may exist at the provider, so the same
+        // operation id is retained and nothing is re-created.
+        failed = true;
+      }
+      if (failed) dispatchCommercial({ type: "intent/transportFailed", epoch, operationId });
+      else if (settle === "change")
+        dispatchCommercial({ type: "intent/confirmed", epoch, operationId, response });
+      else dispatchCommercial({ type: "intent/cancelled", epoch, operationId, response });
+      await loadSummary(epoch);
+    });
+  }
+
+  async function confirmChange() {
+    const resuming = commercial.intent !== null;
+    const request = confirmChangeRequest(commercial, Date.now(), newIntentId());
+    if (!request) return;
+    const epoch = session.epoch();
+    const terms = commercial.quote ? termsFromQuote(commercial.quote) : null;
+    await dispatchIntent(
+      () =>
+        dispatchCommercial({
+          type: "intent/begin",
+          epoch,
+          kind: "change",
+          operationId: request.operationId,
+          quoteId: request.quoteId,
+          cancelOperationId: null,
+          terms,
+        }),
+      () => confirmStripeSubscriptionChangeFn({ data: request }),
+      "change",
+      request.operationId,
+      resuming,
+    );
+  }
+
+  async function confirmCancellation() {
+    const existing = commercial.intent;
+    const resuming = existing !== null;
+    if (resuming && (existing.kind !== "cancel" || !canResumeIntent(commercial))) return;
+    if (!resuming && !canStartCancellation(commercial)) return;
+    const operationId = resuming ? existing.operationId : newIntentId();
+    const epoch = session.epoch();
+    await dispatchIntent(
+      () =>
+        dispatchCommercial({
+          type: "intent/begin",
+          epoch,
+          kind: "cancel",
+          operationId,
+          quoteId: null,
+          cancelOperationId: null,
+          terms: null,
+        }),
+      () => cancelStripeSubscriptionFn({ data: { operationId } }),
+      "cancellation",
+      operationId,
+      resuming,
+    );
+  }
+
+  async function confirmReversal() {
+    const existing = commercial.intent;
+    const resuming = existing !== null;
+    if (resuming && (existing.kind !== "reverse" || !canResumeIntent(commercial))) return;
+    if (!resuming && !canStartReversal(commercial)) return;
+    // The EXACT eligible applied cancellation, from the server. React memory
+    // and "the latest cancellation" are not acceptable substitutes.
+    const cancelOperationId = resuming
+      ? existing.cancelOperationId
+      : (summary?.eligibleCancellationId ?? null);
+    if (!cancelOperationId) return;
+    const operationId = resuming ? existing.operationId : newIntentId();
+    const epoch = session.epoch();
+    await dispatchIntent(
+      () =>
+        dispatchCommercial({
+          type: "intent/begin",
+          epoch,
+          kind: "reverse",
+          operationId,
+          quoteId: null,
+          cancelOperationId,
+          terms: null,
+        }),
+      () => reverseStripeCancellationFn({ data: { operationId, cancelOperationId } }),
+      "cancellation",
+      operationId,
+      resuming,
+    );
+  }
+
+  async function resumeOperation() {
+    const existing = commercial.intent;
+    if (!existing) return;
+    if (existing.kind === "cancel") return confirmCancellation();
+    if (existing.kind === "reverse") return confirmReversal();
+    return confirmChange();
+  }
+
+  /* ---------------------------------------------------------------------- */
+  /* Dialog focus                                                           */
+  /* ---------------------------------------------------------------------- */
+
+  /**
+   * The control that opened the current dialog, so an ordinary close or
+   * Escape returns focus to it instead of dropping the caret on the body.
+   *
+   * Opening is the only place this is set, which is why both the panel's own
+   * controls and the route's Free-plan card pass their element in. It is
+   * cleared whenever the session generation changes so a dialog closed after
+   * a sign-in change cannot focus a stale element.
+   */
+  const dialogOpener = useRef<{ element: HTMLElement; epoch: number } | null>(null);
+
+  function openCommercialDialog(kind: CommercialIntentKind, opener?: HTMLElement | null) {
+    dialogOpener.current = opener ? { element: opener, epoch: session.epoch() } : null;
+    dispatchCommercial({ type: "dialog/open", kind });
+  }
+
+  function restoreDialogFocus() {
+    const remembered = dialogOpener.current;
+    dialogOpener.current = null;
+    if (!remembered) return false;
+    if (!session.current(remembered.epoch)) return false;
+    return focusIfConnected(remembered.element);
+  }
+
+  /* ---------------------------------------------------------------------- */
+  /* Render                                                                 */
+  /* ---------------------------------------------------------------------- */
+
+  const verifiedPlanId: PlanId | null = summary?.planId ?? null;
+  const limitsPlanId: PlanId = verifiedPlanId ?? "freePreview";
+  const verifiedPaid = summary?.access === "paid";
+  const manualAllowed = canUseManualOverride(commercial);
+  // The VISIBLE state of the two alternate "end my plan" entries, computed
+  // from the same routing their handlers take. The handlers still guard
+  // themselves; this only stops a control looking available when the one
+  // thing it can do is explain why it is not.
+  const freeChoiceAllowed = freeSelectionAvailable(commercial, { isOwner });
+  const cancelEntryAllowed = cancellationAvailable(commercial);
 
   return (
     <AppShell title={t("billing.title")} description={t("billing.subtitle")}>
@@ -191,7 +575,8 @@ function BillingPage() {
 
       {isOwner ? <StripeSandboxPanel /> : null}
 
-      {/* Current plan */}
+      {/* Current plan — from the VERIFIED summary only. No catalogue price is
+          shown here: a market price is not this customer's proven debit. */}
       <section className="rounded-xl border border-border bg-card p-6">
         <div className="text-[10px] uppercase tracking-[0.22em] text-muted-foreground">
           {t("billing.currentPlan")}
@@ -199,91 +584,67 @@ function BillingPage() {
         <div className="mt-2 flex flex-wrap items-end justify-between gap-4">
           <div>
             <div className="font-display text-2xl">
-              {isOwner
-                ? t("billingScreen.owner")
-                : currentPlanId === "freePreview"
+              {verifiedPlanId === null
+                ? commercial.summaryPhase === "loading"
+                  ? t("billingScreen.commercial.loading")
+                  : t("billingScreen.unknownValue")
+                : verifiedPlanId === "freePreview"
                   ? t("billingScreen.freePreview")
-                  : PLAN_META[currentPlanId].name}
+                  : PLAN_META[verifiedPlanId].name}
             </div>
             <p className="mt-1 text-sm text-muted-foreground">{user?.email}</p>
           </div>
           <div className="text-right text-sm">
             <div>
               <span className="text-muted-foreground">{t("billing.status")}: </span>
-              {isOwner ? "—" : t(`billing.statusLabel.${status}`)}
-            </div>
-            <div>
-              <span className="text-muted-foreground">{t("billing.billingMarket")}: </span>
-              {billingMarketLabel(market, t)}
-            </div>
-            <div>
-              <span className="text-muted-foreground">{t("billing.price")}: </span>
-              {currentPlanId === "freePreview"
-                ? money(0)
-                : `${money(planPrice(market, currentPlanId))} ${t("billing.perMonth")}`}
+              {summary?.status ? t(`billing.statusLabel.${summary.status}`) : "—"}
             </div>
           </div>
         </div>
-        <div className="mt-4 flex flex-wrap gap-2 text-xs text-muted-foreground">
-          <Tag>{t("billingScreen.projects", { n: PLAN_LIMITS[currentPlanId].maxProjects })}</Tag>
-          <Tag>{t("billingScreen.websites", { n: PLAN_LIMITS[currentPlanId].maxWebsites })}</Tag>
-          <Tag>
-            {t(
-              PLAN_LIMITS[currentPlanId].publishingEnabled
-                ? "billingScreen.publishingOn"
-                : "billingScreen.publishingOff",
-            )}
-          </Tag>
-          <Tag>
-            {t("billingScreen.contentMonthly", {
-              n: PLAN_LIMITS[currentPlanId].monthlyContentGenerations,
-            })}
-          </Tag>
-        </div>
-        {!isOwner && paid ? (
-          <div className="mt-6 flex flex-wrap items-center justify-between gap-4 border-t border-border pt-5">
-            <div>
-              <div className="text-sm font-medium text-foreground">
-                {t("billingScreen.manageTitle")}
-              </div>
-              <p className="mt-1 text-xs text-muted-foreground">
-                {t("billingScreen.manageHelp")}
-                {subscription?.cancelAtPeriodEnd && subscription.currentPeriodEnd
-                  ? ` ${t("billingScreen.cancelAt", { date: subscription.currentPeriodEnd })}`
-                  : ""}
-              </p>
-            </div>
-            <div className="flex flex-wrap gap-2">
-              <Button
-                variant="outline"
-                onClick={() => openSubscriptionPortal("manage")}
-                disabled={portalBusy !== null}
-              >
-                {portalBusy === "manage" ? (
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                ) : (
-                  <ExternalLink className="h-4 w-4" />
-                )}
-                {t("billingScreen.manage")}
-              </Button>
-              <Button
-                variant="outline"
-                className="border-destructive/35 text-destructive hover:bg-destructive/5 hover:text-destructive"
-                onClick={() => openSubscriptionPortal("cancel")}
-                disabled={portalBusy !== null}
-              >
-                {portalBusy === "cancel" ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
-                {t("billingScreen.cancel")}
-              </Button>
-            </div>
+        {verifiedPlanId ? (
+          <div className="mt-4 flex flex-wrap gap-2 text-xs text-muted-foreground">
+            <Tag>{t("billingScreen.projects", { n: PLAN_LIMITS[limitsPlanId].maxProjects })}</Tag>
+            <Tag>{t("billingScreen.websites", { n: PLAN_LIMITS[limitsPlanId].maxWebsites })}</Tag>
+            <Tag>
+              {t(
+                PLAN_LIMITS[limitsPlanId].publishingEnabled
+                  ? "billingScreen.publishingOn"
+                  : "billingScreen.publishingOff",
+              )}
+            </Tag>
+            <Tag>
+              {t("billingScreen.contentMonthly", {
+                n: PLAN_LIMITS[limitsPlanId].monthlyContentGenerations,
+              })}
+            </Tag>
           </div>
         ) : null}
-        {!isOwner && !paid ? (
+        {summary && !verifiedPaid ? (
           <div className="mt-5 border-t border-border pt-4 text-xs text-muted-foreground">
             {t("billingScreen.inactiveHelp")}
           </div>
         ) : null}
       </section>
+
+      <StripeCommercialPanel
+        state={commercial}
+        nowMs={Date.now()}
+        locale={locale}
+        t={t}
+        onRefresh={() => void loadSummary(session.epoch())}
+        onSelectionChange={selectionChanged}
+        onPrepareQuote={(opener) => void prepareQuote(opener)}
+        onConfirmChange={() => void confirmChange()}
+        onConfirmCancellation={() => void confirmCancellation()}
+        onConfirmReversal={() => void confirmReversal()}
+        onOpenDialog={openCommercialDialog}
+        onCloseDialog={() => dispatchCommercial({ type: "dialog/close" })}
+        onRestoreFocus={restoreDialogFocus}
+        onResumeOperation={() => void resumeOperation()}
+        onDismissOperation={() => dispatchCommercial({ type: "intent/dismiss" })}
+        onOpenPortal={() => void openSubscriptionPortal("manage")}
+        portalBusy={portalBusy !== null}
+      />
 
       {/* Billing profile */}
       <section className="mt-8 rounded-xl border border-border bg-card p-6">
@@ -316,7 +677,7 @@ function BillingPage() {
             </Field>
           ) : null}
           <Field label={t("billing.billingCountry")}>
-            <Select value={billingCountry || undefined} onValueChange={setBillingCountry}>
+            <Select value={billingCountry || undefined} onValueChange={changeBillingCountry}>
               <SelectTrigger>
                 <SelectValue placeholder="—" />
               </SelectTrigger>
@@ -348,17 +709,32 @@ function BillingPage() {
           <p className="mt-3 text-xs text-amber-600">{t("billing.marketReview")}</p>
         ) : null}
         <div className="mt-5 flex justify-end">
-          <Button onClick={saveProfile} disabled={savingProfile}>
+          <Button type="button" onClick={saveProfile} disabled={savingProfile}>
             {savingProfile ? "…" : t("billing.saveProfile")}
           </Button>
         </div>
       </section>
 
-      {/* Choose plan */}
+      {/* Choose plan — the CATALOGUE for the selected billing country. */}
       <h2 className="mt-10 font-display text-2xl">{t("billing.choosePlan")}</h2>
       <p className="mt-2 max-w-3xl text-sm text-muted-foreground" id="paid-plan-hold">
         {t("publicPricing.hold")}
       </p>
+      <p className="mt-1 max-w-3xl text-xs text-muted-foreground">
+        {t("billingScreen.commercial.catalogNote")}
+      </p>
+      {/* Why the Free choice is not offered, when it is not. The handler
+          holds either way; this says so beside the disabled control. */}
+      {summary && !freeChoiceAllowed ? (
+        <p role="status" className="mt-1 max-w-3xl text-xs text-muted-foreground">
+          {t(commercialReasonKey(summary.heldReason ?? "operation_unavailable"))}
+        </p>
+      ) : null}
+      {summary?.provider === "stripe" && verifiedPaid ? (
+        <p className="mt-1 max-w-3xl text-xs text-muted-foreground">
+          {t("billingScreen.commercial.freeIsCancellation")}
+        </p>
+      ) : null}
       {!billingCountry ? (
         <p className="mt-1 text-sm text-muted-foreground">{t("billing.selectCountryFirst")}</p>
       ) : null}
@@ -366,7 +742,7 @@ function BillingPage() {
         {PLAN_IDS.map((pid) => {
           const meta = PLAN_META[pid];
           const lim = PLAN_LIMITS[pid];
-          const isCurrent = !isOwner && pid === currentPlanId;
+          const isCurrent = pid === verifiedPlanId;
           return (
             <div
               key={pid}
@@ -404,16 +780,17 @@ function BillingPage() {
                 {t("billingScreen.websites", { n: lim.maxWebsites })}
               </div>
               {isCurrent ? (
-                <Button className="mt-4" variant="outline" disabled>
+                <Button type="button" className="mt-4" variant="outline" disabled>
                   {t("billing.currentLabel")}
                 </Button>
               ) : (
                 <Button
+                  type="button"
                   className="mt-4 h-auto min-h-9 whitespace-normal"
                   variant={meta.recommended ? "default" : "outline"}
-                  disabled={pid !== "freePreview"}
+                  disabled={pid !== "freePreview" || !freeChoiceAllowed}
                   aria-describedby={pid !== "freePreview" ? "paid-plan-hold" : undefined}
-                  onClick={() => choosePlan(pid)}
+                  onClick={(event) => void choosePlan(pid, event.currentTarget)}
                 >
                   {pid === "freePreview" ? t("billing.choose") : t("launch.item.paddlePending")}
                 </Button>
@@ -482,35 +859,36 @@ function BillingPage() {
         <section className="mt-10 rounded-xl border border-amber-500/30 bg-amber-500/5 p-6">
           <h2 className="font-display text-lg">{t("billing.manual.title")}</h2>
           <p className="mt-1 text-sm text-muted-foreground">{t("billing.manual.desc")}</p>
+          {manualAllowed ? null : (
+            <p role="status" className="mt-2 text-sm text-amber-700">
+              {t("billingScreen.commercial.manualHeld")}
+            </p>
+          )}
           <div className="mt-4 flex flex-wrap gap-2">
             <Button
+              type="button"
               size="sm"
               variant="outline"
-              onClick={() => void manualActivate("growth", "manualBeta")}
+              disabled={!manualAllowed}
+              onClick={() => void applyManualEntitlement("growth", "manualBeta")}
             >
               {t("billing.manual.beta")} (Growth)
             </Button>
             <Button
+              type="button"
               size="sm"
               variant="outline"
-              onClick={() => void manualActivate("pro", "manualComped")}
+              disabled={!manualAllowed}
+              onClick={() => void applyManualEntitlement("pro", "manualComped")}
             >
               {t("billing.manual.comped")} (Pro)
             </Button>
             <Button
+              type="button"
               size="sm"
               variant="ghost"
-              onClick={async () => {
-                try {
-                  await setManualEntitlementFn({
-                    data: { planId: "freePreview", status: "freePreview" },
-                  });
-                  await refreshEntitlement();
-                  toast.success(t("billing.profileSaved"));
-                } catch (e) {
-                  toast.error(e instanceof Error ? e.message : t("billingScreen.planFailed"));
-                }
-              }}
+              disabled={!manualAllowed}
+              onClick={() => void applyManualEntitlement("freePreview", "freePreview")}
             >
               {t("billing.manual.reset")}
             </Button>
@@ -518,7 +896,7 @@ function BillingPage() {
         </section>
       ) : null}
 
-      {!isOwner && paid ? (
+      {verifiedPaid ? (
         <section className="mt-10 flex flex-wrap items-center justify-between gap-5 rounded-xl border border-destructive/45 bg-destructive/[.025] p-6">
           <div className="flex min-w-0 items-start gap-4">
             <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-destructive/50 text-destructive">
@@ -526,17 +904,30 @@ function BillingPage() {
             </div>
             <div>
               <h2 className="font-display text-xl text-destructive">{t("billingScreen.cancel")}</h2>
-              <p className="mt-1 text-sm text-muted-foreground">{t("billingScreen.cancelHelp")}</p>
+              {/* Provider-aware: the legacy portal wording belongs to a
+                  verified Paddle agreement only. A Stripe subscription
+                  cancels through the confirmation in this app, and anything
+                  else says honestly that it cannot be done here. */}
+              <p className="mt-1 text-sm text-muted-foreground">
+                {t(
+                  summary?.provider === "paddle"
+                    ? "billingScreen.cancelHelp"
+                    : summary?.provider === "stripe"
+                      ? "billingScreen.commercial.cancelHelpStripe"
+                      : "billingScreen.commercial.manageUnavailable",
+                )}
+              </p>
               <p className="mt-1 text-xs text-muted-foreground">
                 {t("billingScreen.cancelExport")}
               </p>
             </div>
           </div>
           <Button
+            type="button"
             variant="outline"
             className="border-destructive/50 text-destructive hover:bg-destructive/5 hover:text-destructive"
-            onClick={() => openSubscriptionPortal("cancel")}
-            disabled={portalBusy !== null}
+            onClick={(event) => void requestCancellation(event.currentTarget)}
+            disabled={portalBusy !== null || !cancelEntryAllowed}
           >
             {portalBusy === "cancel" ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
             {t("billingScreen.cancel")}
