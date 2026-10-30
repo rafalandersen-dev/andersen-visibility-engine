@@ -17,6 +17,7 @@ import {
   STAGED_ANSWER_COVERAGE_SOURCE_HASH,
   stagedAnswerCoverage,
 } from "./answer-coverage-fallback";
+import { STAGED_PANEL_COVERAGE_SOURCE_HASH, stagedPanelCoverage } from "./panel-coverage-fallback";
 import { mtCollaboration } from "./mt-collaboration";
 import { mtCommerce } from "./mt-commerce";
 import { mtConfiguration } from "./mt-configuration";
@@ -348,6 +349,13 @@ export const MT_STAGED_BATCHES = [
     namespaces: ["answerCoverage"],
     sourceRevision: "df7a891b + CG-03A (answerCoverage: English fallback)",
     sourceHash: STAGED_ANSWER_COVERAGE_SOURCE_HASH,
+  },
+  {
+    name: "panel coverage",
+    copy: stagedPanelCoverage(),
+    namespaces: ["panelCoverage"],
+    sourceRevision: "3734e2f5 + CG-03B (panelCoverage: English fallback)",
+    sourceHash: STAGED_PANEL_COVERAGE_SOURCE_HASH,
   },
 ] as const;
 export const MT_STAGED_CATALOG: Readonly<Record<string, string>> = Object.freeze(
