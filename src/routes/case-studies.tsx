@@ -4,16 +4,25 @@ import { MarketingShell } from "@/components/MarketingShell";
 import { useAuthLanguage } from "@/hooks/use-auth-language";
 import { ArrowRight } from "lucide-react";
 
+const PAGE_URL = "https://milogrowth.com/case-studies";
+const TITLE = "Case studies — Milo Growth";
+const DESCRIPTION =
+  "Early implementations and workflow examples of Milo Growth — no performance guarantees.";
+const SHARE_DESCRIPTION =
+  "Three worked examples of how Milo Growth is set up: an early local-business implementation, an internal project and a demo workflow. Setup and workflow only — no performance claims.";
+
 export const Route = createFileRoute("/case-studies")({
   head: () => ({
     meta: [
-      { title: "Case studies — Milo Growth" },
-      {
-        name: "description",
-        content:
-          "Early implementations and workflow examples of Milo Growth — no performance guarantees.",
-      },
+      { title: TITLE },
+      { name: "description", content: DESCRIPTION },
+      { property: "og:title", content: TITLE },
+      { property: "og:description", content: SHARE_DESCRIPTION },
+      { property: "og:url", content: PAGE_URL },
+      { name: "twitter:title", content: TITLE },
+      { name: "twitter:description", content: SHARE_DESCRIPTION },
     ],
+    links: [{ rel: "canonical", href: PAGE_URL }],
   }),
   component: CaseStudiesPage,
 });

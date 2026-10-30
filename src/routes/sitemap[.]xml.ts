@@ -1,6 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import type {} from "@tanstack/react-start";
-import { LOCALE_ROUTES, SITE_ORIGIN } from "@/lib/locales";
+import { HREFLANG_ROUTES, LOCALE_ROUTES, SITE_ORIGIN, isHreflangRoute } from "@/lib/locales";
 
 const BASE_URL = SITE_ORIGIN;
 
@@ -97,11 +97,16 @@ function hintFor(path: string): { changefreq: string; priority: string } {
   return { changefreq: "monthly", priority: "0.6" };
 }
 
-/** hreflang alternates, emitted only on pages that are part of the locale set. */
+/**
+ * hreflang alternates, emitted only for the reciprocal group in @/lib/locales,
+ * so the XML and the HTML head annotate exactly the same pages. A market page
+ * outside that group (`/eu`) keeps its own <loc> and its self-canonical, but
+ * must not announce a one-sided group it is not a member of.
+ */
 function alternatesFor(path: string): string[] {
-  if (!LOCALE_ROUTES.some((l) => l.path === path)) return [];
+  if (!isHreflangRoute(path)) return [];
   return [
-    ...LOCALE_ROUTES.map(
+    ...HREFLANG_ROUTES.map(
       (l) =>
         `    <xhtml:link rel="alternate" hreflang="${l.hreflang}" href="${BASE_URL}${l.path}" />`,
     ),

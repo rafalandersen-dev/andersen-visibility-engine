@@ -4,16 +4,25 @@ import { Button } from "@/components/ui/button";
 import { MarketingShell } from "@/components/MarketingShell";
 import { Search, Sparkles, Gauge, Send, BarChart3, Award, ArrowRight, Check } from "lucide-react";
 
+const PAGE_URL = "https://milogrowth.com/beta";
+const TITLE = "Milo Growth Assisted Beta — Milo Growth";
+const DESCRIPTION =
+  "A guided 30-day setup to plan, create, publish and measure website growth for your small business.";
+const SHARE_DESCRIPTION =
+  "A guided 30-day pilot: free audit, project and brand setup, content plan, reviewed drafts and an analytics review. Availability, scope and pricing are agreed individually.";
+
 export const Route = createFileRoute("/beta")({
   head: () => ({
     meta: [
-      { title: "Milo Growth Assisted Beta — Milo Growth" },
-      {
-        name: "description",
-        content:
-          "A guided 30-day setup to plan, create, publish and measure website growth for your small business.",
-      },
+      { title: TITLE },
+      { name: "description", content: DESCRIPTION },
+      { property: "og:title", content: TITLE },
+      { property: "og:description", content: SHARE_DESCRIPTION },
+      { property: "og:url", content: PAGE_URL },
+      { name: "twitter:title", content: TITLE },
+      { name: "twitter:description", content: SHARE_DESCRIPTION },
     ],
+    links: [{ rel: "canonical", href: PAGE_URL }],
   }),
   component: BetaPage,
 });
