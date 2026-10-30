@@ -13,16 +13,25 @@ import {
 import { Gauge, Loader2, Search, AlertTriangle, ArrowRight } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 
+const PAGE_URL = "https://milogrowth.com/free-ai-visibility-audit";
+const TITLE = "Free AI Visibility Readiness Audit — Milo Growth";
+const DESCRIPTION =
+  "Check how clearly your website explains your business to modern search engines and AI-assisted discovery tools.";
+const SHARE_DESCRIPTION =
+  "Enter a website address and get a readiness score per category, with the issues, quick wins and signals the page text actually exposes. A readability check, not a ranking prediction.";
+
 export const Route = createFileRoute("/free-ai-visibility-audit")({
   head: () => ({
     meta: [
-      { title: "Free AI Visibility Readiness Audit — Milo Growth" },
-      {
-        name: "description",
-        content:
-          "Check how clearly your website explains your business to modern search engines and AI-assisted discovery tools.",
-      },
+      { title: TITLE },
+      { name: "description", content: DESCRIPTION },
+      { property: "og:title", content: TITLE },
+      { property: "og:description", content: SHARE_DESCRIPTION },
+      { property: "og:url", content: PAGE_URL },
+      { name: "twitter:title", content: TITLE },
+      { name: "twitter:description", content: SHARE_DESCRIPTION },
     ],
+    links: [{ rel: "canonical", href: PAGE_URL }],
   }),
   component: PublicAuditPage,
 });

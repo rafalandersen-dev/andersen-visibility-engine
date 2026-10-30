@@ -551,6 +551,12 @@ function PublicFooter({ t }: { t: HomeTranslate }) {
             <Link to="/free-ai-visibility-audit">{t("publicHome.freeAudit")}</Link>
             <Link to="/case-studies">{t("publicHome.caseStudies")}</Link>
             <Link to="/beta">{t("publicHome.beta")}</Link>
+            {/* The guide itself is written in English only, so the label stays
+                English and declares it — same convention as the English market
+                labels in the region selector. */}
+            <Link to="/blog/local-seo-guide" hrefLang="en" lang="en">
+              Local SEO guide (English)
+            </Link>
             <Link to="/terms">{t("publicHome.terms")}</Link>
             <Link to="/privacy">{t("publicHome.privacy")}</Link>
             <Link to="/security">{t("publicHome.security")}</Link>
