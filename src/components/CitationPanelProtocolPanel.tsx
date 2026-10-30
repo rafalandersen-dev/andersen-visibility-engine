@@ -6,6 +6,7 @@ import { readAnswerEvidenceFn } from "@/lib/answer-evidence.functions";
 import {
   lockCitationPanelFn,
   readCitationProtocolFn,
+  readResolvedCapturesFn,
   saveCitationPanelDraftFn,
 } from "@/lib/citation-protocol.functions";
 import type { PanelProtocol } from "@/lib/citation-panel";
@@ -16,6 +17,7 @@ import {
   emptyPanelDraftForm,
   formFromPanel,
   lockIssues,
+  panelCoverageEntries,
   panelHeads,
   stockholmLocalLabel,
   weeklyStockholmSlotsResult,
@@ -196,6 +198,15 @@ export function CitationPanelProtocolPanel({
     staleTime: 0,
     retry: false,
   });
+  // CG-03B: the canonical erased-aware coverage reports come from the existing authenticated RESOLVED read (one
+  // snapshot of panels, runs, captures, erasure and reports). Its response shape differs from the raw protocol
+  // read, so it has its own owner+project query identity and never shares the `citation-protocol` cache.
+  const coverage = useQuery({
+    queryKey: ["citation-coverage", ownerId, projectId],
+    queryFn: () => readResolvedCapturesFn({ data: scope }),
+    staleTime: 0,
+    retry: false,
+  });
   const evidence = useQuery({
     queryKey: ["answer-evidence", ownerId, projectId],
     queryFn: () => readAnswerEvidenceFn({ data: scope }),
@@ -259,8 +270,12 @@ export function CitationPanelProtocolPanel({
     key: string;
     vars?: Record<string, string | number>;
   } | null>(null);
+  // A saved draft or a new lock changes which versions are locked, so both reads are refreshed together.
   const refresh = () =>
-    qc.invalidateQueries({ queryKey: ["citation-protocol", ownerId, projectId] });
+    Promise.all([
+      qc.invalidateQueries({ queryKey: ["citation-protocol", ownerId, projectId] }),
+      qc.invalidateQueries({ queryKey: ["citation-coverage", ownerId, projectId] }),
+    ]);
 
   function startNew() {
     setMsg(null);
@@ -865,6 +880,220 @@ export function CitationPanelProtocolPanel({
           {t(msg.key, msg.vars)}
         </p>
       ) : null}
+      <PanelCoverage
+        state={
+          coverage.isError
+            ? { kind: "error" }
+            : coverage.isPending
+              ? { kind: "loading" }
+              : { kind: "ready", data: coverage.data }
+        }
+      />
+    </section>
+  );
+}
+
+type CoverageRead = Awaited<ReturnType<typeof readResolvedCapturesFn>>;
+
+/**
+ * Read-only coverage of every approved, locked panel version (CG-03B), straight from the server's canonical
+ * reports. Nothing here collects, imports or writes. Distinct slots, record outcomes, extra and unmatched records,
+ * brand-run allowances and unattributed deleted history are shown as separate facts: no sums across them, no
+ * percentages, and an unknown count stays unknown. An error or loading state never shows (cached) numbers.
+ */
+export function PanelCoverage({
+  state,
+}: {
+  state: { kind: "loading" } | { kind: "error" } | { kind: "ready"; data: CoverageRead };
+}) {
+  const t = useT();
+  const entries = state.kind === "ready" ? panelCoverageEntries(state.data) : [];
+  const overflow = state.kind === "ready" ? state.data.erasureOverflow : 0;
+  const line = "break-words [overflow-wrap:anywhere]";
+  return (
+    <section
+      aria-labelledby="panel-coverage-title"
+      className="space-y-3 border-t border-border pt-4"
+      data-panel-coverage={state.kind}
+    >
+      <h4 id="panel-coverage-title" className="font-display text-base">
+        {t("panelCoverage.title")}
+      </h4>
+      <p className="text-xs text-muted-foreground max-w-3xl">{t("panelCoverage.intro")}</p>
+      {state.kind === "error" ? (
+        <p role="alert" className="text-sm text-destructive">
+          {t("panelCoverage.error")}
+        </p>
+      ) : state.kind === "loading" ? (
+        <p role="status" className="text-sm text-muted-foreground">
+          {t("citationAuthoring.common.loading")}
+        </p>
+      ) : (
+        <>
+          {entries.length === 0 ? (
+            <p className="text-sm text-muted-foreground">{t("panelCoverage.empty")}</p>
+          ) : (
+            <ul className="space-y-3">
+              {entries.map(({ key, panel, report, runs }) => (
+                <li
+                  key={key}
+                  className="rounded-lg border border-border p-3 text-sm space-y-2"
+                  data-coverage-version={key}
+                >
+                  <div className="flex flex-wrap items-center gap-2">
+                    <span className="font-medium">
+                      {t(`citationAuthoring.panels.kind.${panel.kind}`)}
+                    </span>
+                    <span className={chip}>
+                      {t("citationAuthoring.panels.version", { version: panel.version })}
+                    </span>
+                    <span className={`text-muted-foreground ${line}`}>
+                      {panel.client.name} · {panel.client.market}
+                    </span>
+                    {panel.approval ? (
+                      <span className="text-[11px] text-muted-foreground">
+                        {t("citationAuthoring.panels.approvedAt", {
+                          date: panel.approval.approvedAt.slice(0, 10),
+                        })}
+                      </span>
+                    ) : null}
+                  </div>
+                  {!report ? (
+                    <p className="text-amber-700 dark:text-amber-400" data-coverage-missing>
+                      {t("panelCoverage.missingReport")}
+                    </p>
+                  ) : (
+                    <>
+                      {report.kind === "discovery" ? (
+                        <dl className="grid gap-1" data-coverage-kind="discovery">
+                          <div className={line} data-coverage-planned={report.planned}>
+                            {t("panelCoverage.planned", {
+                              planned: report.planned,
+                              questions: panel.questions.length,
+                              rounds: panel.rounds,
+                            })}
+                          </div>
+                          <div className={line} data-coverage-observed={report.observed}>
+                            <span className="font-medium">
+                              {t("panelCoverage.observed", {
+                                observed: report.observed,
+                                planned: report.planned,
+                              })}
+                            </span>
+                            <span className="block text-xs text-muted-foreground">
+                              {t("panelCoverage.observedHelp")}
+                            </span>
+                          </div>
+                          <div className={line} data-coverage-erased={report.erased}>
+                            {t("panelCoverage.erased", { count: report.erased })}
+                          </div>
+                          <div
+                            className={line}
+                            data-coverage-never={report.neverObserved ?? "unknown"}
+                          >
+                            {report.neverObserved === null
+                              ? t("panelCoverage.neverObservedUnknown")
+                              : t("panelCoverage.neverObserved", { count: report.neverObserved })}
+                          </div>
+                        </dl>
+                      ) : (
+                        <div className="space-y-1" data-coverage-kind="brand">
+                          <p className={`text-xs text-muted-foreground ${line}`}>
+                            {t("panelCoverage.brandIntro")}
+                          </p>
+                          {runs.length === 0 ? (
+                            <p>{t("panelCoverage.brandNoRuns")}</p>
+                          ) : (
+                            <ul className="space-y-1">
+                              {runs.map(({ row, run }) => (
+                                <li
+                                  key={row.runId}
+                                  className={line}
+                                  data-coverage-run={row.runId}
+                                  data-consumed={row.consumed}
+                                >
+                                  {t("panelCoverage.brandRun", {
+                                    date: run
+                                      ? run.approvedAt.slice(0, 10)
+                                      : t("panelCoverage.dateUnknown"),
+                                    budget: row.approvedBudget,
+                                    consumed: row.consumed,
+                                    observed: row.observed,
+                                    erased: row.erased,
+                                  })}
+                                </li>
+                              ))}
+                            </ul>
+                          )}
+                          <p className={`text-xs text-muted-foreground ${line}`}>
+                            {t("panelCoverage.brandHelp")}
+                          </p>
+                        </div>
+                      )}
+                      {!report.coverageComplete ? (
+                        <p
+                          className={`text-amber-700 dark:text-amber-400 ${line}`}
+                          data-coverage-incomplete
+                        >
+                          {t("panelCoverage.incomplete")}
+                        </p>
+                      ) : null}
+                      {/* The whole native summary row is the target: at least 44px tall (padding on the summary,
+                          not the details box), keeping the native marker, keyboard toggle, focus ring and wrapping. */}
+                      <details className="rounded border border-border px-3">
+                        <summary className="min-h-11 cursor-pointer py-3 text-sm font-medium leading-5 [overflow-wrap:anywhere]">
+                          {t("panelCoverage.details")}
+                        </summary>
+                        <div className="space-y-2 pb-3 text-sm">
+                          <p className={`text-xs text-muted-foreground ${line}`}>
+                            {t("panelCoverage.outcomesTitle")}
+                          </p>
+                          <ul className="grid gap-1 sm:grid-cols-2">
+                            {(
+                              [
+                                "complete",
+                                "failed",
+                                "truncated",
+                                "missed",
+                                "protocol_deviant",
+                              ] as const
+                            ).map((o) => (
+                              <li key={o} className={line} data-outcome={o}>
+                                {t(`panelCoverage.outcome.${o}`, { count: report.outcomes[o] })}
+                              </li>
+                            ))}
+                          </ul>
+                          <p className={line} data-coverage-live-extra={report.liveExtra}>
+                            {t("panelCoverage.liveExtra", { count: report.liveExtra })}
+                          </p>
+                          <p className={line} data-coverage-erased-extra={report.erasedExtra}>
+                            {t("panelCoverage.erasedExtra", { count: report.erasedExtra })}
+                          </p>
+                          <p className={`text-xs text-muted-foreground ${line}`}>
+                            {t("panelCoverage.extraHelp")}
+                          </p>
+                          <p className={line} data-coverage-excluded={report.excluded}>
+                            {t("panelCoverage.excluded", { count: report.excluded })}
+                          </p>
+                        </div>
+                      </details>
+                    </>
+                  )}
+                </li>
+              ))}
+            </ul>
+          )}
+          {overflow > 0 ? (
+            <p
+              className={`text-amber-700 dark:text-amber-400 ${line}`}
+              data-coverage-overflow={overflow}
+            >
+              {t("panelCoverage.overflow", { count: overflow })}
+            </p>
+          ) : null}
+          <p className="text-xs text-muted-foreground">{t("panelCoverage.source")}</p>
+        </>
+      )}
     </section>
   );
 }

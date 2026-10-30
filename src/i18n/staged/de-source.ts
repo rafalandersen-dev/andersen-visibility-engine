@@ -52,4 +52,7 @@ export const DE_AUTHORING_SOURCE_HASHES: Readonly<Record<string, string>> = {
   // CG-03A answer-coverage source after df7a891b; English source in src/i18n/answer-coverage.ts. The batch is
   // reviewed English fallback pending translation (./answer-coverage-fallback.ts), not a German review record.
   "answer coverage": "cc2e55ca0586c225e9b468cc135ca04f572772841a0a6583f32bb943c578efa3",
+  // CG-03B panel-coverage source after 3734e2f5; English source in src/i18n/panel-coverage.ts. The batch is
+  // reviewed English fallback pending translation (./panel-coverage-fallback.ts), not a German review record.
+  "panel coverage": "a536a3fbc7a2464e33d375e12f6eda30507fcce6d261406c785427a933d4f435",
 };

@@ -29,6 +29,7 @@ import { stagedBillingScreen } from "./billing-screen-fallback";
 import { stagedFirstUse } from "./first-use-fallback";
 import { stagedTaskContinuity } from "./task-continuity-fallback";
 import { stagedAnswerCoverage } from "./answer-coverage-fallback";
+import { stagedPanelCoverage } from "./panel-coverage-fallback";
 import { deEvidenceScreen } from "./de-evidence-screen";
 import { dePlanScreen } from "./de-plan-screen";
 import { deCitationReview } from "./de-citation-review";
@@ -149,6 +150,7 @@ export const DE_STAGED_BATCHES = [
   { name: "first use", copy: stagedFirstUse(), namespaces: ["conversationStart"] },
   { name: "task continuity", copy: stagedTaskContinuity(), namespaces: ["taskContinuity"] },
   { name: "answer coverage", copy: stagedAnswerCoverage(), namespaces: ["answerCoverage"] },
+  { name: "panel coverage", copy: stagedPanelCoverage(), namespaces: ["panelCoverage"] },
 ] as const;
 export const DE_STAGED_CATALOG: Readonly<Record<string, string>> = Object.assign(
   {},

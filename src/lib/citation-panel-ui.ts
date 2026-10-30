@@ -4,13 +4,16 @@ import {
   MAX_PANEL_QUESTIONS,
   discoveryScheduleValid,
   panelProtocolSchema,
+  type BrandRun,
   type PanelProtocol,
 } from "./citation-panel";
 import {
   V1_DISCOVERY_QUESTIONS,
   V1_DISCOVERY_ROUNDS,
+  canonicalUuid,
   panelDraftSchema,
   v1DiscoveryQuestionsDistinct,
+  type CitationReport,
 } from "./citation-protocol";
 
 /**
@@ -423,4 +426,57 @@ export function stockholmLocalLabel(iso: string): string {
   }).formatToParts(new Date(ms));
   const get = (type: string) => parts.find((p) => p.type === type)?.value ?? "";
   return `${get("year")}-${get("month")}-${get("day")} ${get("hour")}:${get("minute")}`;
+}
+
+/** One approved, locked panel version as the coverage view shows it (CG-03B). `report` is the server's canonical
+ * erased-aware report from the SAME resolved read; null means that read returned no report for this version and the
+ * view must say so (never an empty success). Runs are this version's report rows joined to their approved run. */
+export type PanelCoverageEntry = {
+  key: string;
+  panel: PanelProtocol;
+  report: CitationReport | null;
+  runs: { row: CitationReport["brandRuns"][number]; run: BrandRun | null }[];
+};
+
+/**
+ * Join every locked + approved panel version of one resolved read to its report by SEMANTIC panel id and version
+ * (stored panel documents keep the client's uuid spelling). Every locked version appears, including older ones
+ * behind a newer draft head; drafts never do. Pure: it adds no numbers, derives no absence and never assigns
+ * unattributed history (`erasureOverflow` stays a separate, global fact for the caller). Order: panels by their
+ * newest version first, then each panel's versions newest first.
+ */
+export function panelCoverageEntries(result: {
+  panels: readonly PanelProtocol[];
+  brandRuns: readonly BrandRun[];
+  reports: readonly CitationReport[];
+}): PanelCoverageEntry[] {
+  const key = (panelId: string, version: number) => `${canonicalUuid(panelId)}:${version}`;
+  const reports = new Map(result.reports.map((r) => [key(r.panelId, r.panelVersion), r]));
+  const runs = new Map(result.brandRuns.map((r) => [canonicalUuid(r.id), r]));
+  const locked = result.panels.filter((p) => p.status === "locked" && !!p.approval);
+  const newest = new Map<string, number>();
+  for (const p of locked)
+    newest.set(
+      canonicalUuid(p.panelId),
+      Math.max(newest.get(canonicalUuid(p.panelId)) ?? 0, p.version),
+    );
+  return [...locked]
+    .sort(
+      (a, b) =>
+        (newest.get(canonicalUuid(b.panelId)) ?? 0) - (newest.get(canonicalUuid(a.panelId)) ?? 0) ||
+        canonicalUuid(a.panelId).localeCompare(canonicalUuid(b.panelId)) ||
+        b.version - a.version,
+    )
+    .map((panel) => {
+      const report = reports.get(key(panel.panelId, panel.version)) ?? null;
+      return {
+        key: key(panel.panelId, panel.version),
+        panel,
+        report,
+        runs: (report?.brandRuns ?? []).map((row) => ({
+          row,
+          run: runs.get(canonicalUuid(row.runId)) ?? null,
+        })),
+      };
+    });
 }

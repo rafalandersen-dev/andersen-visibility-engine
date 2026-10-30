@@ -6,6 +6,7 @@ import {
   formFromPanel,
   lockIssues,
   lockedScopes,
+  panelCoverageEntries,
   panelHeads,
   questionIdFor,
   questionIdPrefix,
@@ -16,7 +17,8 @@ import {
   tzOffsetMinutes,
   weeklyStockholmSlots,
 } from "./citation-panel-ui";
-import { discoveryScheduleValid, type PanelProtocol } from "./citation-panel";
+import { discoveryScheduleValid, type BrandRun, type PanelProtocol } from "./citation-panel";
+import type { CitationReport } from "./citation-protocol";
 
 const PANEL = "40000000-0000-4000-8000-000000000001";
 const prompts = Array.from({ length: 10 }, (_, i) => ({
@@ -260,5 +262,136 @@ describe("lock readiness and stored heads", () => {
     expect(f.firstSlot).toEqual({ date: "2027-01-04", time: "10:00" });
     expect(f.questionKeys).toEqual(form().questionKeys);
     expect(f.client).toEqual({ name: "Acme Massage", market: "SE" });
+  });
+});
+
+describe("panel coverage entries (CG-03B)", () => {
+  const OWNER = "00000000-0000-4000-8000-000000000001";
+  const BRAND = "40000000-0000-4000-8000-0000000000b1";
+  const RUN = "50000000-0000-4000-8000-0000000000aa";
+  const discovery = (version: number, over: Partial<PanelProtocol> = {}): PanelProtocol => {
+    const built = buildPanelDraft(form(), PANEL, 0, prompts);
+    if (!built.ok) throw new Error("fixture");
+    return {
+      ...built.draft,
+      version,
+      status: "locked",
+      approval: { approvedBy: OWNER, approvedAt: `2026-09-0${version}T10:00:00.000Z` },
+      ...over,
+    } as PanelProtocol;
+  };
+  const brand = (): PanelProtocol =>
+    ({
+      ...discovery(1),
+      panelId: BRAND,
+      kind: "brand",
+      questions: [discovery(1).questions[0]],
+      rounds: 0,
+      schedule: null,
+    }) as PanelProtocol;
+  const report = (panelId: string, panelVersion: number, over: Partial<CitationReport> = {}) =>
+    ({
+      panelId,
+      panelVersion,
+      kind: "discovery",
+      planned: 40,
+      observed: 3,
+      erased: 1,
+      erasedExtra: 0,
+      liveExtra: 0,
+      recorded: 4,
+      neverObserved: 36,
+      coverageComplete: true,
+      excluded: 0,
+      outcomes: { complete: 2, failed: 1, truncated: 0, missed: 0, protocol_deviant: 0 },
+      brandRuns: [],
+      ...over,
+    }) as CitationReport;
+  const run: BrandRun = {
+    id: RUN,
+    panelId: BRAND,
+    panelVersion: 1,
+    approvedBy: OWNER,
+    approvedAt: "2026-09-02T08:00:00.000Z",
+    observationBudget: 5,
+    rounds: 1,
+  };
+
+  it("shows every locked version, including one behind a newer draft head, and never a draft", () => {
+    const panels = [discovery(1), discovery(2), discovery(3, { status: "draft", approval: null })];
+    // The authoring list shows only the draft head; coverage still lists both locked versions.
+    expect(panelHeads(panels).map((p) => [p.version, p.status])).toEqual([[3, "draft"]]);
+    const entries = panelCoverageEntries({
+      panels,
+      brandRuns: [],
+      reports: [report(PANEL, 1), report(PANEL, 2)],
+    });
+    expect(entries.map((e) => [e.panel.version, e.report?.panelVersion])).toEqual([
+      [2, 2],
+      [1, 1],
+    ]);
+  });
+
+  it("joins reports by semantic panel id and keeps a missing report explicit", () => {
+    const upper = report(PANEL.toUpperCase(), 2);
+    const entries = panelCoverageEntries({
+      panels: [discovery(1), discovery(2)],
+      brandRuns: [],
+      reports: [upper],
+    });
+    expect(entries[0].report).toBe(upper); // the server's object, not a re-derived copy
+    expect(entries[0].key).toBe(`${PANEL.toLowerCase()}:2`);
+    expect(entries[1].report).toBeNull();
+  });
+
+  it("joins brand rows to their approved run and keeps the authoritative consumption", () => {
+    const row = {
+      runId: RUN.toUpperCase(),
+      approvedBudget: 5,
+      consumed: 2,
+      observed: 0,
+      erased: 1,
+    };
+    const orphan = {
+      runId: "50000000-0000-4000-8000-0000000000ff",
+      approvedBudget: 3,
+      consumed: 1,
+      observed: 1,
+      erased: 0,
+    };
+    const [entry] = panelCoverageEntries({
+      panels: [brand()],
+      brandRuns: [run],
+      reports: [
+        report(BRAND, 1, {
+          kind: "brand",
+          planned: 0,
+          observed: 1,
+          erased: 1,
+          recorded: 2,
+          neverObserved: 0,
+          brandRuns: [row, orphan],
+        }),
+      ],
+    });
+    expect(entry.runs).toEqual([
+      { row, run },
+      { row: orphan, run: null },
+    ]);
+    // consumed (2) exceeds observed + erased (0 + 1) and is passed through untouched.
+    expect(entry.runs[0].row.consumed).toBe(2);
+  });
+
+  it("orders panels by their newest locked version, then versions newest first", () => {
+    const entries = panelCoverageEntries({
+      panels: [discovery(1), brand(), discovery(2)],
+      brandRuns: [run],
+      reports: [report(PANEL, 1), report(PANEL, 2), report(BRAND, 1, { kind: "brand" })],
+    });
+    expect(entries.map((e) => `${e.panel.kind}:${e.panel.version}`)).toEqual([
+      "discovery:2",
+      "discovery:1",
+      "brand:1",
+    ]);
   });
 });
