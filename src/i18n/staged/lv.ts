@@ -14,6 +14,10 @@ import {
   STAGED_TASK_CONTINUITY_SOURCE_HASH,
   stagedTaskContinuity,
 } from "./task-continuity-fallback";
+import {
+  STAGED_ANSWER_COVERAGE_SOURCE_HASH,
+  stagedAnswerCoverage,
+} from "./answer-coverage-fallback";
 import { lvCollaboration } from "./lv-collaboration";
 import { lvCommerce } from "./lv-commerce";
 import { lvConfiguration } from "./lv-configuration";
@@ -337,6 +341,13 @@ export const LV_STAGED_BATCHES = [
     namespaces: ["taskContinuity"],
     sourceRevision: "881a422d + CG-02A (taskContinuity: English fallback)",
     sourceHash: STAGED_TASK_CONTINUITY_SOURCE_HASH,
+  },
+  {
+    name: "answer coverage",
+    copy: stagedAnswerCoverage(),
+    namespaces: ["answerCoverage"],
+    sourceRevision: "df7a891b + CG-03A (answerCoverage: English fallback)",
+    sourceHash: STAGED_ANSWER_COVERAGE_SOURCE_HASH,
   },
 ] as const;
 export const LV_STAGED_CATALOG: Readonly<Record<string, string>> = Object.freeze(

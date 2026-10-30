@@ -26,6 +26,10 @@ import {
   STAGED_TASK_CONTINUITY_SOURCE_HASH,
   stagedTaskContinuity,
 } from "./task-continuity-fallback";
+import {
+  STAGED_ANSWER_COVERAGE_SOURCE_HASH,
+  stagedAnswerCoverage,
+} from "./answer-coverage-fallback";
 import { slAnalyticsScreen } from "./sl-analytics-screen";
 import { slAuditScreen } from "./sl-audit-screen";
 import { slServicesScreen } from "./sl-services-screen";
@@ -319,6 +323,13 @@ export const SL_STAGED_BATCHES = [
     namespaces: ["taskContinuity"],
     sourceRevision: "881a422d + CG-02A (taskContinuity: English fallback)",
     sourceHash: STAGED_TASK_CONTINUITY_SOURCE_HASH,
+  },
+  {
+    name: "answer coverage",
+    copy: stagedAnswerCoverage(),
+    namespaces: ["answerCoverage"],
+    sourceRevision: "df7a891b + CG-03A (answerCoverage: English fallback)",
+    sourceHash: STAGED_ANSWER_COVERAGE_SOURCE_HASH,
   },
 ] as const;
 export const SL_STAGED_CATALOG: Readonly<Record<string, string>> = Object.freeze(
