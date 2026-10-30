@@ -120,7 +120,8 @@ export function CitationForwardPanel({
   ownerId: string;
   language: Language;
   onOpenStudio?: (assetId: string) => void;
-  onOpenPlan?: () => void;
+  /** Opens Plan with exactly this task selected; never called for a deleted task. */
+  onOpenPlan?: (taskId: string) => void;
   /** Test/harness seams only: a pre-filled author state and a pre-opened improvement row. */
   initialState?: ForwardState;
   initialOpenImprovementId?: string;
@@ -571,7 +572,14 @@ export function CitationForwardPanel({
                           {t("citationForward.studio.manualDraft")}
                         </Button>
                       )}
-                      <Button size="sm" variant="ghost" onClick={() => onOpenPlan?.()}>
+                      {/* CG-02A: Plan opens with this exact task selected (an archived one is explained there,
+                          never replaced). A deleted task has nothing to select. */}
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        disabled={state.status === "deleted" || state.status === "missing"}
+                        onClick={() => onOpenPlan?.(o.id)}
+                      >
                         {t("citationForward.studio.plan")}
                       </Button>
                       <Button

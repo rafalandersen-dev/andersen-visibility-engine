@@ -196,7 +196,7 @@ describe("the staged billing namespace is complete without inventing translation
       const keys = locale.batches.flatMap((batch) => Object.keys(batch.copy));
       expect(new Set(keys).size, code).toBe(keys.length);
       expect(Object.keys(locale.catalog).sort(), code).toEqual(Object.keys(UI_CATALOGS.en).sort());
-      expect(keys, code).toHaveLength(4710);
+      expect(keys, code).toHaveLength(4715);
       const copy = billingBatch(locale).copy;
       for (const key of ENGLISH_KEYS) expect(locale.catalog[key], `${code} ${key}`).toBe(copy[key]);
     },

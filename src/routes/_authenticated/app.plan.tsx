@@ -117,6 +117,8 @@ import { OrphanLane } from "@/components/OrphanLane";
 import { StackedDeck } from "@/components/StackedDeck";
 import { BatchBar } from "@/components/BatchBar";
 import { translate, useT, useAppLanguage } from "@/i18n";
+import { useAuth } from "@/lib/auth";
+import { planSelectionNotice, taskTarget } from "@/lib/task-continuity";
 import { contentCover } from "@/lib/growth-work";
 import { toast } from "sonner";
 
@@ -215,6 +217,9 @@ function PlanPage() {
   const navigate = useNavigate();
   const activeProjectId = useStore((state) => state.activeProjectId);
   const hydrated = useStore((state) => state.hydrated);
+  const userId = useStore((state) => state.userId);
+  const allOpportunities = useStore((state) => state.opportunities);
+  const { user } = useAuth();
   const projects = useStore((state) => state.projects);
   const rawOpportunities = useStore((state) =>
     state.opportunities.filter(
@@ -511,6 +516,19 @@ function PlanPage() {
   }
 
   const selected = opportunities.find((opportunity) => opportunity.id === search.selected);
+  // CG-02A: a requested task (?selected=, e.g. from a citation pin or a draft's "Back to task") that the
+  // list does not render is explained, never replaced by another task. Only this actor's hydrated workspace
+  // decides; before that nothing is said.
+  const selectionNotice = planSelectionNotice(
+    taskTarget(
+      user?.id,
+      { userId, hydrated, activeProjectId, opportunities: allOpportunities },
+      activeProjectId,
+      search.selected,
+    ),
+    !!selected,
+    showArchived,
+  );
   const view = search.view ?? "list";
   const scale = search.scale ?? "week";
 
@@ -683,6 +701,31 @@ function PlanPage() {
                       : undefined
                 }
               />
+            </div>
+          ) : null}
+          {selectionNotice !== "none" ? (
+            <div
+              role="status"
+              data-plan-selection-notice={selectionNotice}
+              className="mx-3 mt-3 flex flex-wrap items-center justify-between gap-3 rounded-md border border-[#e2e6eb] bg-[#f2f5f8] px-4 py-2.5"
+            >
+              <p className="min-w-0 text-sm text-[#3f4650] [overflow-wrap:anywhere]">
+                {t(
+                  selectionNotice === "archived"
+                    ? "taskContinuity.planArchived"
+                    : "taskContinuity.planUnavailable",
+                )}
+              </p>
+              {selectionNotice === "archived" ? (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="min-h-11 sm:min-h-9"
+                  onClick={() => setShowArchived(true)}
+                >
+                  {t("taskContinuity.showArchived")}
+                </Button>
+              ) : null}
             </div>
           ) : null}
           {showArchived ? (

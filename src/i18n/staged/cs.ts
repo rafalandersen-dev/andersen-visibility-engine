@@ -22,6 +22,10 @@ import { csEvidenceScreen } from "./cs-evidence-screen";
 import { csBillingScreen } from "./cs-billing-screen";
 import { stagedBillingScreen } from "./billing-screen-fallback";
 import { STAGED_FIRST_USE_SOURCE_HASH, stagedFirstUse } from "./first-use-fallback";
+import {
+  STAGED_TASK_CONTINUITY_SOURCE_HASH,
+  stagedTaskContinuity,
+} from "./task-continuity-fallback";
 import { csAnalyticsScreen } from "./cs-analytics-screen";
 import { csAuditScreen } from "./cs-audit-screen";
 import { csServicesScreen } from "./cs-services-screen";
@@ -308,6 +312,13 @@ export const CS_STAGED_BATCHES = [
     namespaces: ["conversationStart"],
     sourceRevision: "eb95d191 + CG-01A (conversationStart: English fallback)",
     sourceHash: STAGED_FIRST_USE_SOURCE_HASH,
+  },
+  {
+    name: "task continuity",
+    copy: stagedTaskContinuity(),
+    namespaces: ["taskContinuity"],
+    sourceRevision: "881a422d + CG-02A (taskContinuity: English fallback)",
+    sourceHash: STAGED_TASK_CONTINUITY_SOURCE_HASH,
   },
 ] as const;
 export const CS_STAGED_CATALOG: Readonly<Record<string, string>> = Object.freeze(

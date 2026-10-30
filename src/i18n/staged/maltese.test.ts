@@ -2,6 +2,7 @@ import { createHash } from "node:crypto";
 import { expect, it } from "vitest";
 import { UI_CATALOGS, isUiLanguage } from "../catalogs";
 import { firstUseCopy } from "../first-use";
+import { taskContinuityCopy } from "../task-continuity";
 import { euEmailCopy } from "../email-copy-eu";
 import { MT_STAGED_BATCHES, MT_STAGED_CATALOG } from "./mt";
 import { mtBillingScreen } from "./mt-billing-screen";
@@ -77,7 +78,7 @@ it("keeps staged Maltese outside runtime and assigns each authored key once", ()
   const keys = MT_STAGED_BATCHES.flatMap((batch) => Object.keys(batch.copy));
   expect(new Set(keys).size).toBe(keys.length);
   expect(Object.keys(MT_STAGED_CATALOG).sort()).toEqual(keys.sort());
-  expect(keys).toHaveLength(4710);
+  expect(keys).toHaveLength(4715);
   expect(Object.isFrozen(MT_STAGED_CATALOG)).toBe(true);
 });
 it("covers the complete current English interface key set", () => {
@@ -102,18 +103,29 @@ it("does not copy English text into authored Maltese values", () => {
   );
   expect([...firstUse].sort()).toEqual(Object.keys(firstUseCopy.en).sort());
   expect(firstUse.size).toBe(17);
+  // The CG-02A task-continuity messages too (./task-continuity-fallback.ts), by their own exact partition.
+  const taskContinuity = new Set(
+    Object.keys(UI_CATALOGS.en).filter((key) => key.split(".")[0] === "taskContinuity"),
+  );
+  expect([...taskContinuity].sort()).toEqual(Object.keys(taskContinuityCopy.en).sort());
+  expect(taskContinuity.size).toBe(5);
   const unchanged = Object.entries(MT_STAGED_CATALOG).filter(
     ([key, value]) =>
       value === UI_CATALOGS.en[key] &&
       !properNames.has(key) &&
       !fallback.has(key) &&
-      !firstUse.has(key),
+      !firstUse.has(key) &&
+      !taskContinuity.has(key),
   );
   expect(unchanged.map(([key]) => key)).toEqual([]);
   for (const key of properNames) expect(MT_STAGED_CATALOG[key]).toBe(UI_CATALOGS.en[key]);
   for (const key of fallback) expect(MT_STAGED_CATALOG[key], key).toBe(UI_CATALOGS.en[key]);
   for (const key of firstUse)
     expect(MT_STAGED_CATALOG[key], key).toBe(firstUseCopy.en[key as keyof typeof firstUseCopy.en]);
+  for (const key of taskContinuity)
+    expect(MT_STAGED_CATALOG[key], key).toBe(
+      taskContinuityCopy.en[key as keyof typeof taskContinuityCopy.en],
+    );
   for (const [key, value] of Object.entries(mtBillingScreen))
     expect(MT_STAGED_CATALOG[key], key).toBe(value);
 });
