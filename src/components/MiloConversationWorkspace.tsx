@@ -34,6 +34,7 @@ import {
   type SendOutcome,
 } from "@/lib/milo-conversation.ui";
 import { runTeamRequest } from "@/lib/team-request-queue";
+import { firstUseConsent, firstUseContext, type FirstUseSuggestion } from "@/lib/milo-first-use";
 
 type Selection = { id: string; fresh: boolean; count: number };
 type Props = {
@@ -48,6 +49,10 @@ type Props = {
   onLocationChange?: (location: string, replace: boolean) => void;
   onConfirmedConversation?: (id: string) => void;
   conversationHref?: (id: string) => string;
+  /** Start suggestions from `firstUseContext`, derived by the caller for exactly this
+   * actor/owner/project. Without them only neutral suggestions are shown. They only
+   * fill in the composer: never send, never consent. */
+  startSuggestions?: readonly FirstUseSuggestion[];
 };
 function selectionAt(location?: string): Selection | undefined {
   return location
@@ -144,166 +149,172 @@ export function MiloConversationWorkspace(props: Props) {
     historyToggle.current?.focus();
   }
   return (
-    <div
-      className="grid min-w-0 gap-6 xl:grid-cols-[240px_minmax(0,1fr)]"
-      data-milo-project={project.projectId}
-    >
-      <div>
+    <div className="min-w-0 space-y-3" data-milo-project={project.projectId}>
+      {/* One compact row: the privacy of this conversation and, below the xl layout,
+          the history toggle. Neither is private content. */}
+      <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1 border-b pb-1">
+        <p className="min-w-0 text-xs text-muted-foreground" data-milo-private-indicator>
+          {t(actorId === project.ownerId ? "chat.private" : "chat.sharedPrivate")}
+        </p>
         <Button
           ref={historyToggle}
-          className="mb-3 w-full xl:hidden"
-          variant="outline"
+          className="min-h-11 xl:hidden"
+          variant="ghost"
           aria-expanded={historyOpen}
           aria-controls={historyId}
           onClick={() => setHistoryOpen((value) => !value)}
         >
           {t("chat.history")}
         </Button>
-        <aside
-          id={historyId}
-          className={`${historyOpen ? "" : "hidden xl:block"} min-w-0 rounded-2xl border bg-card p-4 h-fit`}
-        >
-          <div className="flex flex-wrap items-center justify-between gap-2">
-            <h2 className="font-semibold">{t("chat.history")}</h2>
-            <Button size="sm" variant="ghost" onClick={refresh} disabled={directory.isFetching}>
-              {t("collaboration.refresh")}
-            </Button>
-          </div>
-          <Button
-            className="mt-3 w-full"
-            variant="outline"
-            disabled={directory.isPending || directory.isFetching || directory.isError}
-            onClick={() => void startNew()}
-          >
-            {t("chat.new")}
-          </Button>
-          {directory.isPending && (
-            <p role="status" className="py-3 text-sm">
-              {t("common.loading")}
-            </p>
-          )}
-          {(directory.isError || historyUnavailable) && (
-            <p role="alert" className="py-3 text-sm">
-              {t("chat.unavailable")}
-            </p>
-          )}
-          {directory.data && !directory.isError && !historyUnavailable && (
-            <>
-              <ul
-                className="mt-3 max-h-60 space-y-1 overflow-y-auto xl:max-h-[55vh]"
-                aria-label={t("chat.history")}
-              >
-                {directory.data.conversations.map((item) => {
-                  const Item = conversationHref ? "a" : "button";
-                  return (
-                    <li key={item.conversationId}>
-                      <Item
-                        {...(conversationHref
-                          ? { href: conversationHref(item.conversationId) }
-                          : { type: "button" as const })}
-                        aria-current={selected?.id === item.conversationId ? "true" : undefined}
-                        className={`block w-full rounded-lg px-3 py-2 text-left text-sm break-words [overflow-wrap:anywhere] focus-visible:outline focus-visible:outline-2 ${selected?.id === item.conversationId ? "bg-secondary font-medium" : "hover:bg-secondary/60"}`}
-                        onClick={(event) => {
-                          if (event.metaKey || event.ctrlKey || event.shiftKey || event.altKey)
-                            return;
-                          event.preventDefault();
-                          setErasedNotice(false);
-                          setSelected({
-                            id: item.conversationId,
-                            fresh: false,
-                            count: item.turnCount,
-                          });
-                          onLocationChange?.(item.conversationId, false);
-                          setHistoryOpen(false);
-                          historyToggle.current?.focus();
-                        }}
-                      >
-                        {item.title}
-                      </Item>
-                    </li>
-                  );
-                })}
-              </ul>
-              <div className="mt-3 flex gap-2">
-                <Button
-                  size="sm"
-                  variant="ghost"
-                  disabled={!offset || directory.isFetching}
-                  onClick={() => setOffset(offset - 50)}
-                >
-                  {t("collaboration.previous")}
-                </Button>
-                <Button
-                  size="sm"
-                  variant="ghost"
-                  disabled={
-                    offset >= 150 ||
-                    directory.data.conversations.length < 50 ||
-                    directory.isFetching
-                  }
-                  onClick={() => setOffset(offset + 50)}
-                >
-                  {t("collaboration.next")}
-                </Button>
-              </div>
-            </>
-          )}
-        </aside>
       </div>
-      <div className="min-w-0 space-y-4">
-        {erasedNotice && <p role="status">{t("chat.erased")}</p>}
-        {selected && !selected.fresh && (
-          <MiloConversationActions
-            key={`actions:${actorId}:${project.ownerId}:${project.projectId}:${selected.id}`}
-            actorId={actorId}
-            project={project}
-            conversationId={selected.id}
-            canExport={!directory.isError && !historyUnavailable && erasingId !== selected.id}
-            onErasing={() => {
-              setErasingId(selected.id);
-              setHistoryUnavailable(true);
-              setErasedNotice(false);
-            }}
-            onErased={() => {
-              if (!alive.current || currentSelection.current.id !== selected.id) return;
-              setSelected({ id: crypto.randomUUID(), fresh: true, count: 0 });
-              setErasingId(undefined);
-              setHistoryUnavailable(false);
-              setErasedNotice(true);
-              setOffset(0);
-              onLocationChange?.("new", true);
-              historyToggle.current?.focus();
-            }}
-          />
-        )}
-        {selected && erasingId !== selected.id ? (
-          // Kept mounted (concealed) while directory authorization fails, so an
-          // in-flight, uncertain or not-saved request keeps its in-memory identity.
-          // Any scope or consent-role change is a different key and discards it.
-          <ConversationSession
-            key={`${actorId}:${project.ownerId}:${project.projectId}:${props.canConsentChecks === true}:${selected.id}`}
-            {...props}
-            selection={selected}
-            concealed={directory.isError}
-            onConfirmed={(id, sent) => {
-              // Only the id-checked fresh flag and, for a confirmed SEND, the URL.
-              // This render's location callback carries its own source location,
-              // so the route ignores it once navigation has moved on.
-              setSelected((value) =>
-                value?.id === id && value.fresh ? { ...value, fresh: false } : value,
-              );
-              if (!sent) return;
-              setErasedNotice(false);
-              onLocationChange?.(id, true);
-            }}
-            onDirectoryRefresh={() =>
-              void client.invalidateQueries({ queryKey: [...prefix, "directory"] })
-            }
-            onUnavailableChange={setHistoryUnavailable}
-          />
-        ) : selected && erasingId === selected.id ? null : (
-          <div role="status">{t(directory.isError ? "chat.unavailable" : "common.loading")}</div>
-        )}
+      <div className="grid min-w-0 gap-6 xl:grid-cols-[240px_minmax(0,1fr)]">
+        <div>
+          <aside
+            id={historyId}
+            className={`${historyOpen ? "" : "hidden xl:block"} min-w-0 rounded-2xl border bg-card p-4 h-fit`}
+          >
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <h2 className="font-semibold">{t("chat.history")}</h2>
+              <Button size="sm" variant="ghost" onClick={refresh} disabled={directory.isFetching}>
+                {t("collaboration.refresh")}
+              </Button>
+            </div>
+            <Button
+              className="mt-3 w-full"
+              variant="outline"
+              disabled={directory.isPending || directory.isFetching || directory.isError}
+              onClick={() => void startNew()}
+            >
+              {t("chat.new")}
+            </Button>
+            {directory.isPending && (
+              <p role="status" className="py-3 text-sm">
+                {t("common.loading")}
+              </p>
+            )}
+            {(directory.isError || historyUnavailable) && (
+              <p role="alert" className="py-3 text-sm">
+                {t("chat.unavailable")}
+              </p>
+            )}
+            {directory.data && !directory.isError && !historyUnavailable && (
+              <>
+                <ul
+                  className="mt-3 max-h-60 space-y-1 overflow-y-auto xl:max-h-[55vh]"
+                  aria-label={t("chat.history")}
+                >
+                  {directory.data.conversations.map((item) => {
+                    const Item = conversationHref ? "a" : "button";
+                    return (
+                      <li key={item.conversationId}>
+                        <Item
+                          {...(conversationHref
+                            ? { href: conversationHref(item.conversationId) }
+                            : { type: "button" as const })}
+                          aria-current={selected?.id === item.conversationId ? "true" : undefined}
+                          className={`block w-full rounded-lg px-3 py-2 text-left text-sm break-words [overflow-wrap:anywhere] focus-visible:outline focus-visible:outline-2 ${selected?.id === item.conversationId ? "bg-secondary font-medium" : "hover:bg-secondary/60"}`}
+                          onClick={(event) => {
+                            if (event.metaKey || event.ctrlKey || event.shiftKey || event.altKey)
+                              return;
+                            event.preventDefault();
+                            setErasedNotice(false);
+                            setSelected({
+                              id: item.conversationId,
+                              fresh: false,
+                              count: item.turnCount,
+                            });
+                            onLocationChange?.(item.conversationId, false);
+                            setHistoryOpen(false);
+                            historyToggle.current?.focus();
+                          }}
+                        >
+                          {item.title}
+                        </Item>
+                      </li>
+                    );
+                  })}
+                </ul>
+                <div className="mt-3 flex gap-2">
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    disabled={!offset || directory.isFetching}
+                    onClick={() => setOffset(offset - 50)}
+                  >
+                    {t("collaboration.previous")}
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    disabled={
+                      offset >= 150 ||
+                      directory.data.conversations.length < 50 ||
+                      directory.isFetching
+                    }
+                    onClick={() => setOffset(offset + 50)}
+                  >
+                    {t("collaboration.next")}
+                  </Button>
+                </div>
+              </>
+            )}
+          </aside>
+        </div>
+        <div className="min-w-0 space-y-4">
+          {erasedNotice && <p role="status">{t("chat.erased")}</p>}
+          {selected && !selected.fresh && (
+            <MiloConversationActions
+              key={`actions:${actorId}:${project.ownerId}:${project.projectId}:${selected.id}`}
+              actorId={actorId}
+              project={project}
+              conversationId={selected.id}
+              canExport={!directory.isError && !historyUnavailable && erasingId !== selected.id}
+              onErasing={() => {
+                setErasingId(selected.id);
+                setHistoryUnavailable(true);
+                setErasedNotice(false);
+              }}
+              onErased={() => {
+                if (!alive.current || currentSelection.current.id !== selected.id) return;
+                setSelected({ id: crypto.randomUUID(), fresh: true, count: 0 });
+                setErasingId(undefined);
+                setHistoryUnavailable(false);
+                setErasedNotice(true);
+                setOffset(0);
+                onLocationChange?.("new", true);
+                historyToggle.current?.focus();
+              }}
+            />
+          )}
+          {selected && erasingId !== selected.id ? (
+            // Kept mounted (concealed) while directory authorization fails, so an
+            // in-flight, uncertain or not-saved request keeps its in-memory identity.
+            // Any scope or consent-role change is a different key and discards it.
+            <ConversationSession
+              key={`${actorId}:${project.ownerId}:${project.projectId}:${props.canConsentChecks === true}:${selected.id}`}
+              {...props}
+              selection={selected}
+              concealed={directory.isError}
+              onConfirmed={(id, sent) => {
+                // Only the id-checked fresh flag and, for a confirmed SEND, the URL.
+                // This render's location callback carries its own source location,
+                // so the route ignores it once navigation has moved on.
+                setSelected((value) =>
+                  value?.id === id && value.fresh ? { ...value, fresh: false } : value,
+                );
+                if (!sent) return;
+                setErasedNotice(false);
+                onLocationChange?.(id, true);
+              }}
+              onDirectoryRefresh={() =>
+                void client.invalidateQueries({ queryKey: [...prefix, "directory"] })
+              }
+              onUnavailableChange={setHistoryUnavailable}
+            />
+          ) : selected && erasingId === selected.id ? null : (
+            <div role="status">{t(directory.isError ? "chat.unavailable" : "common.loading")}</div>
+          )}
+        </div>
       </div>
     </div>
   );
@@ -321,6 +332,7 @@ function ConversationSession({
   onUnavailableChange,
   onLocationChange,
   onConfirmedConversation,
+  startSuggestions,
 }: Props & {
   selection: Selection;
   concealed: boolean;
@@ -349,7 +361,10 @@ function ConversationSession({
     mutating = useRef(false),
     composer = useRef<HTMLTextAreaElement>(null);
   const messageId = useId(),
-    hintId = useId();
+    hintId = useId(),
+    suggestionHintId = useId();
+  const consent = firstUseConsent(actorId, project, canConsentChecks);
+  const suggestions = startSuggestions ?? firstUseContext(actorId, project, undefined).suggestions;
   const target = {
     ownerId: project.ownerId,
     projectId: project.projectId,
@@ -506,45 +521,52 @@ function ConversationSession({
   // composer). Local request state stays in memory until authorization returns.
   if (concealed) return <div role="status">{t("chat.unavailable")}</div>;
   return (
-    <section className="min-w-0 space-y-5" aria-label={t("chat.title")}>
-      <div className="flex flex-wrap items-center justify-between gap-3 border-b pb-4">
-        <div className="min-w-0">
-          <h2 className="font-semibold break-words">{project.name}</h2>
-          <p className="text-xs text-muted-foreground">
-            {t(actorId === project.ownerId ? "chat.private" : "chat.sharedPrivate")}
-          </p>
+    <section className="milo-start-session min-w-0 space-y-4" aria-label={t("chat.title")}>
+      {/* The project is named by the selector and composer label, and its privacy by the
+          workspace row; the heading stays for assistive navigation. */}
+      <h2 className="sr-only">{project.name}</h2>
+      {/* Nothing exists to refresh before the first send; the control appears with it. */}
+      {!(selection.fresh && !request) && (
+        <div className="flex justify-end">
+          <Button size="sm" variant="ghost" onClick={refresh} disabled={history.isFetching}>
+            {t("collaboration.refresh")}
+          </Button>
         </div>
-        <Button
-          size="sm"
-          variant="outline"
-          onClick={refresh}
-          disabled={history.isFetching || (selection.fresh && !request)}
-        >
-          {t("collaboration.refresh")}
-        </Button>
-      </div>
+      )}
       {selection.fresh && !request && (
-        <div className="rounded-2xl bg-card p-6 md:p-9 border">
-          <SpecialistPortrait role="lead" />
-          <h3 className="mt-5 font-display text-2xl">{t("chat.welcome")}</h3>
-          <p className="mt-3 max-w-2xl text-sm leading-6 text-muted-foreground">
-            {t("chat.description")}
-          </p>
-          <div className="mt-5 flex flex-wrap gap-2">
-            {["reviewPrompt", "knowledgePrompt"].map((key) => (
+        <div className="milo-start-welcome space-y-2" data-milo-first-use>
+          <h3 className="font-display text-xl leading-tight">{t("chat.welcome")}</h3>
+          <div
+            role="group"
+            aria-label={t("conversationStart.suggestions")}
+            aria-describedby={suggestionHintId}
+            className="grid gap-2 sm:grid-cols-2"
+          >
+            {suggestions.map((suggestion) => (
               <Button
-                key={key}
+                key={suggestion.id}
+                type="button"
                 variant="outline"
-                className="h-auto whitespace-normal text-left"
+                data-first-use-suggestion={suggestion.id}
+                className="milo-start-suggestion h-auto min-h-11 w-full justify-start whitespace-normal py-2 text-left break-words [overflow-wrap:anywhere]"
                 onClick={() => {
-                  setBody(t(`chat.${key}`));
+                  // Fills in the message only: no send, no consent, no request.
+                  setBody(t(suggestion.key, suggestion.vars));
                   composer.current?.focus();
                 }}
               >
-                {t(`chat.${key}`)}
+                {t(suggestion.key, suggestion.vars)}
               </Button>
             ))}
           </div>
+          <p id={suggestionHintId} className="text-xs leading-5 text-muted-foreground">
+            {t(
+              actorId === project.ownerId
+                ? "conversationStart.ownedIntro"
+                : "conversationStart.sharedIntro",
+            )}{" "}
+            {t("conversationStart.suggestionHint")}
+          </p>
         </div>
       )}
       {!selection.fresh && history.isPending && <p role="status">{t("common.loading")}</p>}
@@ -696,7 +718,7 @@ function ConversationSession({
         </div>
       )}
       <form
-        className="rounded-2xl border bg-card p-4 shadow-sm"
+        className="milo-start-composer rounded-2xl border bg-card p-4 shadow-sm"
         onSubmit={(event) => {
           event.preventDefault();
           void submit();
@@ -713,13 +735,13 @@ function ConversationSession({
           id={messageId}
           ref={composer}
           value={body}
-          rows={4}
+          rows={3}
           maxLength={8000}
           disabled={sending || working || awaiting}
           aria-describedby={hintId}
           aria-invalid={tooLong || undefined}
           placeholder={t("chat.placeholder")}
-          className="mt-3 block min-h-28 w-full resize-y rounded-xl border bg-background p-3 text-sm leading-6 focus-visible:outline focus-visible:outline-2"
+          className="mt-2 block min-h-24 w-full resize-y rounded-xl border bg-background p-3 text-sm leading-6 focus-visible:outline focus-visible:outline-2"
           onChange={(event) => setBody(event.target.value)}
           onKeyDown={(event) => {
             if (
@@ -741,38 +763,102 @@ function ConversationSession({
                 : "chat.keyboard",
           )}
         </p>
-        {actorId === project.ownerId && (
-          <label className="mt-3 flex items-start gap-2 text-xs leading-5">
-            <input
-              type="checkbox"
-              className="mt-1"
-              checked={allowGeneration}
-              disabled={sending || working || awaiting}
-              onChange={(event) => setAllowGeneration(event.target.checked)}
-            />
-            <span>{t("chat.allowGeneration")}</span>
-          </label>
+        {(consent.generation || consent.checks) && (
+          // Per-message permissions: unchecked by default, reset after every saved send
+          // and on any scope/role change (the session key). The short label names the
+          // permission; its consequence stays visible, the full wording one click away.
+          <fieldset
+            className={`milo-start-consent mt-3 rounded-xl border px-3 pb-2 ${consent.generation && consent.checks ? "sm:grid sm:grid-cols-2 sm:gap-x-5" : ""}`}
+          >
+            <legend className="px-1 text-xs font-semibold">
+              {t("conversationStart.consent.title")}{" "}
+              <span className="font-normal text-muted-foreground">
+                · {t("conversationStart.consent.note")}
+              </span>
+            </legend>
+            {consent.generation && (
+              <ConsentOption
+                kind="generation"
+                checked={allowGeneration}
+                disabled={sending || working || awaiting}
+                onChange={setAllowGeneration}
+                label={t("conversationStart.consent.generationLabel")}
+                summary={t("conversationStart.consent.generationSummary")}
+                more={t("conversationStart.consent.generationDetails")}
+                full={t("chat.allowGeneration")}
+              />
+            )}
+            {consent.checks && (
+              <ConsentOption
+                kind="checks"
+                checked={allowChecks}
+                disabled={sending || working || awaiting}
+                onChange={setAllowChecks}
+                label={t("conversationStart.consent.checksLabel")}
+                summary={t("conversationStart.consent.checksSummary")}
+                more={t("conversationStart.consent.checksDetails")}
+                full={t("chat.allowProviderChecks")}
+              />
+            )}
+          </fieldset>
         )}
-        {(actorId === project.ownerId || canConsentChecks) && (
-          <label className="mt-3 flex items-start gap-2 text-xs leading-5">
-            <input
-              type="checkbox"
-              className="mt-1"
-              checked={allowChecks}
-              disabled={sending || working || awaiting}
-              onChange={(event) => setAllowChecks(event.target.checked)}
-            />
-            <span>{t("chat.allowProviderChecks")}</span>
-          </label>
-        )}
-        <div className="mt-4 flex flex-wrap items-center justify-between gap-3">
+        <div className="mt-3 flex flex-wrap items-center justify-between gap-3">
           <p className="max-w-xl text-xs text-muted-foreground">{t("chat.usage")}</p>
-          <Button type="submit" disabled={!canSend}>
+          <Button type="submit" className="min-h-11 px-6" disabled={!canSend}>
             {t("chat.send")}
           </Button>
         </div>
       </form>
     </section>
+  );
+}
+/** One per-message permission: a short label, its visible bounded consequence (also the
+ * checkbox description) and the complete reviewed wording in native details. */
+function ConsentOption({
+  kind,
+  checked,
+  disabled,
+  onChange,
+  label,
+  summary,
+  more,
+  full,
+}: {
+  kind: "generation" | "checks";
+  checked: boolean;
+  disabled: boolean;
+  onChange: (checked: boolean) => void;
+  label: string;
+  summary: string;
+  more: string;
+  full: string;
+}) {
+  const inputId = useId(),
+    summaryId = useId();
+  return (
+    <div className="mt-1 grid grid-cols-[auto_minmax(0,1fr)] gap-x-3" data-consent={kind}>
+      <input
+        id={inputId}
+        type="checkbox"
+        className="mt-1.5 size-4"
+        checked={checked}
+        disabled={disabled}
+        aria-describedby={summaryId}
+        onChange={(event) => onChange(event.target.checked)}
+      />
+      <div className="min-w-0">
+        <label htmlFor={inputId} className="block cursor-pointer py-0.5 text-sm font-medium">
+          {label}
+        </label>
+        <p id={summaryId} className="text-xs leading-5 text-muted-foreground">
+          {summary}
+        </p>
+        <details className="text-xs leading-5">
+          <summary className="milo-start-more w-fit cursor-pointer py-0.5">{more}</summary>
+          <p className="pb-1">{full}</p>
+        </details>
+      </div>
+    </div>
   );
 }
 function ConversationEventView({

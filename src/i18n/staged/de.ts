@@ -26,6 +26,7 @@ import { deAuditScreen } from "./de-audit-screen";
 import { deAnalyticsScreen } from "./de-analytics-screen";
 import { deBillingScreen } from "./de-billing-screen";
 import { stagedBillingScreen } from "./billing-screen-fallback";
+import { stagedFirstUse } from "./first-use-fallback";
 import { deEvidenceScreen } from "./de-evidence-screen";
 import { dePlanScreen } from "./de-plan-screen";
 import { deCitationReview } from "./de-citation-review";
@@ -143,6 +144,7 @@ export const DE_STAGED_BATCHES = [
   { name: "citation authoring", copy: deCitationAuthoring, namespaces: ["citationAuthoring"] },
   { name: "citation forward", copy: deCitationForward, namespaces: ["citationForward"] },
   { name: "citation change", copy: deCitationChange, namespaces: ["citationChange"] },
+  { name: "first use", copy: stagedFirstUse(), namespaces: ["conversationStart"] },
 ] as const;
 export const DE_STAGED_CATALOG: Readonly<Record<string, string>> = Object.assign(
   {},

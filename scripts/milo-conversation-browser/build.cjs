@@ -15,18 +15,40 @@ if (
     "proposal",
     "lifecycle",
     "account",
+    "firstuse",
   ].includes(mode)
 )
   throw Error(
-    "Choose component, full, generation, auth, multitab, bookmark, proposal, lifecycle or account.",
+    "Choose component, full, generation, auth, multitab, bookmark, proposal, lifecycle, account or firstuse.",
   );
 if (!["en", "pl", "sv", "da"].includes(locale)) throw Error("Choose en, pl, sv or da.");
-const out = "/tmp/milo-conversation-browser";
+// MILO_BROWSER_OUT keeps concurrent fixtures apart; firstuse never shares the older directory.
+const out =
+  process.env.MILO_BROWSER_OUT ||
+  (mode === "firstuse" ? "/tmp/milo-first-use-browser-20261030" : "/tmp/milo-conversation-browser");
+const styles = process.env.MILO_BROWSER_STYLES || "http://127.0.0.1:5189/src/styles.css?direct";
 fs.mkdirSync(out, { recursive: true });
 fs.writeFileSync(
   path.join(out, "index.html"),
-  `<!doctype html><html lang="${locale}"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Milo conversation browser check</title><link rel="stylesheet" href="http://127.0.0.1:5189/src/styles.css?direct"><style>#results{white-space:pre-wrap;overflow-wrap:anywhere}</style><div class="${mode === "component" ? "milo-app p-5" : ""}" id="root"></div><pre id="results">Running</pre><script src="/bundle.js"></script></html>`,
+  mode === "firstuse"
+    ? // One build serves every locale and fixture variant: ?locale=en|pl|sv|da&variant=...
+      // The build locale is only the default. Unknown values fall back, never execute.
+      `<!doctype html><html lang="${locale}"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Milo first-use browser check</title><link rel="stylesheet" href="${styles}"><style>#results{white-space:pre-wrap;overflow-wrap:anywhere;font:12px/1.5 ui-monospace,monospace;margin:0;padding:16px;background:#fff;color:#111}</style><script>(()=>{const q=new URLSearchParams(location.search).get("locale");globalThis.__miloFirstUseLocale=["en","pl","sv","da"].includes(q)?q:${JSON.stringify(locale)};document.documentElement.lang=globalThis.__miloFirstUseLocale;})();</script><script>{${fs.readFileSync(path.join(source, "network-guard.js"), "utf8")}}</script><div id="root"></div><pre id="results">Running</pre><script src="bundle.js"></script></html>`
+    : `<!doctype html><html lang="${locale}"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Milo conversation browser check</title><link rel="stylesheet" href="${styles}"><style>#results{white-space:pre-wrap;overflow-wrap:anywhere}</style><div class="${mode === "component" ? "milo-app p-5" : ""}" id="root"></div><pre id="results">Running</pre><script src="/bundle.js"></script></html>`,
 );
+// The shell's producer-session imports the store relatively ("./store"), which the
+// "@/lib/store" alias cannot catch; without this the full-page fixtures bundled the
+// real store, Supabase client and server-only modules.
+const fixtureStore = {
+  name: "fixture-store",
+  setup(build) {
+    build.onResolve({ filter: /(^|\/)store$/ }, (args) =>
+      path.resolve(args.resolveDir, args.path) === path.join(root, "src/lib/store")
+        ? { path: path.join(source, "full-mock.js") }
+        : undefined,
+    );
+  },
+};
 require(root + "/node_modules/esbuild")
   .build({
     stdin: {
@@ -50,7 +72,7 @@ require(root + "/node_modules/esbuild")
         mode === "multitab" ? "multitab-network.js" : "mock.js",
       ),
       "@/i18n": path.join(source, "i18n.js"),
-      ...(["full", "generation"].includes(mode)
+      ...(["full", "generation", "firstuse"].includes(mode)
         ? {
             "@/lib/auth": path.join(source, "full-mock.js"),
             "@/lib/store": path.join(source, "full-mock.js"),
@@ -70,24 +92,27 @@ require(root + "/node_modules/esbuild")
           }
         : {}),
     },
-    plugins: ["auth", "bookmark"].includes(mode)
-      ? [
-          {
-            name: "fixture-entitlement",
-            setup(build) {
-              build.onResolve({ filter: /^\.\/entitlements\.functions$/ }, (args) => {
-                if (args.importer === path.join(root, "src/lib/store.ts"))
-                  return { path: path.join(source, "auth-network.js") };
-              });
+    plugins: ["full", "generation", "firstuse"].includes(mode)
+      ? [fixtureStore]
+      : ["auth", "bookmark"].includes(mode)
+        ? [
+            {
+              name: "fixture-entitlement",
+              setup(build) {
+                build.onResolve({ filter: /^\.\/entitlements\.functions$/ }, (args) => {
+                  if (args.importer === path.join(root, "src/lib/store.ts"))
+                    return { path: path.join(source, "auth-network.js") };
+                });
+              },
             },
-          },
-        ]
-      : [],
+          ]
+        : [],
     define: {
       "process.env.NODE_ENV": '"development"',
       "import.meta.env.DEV": "false",
       "import.meta.env.VITE_MILO_VISUAL_QA": '""',
-      __MILO_CONVERSATION_LOCALE__: JSON.stringify(locale),
+      __MILO_CONVERSATION_LOCALE__:
+        mode === "firstuse" ? "globalThis.__miloFirstUseLocale" : JSON.stringify(locale),
     },
   })
   .then(() =>
@@ -102,5 +127,6 @@ require(root + "/node_modules/esbuild")
       : undefined,
   )
   .catch(() => {
+    // esbuild has already printed the diagnostics.
     process.exitCode = 1;
   });

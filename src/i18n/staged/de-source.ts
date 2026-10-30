@@ -43,4 +43,7 @@ export const DE_AUTHORING_SOURCE_HASHES: Readonly<Record<string, string>> = {
   "citation forward": "692652100abfecf97689fd04a6f508d7d66db62417cfd2cfc3dc6f2adf8fcb70",
   // Change evidence candidate 20260928120000 (R/R1/R2, 2026-09-28); English source in src/i18n/citation-change.ts.
   "citation change": "576b6f207594745c1c3e082e0bba5d773318eb96241d4d5cf18187b680cdc2d5",
+  // CG-01A first-use source after eb95d191; English source in src/i18n/first-use.ts. The batch is
+  // reviewed English fallback pending translation (./first-use-fallback.ts), not a German review record.
+  "first use": "5368dd8f7a5fa58cb47c1b78857ed1c14a051b32832cb86feccfe0a00c4829b2",
 };

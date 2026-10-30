@@ -206,6 +206,7 @@ export function AppShell({
   projectPicker,
   projectContextName,
   sharedProject,
+  appearance = "default",
 }: {
   title: string;
   eyebrow?: ReactNode;
@@ -216,7 +217,12 @@ export function AppShell({
   projectPicker?: ReactNode;
   projectContextName?: string;
   sharedProject?: { ownerId: string; projectId: string };
+  /** "conversation": the warm, compact first-use skin of the Milo conversation home
+   * (title row only; eyebrow/description render only when passed). Every other
+   * screen keeps the default. Navigation, saving and sign-out are identical. */
+  appearance?: "default" | "conversation";
 }) {
+  const conversation = appearance === "conversation";
   const location = useRouterState({ select: (state) => state.location });
   const pathname = location.pathname;
   const projects = useStore((state) => state.projects);
@@ -331,7 +337,10 @@ export function AppShell({
   );
 
   return (
-    <div lang={language} className="milo-app flex min-h-screen bg-background text-foreground">
+    <div
+      lang={language}
+      className={`milo-app ${conversation ? "milo-conversation-skin " : ""}flex min-h-screen bg-background text-foreground`}
+    >
       <aside className="hidden h-screen w-[238px] shrink-0 lg:block lg:sticky lg:top-0">
         {sidebar}
       </aside>
@@ -387,13 +396,25 @@ export function AppShell({
         </div>
 
         <header className="milo-page-header bg-background">
-          <div className="flex flex-wrap items-end justify-between gap-5 px-5 pb-6 pt-9 md:px-10">
+          <div
+            className={
+              conversation
+                ? "flex flex-wrap items-end justify-between gap-x-6 gap-y-2 px-5 pb-3 pt-4 md:px-10 md:pt-6"
+                : "flex flex-wrap items-end justify-between gap-5 px-5 pb-6 pt-9 md:px-10"
+            }
+          >
             <div className="min-w-0 max-w-full">
-              <div className="text-xs font-medium text-muted-foreground break-words [overflow-wrap:anywhere]">
-                {eyebrow ?? activeProject?.name ?? t("appShell.workspace")}
-              </div>
+              {!conversation || eyebrow ? (
+                <div className="text-xs font-medium text-muted-foreground break-words [overflow-wrap:anywhere]">
+                  {eyebrow ?? activeProject?.name ?? t("appShell.workspace")}
+                </div>
+              ) : null}
               <h1
-                className={`mt-3 text-[2rem] font-semibold leading-tight tracking-[-0.04em] text-foreground md:text-[2.5rem] ${eyebrow ? "milo-home-heading" : ""}`}
+                className={
+                  conversation
+                    ? "milo-conversation-heading text-[1.75rem] leading-tight text-foreground md:text-[2rem]"
+                    : `mt-3 text-[2rem] font-semibold leading-tight tracking-[-0.04em] text-foreground md:text-[2.5rem] ${eyebrow ? "milo-home-heading" : ""}`
+                }
               >
                 {title}
               </h1>
@@ -403,7 +424,13 @@ export function AppShell({
                 </p>
               ) : null}
             </div>
-            {actions ? <div className="flex flex-wrap items-center gap-2">{actions}</div> : null}
+            {actions ? (
+              <div
+                className={`flex flex-wrap items-center gap-2 ${conversation ? "w-full min-w-0 max-w-full sm:w-auto" : ""}`}
+              >
+                {actions}
+              </div>
+            ) : null}
           </div>
         </header>
 

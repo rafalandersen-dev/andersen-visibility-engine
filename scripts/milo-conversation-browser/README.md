@@ -145,3 +145,22 @@ Consent coverage on the same date: the `component` fixture's first group now als
 - **Baselines:** exact `0de0ae88`, and `0de0ae88` plus trace, both passed all 12 PL groups.
 
 These groups do not establish live admission contention, provider behaviour or production acceptance.
+
+## First use (CG-01A, 30 October 2026)
+
+`node scripts/milo-conversation-browser/build.cjs en firstuse` writes to `/tmp/milo-first-use-browser-20261030` by default, never to the older `/tmp/milo-conversation-browser`. Any mode accepts `MILO_BROWSER_OUT=<dir>` to choose another output directory and `MILO_BROWSER_STYLES=<url>` to replace the default stylesheet address `http://127.0.0.1:5189/src/styles.css?direct`. Serve the output directory over loopback and keep the stylesheet server available, as for the other modes.
+
+It renders the **actual home route** (`app.index.tsx`), `AppShell` in its conversation appearance, the real project picker, the `Manage` disclosure and `MiloConversationWorkspace` through a real TanStack memory router, with the central catalogs and the real stylesheet. One build serves every locale and fixture variant through the query string:
+
+- `?locale=en|pl|sv|da` (the build argument is only the default; unknown values fall back to it)
+- `?variant=empty` — owned project with no working draft (owner: both permission controls)
+- `?variant=draft` — owned project with a long working draft, which is shown in its bounded form
+- `?variant=viewer` — another owner's project with the same project ID, viewer role (no permission controls); the owned draft stays in the synthetic store as bait
+- `?variant=editor` — the same shared project, editor role (site-check permission only)
+- `?check=1` — run the scripted interaction report into `#results`; without it the page stays pristine and interactive for screenshots and manual review, and `window.__miloFirstUseReport()` prints the current synthetic sends and network attempts
+
+The scripted report has five groups: presentation (expected suggestions per scope, bounded title, unchecked boxes per role, visible consequence summary as each checkbox's description, full reviewed wording collapsed in native details, usage/publication note, private indicator, collapsed administration with unchanged destinations); suggestions only fill the composer and move focus (no send, no consent); no other-project or owned-draft text in shared scope; a scope switch resets permissions and unsent text in both directions; exact send flags (false unless explicitly checked, no generation flag from collaborators, a new message is a new request). It also records layout metrics: composer/send position against the viewport, horizontal overflow, computed heading/body font families and the font faces actually loaded. Fold visibility is reported, not asserted, because it depends on the viewport; horizontal overflow, network attempts and history reads fail the run.
+
+Boundaries and limits: authentication, the workspace store, the membership directory and the conversation server functions are synthetic in-page mocks (`full-mock.js` and `window.h`), not the authenticated layout, hydration or real server functions. A send reaches only the mock, which answers with the typed busy rollback (nothing saved, text kept); no history read, execution, provider call or persistence occurs. `network-guard.js` is inlined in `index.html` before the bundle (a bundled import would be dropped because `package.json` declares no side effects) and records and refuses `fetch`, XHR, WebSocket, EventSource and beacon requests; stylesheet and font loads are ordinary document requests. Destinations such as `/app/collaborators` render a fixture placeholder. The fixture cannot establish live sessions, role enforcement on the server, fluent-language quality, typography acceptance when fonts fall back, or production behaviour.
+
+The `full`, `generation` and `firstuse` modes now redirect the shell's relative `./store` import (from `producer-session.ts`) to `full-mock.js`; previously that import bypassed the `@/lib/store` alias and pulled the real store, Supabase client and server-only modules into the browser bundle, and `full-mock.js` lacked the save-status exports the current shell reads. The synthetic save status reports the ordinary confirmed "saved" bar only when the fixture store says it is hydrated; `full` keeps its earlier no-status behaviour. The `component` and `full` collaborator assertions now read the short site-check label and find the unchanged full wording in its details.
