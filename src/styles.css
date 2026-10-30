@@ -243,3 +243,50 @@
 .milo-app .milo-home-heading { font-size:clamp(32px,3.6vw,48px); line-height:1.1; font-weight:700; }
 
 @media (max-width: 767px) { .milo-plan-row[aria-hidden="true"] { display: none; } }
+
+/* CG-01A · warm first-use skin of the Milo conversation home only
+   (AppShell appearance="conversation"). Warm ivory, graphite and restrained gold
+   with the public Milo typography. Every other screen keeps .milo-app above; the
+   dark sidebar keeps its own colours and focus outline. Contrast on ivory:
+   text 13.9:1, muted 6.3:1, focus 5.7:1, field borders 3.1:1; gold is decorative. */
+.milo-app.milo-conversation-skin {
+  --background: #f8f5ee;
+  --foreground: #23262b;
+  --card: #fffdf9;
+  --card-foreground: #23262b;
+  --popover: #fffdf9;
+  --popover-foreground: #23262b;
+  --primary: #2b2f36;
+  --primary-foreground: #fbf8f1;
+  --secondary: #f0ebe0;
+  --secondary-foreground: #2b2f36;
+  --muted: #f0ebe0;
+  --muted-foreground: #5d5a52;
+  --accent: #f3ead6;
+  --accent-foreground: #5b4310;
+  --border: #e4dccb;
+  --input: #9c8a6c;
+  --ring: #7a5c17;
+  --gold: #b8913f;
+  --gold-foreground: #23262b;
+}
+.milo-app.milo-conversation-skin .milo-conversation-heading,
+.milo-app.milo-conversation-skin .milo-start-welcome h3 {
+  font-family: "Fraunces", Georgia, serif;
+  font-weight: 500;
+  letter-spacing: -0.015em;
+}
+.milo-conversation-skin .milo-page-header { border-bottom: 1px solid var(--border); box-shadow: inset 0 -1px 0 rgb(184 145 63 / 18%); }
+.milo-app.milo-conversation-skin main :is(button, a, input, select, textarea, summary):focus-visible { outline: 2px solid #7a5c17; outline-offset: 3px; }
+.milo-conversation-skin main :is(select, textarea) { border-color: #9c8a6c; }
+.milo-conversation-skin .milo-start-suggestion { border-color: #d9ccb3; background: var(--card); border-radius: 999px; padding-inline: 1.1rem; font-weight: 500; }
+.milo-conversation-skin .milo-start-suggestion:hover { background: #f6eedc; border-color: #b8913f; }
+.milo-conversation-skin .milo-start-composer { border-color: #e1d7c4; box-shadow: 0 1px 2px rgb(35 38 43 / 4%), 0 12px 28px -18px rgb(35 38 43 / 22%); }
+.milo-conversation-skin .milo-start-composer:focus-within { border-color: #b8913f; }
+.milo-conversation-skin .milo-start-consent { border-color: #e4dccb; background: #fbf8f1; }
+.milo-conversation-skin .milo-start-consent input[type="checkbox"] { accent-color: #2b2f36; }
+.milo-conversation-skin .milo-start-more { color: var(--foreground); text-decoration: underline; text-decoration-color: #b8913f; text-underline-offset: 3px; }
+.milo-start-manage > summary { list-style: none; }
+.milo-start-manage > summary::-webkit-details-marker { display: none; }
+.milo-start-manage > summary::after { content: ""; width: .45rem; height: .45rem; margin-left: .6rem; border-right: 1.5px solid currentColor; border-bottom: 1.5px solid currentColor; transform: translateY(-2px) rotate(45deg); }
+.milo-start-manage[open] > summary::after { transform: translateY(2px) rotate(-135deg); }

@@ -1,6 +1,6 @@
 import { createFileRoute, Link, useNavigate, useRouter } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
-import { useCallback, useEffect } from "react";
+import { useCallback, useEffect, useMemo } from "react";
 import { AppShell } from "@/components/AppShell";
 import { Button } from "@/components/ui/button";
 import { MiloConversationWorkspace } from "@/components/MiloConversationWorkspace";
@@ -10,6 +10,7 @@ import { useT } from "@/i18n";
 import { listMyProjectTeamsFn } from "@/lib/project-team.functions";
 import { runTeamRequest } from "@/lib/team-request-queue";
 import { referenceDestination, type MiloProject } from "@/lib/milo-conversation.ui";
+import { firstUseContext } from "@/lib/milo-first-use";
 import {
   miloHomeSearch,
   miloConversationHref,
@@ -52,6 +53,9 @@ function MiloHome() {
     router = useRouter();
   const projects = useStore((s) => s.projects),
     active = useStore((s) => s.activeProjectId);
+  const workspaceUserId = useStore((s) => s.userId),
+    workspaceHydrated = useStore((s) => s.hydrated),
+    workspaceContent = useStore((s) => s.content);
   const search = Route.useSearch();
   const shared = useQuery({
     queryKey: ["project-teams", user?.id, "mine"],
@@ -125,15 +129,25 @@ function MiloHome() {
     },
     [actorId, ownerId, projectId],
   );
+  // Start suggestions may name a draft only from the actor's own hydrated workspace and
+  // only for this exact owner/project; the helper keeps every other case generic.
+  const startSuggestions = useMemo(
+    () =>
+      firstUseContext(actorId, ownerId && projectId ? { ownerId, projectId } : undefined, {
+        userId: workspaceUserId,
+        hydrated: workspaceHydrated,
+        content: workspaceContent,
+      }).suggestions,
+    [actorId, ownerId, projectId, workspaceUserId, workspaceHydrated, workspaceContent],
+  );
   useEffect(() => {
     if (chosen?.ownerId === user?.id && chosen && active !== chosen.projectId)
       setActiveProject(chosen.projectId);
   }, [chosen, user?.id, active]);
   return (
     <AppShell
+      appearance="conversation"
       title={t("chat.title")}
-      description={t("chat.description")}
-      eyebrow={chosen?.name ?? t("chat.chooseProject")}
       projectContextName={chosen?.name ?? t("chat.chooseProject")}
       sharedProject={
         chosen && chosen.ownerId !== user?.id
@@ -145,13 +159,14 @@ function MiloHome() {
           {chosen?.name ?? t("chat.chooseProject")}
         </p>
       }
-    >
-      <div className="mx-auto max-w-6xl space-y-6">
-        <div className="flex flex-wrap items-end justify-between gap-3">
-          <label className="flex min-w-0 max-w-xl flex-1 flex-col gap-2 text-sm font-medium">
+      actions={
+        // The one project context of the main flow. Team and conversation
+        // administration stay one disclosure away, with unchanged destinations.
+        <div className="flex w-full min-w-0 flex-wrap items-end gap-2 sm:w-auto">
+          <label className="flex min-w-0 flex-1 flex-col gap-1 text-xs font-medium text-muted-foreground sm:w-56 sm:flex-none">
             {t("chat.chooseProject")}
             <select
-              className="min-w-0 w-full rounded-xl border bg-card p-3 font-normal"
+              className="milo-start-select min-h-11 w-full min-w-0 rounded-xl border bg-card px-3 text-sm font-normal text-foreground"
               value={chosen ? value(chosen) : ""}
               onChange={(event) => {
                 const next = choices.find((item) => value(item) === event.target.value);
@@ -179,18 +194,28 @@ function MiloHome() {
               </optgroup>
             </select>
           </label>
-          <Button variant="outline" asChild>
-            <Link
-              to="/app/collaborators"
-              search={chosen ? { owner: chosen.ownerId, project: chosen.projectId } : {}}
-            >
-              {t("collaboration.title")}
-            </Link>
-          </Button>
-          <Button variant="outline" asChild>
-            <Link to="/app/conversations">{t("chat.account.manage")}</Link>
-          </Button>
+          <details className="milo-start-manage shrink-0 open:basis-full">
+            <summary className="inline-flex min-h-11 cursor-pointer items-center rounded-xl border bg-card px-4 text-sm font-medium">
+              {t("conversationStart.manage")}
+            </summary>
+            <div className="mt-2 flex flex-wrap gap-2">
+              <Button variant="outline" className="min-h-11" asChild>
+                <Link
+                  to="/app/collaborators"
+                  search={chosen ? { owner: chosen.ownerId, project: chosen.projectId } : {}}
+                >
+                  {t("collaboration.title")}
+                </Link>
+              </Button>
+              <Button variant="outline" className="min-h-11" asChild>
+                <Link to="/app/conversations">{t("chat.account.manage")}</Link>
+              </Button>
+            </div>
+          </details>
         </div>
+      }
+    >
+      <div className="mx-auto max-w-6xl space-y-4">
         {shared.isPending && <p role="status">{t("collaboration.loading")}</p>}
         {shared.isError && (
           <div className="flex flex-wrap items-center gap-3" role="alert">
@@ -222,6 +247,7 @@ function MiloHome() {
             }
             onLocationChange={onConversationLocation}
             onConfirmedConversation={onConfirmedConversation}
+            startSuggestions={startSuggestions}
             conversationHref={(id) => miloConversationHref(chosen, id)}
             onOpenResult={(event) => {
               const destination = referenceDestination(chosen, user.id, event);

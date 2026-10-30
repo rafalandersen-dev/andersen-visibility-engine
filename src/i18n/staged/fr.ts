@@ -10,6 +10,7 @@ import { frSharedUi } from "./fr-shared-ui";
 import { frAnalyticsScreen } from "./fr-analytics-screen";
 import { frBillingScreen } from "./fr-billing-screen";
 import { stagedBillingScreen } from "./billing-screen-fallback";
+import { STAGED_FIRST_USE_SOURCE_HASH, stagedFirstUse } from "./first-use-fallback";
 import { frSetupScreen } from "./fr-setup-screen";
 import { frServicesScreen } from "./fr-services-screen";
 import { frAuditScreen } from "./fr-audit-screen";
@@ -184,6 +185,13 @@ export const FR_STAGED_BATCHES = [
     namespaces: ["citationChange"],
     sourceRevision: "citation change evidence candidate 20260928120000 (R/R1/R2)",
     sourceHash: "1e4b4ca8d390967bb9420df4148f75cd81ba4516ed137e06496ba213a3652c59",
+  },
+  {
+    name: "first use",
+    copy: stagedFirstUse(),
+    namespaces: ["conversationStart"],
+    sourceRevision: "eb95d191 + CG-01A (conversationStart: English fallback)",
+    sourceHash: STAGED_FIRST_USE_SOURCE_HASH,
   },
 ] as const;
 

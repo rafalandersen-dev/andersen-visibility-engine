@@ -22,6 +22,7 @@ import { etPlanScreen } from "./et-plan-screen";
 import { etEditorScreen } from "./et-editor-screen";
 import { etBillingScreen } from "./et-billing-screen";
 import { stagedBillingScreen } from "./billing-screen-fallback";
+import { STAGED_FIRST_USE_SOURCE_HASH, stagedFirstUse } from "./first-use-fallback";
 import { etSetupScreen } from "./et-setup-screen";
 import { etServicesScreen } from "./et-services-screen";
 import { etAuditScreen } from "./et-audit-screen";
@@ -300,6 +301,13 @@ export const ET_STAGED_BATCHES = [
     namespaces: ["citationChange"],
     sourceRevision: "citation change evidence candidate 20260928120000 (R/R1/R2)",
     sourceHash: "576b6f207594745c1c3e082e0bba5d773318eb96241d4d5cf18187b680cdc2d5",
+  },
+  {
+    name: "first use",
+    copy: stagedFirstUse(),
+    namespaces: ["conversationStart"],
+    sourceRevision: "eb95d191 + CG-01A (conversationStart: English fallback)",
+    sourceHash: STAGED_FIRST_USE_SOURCE_HASH,
   },
 ] as const;
 export const ET_STAGED_CATALOG: Readonly<Record<string, string>> = Object.freeze(

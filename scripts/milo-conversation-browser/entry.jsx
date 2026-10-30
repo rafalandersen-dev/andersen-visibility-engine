@@ -341,8 +341,12 @@ async function run() {
     );
     assert(
       [...document.querySelectorAll('input[type="checkbox"]')]
-        .map((box) => box.closest("label").textContent)
-        .join("|") === t("chat.allowProviderChecks"),
+        .map((box) => box.labels[0].textContent)
+        .join("|") === t("conversationStart.consent.checksLabel") &&
+        document
+          .querySelector('[data-consent="checks"] details')
+          .textContent.includes(t("chat.allowProviderChecks")) &&
+        !document.querySelector('[data-consent="generation"]'),
       "collaborator may consent to site checks but has no generation control",
     );
   });
