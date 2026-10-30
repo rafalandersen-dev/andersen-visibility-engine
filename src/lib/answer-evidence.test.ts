@@ -4,7 +4,10 @@ import { createElement } from "react";
 import {
   analyzeAnswer,
   answerEvidenceSchema,
+  declaredDomains,
   evidenceCohorts,
+  evidenceFocusIds,
+  evidenceQuality,
   evidenceUrl,
   type AnswerEvidence,
   type EvidencePrompt,
@@ -249,5 +252,229 @@ describe("scoped evidence server, no provider or URL calls", () => {
       removeAnswerEvidence({ ...scope, projectId: "../p" }, "answer", row(1).id, rpc),
     ).rejects.toThrow();
     expect(rpc).not.toHaveBeenCalled();
+  });
+});
+describe("domain coverage of saved answers (CG-03A)", () => {
+  const W = ["2026-08-01T00:00:00Z", "2026-09-01T00:00:00Z"] as const;
+  const p3: EvidencePrompt = {
+    ...prompt,
+    data: {
+      ...prompt.data,
+      websiteUrl: "https://www.example.com/home",
+      competitorUrls: [
+        "https://competitor.com",
+        "https://WWW.competitor.com/pricing",
+        "https://rival.org/x",
+      ],
+    },
+  };
+  const at = (id: number, change: Partial<AnswerEvidence> = {}, p = p3) => row(id, change, p);
+  const id = (n: number) => `00000000-0000-4000-8000-${String(n).padStart(12, "0")}`;
+  const mixed = () => [
+    // Own domain cited three times (incl. www) in ONE answer: counts once.
+    at(1, {
+      citations: ["https://example.com/a", "https://example.com/b", "https://www.example.com/c"],
+    }),
+    // Look-alike hosts are third parties; a competitor subdomain counts; a rival URL only in prose does not.
+    at(2, {
+      rawAnswer: "Milo, see https://rival.org/offer",
+      citations: [
+        "https://notexample.com",
+        "https://example.com.evil.com",
+        "https://shop.competitor.com/x",
+      ],
+    }),
+    // Complete answer, explicitly complete EMPTY citation list: a measured zero for every domain.
+    at(3, { citations: [], citationsComplete: true }),
+    // Excluded qualities, each with an own-domain citation that must NOT count.
+    at(4, { citations: ["https://example.com"], citationsComplete: false }),
+    at(5, { status: "failed", rawAnswer: "", failure: "Unavailable", citations: [] }),
+    at(6, {
+      status: "truncated",
+      failure: "Cut off",
+      citations: ["https://example.com"],
+      citationsComplete: true,
+    }),
+  ];
+
+  it("declares one row per normalized host, own first, duplicates collapsed, declared order kept", () => {
+    expect(
+      declaredDomains(p3).map(({ host, role, overlaps, alsoCompetitor }) => ({
+        host,
+        role,
+        overlaps,
+        alsoCompetitor,
+      })),
+    ).toEqual([
+      { host: "example.com", role: "own", overlaps: [], alsoCompetitor: false },
+      { host: "competitor.com", role: "competitor", overlaps: [], alsoCompetitor: false },
+      { host: "rival.org", role: "competitor", overlaps: [], alsoCompetitor: false },
+    ]);
+  });
+
+  it("counts x of the same n eligible answers, once per answer, from supplied citations only", () => {
+    const [g] = evidenceCohorts(mixed(), ...W);
+    expect(g.total).toBe(6);
+    expect(g.eligibleAnswerIds).toEqual([id(1), id(2), id(3)]);
+    expect(g.quality).toEqual({
+      eligible: [id(1), id(2), id(3)],
+      incompleteCitations: [id(4)],
+      failed: [id(5)],
+      truncated: [id(6)],
+    });
+    expect(g.domains.map((d) => [d.host, d.presentAnswerIds])).toEqual([
+      ["example.com", [id(1)]],
+      ["competitor.com", [id(2)]],
+      ["rival.org", []],
+    ]);
+    // Exact-ID reconciliation: every numerator is a subset of the one shared denominator, and the quality
+    // lists partition all answers of the cohort.
+    for (const d of g.domains)
+      expect(d.presentAnswerIds.every((a) => g.eligibleAnswerIds.includes(a))).toBe(true);
+    expect(Object.values(g.quality).flat().sort()).toEqual([...g.answerIds].sort());
+    expect(Object.values(g.quality).flat()).toHaveLength(g.total);
+  });
+
+  it("classifies quality mutually exclusively", () => {
+    const q = mixed().map((r) => evidenceQuality(r.input));
+    expect(q).toEqual([
+      "eligible",
+      "eligible",
+      "eligible",
+      "incompleteCitations",
+      "failed",
+      "truncated",
+    ]);
+  });
+
+  it("an empty eligible set stays unknown: n=0 with no domain numerators", () => {
+    const [g] = evidenceCohorts(mixed().slice(3), ...W);
+    expect(g.total).toBe(3);
+    expect(g.eligibleAnswerIds).toEqual([]);
+    expect(g.domains.every((d) => d.presentAnswerIds.length === 0)).toBe(true);
+  });
+
+  it("failed and truncated answers with a complete citation list are still not eligible (n=0)", () => {
+    const rows = [
+      at(1, {
+        status: "failed",
+        rawAnswer: "",
+        failure: "Unavailable",
+        citations: ["https://example.com"],
+        citationsComplete: true,
+      }),
+      at(2, {
+        status: "truncated",
+        failure: "Cut off",
+        citations: ["https://competitor.com"],
+        citationsComplete: true,
+      }),
+    ];
+    const [g] = evidenceCohorts(rows, ...W);
+    expect(g.eligibleAnswerIds).toEqual([]);
+    expect(g.quality).toMatchObject({ eligible: [], failed: [id(1)], truncated: [id(2)] });
+    expect(g.domains.every((d) => d.presentAnswerIds.length === 0)).toBe(true);
+  });
+
+  it("marks own/competitor identity and hierarchical overlaps as not independent", () => {
+    const p: EvidencePrompt = {
+      ...prompt,
+      data: {
+        ...prompt.data,
+        websiteUrl: "https://example.com",
+        competitorUrls: [
+          "https://www.example.com",
+          "https://shop.example.com",
+          "https://partner.net",
+          "https://partner.net/again",
+        ],
+      },
+    };
+    const [g] = evidenceCohorts([at(1, { citations: ["https://shop.example.com/x"] }, p)], ...W);
+    expect(
+      g.domains.map((d) => ({
+        host: d.host,
+        alsoCompetitor: d.alsoCompetitor,
+        overlaps: d.overlaps,
+        x: d.presentAnswerIds.length,
+      })),
+    ).toEqual([
+      // A competitor identical to the own domain is folded into the own row and flagged, never a second row.
+      { host: "example.com", alsoCompetitor: true, overlaps: ["shop.example.com"], x: 1 },
+      // The same citation counts for the parent and the subdomain; both rows say so.
+      { host: "shop.example.com", alsoCompetitor: false, overlaps: ["example.com"], x: 1 },
+      { host: "partner.net", alsoCompetitor: false, overlaps: [], x: 0 },
+    ]);
+  });
+
+  it("keeps coverage per cohort and never pools unknown model versions", () => {
+    const rows = [
+      at(1),
+      at(2, { mode: "api" }),
+      at(3, { modelVersion: null }),
+      at(4, { modelVersion: null }),
+      at(5, {}, { ...p3, revision: 2 }),
+      at(6, {}, { ...p3, data: { ...p3.data, market: "Norway" } }),
+    ];
+    const groups = evidenceCohorts(rows, ...W);
+    expect(groups).toHaveLength(6);
+    expect(groups.map((g) => g.eligibleAnswerIds)).toEqual([
+      [id(1)],
+      [id(2)],
+      [id(3)],
+      [id(4)],
+      [id(5)],
+      [id(6)],
+    ]);
+  });
+
+  it("keeps the half-open UTC window: start included, end excluded", () => {
+    const rows = [
+      at(1, { capturedAt: "2026-08-01T00:00:00Z" }),
+      at(2, { capturedAt: "2026-08-31T23:59:59Z" }),
+      at(3, { capturedAt: "2026-09-01T00:00:00Z" }),
+    ];
+    expect(evidenceCohorts(rows, ...W)[0].eligibleAnswerIds).toEqual([id(1), id(2)]);
+  });
+
+  it("retires corrected answers by canonical UUID, even mixed-case and outside the window", () => {
+    // Stored row ids are lowercase (uuid column); a correction's `supersedesId` keeps the client's spelling.
+    const first = { ...at(1), id: "aaaaaaaa-0000-4000-8000-0000000000a1" },
+      second = {
+        ...at(2, { supersedesId: "AAAAAAAA-0000-4000-8000-0000000000A1", citations: [] }),
+        id: "bbbbbbbb-0000-4000-8000-0000000000b2",
+      },
+      third = at(3, {
+        supersedesId: "BbBbBbBb-0000-4000-8000-0000000000B2",
+        capturedAt: "2026-09-15T00:00:00Z",
+      });
+    // third (outside the window) corrects second, which corrects first: nothing current remains inside.
+    expect(evidenceCohorts([first, second, third], ...W)).toEqual([]);
+    // Without third, second is current and first is retired despite the UPPERCASE reference.
+    const [g] = evidenceCohorts([first, second], ...W);
+    expect(g.answerIds).toEqual([second.id]);
+    expect(g.domains[0].presentAnswerIds).toEqual([]);
+    // The stored spelling is never rewritten.
+    expect(second.input.supersedesId).toBe("AAAAAAAA-0000-4000-8000-0000000000A1");
+  });
+
+  it("groups one prompt regardless of the UUID spelling in its snapshot", () => {
+    const lower = { ...p3, id: "abcdef00-0000-4000-8000-00000000000c" };
+    const upper = { ...lower, id: lower.id.toUpperCase() };
+    expect(evidenceCohorts([at(1, {}, lower), at(2, {}, upper)], ...W)).toHaveLength(1);
+  });
+
+  it("resolves a drill-down to exact current ids, or to nothing once the result changes", () => {
+    const groups = evidenceCohorts(mixed(), ...W);
+    const key = groups[0].key;
+    expect(evidenceFocusIds(groups, { key, kind: "present", host: "example.com" })).toEqual([
+      id(1),
+    ]);
+    expect(evidenceFocusIds(groups, { key, kind: "eligible" })).toEqual([id(1), id(2), id(3)]);
+    expect(evidenceFocusIds(groups, { key, kind: "truncated" })).toEqual([id(6)]);
+    expect(evidenceFocusIds(groups, { key, kind: "present", host: "unknown.com" })).toBeNull();
+    // A later window has no such cohort: the old selection resolves to nothing, never to stale ids.
+    const later = evidenceCohorts(mixed(), "2027-01-01T00:00:00Z", "2027-02-01T00:00:00Z");
+    expect(evidenceFocusIds(later, { key, kind: "eligible" })).toBeNull();
   });
 });

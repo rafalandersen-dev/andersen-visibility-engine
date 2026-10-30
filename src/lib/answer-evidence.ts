@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { canonicalUuid } from "./pg-uuid";
 
 export const evidenceProjectId = z.string().regex(/^[A-Za-z0-9_-]{1,64}$/);
 const text = (max: number) => z.string().trim().min(1).max(max);
@@ -196,31 +197,112 @@ export const evidenceRowSchema = z
   })
   .strict();
 export type EvidenceRow = z.infer<typeof evidenceRowSchema>;
-export function evidenceCohorts(rows: EvidenceRow[], start: string, end: string) {
+/** A declared domain as compared everywhere in this module: lowercase hostname without one leading `www.`. */
+export function declaredHost(url: string): string {
+  return new URL(url).hostname.toLowerCase().replace(/^www\./, "");
+}
+/**
+ * Mutually exclusive quality of one saved answer for citation coverage. Only a complete answer whose supplied
+ * citation list is declared complete is eligible (an empty complete list is a measured zero). The others stay
+ * visible as exclusions, never as zeros.
+ */
+export type EvidenceQuality = "eligible" | "incompleteCitations" | "failed" | "truncated";
+export const EVIDENCE_QUALITIES: readonly EvidenceQuality[] = [
+  "eligible",
+  "incompleteCitations",
+  "failed",
+  "truncated",
+];
+export function evidenceQuality(input: AnswerEvidence): EvidenceQuality {
+  if (input.status === "failed") return "failed";
+  if (input.status === "truncated") return "truncated";
+  return input.citationsComplete ? "eligible" : "incompleteCitations";
+}
+/** One declared domain of a cohort. `presentAnswerIds` ⊆ the cohort's `eligibleAnswerIds` (its x of n). */
+export type DomainCoverage = {
+  host: string;
+  role: "own" | "competitor";
+  /** Own row only: a declared competitor had exactly the own host, so the two cannot be told apart. */
+  alsoCompetitor: boolean;
+  /** Other declared hosts that are a parent or subdomain of this one: one citation can count for both. */
+  overlaps: string[];
+  presentAnswerIds: string[];
+};
+/** The declared rows of a prompt snapshot, in declared order: own first, identical hosts collapsed. */
+export function declaredDomains(
+  prompt: EvidencePrompt,
+): Omit<DomainCoverage, "presentAnswerIds">[] {
+  const own = declaredHost(prompt.data.websiteUrl);
+  const competitors = [...new Set(prompt.data.competitorUrls.map(declaredHost))];
+  const rows = [
+    { host: own, role: "own" as const, alsoCompetitor: competitors.includes(own) },
+    ...competitors
+      .filter((host) => host !== own)
+      .map((host) => ({ host, role: "competitor" as const, alsoCompetitor: false })),
+  ];
+  return rows.map((r) => ({
+    ...r,
+    overlaps: rows
+      .filter((o) => o.host !== r.host && (belongs(o.host, r.host) || belongs(r.host, o.host)))
+      .map((o) => o.host),
+  }));
+}
+/** Hosts of the SUPPLIED citation metadata only; prose URLs and brand mentions are never citation evidence. */
+function citedHosts(input: AnswerEvidence): string[] {
+  return input.citations.flatMap((v) => {
+    const u = evidenceUrl(v);
+    return u ? [new URL(u).hostname.toLowerCase()] : [];
+  });
+}
+/** Ids of every answer superseded by a loaded correction, compared as canonical UUIDs (any stored spelling). */
+export function supersededAnswerIds(rows: readonly EvidenceRow[]): Set<string> {
+  return new Set(
+    rows.flatMap((r) => (r.input.supersedesId ? [canonicalUuid(r.input.supersedesId)] : [])),
+  );
+}
+export type EvidenceCohort = {
+  key: string;
+  sample: EvidenceRow;
+  total: number;
+  mentionSamples: number;
+  mentions: number;
+  citationSamples: number;
+  ownCitations: number;
+  /** Original (immutable) ids of every current answer of this cohort in the window. */
+  answerIds: string[];
+  /** The same answers split by mutually exclusive quality; the lists add up to `answerIds`. */
+  quality: Record<EvidenceQuality, string[]>;
+  /** The shared denominator (n) of every domain row: `quality.eligible`. */
+  eligibleAnswerIds: string[];
+  domains: DomainCoverage[];
+};
+export function evidenceCohorts(rows: EvidenceRow[], start: string, end: string): EvidenceCohort[] {
   const after = Date.parse(start),
     before = Date.parse(end);
   if (!Number.isFinite(after) || !Number.isFinite(before) || after >= before)
     throw Error("invalid_evidence_window");
-  const superseded = new Set(rows.map((r) => r.input.supersedesId).filter(Boolean));
-  const groups = new Map<
-    string,
-    {
-      key: string;
-      sample: EvidenceRow;
-      total: number;
-      mentionSamples: number;
-      mentions: number;
-      citationSamples: number;
-      ownCitations: number;
-    }
-  >();
+  // Every loaded correction removes its predecessor BEFORE the window applies, so a correction captured
+  // outside the window still retires the original inside it.
+  const superseded = supersededAnswerIds(rows);
+  const groups = new Map<string, EvidenceCohort>();
   for (const r of rows) {
     const at = Date.parse(r.input.capturedAt);
-    if (superseded.has(r.id) || at < after || at >= before) continue;
+    if (superseded.has(canonicalUuid(r.id)) || at < after || at >= before) continue;
+    // Declared comparable dimensions of the immutable prompt snapshot and capture (half-open UTC window).
+    const cohort = JSON.stringify([
+      canonicalUuid(r.prompt.id),
+      r.prompt.revision,
+      r.prompt.data.market,
+      r.prompt.data.language,
+      r.input.surface,
+      r.input.mode,
+      r.input.method,
+      r.input.modelVersion,
+    ]);
     // Unknown is not evidence of a shared model version. Keep each such
     // observation independent even when all other declared dimensions match.
     const key =
-      r.input.modelVersion === null ? JSON.stringify([r.analysis.cohort, r.id]) : r.analysis.cohort;
+      r.input.modelVersion === null ? JSON.stringify([cohort, canonicalUuid(r.id)]) : cohort;
     const g = groups.get(key) ?? {
       key,
       sample: r,
@@ -229,6 +311,10 @@ export function evidenceCohorts(rows: EvidenceRow[], start: string, end: string)
       mentions: 0,
       citationSamples: 0,
       ownCitations: 0,
+      answerIds: [],
+      quality: { eligible: [], incompleteCitations: [], failed: [], truncated: [] },
+      eligibleAnswerIds: [],
+      domains: declaredDomains(r.prompt).map((d) => ({ ...d, presentAnswerIds: [] })),
     };
     g.total++;
     if (r.analysis.mention !== null) {
@@ -239,7 +325,33 @@ export function evidenceCohorts(rows: EvidenceRow[], start: string, end: string)
       g.citationSamples++;
       if (r.analysis.ownCitation) g.ownCitations++;
     }
+    g.answerIds.push(r.id);
+    const quality = evidenceQuality(r.input);
+    g.quality[quality].push(r.id);
+    if (quality === "eligible") {
+      g.eligibleAnswerIds.push(r.id);
+      // Each domain counts an answer once, however many of its citations fall inside that domain.
+      const hosts = citedHosts(r.input);
+      for (const d of g.domains)
+        if (hosts.some((h) => belongs(h, d.host))) d.presentAnswerIds.push(r.id);
+    }
     groups.set(key, g);
   }
   return [...groups.values()];
+}
+/** A drill-down selection: one domain's citing answers, or one quality list, of one cohort. */
+export type EvidenceFocus =
+  { key: string; kind: "present"; host: string } | { key: string; kind: EvidenceQuality };
+/**
+ * The exact answer ids behind a selection, recomputed from the CURRENT cohorts. A selection whose cohort or
+ * domain is no longer in the result (another window, another scope) resolves to null, never to stale ids.
+ */
+export function evidenceFocusIds(
+  cohorts: readonly EvidenceCohort[],
+  focus: EvidenceFocus,
+): string[] | null {
+  const g = cohorts.find((c) => c.key === focus.key);
+  if (!g) return null;
+  if (focus.kind !== "present") return g.quality[focus.kind];
+  return g.domains.find((d) => d.host === focus.host)?.presentAnswerIds ?? null;
 }

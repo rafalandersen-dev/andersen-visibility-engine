@@ -49,4 +49,7 @@ export const DE_AUTHORING_SOURCE_HASHES: Readonly<Record<string, string>> = {
   // CG-02A task-continuity source after 881a422d; English source in src/i18n/task-continuity.ts. The batch is
   // reviewed English fallback pending translation (./task-continuity-fallback.ts), not a German review record.
   "task continuity": "fd3a25a34d308303f2ab3bbce390008a3b7440fa83e29a05507fe265b7fd66da",
+  // CG-03A answer-coverage source after df7a891b; English source in src/i18n/answer-coverage.ts. The batch is
+  // reviewed English fallback pending translation (./answer-coverage-fallback.ts), not a German review record.
+  "answer coverage": "cc2e55ca0586c225e9b468cc135ca04f572772841a0a6583f32bb943c578efa3",
 };

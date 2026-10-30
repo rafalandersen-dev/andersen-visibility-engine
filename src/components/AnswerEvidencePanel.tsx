@@ -1,16 +1,22 @@
-import { useMemo, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useAuth } from "@/lib/auth";
 import { useT } from "@/i18n";
 import { Button } from "./ui/button";
 import {
+  EVIDENCE_QUALITIES,
   answerEvidenceSchema,
   evidenceCohorts,
+  evidenceFocusIds,
   evidencePromptSchema,
+  supersededAnswerIds,
   type AnswerEvidence,
+  type EvidenceCohort,
+  type EvidenceFocus,
   type EvidencePrompt,
   type EvidenceRow,
 } from "@/lib/answer-evidence";
+import { canonicalUuid } from "@/lib/pg-uuid";
 import {
   readAnswerEvidenceFn,
   saveEvidencePromptFn,
@@ -29,13 +35,34 @@ function download(name: string, value: unknown) {
   a.click();
   setTimeout(() => URL.revokeObjectURL(url), 1000);
 }
-export function AnswerEvidencePanel({ projectId }: { projectId: string }) {
+export function AnswerEvidencePanel({
+  projectId,
+  initialFocus,
+}: {
+  projectId: string;
+  /** Test/harness seam only: a pre-selected drill-down. */
+  initialFocus?: EvidenceFocus;
+}) {
   const { user } = useAuth();
+  // Keyed by actor + project: a switch remounts, so no comparison or drill-down survives it.
   return user ? (
-    <ProjectEvidence key={`${user.id}:${projectId}`} projectId={projectId} ownerId={user.id} />
+    <ProjectEvidence
+      key={`${user.id}:${projectId}`}
+      projectId={projectId}
+      ownerId={user.id}
+      initialFocus={initialFocus}
+    />
   ) : null;
 }
-function ProjectEvidence({ projectId, ownerId }: { projectId: string; ownerId: string }) {
+function ProjectEvidence({
+  projectId,
+  ownerId,
+  initialFocus,
+}: {
+  projectId: string;
+  ownerId: string;
+  initialFocus?: EvidenceFocus;
+}) {
   const t = useT();
   const scope = { projectId, expectedOwnerId: ownerId };
   const [busy, setBusy] = useState(false),
@@ -46,6 +73,8 @@ function ProjectEvidence({ projectId, ownerId }: { projectId: string; ownerId: s
   const [removal, setRemoval] = useState<{ id: string; kind: "prompt" | "answer" } | null>(null);
   const [start, setStart] = useState("2020-01-01");
   const [end, setEnd] = useState(new Date(Date.now() + 86400000).toISOString().slice(0, 10));
+  const [focus, setFocus] = useState<EvidenceFocus | null>(initialFocus ?? null);
+  const recordsHeading = useRef<HTMLHeadingElement>(null);
   const query = useQuery({
     queryKey: ["answer-evidence", ownerId, projectId],
     queryFn: () => readAnswerEvidenceFn({ data: scope }),
@@ -66,7 +95,22 @@ function ProjectEvidence({ projectId, ownerId }: { projectId: string; ownerId: s
       return null;
     }
   }, [state, start, end]);
-  const superseded = new Set(state?.answers.map((a) => a.input.supersedesId).filter(Boolean));
+  // Canonical UUID identity: a correction stored with an upper/mixed-case `supersedesId` still retires its
+  // predecessor. Stored ids are displayed and exported unchanged.
+  const superseded = useMemo(() => supersededAnswerIds(state?.answers ?? []), [state]);
+  const isSuperseded = (id: string) => superseded.has(canonicalUuid(id));
+  // The drill-down is recomputed from the current result; a selection outside it shows nothing selected.
+  const focusIds = focus && cohorts ? evidenceFocusIds(cohorts, focus) : null;
+  const focusSet = focusIds ? new Set(focusIds.map(canonicalUuid)) : null;
+  const shownAnswers = focusSet
+    ? (state?.answers ?? []).filter((a) => focusSet.has(canonicalUuid(a.id)))
+    : (state?.answers ?? []);
+  // Opening and clearing a drill-down both land keyboard focus on the records heading, so the control that
+  // disappears never drops a keyboard user back to the start of the page.
+  function inspect(next: EvidenceFocus | null) {
+    setFocus(next);
+    requestAnimationFrame(() => recordsHeading.current?.focus());
+  }
   async function mutate(operation: () => Promise<unknown>) {
     setBusy(true);
     setError(false);
@@ -341,7 +385,10 @@ function ProjectEvidence({ projectId, ownerId }: { projectId: string; ownerId: s
                   type="date"
                   className={fieldClass}
                   value={String(value)}
-                  onChange={(e) => (setter as (s: string) => void)(e.target.value)}
+                  onChange={(e) => {
+                    setFocus(null);
+                    (setter as (s: string) => void)(e.target.value);
+                  }}
                 />
               </label>
             ))}
@@ -359,26 +406,53 @@ function ProjectEvidence({ projectId, ownerId }: { projectId: string; ownerId: s
               </p>
               <p>
                 {label("mentions")}:{" "}
-                {g.mentionSamples ? `${g.mentions}/${g.mentionSamples}` : label("unknown")} ·{" "}
-                {label("ownCitations")}:{" "}
-                {g.citationSamples ? `${g.ownCitations}/${g.citationSamples}` : label("unknown")}
+                {g.mentionSamples ? `${g.mentions}/${g.mentionSamples}` : label("unknown")}
               </p>
               <p>
                 {t("answer.samples", { count: g.total })} {label("unverified")}
               </p>
+              <DomainCoverageView cohort={g} focus={focus} onInspect={inspect} />
             </article>
           ))}
+          {cohorts && !cohorts.length && (
+            <p className="text-sm">{t("answerCoverage.noneInWindow")}</p>
+          )}
           <p className="text-xs text-muted-foreground">{label("limits")}</p>
-          <h3 className="font-display text-lg">
+          <h3 ref={recordsHeading} tabIndex={-1} className="font-display text-lg">
             {label("answers")} · {state.answers.length}
           </h3>
+          {focus && focusIds && (
+            <div
+              role="status"
+              data-evidence-focus={focus.kind}
+              className="flex flex-wrap items-center gap-2 rounded border bg-muted/40 p-3 text-sm"
+            >
+              <span className="min-w-0 [overflow-wrap:anywhere]">
+                {t("answerCoverage.showing", {
+                  count: shownAnswers.length,
+                  label:
+                    focus.kind === "present"
+                      ? t("answerCoverage.focus.present", { host: focus.host })
+                      : t(`answerCoverage.focus.${focus.kind}`),
+                })}
+              </span>
+              <Button
+                size="sm"
+                variant="outline"
+                className={wrappingControl}
+                onClick={() => inspect(null)}
+              >
+                {t("answerCoverage.showAll")}
+              </Button>
+            </div>
+          )}
           {!state.answers.length && <p className="text-sm">{label("empty")}</p>}
-          {state.answers.map((row) => (
+          {shownAnswers.map((row) => (
             <details key={row.id} className="rounded border p-4">
               <summary className="cursor-pointer break-words">
                 {row.input.surface} · {label(row.input.mode)} · {row.input.capturedAt} ·{" "}
                 {label(row.input.status)}
-                {superseded.has(row.id) ? ` · ${label("superseded")}` : ""}
+                {isSuperseded(row.id) ? ` · ${label("superseded")}` : ""}
               </summary>
               <div className="mt-3 space-y-3 text-sm">
                 <p>
@@ -432,7 +506,7 @@ function ProjectEvidence({ projectId, ownerId }: { projectId: string; ownerId: s
                 <Button
                   size="sm"
                   variant="outline"
-                  disabled={busy || superseded.has(row.id)}
+                  disabled={busy || isSuperseded(row.id)}
                   onClick={() => setCorrection(row)}
                 >
                   {label("correct")}
@@ -451,6 +525,106 @@ function ProjectEvidence({ projectId, ownerId }: { projectId: string; ownerId: s
         </>
       )}
     </section>
+  );
+}
+/**
+ * Supplied-citation coverage of one cohort: per declared domain, x of the SAME n eligible answers, with the
+ * exact answers behind every number one keyboard action away. Declared order, never ranked.
+ */
+/** Coverage controls wrap inside narrow screens: the shared button never wraps and has a fixed height, but a
+ * control naming a long host must stay whole (no ellipsis) and a usable touch target. */
+const wrappingControl =
+  "h-auto min-h-11 max-w-full whitespace-normal py-1.5 text-left [overflow-wrap:anywhere] sm:min-h-8";
+function DomainCoverageView({
+  cohort,
+  focus,
+  onInspect,
+}: {
+  cohort: EvidenceCohort;
+  focus: EvidenceFocus | null;
+  onInspect: (focus: EvidenceFocus) => void;
+}) {
+  const t = useT();
+  const n = cohort.eligibleAnswerIds.length;
+  const pressed = (f: EvidenceFocus) =>
+    !!focus &&
+    focus.key === f.key &&
+    focus.kind === f.kind &&
+    (f.kind !== "present" || (focus.kind === "present" && focus.host === f.host));
+  return (
+    <div className="space-y-2 border-t pt-2" data-domain-coverage={n}>
+      <p className="font-medium">{t("answerCoverage.title")}</p>
+      <p className="text-xs text-muted-foreground">
+        {n ? t("answerCoverage.source", { n }) : t("answerCoverage.noEligible")}
+      </p>
+      {n > 0 && (
+        <ul className="space-y-2">
+          {cohort.domains.map((d) => {
+            const f: EvidenceFocus = { key: cohort.key, kind: "present", host: d.host };
+            const x = d.presentAnswerIds.length;
+            return (
+              <li key={d.host} className="min-w-0 space-y-1" data-domain={d.host} data-present={x}>
+                <div className="flex min-w-0 flex-wrap items-center gap-x-3 gap-y-1">
+                  <span className="break-all font-medium">{d.host}</span>
+                  <span className="text-xs text-muted-foreground">{t(`answer.${d.role}`)}</span>
+                  <span>{t("answerCoverage.count", { x, n })}</span>
+                  {x > 0 && (
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className={wrappingControl}
+                      aria-pressed={pressed(f)}
+                      onClick={() => onInspect(f)}
+                    >
+                      {t("answerCoverage.showPresent", { host: d.host })}
+                    </Button>
+                  )}
+                </div>
+                {d.alsoCompetitor && (
+                  <p className="text-xs text-amber-700 [overflow-wrap:anywhere] dark:text-amber-400">
+                    {t("answerCoverage.alsoCompetitor")}
+                  </p>
+                )}
+                {d.overlaps.length > 0 && (
+                  <p className="text-xs text-amber-700 [overflow-wrap:anywhere] dark:text-amber-400">
+                    {t("answerCoverage.overlaps", { hosts: d.overlaps.join(", ") })}
+                  </p>
+                )}
+              </li>
+            );
+          })}
+        </ul>
+      )}
+      <p className="text-xs">{t("answerCoverage.quality", { total: cohort.total })}</p>
+      <div className="flex flex-wrap gap-2" data-quality-total={cohort.total}>
+        {EVIDENCE_QUALITIES.map((kind) => {
+          const count = cohort.quality[kind].length;
+          const f: EvidenceFocus = { key: cohort.key, kind };
+          const text = t(`answerCoverage.quality.${kind}`, { count });
+          return count > 0 ? (
+            <Button
+              key={kind}
+              size="sm"
+              variant="ghost"
+              className={wrappingControl}
+              aria-pressed={pressed(f)}
+              onClick={() => onInspect(f)}
+              data-quality={kind}
+            >
+              {text}
+            </Button>
+          ) : (
+            <span
+              key={kind}
+              className="px-3 py-1 text-xs text-muted-foreground"
+              data-quality={kind}
+            >
+              {text}
+            </span>
+          );
+        })}
+      </div>
+    </div>
   );
 }
 function AnswerForm({
