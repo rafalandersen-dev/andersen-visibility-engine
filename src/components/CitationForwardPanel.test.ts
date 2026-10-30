@@ -234,6 +234,41 @@ describe("forward panel — honest states and real controls", () => {
     expect(html).toContain(`value="${ROW}"`);
     expect(html).not.toContain('value="00000000-0000-4000-8000-0000000000f0"');
   });
+  it("CG-02A: each pin's Plan control belongs to that exact task and is disabled for a deleted task", () => {
+    reset();
+    const pin = (id: string, title: string, over: Record<string, unknown> = {}) => ({
+      id,
+      projectId: "proj_a",
+      title,
+      status: "captured",
+      sourceRefs: [
+        { sourceType: "citation_finding", sourceRecordId: ROW, capturedAt: "2026-09-26T00:00:00Z" },
+      ],
+      ...over,
+    });
+    h.state = {
+      opportunities: [
+        pin("task-active", "Active pin"),
+        pin("task-archived", "Archived pin", { status: "archived" }),
+        pin("task-deleted", "Deleted pin", { deletedAt: "2026-09-27T00:00:00Z" }),
+      ],
+      content: [],
+    };
+    h.queries["citation-findings"] = ok({ findings: [finding()] });
+    h.queries["citation-improvements"] = ok({ improvements: [] });
+    const html = render();
+    const planButton = (title: string) => {
+      const item = html.split("<li ").find((part) => part.includes(`>${title}</span>`));
+      expect(item, title).toBeDefined();
+      const button = /<button([^>]*)>citationForward\.studio\.plan<\/button>/.exec(item ?? "");
+      expect(button, title).not.toBeNull();
+      return button?.[1] ?? "";
+    };
+    expect(planButton("Active pin")).not.toMatch(/\sdisabled=""/);
+    // An archived task still exists; Plan opens it with an explicit archived notice, never another task.
+    expect(planButton("Archived pin")).not.toMatch(/\sdisabled=""/);
+    expect(planButton("Deleted pin")).toMatch(/\sdisabled=""/);
+  });
   it("Codex N1/R3: readiness is withheld when the live list cannot be refreshed, and earlier versions are labelled as history", () => {
     reset();
     h.queries["citation-findings"] = ok({ findings: [] });

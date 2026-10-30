@@ -1,9 +1,10 @@
 import { draftSelectionChanged } from "@/lib/draft-selection";
 import { ArticleImageThumbnail } from "@/components/ArticleImageThumbnail";
-import { createFileRoute, Link } from "@tanstack/react-router";
+import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { AppShell } from "@/components/AppShell";
 import { Button } from "@/components/ui/button";
 import { useRequestedAsset } from "@/lib/requested-asset";
+import { editorSelection, taskPlanSearch, taskTarget } from "@/lib/task-continuity";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
@@ -219,13 +220,27 @@ function EditorPage() {
   const activeProjectId = useStore((s) => s.activeProjectId);
   const assets = useStore((s) => s.content.filter((c) => c.projectId === activeProjectId));
   const search = Route.useSearch();
-  const initialId = search.id ?? assets[0]?.id;
-  const [selectedId, setSelectedId] = useState<string | undefined>(initialId);
+  const navigate = useNavigate();
+  // CG-02A: an explicit `?id=` IS the selection, so the visible asset always agrees with the URL, a reload
+  // and Back/Forward. Choosing an asset pushes its id through the router; there is no local copy for a
+  // search change to undo or echo. Without an id the editor shows a held default that survives reorders but
+  // never outlives its asset (see `editorSelection`).
+  const [heldDefault, setHeldDefault] = useState<string | undefined>(assets[0]?.id);
+  const { selectedId, defaultId } = editorSelection(
+    search.id,
+    heldDefault,
+    assets.map((a) => a.id),
+  );
   const [deleteId, setDeleteId] = useState<string | null>(null);
 
   useEffect(() => {
-    if (!selectedId && assets[0]) setSelectedId(assets[0].id);
-  }, [assets, selectedId]);
+    if (defaultId !== heldDefault) setHeldDefault(defaultId);
+  }, [defaultId, heldDefault]);
+
+  async function selectAsset(id: string | undefined, replace = false) {
+    if (id === search.id) return;
+    await navigate({ to: "/app/editor", search: { id }, replace });
+  }
 
   async function confirmDelete() {
     const id = deleteId;
@@ -251,19 +266,15 @@ function EditorPage() {
       }
     }
 
+    // Move the URL off the asset first (replacing its history entry), so the requested-asset recovery never
+    // starts a workspace read for an id this tab is deleting. An older history entry for it fails closed as
+    // missing, like any other removed asset.
+    if (id === selectedId) await selectAsset(next?.id, true);
     deleteContentAsset(id);
     setDeleteId(null);
-    if (id === selectedId) setSelectedId(next?.id);
     await saveWorkspaceNow();
     toast.success(t("editorScreen.deleted"));
   }
-
-  // Follow ?id changes (e.g. generating from the Editor entry point, which
-  // navigates to the same route) so the newly created asset opens immediately.
-  useEffect(() => {
-    if (search.id && search.id !== selectedId) setSelectedId(search.id);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [search.id]);
 
   const asset = useMemo(() => assets.find((a) => a.id === selectedId), [assets, selectedId]);
   // An explicitly requested asset (e.g. a notification's Open task) may have been
@@ -284,7 +295,8 @@ function EditorPage() {
               assets.map((a) => (
                 <li key={a.id}>
                   <button
-                    onClick={() => setSelectedId(a.id)}
+                    onClick={() => void selectAsset(a.id)}
+                    aria-current={selectedId === a.id ? "true" : undefined}
                     className={
                       "w-full text-left rounded-md px-3 py-2 transition-colors " +
                       (selectedId === a.id ? "bg-accent/25" : "hover:bg-secondary/60")
@@ -385,6 +397,38 @@ function Editor({ asset, onRequestDelete }: { asset: ContentAsset; onRequestDele
   const [goLiveLocal, setGoLiveLocal] = useState("");
   const [scheduling, setScheduling] = useState(false);
   const sourceOppId = asset.sourceOpportunityId ?? asset.opportunityId ?? null;
+  // CG-02A: the secondary way back to the exact Plan task this draft came from. Offered only when this
+  // actor's hydrated workspace holds that task in the open project (active or archived, which Plan explains);
+  // a missing, deleted, other-project or not-yet-verified source gets no link. Opening Plan changes nothing.
+  const workspaceUserId = useStore((s) => s.userId);
+  const workspaceHydrated = useStore((s) => s.hydrated);
+  const workspaceProjectId = useStore((s) => s.activeProjectId);
+  const workspaceTasks = useStore((s) => s.opportunities);
+  const sourceTaskSearch = useMemo(
+    () =>
+      taskPlanSearch(
+        taskTarget(
+          user?.id,
+          {
+            userId: workspaceUserId,
+            hydrated: workspaceHydrated,
+            activeProjectId: workspaceProjectId,
+            opportunities: workspaceTasks,
+          },
+          asset.projectId,
+          sourceOppId,
+        ),
+      ),
+    [
+      user?.id,
+      workspaceUserId,
+      workspaceHydrated,
+      workspaceProjectId,
+      workspaceTasks,
+      asset.projectId,
+      sourceOppId,
+    ],
+  );
 
   // ---- Publishing v1 ----
   const project = useStore((s) => s.projects.find((p) => p.id === asset.projectId));
@@ -1348,6 +1392,26 @@ function Editor({ asset, onRequestDelete }: { asset: ContentAsset; onRequestDele
                 ? ` (${t(`editorScreen.sourceType.${f.sourceType}`)})`
                 : ""}
             </span>
+          ) : null}
+          {sourceTaskSearch ? (
+            isDirty ? (
+              // Leaving the editor would drop the unsaved form, so the way back waits for a save.
+              <span data-task-return="unsaved" className="inline-flex flex-wrap gap-x-2">
+                <span aria-disabled="true" className="font-medium text-muted-foreground/70">
+                  {t("taskContinuity.backToTask")}
+                </span>
+                <span>{t("taskContinuity.saveFirst")}</span>
+              </span>
+            ) : (
+              <Link
+                to="/app/plan"
+                search={sourceTaskSearch}
+                data-task-return="link"
+                className="inline-flex min-h-11 items-center rounded-sm font-medium text-foreground underline underline-offset-2 hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring sm:min-h-0"
+              >
+                {t("taskContinuity.backToTask")}
+              </Link>
+            )
           ) : null}
           {f.language ? (
             <span>

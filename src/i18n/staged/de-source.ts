@@ -46,4 +46,7 @@ export const DE_AUTHORING_SOURCE_HASHES: Readonly<Record<string, string>> = {
   // CG-01A first-use source after eb95d191; English source in src/i18n/first-use.ts. The batch is
   // reviewed English fallback pending translation (./first-use-fallback.ts), not a German review record.
   "first use": "5368dd8f7a5fa58cb47c1b78857ed1c14a051b32832cb86feccfe0a00c4829b2",
+  // CG-02A task-continuity source after 881a422d; English source in src/i18n/task-continuity.ts. The batch is
+  // reviewed English fallback pending translation (./task-continuity-fallback.ts), not a German review record.
+  "task continuity": "fd3a25a34d308303f2ab3bbce390008a3b7440fa83e29a05507fe265b7fd66da",
 };

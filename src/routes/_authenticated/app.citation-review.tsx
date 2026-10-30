@@ -124,7 +124,7 @@ function CitationReviewRoute() {
             ownerId={user.id}
             language={activeProject.primaryLanguage}
             onOpenStudio={(assetId) => navigate({ to: "/app/editor", search: { id: assetId } })}
-            onOpenPlan={() => navigate({ to: "/app/plan" })}
+            onOpenPlan={(taskId) => navigate({ to: "/app/plan", search: { selected: taskId } })}
           />
         </div>
       ) : null}
