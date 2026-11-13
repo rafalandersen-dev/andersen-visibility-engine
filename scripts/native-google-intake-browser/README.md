@@ -22,3 +22,13 @@ session/async guards, stale-read hiding, and deferred-response handling.
 The `check=1` matrix is a **scaffold** for Codex's native-browser acceptance (including 390 px and
 keyboard); it does not constitute browser acceptance until Codex runs it. No real customer data, no
 production writes.
+
+**Bing source.** The panel now also interprets Bing Webmaster Tools "AI Performance" (BETA): choose
+the Bing source in the form (no Filters.csv) and upload an Overview or Pages CSV. The synthetic
+`persist()` re-parses it with the real Bing parser and rejects a forged Bing market/timezone/filter.
+Synthetic samples are on `window.__nativeIntakeBingSamples`. The scripted `check=1` matrix now drives
+both paths: the Google journey plus Bing Overview/Pages preview/save/reopen (distinct metrics), a
+source/CSV-kind switch that invalidates the preview and restores the Google Filters requirement, a
+mismatched-CSV rejection, Bing's missing Filters input + oversize-before-read, and a scoped delete that
+preserves the other source. This remains a scaffold, not acceptance: the real 390 px + keyboard browser
+run in four languages and the real private export are Codex's gates.

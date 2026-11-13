@@ -200,4 +200,83 @@ describe("additive parsed-interpretation persistence with real server round trip
       expect(String((e as Error).message)).not.toContain("SECRET-TOKEN"),
     );
   });
+
+  // SYNTHETIC Bing Webmaster Tools "AI Performance" overview + its unknown/unsegmented staging. The
+  // same generic parsed-storage path round-trips a Bing record with no new SQL.
+  const bingOverviewCsv =
+    "Date,Citations,Cited Pages\n8/13/2026 12:00:00 AM,2,1\n8/14/2026 12:00:00 AM,0,0\n";
+  const bingB64 = Buffer.from(new TextEncoder().encode(bingOverviewCsv)).toString("base64");
+  const bingMetadata = {
+    source: "bing_ai_performance" as const,
+    declaredProperty: "https://example.test/",
+    reportKind: "table" as const,
+    dimension: "date" as const,
+    aggregation: "property" as const,
+    period: { start: "2026-08-13", end: "2026-11-12", timezone: null },
+    marketScope: { country: null, exposed: false },
+    filters: {},
+    capturedAt: "2026-11-13T11:16:20Z",
+    filename: "Overview.csv",
+  };
+  it("re-parses and persists a Bing overview, idempotent on an exact retry", async () => {
+    const a = await stage(bingMetadata, bingB64);
+    const saved = await persistNativeReport(
+      scope,
+      a.id,
+      "partial",
+      "Nov 11–12 not yet in export",
+      rpc,
+    );
+    expect(saved.parsed).toMatchObject({
+      parserVersion: "native-bing-ai-csv-v1",
+      file: "bing_overview",
+    });
+    expect(saved.parsed?.input.source).toBe("bing_ai_performance");
+    expect(saved.parsed?.input.period.timezone).toBeNull();
+    expect(saved.parsed?.input.rows).toHaveLength(2);
+    expect(saved.parsed?.input.rows[0].cells.citations.status).toBe("known_value");
+    expect(saved.parsed?.input.rows[0].cells.cited_pages).toMatchObject({
+      status: "known_value",
+      value: 1,
+    });
+    // A bare exported 0 stays unknown for both Bing metrics.
+    expect(saved.parsed?.input.rows[1].cells.citations.status).toBe("unknown_export_zero");
+    expect(saved.parsed?.input.rows[1].cells.cited_pages.status).toBe("unknown_export_zero");
+    // Exact retry (same bytes + completeness + note) returns the stored interpretation unchanged.
+    const retry = await persistNativeReport(
+      scope,
+      a.id,
+      "partial",
+      "Nov 11–12 not yet in export",
+      rpc,
+    );
+    expect(retry.parsed).toEqual(saved.parsed);
+  });
+  it("rejects a Bing artifact whose staged metadata forges a market, timezone or filter", async () => {
+    const market = await stage({ ...bingMetadata, marketScope: { country: "SWE", exposed: true } });
+    await expect(persistNativeReport(scope, market.id, "partial", "", rpc)).rejects.toThrow(
+      /native_parsed_metadata_mismatch/,
+    );
+    const tz = await stage({
+      ...bingMetadata,
+      period: { ...bingMetadata.period, timezone: "UTC" },
+    });
+    await expect(persistNativeReport(scope, tz.id, "partial", "", rpc)).rejects.toThrow(
+      /native_parsed_metadata_mismatch/,
+    );
+    const filtered = await stage({ ...bingMetadata, filters: { Country: "Sweden" } });
+    await expect(persistNativeReport(scope, filtered.id, "partial", "", rpc)).rejects.toThrow(
+      /native_parsed_metadata_mismatch/,
+    );
+  });
+  it("keeps an already-stored Google v1 record readable unchanged after the Bing variant", async () => {
+    // A Google record saved through the same (now source-routed) schema still round-trips: the
+    // widened parserVersion/file enums and Bing branch add no new required fields to a Google record.
+    const a = await stage();
+    const saved = await persistNativeReport(scope, a.id, "partial", "outage", rpc);
+    const read = await readNativeReportParsed(scope, a.id, rpc);
+    expect(read.parsed).toEqual(saved.parsed);
+    expect(read.parsed?.parserVersion).toBe("native-google-ai-csv-v1");
+    expect(read.parsed?.input.source).toBe("gsc_generative_ai_search");
+  });
 });

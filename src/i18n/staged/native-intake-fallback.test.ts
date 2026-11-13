@@ -3,7 +3,7 @@
  * aggregators rather than against the helper in isolation.
  *
  * What has to hold: every staged locale carries exactly one "native intake"
- * batch holding exactly the 86 `nativeIntake` keys at their reviewed English
+ * batch holding exactly the 100 `nativeIntake` keys at their reviewed English
  * values; the batch has no key from another namespace; the recorded source
  * fingerprint is recomputed here; no other batch declares the namespace; and
  * nothing moves a staged locale into the runtime.
@@ -74,7 +74,7 @@ const ENGLISH_KEYS = Object.keys(ENGLISH).sort();
 
 describe("the staged native-intake namespace is complete without inventing translations", () => {
   it("takes its fallback from the reviewed English native-intake source itself", () => {
-    expect(ENGLISH_KEYS).toHaveLength(86);
+    expect(ENGLISH_KEYS).toHaveLength(100);
     expect(Object.keys(nativeIntakeCopy.en).sort()).toEqual(ENGLISH_KEYS);
     for (const key of ENGLISH_KEYS) expect(nativeIntakeCopy.en[key], key).toBe(ENGLISH[key]);
   });

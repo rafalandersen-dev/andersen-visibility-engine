@@ -99,10 +99,14 @@ export type NativeCell = z.infer<typeof nativeCellSchema>;
 function parseNumber(text: string, unit: "count" | "percent"): number | null {
   const stripped = unit === "percent" ? text.replace(/%\s*$/, "") : text;
   // Thousands separators are ambiguous across locales; a genuine export decides them. Accept
-  // plain integers and decimals only; anything else is invalid, never coerced.
+  // plain integers and decimals only; anything else (scientific notation, commas, a formula) is
+  // invalid, never coerced.
   if (!/^\d+(?:\.\d+)?$/.test(stripped)) return null;
   const n = Number(stripped);
   if (!Number.isFinite(n)) return null;
+  // A percent keeps its decimals and is bounded at 100. A count keeps whatever whole or fractional
+  // value a genuine export shows; a source that counts only whole events (Bing) applies its own
+  // integer-lexeme guard at its boundary rather than tightening this shared Google-v1 contract.
   if (unit === "percent" && n > 100) return null;
   return n;
 }

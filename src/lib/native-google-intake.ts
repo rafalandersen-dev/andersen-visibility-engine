@@ -2,6 +2,16 @@ import { z } from "zod";
 import { MAX_NATIVE_ARTIFACTS_PER_PROJECT } from "./native-ai-artifact";
 import { nativeReportImportInputSchema } from "./native-ai-report";
 import { nativeGoogleReportDescriptor, type NativeGoogleReportCsv } from "./native-google-ai-csv";
+import {
+  NATIVE_BING_CSV_FILES,
+  NATIVE_BING_PARSER_VERSION,
+  bingOverviewCoversPeriod,
+  isBingOverviewDateKey,
+  isValidBingCountCell,
+  nativeBingReportDescriptor,
+  nativeBingReportMetrics,
+  type NativeBingReportCsv,
+} from "./native-bing-ai-csv";
 /**
  * Owner Google native-report intake — shared, client-safe, network-free contracts for the typed
  * parser interpretation that is persisted alongside an already-staged raw artifact. The staging
@@ -58,18 +68,19 @@ export const nativeLimitationNoteSchema = z
     "The note contains unsupported characters. Remove them and try again.",
   );
 /**
- * The typed, persisted interpretation of one native Google CSV. `input` is the validated parser
- * output (rows + per-cell value statuses); the extra fields bind it to the exact raw artifact and
- * record the owner declaration. Hard-bounded and cross-checked so a browser-forged hash, a withheld
- * count off the pages table, or a mismatched aggregation cannot enter.
+ * The typed, persisted interpretation of one native report CSV (Google GSC or Bing AI Performance).
+ * `input` is the validated parser output (rows + per-cell value statuses); the extra fields bind it
+ * to the exact raw artifact and record the owner declaration. Hard-bounded and cross-checked by
+ * `input.source` so a browser-forged hash, a withheld count off the page table, a mismatched
+ * aggregation, a wrong parser version, or a forged Bing market/filter/timezone cannot enter.
  */
 export const nativeReportParsedRecordSchema = z
   .object({
     artifactId: z.string().uuid(),
     /** Must equal the server-derived artifact hash and the parser's own content hash. */
     artifactSha256: z.string().regex(/^[a-f0-9]{64}$/),
-    parserVersion: z.literal(NATIVE_GOOGLE_PARSER_VERSION),
-    file: z.enum(NATIVE_GOOGLE_CSV_FILES),
+    parserVersion: z.enum([NATIVE_GOOGLE_PARSER_VERSION, NATIVE_BING_PARSER_VERSION]),
+    file: z.enum([...NATIVE_GOOGLE_CSV_FILES, ...NATIVE_BING_CSV_FILES]),
     withheldPageRows: z.number().int().min(0),
     partial: z.boolean(),
     limitationNote: nativeLimitationNoteSchema,
@@ -83,34 +94,135 @@ export const nativeReportParsedRecordSchema = z
         path: ["artifactSha256"],
         message: "The record hash must equal the parsed artifact hash",
       });
+    // Route every source-specific invariant by the parsed source; each source has its own parser
+    // version, CSV file set, descriptor and page-table name.
+    let descriptor: { dimension: string; reportKind: string; aggregation: string } | null = null;
+    let pageFile: string | null = null;
+    let expectedVersion: string | null = null;
+    if (r.input.source === "gsc_generative_ai_search") {
+      expectedVersion = NATIVE_GOOGLE_PARSER_VERSION;
+      pageFile = "pages";
+      if ((NATIVE_GOOGLE_CSV_FILES as readonly string[]).includes(r.file))
+        descriptor = nativeGoogleReportDescriptor(r.file as NativeGoogleReportCsv);
+    } else if (r.input.source === "bing_ai_performance") {
+      expectedVersion = NATIVE_BING_PARSER_VERSION;
+      pageFile = "bing_pages";
+      if ((NATIVE_BING_CSV_FILES as readonly string[]).includes(r.file))
+        descriptor = nativeBingReportDescriptor(r.file as NativeBingReportCsv);
+      // Bing exposes no geographic scope, filter or timezone — always unknown/unsegmented.
+      if (r.input.marketScope.country !== null || r.input.marketScope.exposed !== false)
+        ctx.addIssue({
+          code: "custom",
+          path: ["input", "marketScope"],
+          message: "Bing exposes no geographic scope",
+        });
+      if (Object.keys(r.input.filters).length !== 0)
+        ctx.addIssue({
+          code: "custom",
+          path: ["input", "filters"],
+          message: "Bing exposes no filters",
+        });
+      if (r.input.period.timezone !== null)
+        ctx.addIssue({
+          code: "custom",
+          path: ["input", "period", "timezone"],
+          message: "Bing exposes no timezone",
+        });
+      // Enforce the exact observed Bing variant at the read/trust boundary: an Overview row carries
+      // exactly citations + cited_pages and a Pages row exactly citations — no arbitrary, missing or
+      // extra measure (e.g. an impressions-only Overview is rejected). Every Bing measure is a
+      // whole-event count whose value-bearing raw is a safe-integer lexeme.
+      if ((NATIVE_BING_CSV_FILES as readonly string[]).includes(r.file)) {
+        const expected = [...nativeBingReportMetrics(r.file as NativeBingReportCsv)].sort();
+        for (const [index, row] of r.input.rows.entries()) {
+          // An Overview row is keyed by date: enforce a real in-period calendar date at the read
+          // boundary for EVERY completeness (not only "complete"), matching the CSV parser — a
+          // lexically in-range but malformed/impossible lexeme must never be stored.
+          if (
+            r.file === "bing_overview" &&
+            !isBingOverviewDateKey(row.key, r.input.period.start, r.input.period.end)
+          )
+            ctx.addIssue({
+              code: "custom",
+              path: ["input", "rows", index, "key"],
+              message:
+                "A Bing Overview row must be a real calendar date within the selected period",
+            });
+          const keys = Object.keys(row.cells).sort();
+          if (keys.length !== expected.length || expected.some((m, i) => m !== keys[i]))
+            ctx.addIssue({
+              code: "custom",
+              path: ["input", "rows", index, "cells"],
+              message: "A Bing row must carry exactly the observed measures for its report kind",
+            });
+          for (const [metric, cell] of Object.entries(row.cells))
+            if (!isValidBingCountCell(cell))
+              ctx.addIssue({
+                code: "custom",
+                path: ["input", "rows", index, "cells", metric],
+                message: "A Bing measure is a count with a nonnegative safe-integer lexeme",
+              });
+        }
+        // A full-period ("complete") claim cannot stand on partial date coverage; a missing endpoint
+        // or an internal gap is contradictory and refused. Pages borrows no date coverage.
+        if (
+          r.file === "bing_overview" &&
+          r.input.completeness === "complete" &&
+          !bingOverviewCoversPeriod(
+            r.input.period.start,
+            r.input.period.end,
+            r.input.rows.map((row) => row.key),
+          )
+        )
+          ctx.addIssue({
+            code: "custom",
+            path: ["input", "completeness"],
+            message: "A complete overview must carry a row on every day of the selected period",
+          });
+      }
+    } else {
+      ctx.addIssue({
+        code: "custom",
+        path: ["input", "source"],
+        message: "Unsupported native report source",
+      });
+      return;
+    }
+    if (r.parserVersion !== expectedVersion)
+      ctx.addIssue({
+        code: "custom",
+        path: ["parserVersion"],
+        message: "The parser version must match the source",
+      });
+    if (!descriptor) {
+      ctx.addIssue({
+        code: "custom",
+        path: ["file"],
+        message: "The CSV kind does not match the source",
+      });
+      return;
+    }
+    if (r.file !== pageFile && r.withheldPageRows !== 0)
+      ctx.addIssue({
+        code: "custom",
+        path: ["withheldPageRows"],
+        message: "Only the page table can withhold rows",
+      });
     if (r.partial !== r.withheldPageRows > 0)
       ctx.addIssue({
         code: "custom",
         path: ["partial"],
         message: "partial must hold exactly when page rows were withheld",
       });
-    if (r.file !== "pages" && r.withheldPageRows !== 0)
-      ctx.addIssue({
-        code: "custom",
-        path: ["withheldPageRows"],
-        message: "Only the pages table can withhold rows",
-      });
-    const d = nativeGoogleReportDescriptor(r.file);
     if (
-      r.input.dimension !== d.dimension ||
-      r.input.reportKind !== d.reportKind ||
-      r.input.aggregation !== d.aggregation
+      r.input.dimension !== descriptor.dimension ||
+      r.input.reportKind !== descriptor.reportKind ||
+      r.input.aggregation !== descriptor.aggregation
     )
       ctx.addIssue({
         code: "custom",
         path: ["input"],
         message: "Parsed aggregation/reportKind/dimension must match the CSV kind",
-      });
-    if (r.input.source !== "gsc_generative_ai_search")
-      ctx.addIssue({
-        code: "custom",
-        path: ["input", "source"],
-        message: "Only GSC generative AI reports are parsed",
       });
   });
 export type NativeReportParsedRecord = z.infer<typeof nativeReportParsedRecordSchema>;

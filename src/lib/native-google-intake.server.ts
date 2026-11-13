@@ -3,6 +3,12 @@ import { evidenceProjectId } from "./answer-evidence";
 import { getNativeArtifact } from "./native-ai-artifact.server";
 import { NativeGoogleCsvError, parseNativeGoogleReportCsv } from "./native-google-ai-csv";
 import {
+  NATIVE_BING_PARSER_VERSION,
+  NativeBingCsvError,
+  bingFileKindForDimension,
+  parseNativeBingReportCsv,
+} from "./native-bing-ai-csv";
+import {
   NATIVE_COMPLETENESS,
   NATIVE_GOOGLE_PARSER_VERSION,
   fileKindForDimension,
@@ -62,11 +68,12 @@ async function call(name: string, args: Record<string, unknown>, injected?: Know
   }
 }
 /**
- * Re-derive the typed interpretation from the artifact's actual stored bytes. Only a
- * gsc_generative_ai_search export on one of the four observed dimensions is supported. The parser
- * re-computes the aggregation/reportKind/dimension and the content hash; both must match the stored
- * declaration / server-derived hash, so a forged declared aggregation or a hash the bytes do not
- * produce is rejected explicitly rather than persisted.
+ * Re-derive the typed interpretation from the artifact's actual stored bytes, routed by source
+ * (GSC generative-AI or Bing AI Performance). The parser re-computes the aggregation/reportKind/
+ * dimension and the content hash; both must match the stored declaration / server-derived hash, so a
+ * forged declared aggregation or a hash the bytes do not produce is rejected explicitly rather than
+ * persisted. A parse failure maps to a STATIC code: the parser's message can include arbitrary owner
+ * input (a malformed date/filter/page key), which must never reach the server transport or logs.
  */
 async function reparse(
   detail: NativeArtifactDetail,
@@ -74,28 +81,60 @@ async function reparse(
   limitationNote: string,
 ): Promise<NativeReportParsedRecord> {
   const m = detail.metadata;
-  const file = m.source === "gsc_generative_ai_search" ? fileKindForDimension(m.dimension) : null;
-  if (!file) throw new NativeParsedError("native_parsed_unsupported");
   const bytes = new Uint8Array(Buffer.from(detail.base64, "base64"));
-  let preview;
-  try {
-    preview = await parseNativeGoogleReportCsv(file, bytes, {
-      declaredProperty: m.declaredProperty,
-      period: { start: m.period.start, end: m.period.end, timezone: m.period.timezone ?? "" },
-      capturedAt: m.capturedAt,
-      completeness,
-      // Owner-declared filter context from the staged metadata; the parser re-validates it for
-      // observed format and internal consistency (never blindly trusting the declared market).
-      filterContext: { filters: m.filters, marketScope: m.marketScope },
-      filename: m.filename,
-    });
-  } catch (e) {
-    // A parse failure is mapped to a STATIC code: the parser's message can include arbitrary owner
-    // input (a malformed date/filter/page key), which must never reach the server transport or logs.
-    // The UI already shows generic localized parse-failure guidance.
-    throw new NativeParsedError(
-      e instanceof NativeGoogleCsvError ? "native_parse_failed" : "native_parsed_unavailable",
-    );
+  let preview: Awaited<ReturnType<typeof parseNativeGoogleReportCsv>>;
+  let parserVersion: string;
+  let file: string;
+  if (m.source === "gsc_generative_ai_search") {
+    const fileKind = fileKindForDimension(m.dimension);
+    if (!fileKind) throw new NativeParsedError("native_parsed_unsupported");
+    file = fileKind;
+    parserVersion = NATIVE_GOOGLE_PARSER_VERSION;
+    try {
+      preview = await parseNativeGoogleReportCsv(fileKind, bytes, {
+        declaredProperty: m.declaredProperty,
+        period: { start: m.period.start, end: m.period.end, timezone: m.period.timezone ?? "" },
+        capturedAt: m.capturedAt,
+        completeness,
+        filterContext: { filters: m.filters, marketScope: m.marketScope },
+        filename: m.filename,
+      });
+    } catch (e) {
+      throw new NativeParsedError(
+        e instanceof NativeGoogleCsvError ? "native_parse_failed" : "native_parsed_unavailable",
+      );
+    }
+  } else if (m.source === "bing_ai_performance") {
+    const fileKind = bingFileKindForDimension(m.dimension);
+    if (!fileKind) throw new NativeParsedError("native_parsed_unsupported");
+    file = fileKind;
+    parserVersion = NATIVE_BING_PARSER_VERSION;
+    // Bing exposes no geographic scope, filter or timezone. Rather than silently normalizing a
+    // staged declaration that claims one (which the parser would then override to unknown), reject
+    // the contradiction explicitly so a forged Bing market/timezone/filter never slips through.
+    if (
+      m.marketScope.country !== null ||
+      m.marketScope.exposed ||
+      Object.keys(m.filters).length > 0 ||
+      m.period.timezone !== null
+    )
+      throw new NativeParsedError("native_parsed_metadata_mismatch");
+    try {
+      // Bing takes no filter context; the parser forces an unknown/unsegmented scope.
+      preview = await parseNativeBingReportCsv(fileKind, bytes, {
+        declaredProperty: m.declaredProperty,
+        period: { start: m.period.start, end: m.period.end },
+        capturedAt: m.capturedAt,
+        completeness,
+        filename: m.filename,
+      });
+    } catch (e) {
+      throw new NativeParsedError(
+        e instanceof NativeBingCsvError ? "native_parse_failed" : "native_parsed_unavailable",
+      );
+    }
+  } else {
+    throw new NativeParsedError("native_parsed_unsupported");
   }
   if (
     preview.input.aggregation !== m.aggregation ||
@@ -108,7 +147,7 @@ async function reparse(
   return nativeReportParsedRecordSchema.parse({
     artifactId: detail.id,
     artifactSha256: detail.sha256,
-    parserVersion: NATIVE_GOOGLE_PARSER_VERSION,
+    parserVersion,
     file,
     withheldPageRows: preview.withheldPageRows,
     partial: preview.partial,

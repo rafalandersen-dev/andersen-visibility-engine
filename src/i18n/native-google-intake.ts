@@ -1,15 +1,23 @@
-// Owner Google native-report intake panel copy (upload one supported GSC Generative-AI CSV + its
-// Filters.csv, preview the typed interpretation, persist it). Keys prefixed "nativeIntake." and zipped
-// with a key-set guard. Polish, Swedish and Danish are machine-authored on 2026-11-13 against the
-// English source; fluent human acceptance is pending. The owner's declaration is never authenticated;
-// implementation detail stays in the collapsible technical section, not the primary flow.
+// Owner native-report intake panel copy. Two sources share the panel: a Google Search Console
+// Generative-AI CSV (+ its Filters.csv) and a Bing Webmaster Tools "AI Performance" (BETA) CSV (no
+// Filters.csv). Preview the typed interpretation, then persist it. Keys prefixed "nativeIntake." and
+// zipped with a key-set guard. Polish, Swedish and Danish are machine-authored (Google: 2026-11-13;
+// Bing additions: 2026-11-13) against the English source; fluent human acceptance is pending. The
+// owner's declaration is never authenticated; implementation detail stays in the collapsible
+// technical section, not the primary flow.
 const en: Record<string, string> = {
   "common.loading": "Loading…",
-  title: "Google native AI report",
-  intro:
-    "The export downloads as a ZIP — unzip it and pick one Google Search Console “Performance on Search — Generative AI features” CSV plus its Filters.csv. Preview, then save. Impressions only; country level only.",
-  declaration: "What you upload and declare is your own record — Google does not verify it.",
-  nativeLabel: "Google Generative AI features — Search",
+  title: "Native AI report",
+  "intro.gsc":
+    "Google Search Console: the export downloads as a ZIP — unzip it and pick one “Performance on Search — Generative AI features” CSV plus its Filters.csv. Dates are Pacific Time; impressions only; country level only. Preview, then save.",
+  "intro.bing":
+    "Bing Webmaster Tools “AI Performance” (BETA): pick the Overview CSV (dates) or the Pages CSV — there is no Filters.csv. Citations and cited pages only; no country or filter; export time zone unknown. Preview, then save.",
+  declaration: "What you upload and declare is your own record — the provider does not verify it.",
+  "nativeLabel.gsc": "Google Generative AI features — Search",
+  "nativeLabel.bing": "Bing Webmaster Tools — AI Performance (BETA)",
+  sourceLabel: "Report source",
+  "source.gsc_generative_ai_search": "Google Search Console (Generative AI)",
+  "source.bing_ai_performance": "Bing Webmaster Tools (AI Performance, BETA)",
   "list.title": "Your files",
   "list.empty": "No file stored yet.",
   refresh: "Refresh",
@@ -27,9 +35,11 @@ const en: Record<string, string> = {
   "file.pages": "Pages.csv (top pages)",
   "file.countries": "Countries.csv",
   "file.devices": "Devices.csv",
+  "file.bing_overview": "Overview.csv (dates)",
+  "file.bing_pages": "Pages.csv (cited pages)",
   propertyLabel: "Declared property",
-  startLabel: "Period start (Pacific Time)",
-  endLabel: "Period end (Pacific Time)",
+  startLabel: "Period start",
+  endLabel: "Period end",
   capturedAtLabel: "Downloaded at (UTC)",
   capturedAtHelp: "Enter the download time in UTC.",
   completenessLabel: "Source completeness",
@@ -51,9 +61,12 @@ const en: Record<string, string> = {
   previewTitle: "Preview (not saved yet — the server re-reads the uploaded file when you save)",
   metricLabel: "Metric: {metric} ({unit})",
   "metric.impressions": "Impressions",
+  "metric.citations": "Citations",
+  "metric.cited_pages": "Cited pages",
   "unit.count": "count",
   windowLabel: "Window: {start} → {end}",
   timezoneLabel: "Time zone: {tz}",
+  timezoneUnknown: "Time zone: unknown (not exposed by the source)",
   propertyHeading: "Property: {property}",
   aggregationLabel: "Totals by: {aggregation} ({reportKind})",
   "aggregation.property": "property",
@@ -63,14 +76,20 @@ const en: Record<string, string> = {
   "reportKind.chart": "chart",
   "reportKind.table": "table",
   countryFilter: "Country filter: {country}",
+  scopeUnsegmented: "Market scope: not exposed / unsegmented.",
+  coverageHeading: "Row coverage: {observed} of {expected} days in the period ({first} → {last})",
+  coverageGapWarn:
+    "Some days in the selected period have no row; this is not complete-period evidence, even if the source is marked complete.",
   sourceIncompleteWarn:
     "Source marked {completeness}: not a complete reading, no zero/coverage claim.",
   partialWarn: "{count} page rows withheld for privacy; not complete page evidence.",
   rowsHeading: "{count} rows",
   rawCellLabel: "raw",
   interpretedStatusHeading: "value",
-  limits:
+  "limits.gsc":
     "Impressions only; Pacific-Time dates; country mapping currently supports Sweden or no country filter; owner-supplied, not verified.",
+  "limits.bing":
+    "Citations and cited pages only; export time zone unknown; no country, market or filter; owner-supplied, not verified. A displayed average cited-pages of 0 is a rounded figure, not zero pages.",
   "cell.known_value": "known value",
   "cell.known_zero": "known zero",
   "cell.unknown_source": "unknown",
@@ -87,11 +106,11 @@ const en: Record<string, string> = {
   gate: "A saved report’s interpretation is immutable. Independent native-report review (reviewer receipts, zero resolution) is not integrated here.",
   "err.conflict":
     "A report is already saved for this file and its interpretation cannot be changed here. See the stored report below.",
-  "err.unsupported": "This file is not a supported Google report for interpretation.",
+  "err.unsupported": "This file is not a supported native AI report.",
   "err.mismatch": "The file does not match the declared report kind.",
   "err.hash": "The report does not match the stored file.",
-  "err.parseFailed": "The file could not be read as the selected Google CSV.",
-  "err.fileRequired": "Choose the data CSV and its Filters.csv.",
+  "err.parseFailed": "The file could not be read as the selected source and CSV kind.",
+  "err.fileRequired": "Choose the data CSV. For Google, also choose its Filters.csv.",
   "err.tooLarge": "Each file must be 2 MB or smaller.",
   "err.reviewStale": "Inputs changed since the preview. Preview again before saving.",
   "err.capacity": "This project has reached its stored-file limit. Delete one and try again.",
@@ -99,11 +118,17 @@ const en: Record<string, string> = {
 };
 const pl: Record<string, string> = {
   "common.loading": "Ładowanie…",
-  title: "Natywny raport AI Google",
-  intro:
-    "Eksport pobiera się jako ZIP — rozpakuj go i wybierz jeden plik CSV z Google Search Console „Skuteczność w wyszukiwarce — funkcje AI generatywnej” wraz z jego Filters.csv. Sprawdź podgląd, a następnie zapisz. Tylko wyświetlenia; tylko poziom kraju.",
-  declaration: "To, co wgrywasz i deklarujesz, jest Twoim zapisem — Google tego nie weryfikuje.",
-  nativeLabel: "Funkcje AI generatywnej Google — Wyszukiwarka",
+  title: "Natywny raport AI",
+  "intro.gsc":
+    "Google Search Console: eksport pobiera się jako ZIP — rozpakuj go i wybierz jeden plik CSV „Skuteczność w wyszukiwarce — funkcje AI generatywnej” wraz z jego Filters.csv. Daty w czasie pacyficznym; tylko wyświetlenia; tylko poziom kraju. Sprawdź podgląd, a następnie zapisz.",
+  "intro.bing":
+    "Bing Webmaster Tools „AI Performance” (BETA): wybierz plik CSV Overview (daty) lub Pages — nie ma pliku Filters.csv. Tylko cytowania i cytowane strony; brak kraju ani filtra; strefa czasowa eksportu nieznana. Sprawdź podgląd, a następnie zapisz.",
+  declaration: "To, co wgrywasz i deklarujesz, jest Twoim zapisem — dostawca tego nie weryfikuje.",
+  "nativeLabel.gsc": "Funkcje AI generatywnej Google — Wyszukiwarka",
+  "nativeLabel.bing": "Bing Webmaster Tools — AI Performance (BETA)",
+  sourceLabel: "Źródło raportu",
+  "source.gsc_generative_ai_search": "Google Search Console (AI generatywna)",
+  "source.bing_ai_performance": "Bing Webmaster Tools (AI Performance, BETA)",
   "list.title": "Twoje pliki",
   "list.empty": "Nie zapisano jeszcze żadnego pliku.",
   refresh: "Odśwież",
@@ -121,9 +146,11 @@ const pl: Record<string, string> = {
   "file.pages": "Pages.csv (najlepsze strony)",
   "file.countries": "Countries.csv",
   "file.devices": "Devices.csv",
+  "file.bing_overview": "Overview.csv (daty)",
+  "file.bing_pages": "Pages.csv (cytowane strony)",
   propertyLabel: "Zadeklarowana usługa",
-  startLabel: "Początek okresu (czas pacyficzny)",
-  endLabel: "Koniec okresu (czas pacyficzny)",
+  startLabel: "Początek okresu",
+  endLabel: "Koniec okresu",
   capturedAtLabel: "Pobrano o (UTC)",
   capturedAtHelp: "Podaj czas pobrania w UTC.",
   completenessLabel: "Kompletność źródła",
@@ -146,9 +173,12 @@ const pl: Record<string, string> = {
     "Podgląd (jeszcze nie zapisano — serwer ponownie odczytuje wgrany plik przy zapisie)",
   metricLabel: "Miara: {metric} ({unit})",
   "metric.impressions": "Wyświetlenia",
+  "metric.citations": "Cytowania",
+  "metric.cited_pages": "Cytowane strony",
   "unit.count": "liczba",
   windowLabel: "Okres: {start} → {end}",
   timezoneLabel: "Strefa czasowa: {tz}",
+  timezoneUnknown: "Strefa czasowa: nieznana (nieujawniona przez źródło)",
   propertyHeading: "Usługa: {property}",
   aggregationLabel: "Sumy według: {aggregation} ({reportKind})",
   "aggregation.property": "usługi",
@@ -158,14 +188,20 @@ const pl: Record<string, string> = {
   "reportKind.chart": "wykres",
   "reportKind.table": "tabela",
   countryFilter: "Filtr kraju: {country}",
+  scopeUnsegmented: "Zakres rynku: nieujawniony / niesegmentowany.",
+  coverageHeading: "Pokrycie wierszy: {observed} z {expected} dni w okresie ({first} → {last})",
+  coverageGapWarn:
+    "Niektóre dni w wybranym okresie nie mają wiersza; to nie jest pełny dowód dla całego okresu, nawet jeśli źródło oznaczono jako kompletne.",
   sourceIncompleteWarn:
     "Źródło oznaczone jako {completeness}: to nie jest pełny odczyt, bez twierdzeń o zerze/pokryciu.",
   partialWarn: "{count} wierszy stron wstrzymano dla prywatności; to nie jest pełny dowód stron.",
   rowsHeading: "Wiersze: {count}",
   rawCellLabel: "surowe",
   interpretedStatusHeading: "wartość",
-  limits:
+  "limits.gsc":
     "Tylko wyświetlenia; daty w czasie pacyficznym; mapowanie kraju obsługuje obecnie Szwecję lub brak filtra kraju; dane od właściciela, niezweryfikowane.",
+  "limits.bing":
+    "Tylko cytowania i cytowane strony; strefa czasowa eksportu nieznana; brak kraju, rynku ani filtra; dane od właściciela, niezweryfikowane. Wyświetlana średnia cytowanych stron równa 0 to wartość zaokrąglona, a nie zero stron.",
   "cell.known_value": "znana wartość",
   "cell.known_zero": "znane zero",
   "cell.unknown_source": "nieznane",
@@ -182,11 +218,11 @@ const pl: Record<string, string> = {
   gate: "Interpretacja zapisanego raportu jest niezmienna. Niezależna recenzja raportu natywnego (potwierdzenia recenzenta, rozstrzyganie zer) nie jest tu zintegrowana.",
   "err.conflict":
     "Raport dla tego pliku jest już zapisany, a jego interpretacji nie można tu zmienić. Zobacz zapisany raport poniżej.",
-  "err.unsupported": "Ten plik nie jest obsługiwanym raportem Google do interpretacji.",
+  "err.unsupported": "Ten plik nie jest obsługiwanym natywnym raportem AI.",
   "err.mismatch": "Plik nie pasuje do zadeklarowanego rodzaju raportu.",
   "err.hash": "Raport nie pasuje do zapisanego pliku.",
-  "err.parseFailed": "Nie udało się odczytać pliku jako wybranego CSV Google.",
-  "err.fileRequired": "Wybierz plik CSV z danymi oraz jego Filters.csv.",
+  "err.parseFailed": "Nie udało się odczytać pliku jako wybranego źródła i rodzaju CSV.",
+  "err.fileRequired": "Wybierz plik CSV z danymi. W przypadku Google wybierz też jego Filters.csv.",
   "err.tooLarge": "Każdy plik może mieć maksymalnie 2 MB.",
   "err.reviewStale": "Dane zmieniły się od podglądu. Wyświetl podgląd ponownie przed zapisem.",
   "err.capacity": "Ten projekt osiągnął limit zapisanych plików. Usuń jeden i spróbuj ponownie.",
@@ -194,11 +230,18 @@ const pl: Record<string, string> = {
 };
 const sv: Record<string, string> = {
   "common.loading": "Läser in…",
-  title: "Googles inbyggda AI-rapport",
-  intro:
-    "Exporten laddas ned som en ZIP — packa upp den och välj en CSV från Google Search Console ”Prestanda i Sök — generativa AI-funktioner” plus dess Filters.csv. Förhandsgranska och spara. Endast visningar; endast landsnivå.",
-  declaration: "Det du laddar upp och uppger är din egen notering — Google verifierar den inte.",
-  nativeLabel: "Googles generativa AI-funktioner — Sök",
+  title: "Inbyggd AI-rapport",
+  "intro.gsc":
+    "Google Search Console: exporten laddas ned som en ZIP — packa upp den och välj en ”Prestanda i Sök — generativa AI-funktioner” CSV plus dess Filters.csv. Datum i Stillahavstid; endast visningar; endast landsnivå. Förhandsgranska och spara.",
+  "intro.bing":
+    "Bing Webmaster Tools ”AI Performance” (BETA): välj Overview-CSV (datum) eller Pages-CSV — det finns ingen Filters.csv. Endast citeringar och citerade sidor; inget land eller filter; exportens tidszon okänd. Förhandsgranska och spara.",
+  declaration:
+    "Det du laddar upp och uppger är din egen notering — leverantören verifierar den inte.",
+  "nativeLabel.gsc": "Googles generativa AI-funktioner — Sök",
+  "nativeLabel.bing": "Bing Webmaster Tools — AI Performance (BETA)",
+  sourceLabel: "Rapportkälla",
+  "source.gsc_generative_ai_search": "Google Search Console (generativ AI)",
+  "source.bing_ai_performance": "Bing Webmaster Tools (AI Performance, BETA)",
   "list.title": "Dina filer",
   "list.empty": "Ingen fil är sparad ännu.",
   refresh: "Uppdatera",
@@ -216,9 +259,11 @@ const sv: Record<string, string> = {
   "file.pages": "Pages.csv (toppsidor)",
   "file.countries": "Countries.csv",
   "file.devices": "Devices.csv",
+  "file.bing_overview": "Overview.csv (datum)",
+  "file.bing_pages": "Pages.csv (citerade sidor)",
   propertyLabel: "Angiven egendom",
-  startLabel: "Periodens start (Stillahavstid)",
-  endLabel: "Periodens slut (Stillahavstid)",
+  startLabel: "Periodens start",
+  endLabel: "Periodens slut",
   capturedAtLabel: "Nedladdad (UTC)",
   capturedAtHelp: "Ange nedladdningstiden i UTC.",
   completenessLabel: "Källans fullständighet",
@@ -241,9 +286,12 @@ const sv: Record<string, string> = {
     "Förhandsgranskning (inte sparad ännu — servern läser om den uppladdade filen vid sparande)",
   metricLabel: "Mått: {metric} ({unit})",
   "metric.impressions": "Visningar",
+  "metric.citations": "Citeringar",
+  "metric.cited_pages": "Citerade sidor",
   "unit.count": "antal",
   windowLabel: "Period: {start} → {end}",
   timezoneLabel: "Tidszon: {tz}",
+  timezoneUnknown: "Tidszon: okänd (inte exponerad av källan)",
   propertyHeading: "Egendom: {property}",
   aggregationLabel: "Summor per: {aggregation} ({reportKind})",
   "aggregation.property": "egendom",
@@ -253,14 +301,20 @@ const sv: Record<string, string> = {
   "reportKind.chart": "diagram",
   "reportKind.table": "tabell",
   countryFilter: "Landsfilter: {country}",
+  scopeUnsegmented: "Marknadsomfattning: inte exponerad / osegmenterad.",
+  coverageHeading: "Radtäckning: {observed} av {expected} dagar i perioden ({first} → {last})",
+  coverageGapWarn:
+    "Vissa dagar i den valda perioden saknar rad; detta är inte fullständigt bevis för hela perioden, även om källan är markerad som fullständig.",
   sourceIncompleteWarn:
     "Källan markerad som {completeness}: inte en fullständig avläsning, inga påståenden om noll/täckning.",
   partialWarn: "{count} sidrader undanhölls av integritetsskäl; inte fullständigt sidbevis.",
   rowsHeading: "{count} rader",
   rawCellLabel: "rå",
   interpretedStatusHeading: "värde",
-  limits:
+  "limits.gsc":
     "Endast visningar; datum i Stillahavstid; landmappning stöder för närvarande Sverige eller inget landsfilter; uppgifter från ägaren, inte verifierade.",
+  "limits.bing":
+    "Endast citeringar och citerade sidor; exportens tidszon okänd; inget land, marknad eller filter; uppgifter från ägaren, inte verifierade. Ett visat genomsnitt för citerade sidor på 0 är en avrundad siffra, inte noll sidor.",
   "cell.known_value": "känt värde",
   "cell.known_zero": "känd nolla",
   "cell.unknown_source": "okänt",
@@ -277,11 +331,11 @@ const sv: Record<string, string> = {
   gate: "En sparad rapports tolkning är oföränderlig. Oberoende granskning av den inbyggda rapporten (granskarkvitton, nollupplösning) är inte integrerad här.",
   "err.conflict":
     "En rapport är redan sparad för denna fil och dess tolkning kan inte ändras här. Se den sparade rapporten nedan.",
-  "err.unsupported": "Denna fil är inte en Google-rapport som stöds för tolkning.",
+  "err.unsupported": "Denna fil är inte en inbyggd AI-rapport som stöds.",
   "err.mismatch": "Filen matchar inte den angivna rapporttypen.",
   "err.hash": "Rapporten matchar inte den sparade filen.",
-  "err.parseFailed": "Filen kunde inte läsas som vald Google-CSV.",
-  "err.fileRequired": "Välj data-CSV och dess Filters.csv.",
+  "err.parseFailed": "Filen kunde inte läsas som vald källa och CSV-typ.",
+  "err.fileRequired": "Välj data-CSV. För Google, välj även dess Filters.csv.",
   "err.tooLarge": "Varje fil får vara högst 2 MB.",
   "err.reviewStale":
     "Inmatningarna ändrades efter förhandsgranskningen. Förhandsgranska igen före sparande.",
@@ -290,11 +344,17 @@ const sv: Record<string, string> = {
 };
 const da: Record<string, string> = {
   "common.loading": "Indlæser…",
-  title: "Googles indbyggede AI-rapport",
-  intro:
-    "Eksporten hentes som en ZIP — pak den ud, og vælg én CSV fra Google Search Console “Ydeevne i Søgning — generative AI-funktioner” plus dens Filters.csv. Forhåndsvis, og gem. Kun eksponeringer; kun landeniveau.",
-  declaration: "Det, du uploader og angiver, er din egen note — Google verificerer den ikke.",
-  nativeLabel: "Googles generative AI-funktioner — Søgning",
+  title: "Indbygget AI-rapport",
+  "intro.gsc":
+    "Google Search Console: eksporten hentes som en ZIP — pak den ud, og vælg én “Ydeevne i Søgning — generative AI-funktioner” CSV plus dens Filters.csv. Datoer i Stillehavstid; kun eksponeringer; kun landeniveau. Forhåndsvis, og gem.",
+  "intro.bing":
+    "Bing Webmaster Tools “AI Performance” (BETA): vælg Overview-CSV (datoer) eller Pages-CSV — der er ingen Filters.csv. Kun citeringer og citerede sider; intet land eller filter; eksportens tidszone ukendt. Forhåndsvis, og gem.",
+  declaration: "Det, du uploader og angiver, er din egen note — udbyderen verificerer den ikke.",
+  "nativeLabel.gsc": "Googles generative AI-funktioner — Søgning",
+  "nativeLabel.bing": "Bing Webmaster Tools — AI Performance (BETA)",
+  sourceLabel: "Rapportkilde",
+  "source.gsc_generative_ai_search": "Google Search Console (generativ AI)",
+  "source.bing_ai_performance": "Bing Webmaster Tools (AI Performance, BETA)",
   "list.title": "Dine filer",
   "list.empty": "Ingen fil er gemt endnu.",
   refresh: "Opdater",
@@ -312,9 +372,11 @@ const da: Record<string, string> = {
   "file.pages": "Pages.csv (topsider)",
   "file.countries": "Countries.csv",
   "file.devices": "Devices.csv",
+  "file.bing_overview": "Overview.csv (datoer)",
+  "file.bing_pages": "Pages.csv (citerede sider)",
   propertyLabel: "Angivet domæne",
-  startLabel: "Periodestart (Stillehavstid)",
-  endLabel: "Periodeslut (Stillehavstid)",
+  startLabel: "Periodestart",
+  endLabel: "Periodeslut",
   capturedAtLabel: "Hentet (UTC)",
   capturedAtHelp: "Angiv hentetidspunktet i UTC.",
   completenessLabel: "Kildens fuldstændighed",
@@ -337,9 +399,12 @@ const da: Record<string, string> = {
     "Forhåndsvisning (ikke gemt endnu — serveren genlæser den uploadede fil ved lagring)",
   metricLabel: "Mål: {metric} ({unit})",
   "metric.impressions": "Eksponeringer",
+  "metric.citations": "Citeringer",
+  "metric.cited_pages": "Citerede sider",
   "unit.count": "antal",
   windowLabel: "Periode: {start} → {end}",
   timezoneLabel: "Tidszone: {tz}",
+  timezoneUnknown: "Tidszone: ukendt (ikke eksponeret af kilden)",
   propertyHeading: "Domæne: {property}",
   aggregationLabel: "Totaler efter: {aggregation} ({reportKind})",
   "aggregation.property": "domæne",
@@ -349,6 +414,10 @@ const da: Record<string, string> = {
   "reportKind.chart": "diagram",
   "reportKind.table": "tabel",
   countryFilter: "Landefilter: {country}",
+  scopeUnsegmented: "Markedsomfang: ikke eksponeret / usegmenteret.",
+  coverageHeading: "Rækkedækning: {observed} af {expected} dage i perioden ({first} → {last})",
+  coverageGapWarn:
+    "Nogle dage i den valgte periode har ingen række; dette er ikke fuldstændigt bevis for hele perioden, selv hvis kilden er markeret som fuldstændig.",
   sourceIncompleteWarn:
     "Kilden markeret som {completeness}: ikke en fuldstændig aflæsning, ingen påstande om nul/dækning.",
   partialWarn:
@@ -356,8 +425,10 @@ const da: Record<string, string> = {
   rowsHeading: "{count} rækker",
   rawCellLabel: "rå",
   interpretedStatusHeading: "værdi",
-  limits:
+  "limits.gsc":
     "Kun eksponeringer; datoer i Stillehavstid; landemapping understøtter i øjeblikket Sverige eller intet landefilter; angivet af ejeren, ikke verificeret.",
+  "limits.bing":
+    "Kun citeringer og citerede sider; eksportens tidszone ukendt; intet land, marked eller filter; angivet af ejeren, ikke verificeret. Et vist gennemsnit for citerede sider på 0 er et afrundet tal, ikke nul sider.",
   "cell.known_value": "kendt værdi",
   "cell.known_zero": "kendt nul",
   "cell.unknown_source": "ukendt",
@@ -374,11 +445,11 @@ const da: Record<string, string> = {
   gate: "En gemt rapports fortolkning er uforanderlig. Uafhængig gennemgang af den indbyggede rapport (anmelderkvitteringer, nul-afklaring) er ikke integreret her.",
   "err.conflict":
     "En rapport er allerede gemt for denne fil, og dens fortolkning kan ikke ændres her. Se den gemte rapport nedenfor.",
-  "err.unsupported": "Denne fil er ikke en understøttet Google-rapport til fortolkning.",
+  "err.unsupported": "Denne fil er ikke en understøttet indbygget AI-rapport.",
   "err.mismatch": "Filen matcher ikke den angivne rapporttype.",
   "err.hash": "Rapporten matcher ikke den gemte fil.",
-  "err.parseFailed": "Filen kunne ikke læses som den valgte Google-CSV.",
-  "err.fileRequired": "Vælg data-CSV og dens Filters.csv.",
+  "err.parseFailed": "Filen kunne ikke læses som den valgte kilde og CSV-type.",
+  "err.fileRequired": "Vælg data-CSV. For Google skal du også vælge dens Filters.csv.",
   "err.tooLarge": "Hver fil må højst være 2 MB.",
   "err.reviewStale": "Inputtene ændrede sig siden forhåndsvisningen. Forhåndsvis igen før lagring.",
   "err.capacity": "Projektet har nået grænsen for gemte filer. Slet en, og prøv igen.",

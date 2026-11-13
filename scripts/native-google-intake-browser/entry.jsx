@@ -30,6 +30,12 @@ fixture.state.projects.forEach((p) => (p.appLanguage = locale));
 const DATA_CSV = "Date,Impressions\n2026-09-01,12\n2026-09-02,0\n";
 const FILTERS_CSV =
   "Filter,Value\nSearch type,Web (text-based)\nDate,Last 3 months\nCountry,Sweden\n";
+// SYNTHETIC Bing "AI Performance" (BETA) samples for interactive testing: pick the Bing source, then
+// upload one of these as the Data CSV (Bing has no Filters.csv). The real parser interprets them.
+const BING_OVERVIEW_CSV =
+  "Date,Citations,Cited Pages\n8/13/2026 12:00:00 AM,2,1\n8/14/2026 12:00:00 AM,0,0\n";
+const BING_PAGES_CSV = "Page,Citations\nhttps://example.test/a,2\nhttps://example.test/b,1\n";
+window.__nativeIntakeBingSamples = { BING_OVERVIEW_CSV, BING_PAGES_CSV };
 
 const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
 window.__nativeIntakeClient = client;
@@ -149,6 +155,11 @@ async function runCheck() {
     data = csv("Chart.csv", DATA_CSV),
     filters = csv("Filters.csv", FILTERS_CSV),
   } = {}) {
+    // Establish the Google source first (a prior step may have left Bing selected, where there is no
+    // Filters.csv input); switching restores the Filters.csv field, so await the re-render before
+    // touching the Google-only fields — parallel to bingFillForm.
+    setValue(labelled(t("nativeIntake.sourceLabel")), "gsc_generative_ai_search");
+    await tick();
     setValue(labelled(t("nativeIntake.propertyLabel")), "https://example.test/");
     setValue(labelled(t("nativeIntake.startLabel")), "2026-09-01");
     setValue(labelled(t("nativeIntake.endLabel")), "2026-11-13");
@@ -164,6 +175,33 @@ async function runCheck() {
     button(t("nativeIntake.saveBtn")).click();
     await waitFor(() => ready(), "Report ready badge");
   }
+  // Bing journeys reuse the same panel/helpers — no second panel or framework. Switching the source
+  // resets the CSV kind and drops the Filters.csv input, so set source first, then the Bing fields.
+  // BING_OVERVIEW_CSV / BING_PAGES_CSV are the module-level synthetic samples defined above.
+  async function bingFillForm({
+    file = "bing_overview",
+    body = BING_OVERVIEW_CSV,
+    completeness = "partial",
+    dataFile = null,
+  } = {}) {
+    setValue(labelled(t("nativeIntake.sourceLabel")), "bing_ai_performance");
+    await tick();
+    setValue(labelled(t("nativeIntake.fileLabel")), file);
+    setValue(labelled(t("nativeIntake.propertyLabel")), "https://example.test/");
+    setValue(labelled(t("nativeIntake.startLabel")), "2026-08-13");
+    setValue(labelled(t("nativeIntake.endLabel")), "2026-11-13");
+    setValue(labelled(t("nativeIntake.capturedAtLabel")), "2026-11-13T09:00");
+    setValue(labelled(t("nativeIntake.completenessLabel")), completeness);
+    setFile(
+      labelled(t("nativeIntake.dataCsvLabel")),
+      dataFile ?? csv(file === "bing_pages" ? "Pages.csv" : "Overview.csv", body),
+    );
+  }
+  const metric = (k) => t("nativeIntake.metric." + k);
+  const articleBySource = (src) =>
+    [...(section()?.querySelectorAll("[data-intake-artifact]") ?? [])].find((a) =>
+      a.textContent.includes(t("nativeIntake.source." + src)),
+    );
 
   await step("the actual h2 renders in the requested locale", async () => {
     await waitFor(() => h2(), "panel");
@@ -177,7 +215,10 @@ async function runCheck() {
     await fillForm();
     button(t("nativeIntake.previewBtn")).click();
     await waitFor(() => preview(), "preview shown");
-    assert(preview().textContent.includes(t("nativeIntake.nativeLabel")), "native label shown");
+    assert(
+      preview().textContent.includes(t("nativeIntake.nativeLabel.gsc")),
+      "Google native label shown",
+    );
     assert(
       preview().textContent.includes(
         t("nativeIntake.sourceIncompleteWarn", {
@@ -332,6 +373,162 @@ async function runCheck() {
     scoped(confirm2, t("nativeIntake.deleteBtn")).click();
     await waitFor(() => !article(), "artifact removed after confirm");
   });
+
+  await step("Bing Overview previews citations + cited pages, saves, reopens as Bing", async () => {
+    fixture.reset();
+    await client.invalidateQueries();
+    await waitFor(() => button(t("nativeIntake.previewBtn")), "panel ready");
+    await bingFillForm({ file: "bing_overview" });
+    button(t("nativeIntake.previewBtn")).click();
+    await waitFor(() => preview(), "bing overview preview");
+    assert(preview().textContent.includes(t("nativeIntake.nativeLabel.bing")), "Bing label shown");
+    assert(preview().textContent.includes(metric("citations")), "citations metric shown");
+    assert(preview().textContent.includes(metric("cited_pages")), "cited-pages metric shown");
+    assert(!preview().textContent.includes(metric("impressions")), "no Google impressions metric");
+    button(t("nativeIntake.saveBtn")).click();
+    await waitFor(() => ready(), "bing overview ready");
+    button(t("nativeIntake.view")).click();
+    await waitFor(() => opened(), "bing detail opened");
+    assert(
+      opened().textContent.includes(t("nativeIntake.nativeLabel.bing")),
+      "opened keeps Bing label",
+    );
+  });
+
+  await step("Bing Pages previews the citations metric only", async () => {
+    fixture.reset();
+    await client.invalidateQueries();
+    await bingFillForm({ file: "bing_pages", body: BING_PAGES_CSV });
+    button(t("nativeIntake.previewBtn")).click();
+    await waitFor(() => preview(), "bing pages preview");
+    assert(preview().textContent.includes(metric("citations")), "citations metric shown");
+    assert(
+      !preview().textContent.includes(metric("cited_pages")),
+      "no cited-pages metric for pages",
+    );
+    button(t("nativeIntake.saveBtn")).click();
+    await waitFor(() => ready(), "bing pages ready");
+  });
+
+  await step(
+    "switching source clears the preview and restores the Google Filters requirement",
+    async () => {
+      fixture.reset();
+      await client.invalidateQueries();
+      await bingFillForm({ file: "bing_overview" });
+      button(t("nativeIntake.previewBtn")).click();
+      await waitFor(() => preview(), "bing preview");
+      // Back to Google: the preview is invalidated and the Filters.csv input returns.
+      setValue(labelled(t("nativeIntake.sourceLabel")), "gsc_generative_ai_search");
+      await tick();
+      assert(!preview(), "preview cleared on a source switch");
+      assert(labelled(t("nativeIntake.filtersCsvLabel")), "Filters.csv input restored for Google");
+      setValue(labelled(t("nativeIntake.propertyLabel")), "https://example.test/");
+      setValue(labelled(t("nativeIntake.startLabel")), "2026-09-01");
+      setValue(labelled(t("nativeIntake.endLabel")), "2026-11-13");
+      setValue(labelled(t("nativeIntake.capturedAtLabel")), "2026-11-13T09:00");
+      setValue(labelled(t("nativeIntake.completenessLabel")), "partial");
+      setFile(labelled(t("nativeIntake.dataCsvLabel")), csv("Chart.csv", DATA_CSV));
+      // No Filters.csv chosen → Google refuses to preview.
+      button(t("nativeIntake.previewBtn")).click();
+      await waitFor(
+        () => section().textContent.includes(t("nativeIntake.err.fileRequired")),
+        "Filters required error",
+      );
+      assert(!preview(), "no Google preview without its Filters.csv");
+    },
+  );
+
+  await step("a CSV that is not the selected source and kind is rejected", async () => {
+    fixture.reset();
+    await client.invalidateQueries();
+    // The Google impressions CSV cannot be read as a Bing Overview (wrong columns).
+    await bingFillForm({ file: "bing_overview", body: DATA_CSV });
+    button(t("nativeIntake.previewBtn")).click();
+    await waitFor(
+      () => section().textContent.includes(t("nativeIntake.err.parseFailed")),
+      "parse-failed error",
+    );
+    assert(!preview(), "no preview for a mismatched CSV");
+  });
+
+  await step(
+    "Bing has no Filters input and an oversize Bing file fails before any read",
+    async () => {
+      fixture.reset();
+      await client.invalidateQueries();
+      const before = fixture.calls.length;
+      const big = csv("Overview.csv", "D".repeat(2 * 1024 * 1024 + 1));
+      let reads = 0;
+      const read = big.arrayBuffer.bind(big);
+      big.arrayBuffer = () => {
+        reads += 1;
+        return read();
+      };
+      await bingFillForm({ file: "bing_overview", dataFile: big });
+      assert(!labelled(t("nativeIntake.filtersCsvLabel")), "Bing shows no Filters.csv input");
+      button(t("nativeIntake.previewBtn")).click();
+      await waitFor(
+        () => section().textContent.includes(t("nativeIntake.err.tooLarge")),
+        "too-large error",
+      );
+      assert(!preview(), "no preview for an oversize Bing file");
+      assert(reads === 0, "the oversize Bing file was never read");
+      assert(fixture.calls.length === before, "no server call after the size gate");
+    },
+  );
+
+  await step(
+    "same property/window Google + Bing cards stay distinct by source; delete is scoped",
+    async (start) => {
+      fixture.reset();
+      await client.invalidateQueries();
+      await waitFor(() => button(t("nativeIntake.previewBtn")), "panel ready");
+      // Google chart over the SAME property/window/dimension (date) as the Bing overview below —
+      // without the per-card source label the two cards would be indistinguishable.
+      await fillForm();
+      setValue(labelled(t("nativeIntake.startLabel")), "2026-08-13");
+      button(t("nativeIntake.previewBtn")).click();
+      await waitFor(() => preview(), "google preview");
+      button(t("nativeIntake.saveBtn")).click();
+      await waitFor(() => ready(), "google ready");
+      // Bing overview over the same property/window, but let its persist FAIL so it stays an
+      // unparsed card (no View button, Delete still available — the risky case under review).
+      await bingFillForm({ file: "bing_overview" });
+      button(t("nativeIntake.previewBtn")).click();
+      await waitFor(() => preview(), "bing preview");
+      fixture.hanging = "persist";
+      button(t("nativeIntake.saveBtn")).click();
+      await waitFor(() => fixture.hanging && typeof fixture.hanging === "function", "persist hung");
+      fixture.release("fail");
+      const google = () => articleBySource("gsc_generative_ai_search");
+      const bing = () => articleBySource("bing_ai_performance");
+      await waitFor(() => google() && bing(), "both cards listed");
+      // Each card shows its OWN source (not the currently selected form source), so the two
+      // otherwise-identical cards are distinguishable.
+      assert(google() !== bing(), "two distinct cards by source");
+      assert(!scoped(bing(), t("nativeIntake.view")), "unparsed Bing card has no View");
+      assert(scoped(bing(), t("nativeIntake.deleteBtn")), "unparsed Bing card still has Delete");
+      // Cancel issues no delete; the confirmation names the source being deleted.
+      scoped(bing(), t("nativeIntake.deleteBtn")).click();
+      const confirm = await waitFor(() => bing()?.querySelector('[role="alert"]'), "confirm shown");
+      assert(
+        confirm.textContent.includes(t("nativeIntake.source.bing_ai_performance")),
+        "confirm identifies the Bing source",
+      );
+      scoped(confirm, t("nativeIntake.cancel")).click();
+      await waitFor(() => !bing()?.querySelector('[role="alert"]'), "cancel closed");
+      assert(writes(start, "removeNativeArtifactFn") === 0, "Cancel issues no delete");
+      assert(google() && bing(), "both kept after Cancel");
+      // Confirming on the Bing card deletes exactly its id and preserves the Google card.
+      scoped(bing(), t("nativeIntake.deleteBtn")).click();
+      const confirm2 = await waitFor(() => bing()?.querySelector('[role="alert"]'), "confirm 2");
+      scoped(confirm2, t("nativeIntake.deleteBtn")).click();
+      await waitFor(() => !bing(), "bing card removed");
+      assert(google(), "google card preserved");
+      assert(writes(start, "removeNativeArtifactFn") === 1, "exactly one delete issued");
+    },
+  );
 
   report.noNetwork = window.__miloNetworkAttempts.length === 0;
   report.passed = report.results.every((r) => r.ok) && report.noNetwork;
