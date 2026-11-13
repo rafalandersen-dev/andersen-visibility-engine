@@ -200,3 +200,18 @@ After the sole Claude R3 author stopped, Codex expanded only the four active-lan
 Codex also corrected the browser fixture oversized-file audit to start after its own preparation refetch, and checked both oversized inputs with actual `File.arrayBuffer` call counters. The product file-size gate is unchanged. This is a verification-integration exception; the earlier 8/9 result was a fixture baseline failure, not an upload-boundary failure.
 
 Codex completed one existing-field integration in the report view: the preserved source `capturedAt` is now displayed with the existing UTC download-time label. No parsing, persistence or authorization logic changed.
+
+## CI integration — staged-locale English fallback (PR203)
+
+The dual-Bun language-composition CI failed because the 86 new `nativeIntake.*` keys were added only to
+the active EN/PL/SV/DA catalogs, so the twenty inactive staged locales no longer covered the full
+English key set (staged-catalog key-parity and the billing-staged full-catalog suites). Resolved by the
+established fallback pattern (manual-capture/first-use/panel-coverage): a new
+`src/i18n/staged/native-intake-fallback.ts` (+ focused test) exposes exactly the 86 reviewed **English**
+`nativeIntake` values, wired as one `native intake` batch into all twenty staged composers
+(bg,cs,de,el,es,et,fi,fr,ga,hr,hu,it,lt,lv,mt,nl,pt,ro,sk,sl). The source fingerprint binds the current
+89fe9442 English copy (including the permanent-delete warning): `addc2c6c…e935df26`, recorded in
+`de-source.ts` and recomputed by the suites. The per-locale total counts (4982→5068) and the five
+enumerated-partition locale suites were updated to include the namespace; no test was weakened or
+skipped, no language was activated (runtime registry stays en/pl/sv/da), and no translated value or
+historical fingerprint changed (the pre-existing French citation-change mismatch was left untouched).

@@ -6,6 +6,7 @@ import { taskContinuityCopy } from "../task-continuity";
 import { answerCoverageCopy } from "../answer-coverage";
 import { panelCoverageCopy } from "../panel-coverage";
 import { manualCaptureCopy } from "../manual-capture";
+import { nativeIntakeCopy } from "../native-google-intake";
 import { euEmailCopy } from "../email-copy-eu";
 import { RO_STAGED_BATCHES, RO_STAGED_CATALOG } from "./ro";
 import { roBillingScreen } from "./ro-billing-screen";
@@ -85,7 +86,7 @@ it("keeps staged Romanian outside runtime and assigns each authored key once", (
   const keys = RO_STAGED_BATCHES.flatMap((batch) => Object.keys(batch.copy));
   expect(new Set(keys).size).toBe(keys.length);
   expect(Object.keys(RO_STAGED_CATALOG).sort()).toEqual(keys.sort());
-  expect(keys).toHaveLength(4982);
+  expect(keys).toHaveLength(5068);
   expect(Object.isFrozen(RO_STAGED_CATALOG)).toBe(true);
 });
 it("covers the complete current English interface key set", () => {
@@ -134,6 +135,11 @@ it("does not copy English text into authored Romanian values", () => {
   );
   expect([...manualCapture].sort()).toEqual(Object.keys(manualCaptureCopy.en).sort());
   expect(manualCapture.size).toBe(217);
+  const nativeIntake = new Set(
+    Object.keys(UI_CATALOGS.en).filter((key) => key.split(".")[0] === "nativeIntake"),
+  );
+  expect([...nativeIntake].sort()).toEqual(Object.keys(nativeIntakeCopy.en).sort());
+  expect(nativeIntake.size).toBe(86);
   const unchanged = Object.entries(RO_STAGED_CATALOG).filter(
     ([key, value]) =>
       value === UI_CATALOGS.en[key] &&
@@ -143,7 +149,8 @@ it("does not copy English text into authored Romanian values", () => {
       !taskContinuity.has(key) &&
       !answerCoverage.has(key) &&
       !panelCoverage.has(key) &&
-      !manualCapture.has(key),
+      !manualCapture.has(key) &&
+      !nativeIntake.has(key),
   );
   expect(unchanged.map(([key]) => key)).toEqual([]);
   for (const key of properNames) expect(RO_STAGED_CATALOG[key]).toBe(UI_CATALOGS.en[key]);
@@ -166,6 +173,8 @@ it("does not copy English text into authored Romanian values", () => {
     expect(RO_STAGED_CATALOG[key], key).toBe(
       manualCaptureCopy.en[key as keyof typeof manualCaptureCopy.en],
     );
+  for (const key of nativeIntake)
+    expect(RO_STAGED_CATALOG[key], key).toBe(nativeIntakeCopy.en[key]);
   for (const [key, value] of Object.entries(roBillingScreen))
     expect(RO_STAGED_CATALOG[key], key).toBe(value);
 });
