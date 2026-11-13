@@ -111,6 +111,9 @@ const independentCandidates = [
   // Dormant commercial operations extend the Stripe foundation and execute in
   // stripe-commercial-migration.test.ts; preserve their explicit unapplied status.
   "20261028223000_stripe_commercial_operations.sql",
+  // Native parsed-report persistence is exercised against its real artifact foundation in
+  // native-google-intake-migration.test.ts; production application is tracked by release receipts.
+  "20261113120000_native_report_parsed_interpretation.sql",
 ];
 const allowed = async (role: string, fn: string) =>
   (

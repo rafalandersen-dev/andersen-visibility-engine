@@ -8,6 +8,7 @@ import { CitationBusinessFactsPanel } from "@/components/CitationBusinessFactsPa
 import { CitationFindingAuthor } from "@/components/CitationFindingAuthor";
 import { CitationForwardPanel } from "@/components/CitationForwardPanel";
 import { CitationInspectionPanel } from "@/components/CitationInspectionPanel";
+import { NativeGoogleIntakePanel } from "@/components/NativeGoogleIntakePanel";
 import { useAuth } from "@/lib/auth";
 import { useStore } from "@/lib/store";
 import { useT } from "@/i18n";
@@ -115,6 +116,7 @@ function CitationReviewRoute() {
             }}
           />
           <CitationBusinessFactsPanel projectId={activeProject.id} ownerId={user.id} />
+          <NativeGoogleIntakePanel projectId={activeProject.id} />
           <CitationFindingAuthor projectId={activeProject.id} ownerId={user.id} />
           {/* Forward workflow (27 September 2026): finding version → Plan task → manual Studio draft → the
               existing approval/publication → improvement binding → owner inspection. Navigation goes to the

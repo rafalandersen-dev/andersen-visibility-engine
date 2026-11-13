@@ -31,6 +31,7 @@ import { stagedTaskContinuity } from "./task-continuity-fallback";
 import { stagedAnswerCoverage } from "./answer-coverage-fallback";
 import { stagedPanelCoverage } from "./panel-coverage-fallback";
 import { stagedManualCapture } from "./manual-capture-fallback";
+import { stagedNativeIntake } from "./native-intake-fallback";
 import { deEvidenceScreen } from "./de-evidence-screen";
 import { dePlanScreen } from "./de-plan-screen";
 import { deCitationReview } from "./de-citation-review";
@@ -153,6 +154,7 @@ export const DE_STAGED_BATCHES = [
   { name: "answer coverage", copy: stagedAnswerCoverage(), namespaces: ["answerCoverage"] },
   { name: "panel coverage", copy: stagedPanelCoverage(), namespaces: ["panelCoverage"] },
   { name: "manual capture", copy: stagedManualCapture(), namespaces: ["manualCapture"] },
+  { name: "native intake", copy: stagedNativeIntake(), namespaces: ["nativeIntake"] },
 ] as const;
 export const DE_STAGED_CATALOG: Readonly<Record<string, string>> = Object.assign(
   {},
