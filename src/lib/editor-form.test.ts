@@ -109,6 +109,7 @@ describe("editorFormDirty", () => {
         "images",
         "internalLinks",
         "keyTakeaways",
+        "language",
         "markdown",
         "metaDescription",
         "metaTitle",
@@ -134,11 +135,21 @@ describe("editorFormDirty", () => {
   });
 
   it("is TRUE when a FAQ entry is removed, FALSE when unchanged", () => {
-    const stored = base({ faq: [{ q: "Q1", a: "A1" }, { q: "Q2", a: "A2" }] as never });
+    const stored = base({
+      faq: [
+        { q: "Q1", a: "A1" },
+        { q: "Q2", a: "A2" },
+      ] as never,
+    });
     expect(editorFormDirty(base({ faq: [{ q: "Q1", a: "A1" }] as never }), stored)).toBe(true);
     expect(
       editorFormDirty(
-        base({ faq: [{ q: "Q1", a: "A1" }, { q: "Q2", a: "A2" }] as never }),
+        base({
+          faq: [
+            { q: "Q1", a: "A1" },
+            { q: "Q2", a: "A2" },
+          ] as never,
+        }),
         stored,
       ),
     ).toBe(false);

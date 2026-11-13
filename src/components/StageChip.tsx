@@ -45,6 +45,8 @@ export function StageChip({
 }) {
   const t = useT();
   const armed = STAGE_EXECUTION[stage] === "armed";
+  // A pending update date is not the publication date of the page already live.
+  const visibleDetail = stage === "live" ? undefined : detail;
   return (
     <span
       className={
@@ -52,12 +54,14 @@ export function StageChip({
         STAGE_CLASSES[stage] +
         (className ? " " + className : "")
       }
-      title={detail}
+      title={visibleDetail}
     >
       {armed ? <Clock className="h-3 w-3 shrink-0" /> : null}
       <span className="min-w-0 [overflow-wrap:anywhere]">{t(`pipeline.stage.${stage}`)}</span>
-      {detail ? (
-        <span className="basis-full min-w-0 [overflow-wrap:anywhere] opacity-80">{detail}</span>
+      {visibleDetail ? (
+        <span className="basis-full min-w-0 [overflow-wrap:anywhere] opacity-80">
+          {visibleDetail}
+        </span>
       ) : null}
     </span>
   );
