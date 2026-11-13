@@ -158,7 +158,9 @@ export function gscDay(value: string): boolean {
     new Date(value).toISOString().slice(0, 10) === value
   );
 }
-function parseCsvGrid(text: string): string[][] {
+/** Strict bounded CSV grid (1000 rows, 16 columns, 4000-char cells). Shared with the native
+ * Google AI export parser so both intakes decode CSV identically. */
+export function parseCsvGrid(text: string): string[][] {
   const clean = text.replace(/\r\n?/g, "\n");
   const first = clean.split("\n")[0];
   // Only count delimiters outside quoted headers.

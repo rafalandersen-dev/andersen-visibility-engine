@@ -49,6 +49,8 @@ const stubNames = new Set([
   "CitationFindingAuthor",
   "CitationForwardPanel",
   "CitationInspectionPanel",
+  // Out of CG-03C scope; the native Google intake panel has its own fixture and its own server reads.
+  "NativeGoogleIntakePanel",
 ]);
 
 function sourcePath(spec, importer) {

@@ -45,6 +45,7 @@ import { citationReviewCopy } from "./citation-review";
 import { citationAuthoringCopy } from "./citation-authoring";
 import { citationForwardCopy } from "./citation-forward";
 import { citationChangeCopy } from "./citation-change";
+import { nativeIntakeCopy } from "./native-google-intake";
 import { en } from "./en";
 import { pl } from "./pl";
 import { sv } from "./sv";
@@ -73,6 +74,7 @@ const OVERRIDES: readonly Record<OnboardingLanguage, Dictionary>[] = [
   citationAuthoringCopy,
   citationForwardCopy,
   citationChangeCopy,
+  nativeIntakeCopy,
   logEvidenceCopy,
   outreachIntegrityCopy,
   gscIntegrity,
