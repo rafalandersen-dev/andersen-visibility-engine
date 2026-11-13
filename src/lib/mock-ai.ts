@@ -353,7 +353,8 @@ export async function generateMetadata(contentAssetId: string) {
     const a = getState().content.find((c) => c.id === contentAssetId);
     if (!a) throw new Error("Content not found.");
     const project = getState().projects.find((p) => p.id === a.projectId);
-    const lang = (project ? projectContentLanguage(project) : "English") as Language;
+    const lang = (a.language ??
+      (project ? projectContentLanguage(project) : "English")) as Language;
     const result = (await regenerateMetadataFn({
       data: {
         title: a.title,
@@ -382,7 +383,8 @@ export async function generateFaq(contentAssetId: string) {
     const a = getState().content.find((c) => c.id === contentAssetId);
     if (!a) throw new Error("Content not found.");
     const project = getState().projects.find((p) => p.id === a.projectId);
-    const lang = (project ? projectContentLanguage(project) : "English") as Language;
+    const lang = (a.language ??
+      (project ? projectContentLanguage(project) : "English")) as Language;
     const result = (await regenerateFaqFn({
       data: {
         title: a.title,
@@ -407,7 +409,8 @@ export async function generateCta(contentAssetId: string) {
     const opp = a.opportunityId
       ? getState().opportunities.find((o) => o.id === a.opportunityId)
       : undefined;
-    const lang = (project ? projectContentLanguage(project) : "English") as Language;
+    const lang = (a.language ??
+      (project ? projectContentLanguage(project) : "English")) as Language;
     const cta = (await regenerateCtaFn({
       data: {
         language: lang,
