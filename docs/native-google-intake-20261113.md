@@ -215,3 +215,5 @@ established fallback pattern (manual-capture/first-use/panel-coverage): a new
 enumerated-partition locale suites were updated to include the namespace; no test was weakened or
 skipped, no language was activated (runtime registry stays en/pl/sv/da), and no translated value or
 historical fingerprint changed (the pre-existing French citation-change mismatch was left untouched).
+
+Codex added the new migration to the existing candidate-chain fixture manifest after full dual-Bun CI identified the missing enumeration. Its actual SQL, ownership/hash/role/deletion checks remain in `native-google-intake-migration.test.ts`; the legacy combined fixture is not a production migration ledger. This is a necessary test-integration exception, not a change to applied production SQL or any other migration status.
