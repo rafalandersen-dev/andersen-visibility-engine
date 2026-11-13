@@ -2,6 +2,7 @@ import { useEffect, useId, useMemo, useRef, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useT } from "@/i18n";
 import { Button } from "./ui/button";
+import { ManualCaptureEntry } from "./ManualCaptureEntry";
 import { readAnswerEvidenceFn } from "@/lib/answer-evidence.functions";
 import {
   lockCitationPanelFn,
@@ -889,6 +890,28 @@ export function CitationPanelProtocolPanel({
               : { kind: "ready", data: coverage.data }
         }
       />
+      {/* CG-03C: record one manually collected original discovery observation (owner scope, existing endpoint).
+          Mounted whenever a coverage snapshot exists, so a failed refresh after a save never unmounts an open
+          entry; the failure is passed in as `readFailed` instead. */}
+      {coverage.data ? (
+        <ManualCaptureEntry
+          projectId={projectId}
+          ownerId={ownerId}
+          panels={coverage.data.panels}
+          captures={coverage.data.captures}
+          erasedSlots={coverage.data.erasedSlots}
+          reports={coverage.data.reports}
+          prompts={evidence.data?.prompts ?? []}
+          answers={protocol.data && !protocol.isError ? protocol.data.answers : null}
+          readsCurrent={
+            Boolean(protocol.data && evidence.data) &&
+            !protocol.isError &&
+            !coverage.isError &&
+            !evidence.isError
+          }
+          readFailed={coverage.isError || protocol.isError}
+        />
+      ) : null}
     </section>
   );
 }

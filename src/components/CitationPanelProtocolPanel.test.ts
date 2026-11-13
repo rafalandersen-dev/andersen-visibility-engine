@@ -285,6 +285,38 @@ describe("coverage read wiring", () => {
     expect(fns.readCitationProtocolFn).not.toHaveBeenCalled();
   });
 
+  it("CG-03C: the manual entry stays available on a cached snapshot and waits for the record read", () => {
+    h.queries[key("citation-protocol")] = { data: undefined, isError: false, isPending: true };
+    h.queries[key("answer-evidence")] = loaded({ prompts: [], answers: [] });
+    h.queries[key("citation-coverage")] = {
+      data: read({ panels: [panel({})], reports: [report({})] }),
+      isError: true,
+      isPending: false,
+    };
+    const html = render();
+    // Still mounted after a failed refresh (an open entry is never dropped), but disabled until records load.
+    expect(html).toMatch(/<button[^>]*disabled=""[^>]*data-manual-capture-open/);
+    expect(fns.readResolvedCapturesFn).not.toHaveBeenCalled();
+  });
+
+  it("CG-03C: a new entry opens only while all three scoped reads currently succeed", () => {
+    const coverage = loaded(read({ panels: [panel({})], reports: [report({})] }));
+    const open = () => render().match(/<button[^>]*data-manual-capture-open[^>]*>/)![0];
+    h.queries[key("citation-protocol")] = loaded({ panels: [], answers: [] });
+    h.queries[key("citation-coverage")] = coverage;
+    h.queries[key("answer-evidence")] = loaded({ prompts: [], answers: [] });
+    expect(open()).not.toContain('disabled=""');
+    // A failed prompt read is not an empty prompt set, even with cached prompts.
+    h.queries[key("answer-evidence")] = {
+      data: { prompts: [], answers: [] },
+      isError: true,
+      isPending: false,
+    };
+    expect(open()).toContain('disabled=""');
+    h.queries[key("answer-evidence")] = { data: undefined, isError: false, isPending: true };
+    expect(open()).toContain('disabled=""');
+  });
+
   it("a failed refresh with cached data shows the error, never the stale numbers", () => {
     h.queries[key("citation-protocol")] = loaded({ panels: [] });
     h.queries[key("answer-evidence")] = loaded({ prompts: [], answers: [] });

@@ -47,3 +47,8 @@ At adoption, PR136 head `5e9baf532fe89de223f51c9dd9c258eb9bb3f633` has a complet
 The two research assignments must write separate decision documents; current repair authors retain their source files. Codex will maintain a separate synthesis/review record. Temporary process IDs and log paths belong in the working checkpoint, not as permanent product contracts.
 
 This agreement and its AGENTS.md pointer were recorded by Codex as a minimal coordination/integration exception explicitly requested by the owner. Earlier Codex integration fixes included a `createServerOnlyFn` test mock and the auth test helper's `AuthEmailCounter` type; further routine code/test/documentation authoring follows the Claude role above.
+
+
+## Claude usage-limit fallback — owner instruction, 13 November 2026
+
+If Claude reaches a usage limit, Codex takes over all in-scope work, including research, design, implementation, tests, documentation, review and release, and continues until Claude access is restored. Do not stop solely because Claude is unavailable. Preserve the existing working changes and all budget, security and release requirements; do not purchase capacity or create a paid channel. After access is restored, return implementation to Claude at a safe stage boundary, with a recorded handoff and no concurrent writers. This explicit owner instruction overrides the normal Claude-author/Codex-review role split during the limit. Use Ponytail full throughout.

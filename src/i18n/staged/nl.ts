@@ -31,6 +31,7 @@ import {
   stagedAnswerCoverage,
 } from "./answer-coverage-fallback";
 import { STAGED_PANEL_COVERAGE_SOURCE_HASH, stagedPanelCoverage } from "./panel-coverage-fallback";
+import { STAGED_MANUAL_CAPTURE_SOURCE_HASH, stagedManualCapture } from "./manual-capture-fallback";
 import { nlAnalyticsScreen } from "./nl-analytics-screen";
 import { nlAuditScreen } from "./nl-audit-screen";
 import { nlServicesScreen } from "./nl-services-screen";
@@ -339,6 +340,13 @@ export const NL_STAGED_BATCHES = [
     namespaces: ["panelCoverage"],
     sourceRevision: "3734e2f5 + CG-03B (panelCoverage: English fallback)",
     sourceHash: STAGED_PANEL_COVERAGE_SOURCE_HASH,
+  },
+  {
+    name: "manual capture",
+    copy: stagedManualCapture(),
+    namespaces: ["manualCapture"],
+    sourceRevision: "d8ac0559 + CG-03C (manualCapture: English fallback)",
+    sourceHash: STAGED_MANUAL_CAPTURE_SOURCE_HASH,
   },
 ] as const;
 export const NL_STAGED_CATALOG: Readonly<Record<string, string>> = Object.freeze(
