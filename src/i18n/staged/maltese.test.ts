@@ -5,6 +5,7 @@ import { firstUseCopy } from "../first-use";
 import { taskContinuityCopy } from "../task-continuity";
 import { answerCoverageCopy } from "../answer-coverage";
 import { panelCoverageCopy } from "../panel-coverage";
+import { manualCaptureCopy } from "../manual-capture";
 import { euEmailCopy } from "../email-copy-eu";
 import { MT_STAGED_BATCHES, MT_STAGED_CATALOG } from "./mt";
 import { mtBillingScreen } from "./mt-billing-screen";
@@ -80,7 +81,7 @@ it("keeps staged Maltese outside runtime and assigns each authored key once", ()
   const keys = MT_STAGED_BATCHES.flatMap((batch) => Object.keys(batch.copy));
   expect(new Set(keys).size).toBe(keys.length);
   expect(Object.keys(MT_STAGED_CATALOG).sort()).toEqual(keys.sort());
-  expect(keys).toHaveLength(4765);
+  expect(keys).toHaveLength(4982);
   expect(Object.isFrozen(MT_STAGED_CATALOG)).toBe(true);
 });
 it("covers the complete current English interface key set", () => {
@@ -123,6 +124,12 @@ it("does not copy English text into authored Maltese values", () => {
   );
   expect([...panelCoverage].sort()).toEqual(Object.keys(panelCoverageCopy.en).sort());
   expect(panelCoverage.size).toBe(30);
+  // The CG-03C manual-capture messages too (./manual-capture-fallback.ts), by their own exact partition.
+  const manualCapture = new Set(
+    Object.keys(UI_CATALOGS.en).filter((key) => key.split(".")[0] === "manualCapture"),
+  );
+  expect([...manualCapture].sort()).toEqual(Object.keys(manualCaptureCopy.en).sort());
+  expect(manualCapture.size).toBe(217);
   const unchanged = Object.entries(MT_STAGED_CATALOG).filter(
     ([key, value]) =>
       value === UI_CATALOGS.en[key] &&
@@ -131,7 +138,8 @@ it("does not copy English text into authored Maltese values", () => {
       !firstUse.has(key) &&
       !taskContinuity.has(key) &&
       !answerCoverage.has(key) &&
-      !panelCoverage.has(key),
+      !panelCoverage.has(key) &&
+      !manualCapture.has(key),
   );
   expect(unchanged.map(([key]) => key)).toEqual([]);
   for (const key of properNames) expect(MT_STAGED_CATALOG[key]).toBe(UI_CATALOGS.en[key]);
@@ -149,6 +157,10 @@ it("does not copy English text into authored Maltese values", () => {
   for (const key of panelCoverage)
     expect(MT_STAGED_CATALOG[key], key).toBe(
       panelCoverageCopy.en[key as keyof typeof panelCoverageCopy.en],
+    );
+  for (const key of manualCapture)
+    expect(MT_STAGED_CATALOG[key], key).toBe(
+      manualCaptureCopy.en[key as keyof typeof manualCaptureCopy.en],
     );
   for (const [key, value] of Object.entries(mtBillingScreen))
     expect(MT_STAGED_CATALOG[key], key).toBe(value);

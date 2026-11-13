@@ -55,4 +55,7 @@ export const DE_AUTHORING_SOURCE_HASHES: Readonly<Record<string, string>> = {
   // CG-03B panel-coverage source after 3734e2f5; English source in src/i18n/panel-coverage.ts. The batch is
   // reviewed English fallback pending translation (./panel-coverage-fallback.ts), not a German review record.
   "panel coverage": "a536a3fbc7a2464e33d375e12f6eda30507fcce6d261406c785427a933d4f435",
+  // CG-03C manual-capture source after d8ac0559; English source in src/i18n/manual-capture.ts. The batch is
+  // reviewed English fallback pending translation (./manual-capture-fallback.ts), not a German review record.
+  "manual capture": "074e44c7182f14f5be3ee5bcb1de232634cedb87695c16a67b9226ba383c5774",
 };
