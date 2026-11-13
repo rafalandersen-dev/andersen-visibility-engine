@@ -168,10 +168,10 @@ export const scheduleContentPublishFn = createServerFn({ method: "POST" })
     // round-trip. Declared on ContentAsset but, until now, written by nobody —
     // every scheduling UI would have rendered blank.
     const { writeScheduleMirror } = await import("./publish.server");
-    await writeScheduleMirror(userId, data.assetId, when.toISOString());
+    await writeScheduleMirror(userId, data.assetId, when.toISOString(), inserted.updateIntent);
 
     console.info("[schedule.functions] scheduled", { projectId, publishAt: when.toISOString() });
-    return toScheduledPublish(inserted as Row);
+    return toScheduledPublish(inserted as unknown as Row);
   });
 
 export const cancelScheduledPublishFn = createServerFn({ method: "POST" })

@@ -67,9 +67,42 @@ describe("publishReadiness — mirrors the fire-time contract", () => {
     expect(r.reasons.join(" ")).toMatch(/unresolved internal link/i);
   });
 
-  it("already live → not ready to schedule again", () => {
+  it("already live with no known destination → not ready (an update would duplicate)", () => {
     const a = asset({ livePublishStatus: "published" });
-    expect(publishReadiness(a, project(), [a]).ready).toBe(false);
+    const r = publishReadiness(a, project(), [a]);
+    expect(r.ready).toBe(false);
+    expect(r.reasons.join(" ")).toMatch(/second copy/);
+  });
+
+  it.each([
+    ["custom endpoint with a live URL", {}, { liveUrl: "https://site.com/t" }, true],
+    [
+      "wordpress with its post id",
+      { connectorType: "wordpress" },
+      { liveUrl: "https://site.com/t", wordpressPostId: 7 },
+      true,
+    ],
+    [
+      "wordpress with only a URL",
+      { connectorType: "wordpress" },
+      { liveUrl: "https://site.com/t" },
+      false,
+    ],
+    [
+      "shopify with its article gid",
+      { connectorType: "shopify" },
+      { liveUrl: "https://site.com/t", shopifyArticleGid: "gid://shopify/Article/1" },
+      true,
+    ],
+    [
+      "shopify with only a URL",
+      { connectorType: "shopify" },
+      { liveUrl: "https://site.com/t" },
+      false,
+    ],
+  ])("live update: %s → ready=%s", (_name, projectOver, assetOver, ready) => {
+    const a = asset({ livePublishStatus: "published", ...assetOver } as Partial<ContentAsset>);
+    expect(publishReadiness(a, project(projectOver as Partial<Project>), [a]).ready).toBe(ready);
   });
 });
 

@@ -7,6 +7,12 @@ import { useRequestedAsset } from "@/lib/requested-asset";
 import { editorSelection, taskPlanSearch, taskTarget } from "@/lib/task-continuity";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import {
+  CONTENT_LANGUAGE_OPTIONS,
+  contentLanguageDisplayName,
+  projectContentLanguage,
+  resolveContentLanguage,
+} from "@/lib/content-languages";
 import { Textarea } from "@/components/ui/textarea";
 import {
   Dialog,
@@ -1196,10 +1202,10 @@ function Editor({ asset, onRequestDelete }: { asset: ContentAsset; onRequestDele
     Boolean(live.scheduledPublishAt) &&
     Date.now() - new Date(live.scheduledPublishAt!).getTime() > 15 * 60_000;
   // Only a ready article, on a connector that can publish, offers scheduling.
-  const canSchedule =
-    live.status === "Approved" &&
-    publishMode !== "draftOnly" &&
-    live.livePublishStatus !== "published";
+  // An already-live article may schedule an UPDATE of the same destination: the
+  // current page stays live until the slot, and the server binds the queue row to
+  // this exact approved version (see scheduled-published-updates).
+  const canSchedule = live.status === "Approved" && publishMode !== "draftOnly";
 
   async function refreshWorkspace() {
     const uid = getState().userId;
@@ -2318,6 +2324,36 @@ function Editor({ asset, onRequestDelete }: { asset: ContentAsset; onRequestDele
               />
             )}
           </Field>
+          <div>
+            <Label htmlFor="editor-content-language" className="text-xs">
+              {t("onboarding.summary.language")}
+            </Label>
+            <Select
+              value={resolveContentLanguage(f.language) ?? projectContentLanguage(project ?? {})}
+              onValueChange={(v) =>
+                // No translation and no project-wide change: this only relabels this
+                // article. A changed version voids the exact approval, so an approved
+                // article goes back to review until it is approved again.
+                setF((p) => ({
+                  ...p,
+                  language: v as ContentAsset["language"],
+                  status:
+                    p.status === "Approved" || p.status === "Exported" ? "In Review" : p.status,
+                }))
+              }
+            >
+              <SelectTrigger id="editor-content-language" className="mt-1.5">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {CONTENT_LANGUAGE_OPTIONS.map((option) => (
+                  <SelectItem key={option.value} value={option.label}>
+                    {contentLanguageDisplayName(option, locale)}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
           <Field label={t("editorScreen.field.cta")}>
             {(id) => <Input id={id} value={f.cta} onChange={(e) => upd("cta", e.target.value)} />}
           </Field>

@@ -204,6 +204,25 @@ export function pipelineStage(input: StageInput): PipelineStage {
 }
 
 /**
+ * The go-live date of a scheduled UPDATE of an already-live article, else
+ * undefined. pipelineStage deliberately keeps such an asset "live" (the page is a
+ * fact), so Plan/calendar surfaces read the update date through this instead.
+ * Only an intent-bound pending row counts, and an overdue one is dropped exactly
+ * like an overdue armed schedule (it did not fire; claiming a date would lie).
+ */
+export function scheduledUpdateAt(asset: ContentAsset | undefined, now = Date.now()) {
+  if (
+    asset?.livePublishStatus !== "published" ||
+    !asset.scheduledPublishedUpdate ||
+    asset.scheduledPublishStatus !== "pending" ||
+    !asset.scheduledPublishAt
+  )
+    return undefined;
+  const at = new Date(asset.scheduledPublishAt).getTime();
+  return Number.isNaN(at) || now - at > OVERDUE_AFTER_MS ? undefined : asset.scheduledPublishAt;
+}
+
+/**
  * The single next action for a stage. An exhaustive switch on purpose: adding a
  * stage without deciding what the user does there is a type error, not a card
  * with no button.

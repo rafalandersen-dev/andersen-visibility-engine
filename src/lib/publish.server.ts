@@ -41,6 +41,12 @@ import {
   PublishRecordingFailedError,
   PublishTransportError,
 } from "./publish-outcome";
+import {
+  firingUpdateIntent,
+  isLivePublished,
+  scheduledUpdateRefusal,
+  updateRefusal,
+} from "./scheduled-published-updates";
 import type { ContentAsset, Project } from "./types";
 
 export {
@@ -264,8 +270,13 @@ async function runConnectorPublish(
 export async function publishAssetServerSide(
   userId: string,
   assetId: string,
-  options: { actor?: { actorId: string; initiator: "interactive" | "scheduler" } } = {},
+  options: {
+    actor?: { actorId: string; initiator: "interactive" | "scheduler" };
+    /** The firing queue row; the only thing that can authorise a live UPDATE. */
+    queueId?: string;
+  } = {},
 ): Promise<ServerPublishResult> {
+  let isUpdate = false;
   // 1. Read-only pass to decide what to do (no write yet — the connector call
   //    is the slow part and we do not want to hold a rev across it).
   const { result, assetPatch } = await (async () => {
@@ -289,12 +300,12 @@ export async function publishAssetServerSide(
     // Recognise "already live" even when we never learned the URL: a publish can
     // legitimately succeed with an unknown permalink, and requiring liveUrl here
     // would send such an asset back through the connector and duplicate it.
-    if (
-      asset.livePublishStatus === "published" &&
-      (asset.liveUrl || asset.publishExternalId || asset.wordpressPostId || asset.shopifyArticleGid)
-    ) {
+    const updateIntent = firingUpdateIntent(asset, options.queueId);
+    if (isLivePublished(asset) && !updateIntent) {
       // Already live (e.g. the user published manually before the slot came up).
-      // Treat as success rather than publishing a second time.
+      // Treat as success rather than publishing a second time. Only a queue row
+      // armed as an update of this live article (see scheduled-published-updates)
+      // may continue; first-publication, replayed and legacy rows stop here.
       return {
         result: {
           liveUrl: asset.liveUrl ?? "",
@@ -323,6 +334,22 @@ export async function publishAssetServerSide(
       project,
       (row.data.content as ContentAsset[]).filter((c) => c.projectId === project.id),
     );
+    if (updateIntent) {
+      // An update must target the existing connector object. Without its id,
+      // WordPress/Shopify would CREATE a duplicate, so refuse before any send.
+      const unresolved = scheduledUpdateRefusal(asset, project);
+      if (unresolved) throw new PublishNotPossibleError(unresolved);
+      // The queue row was armed against one exact approved version of one live
+      // destination. Refuse (permanently) if either moved since.
+      const { publicationVersion } = await import("./publication-version");
+      const refusal = updateRefusal(
+        asset,
+        updateIntent,
+        (await publicationVersion(asset, project, activeInternalPaths)).hash,
+      );
+      if (refusal) throw new PublishNotPossibleError(refusal);
+      isUpdate = true;
+    }
     return runConnectorPublish(asset, project, userId, activeInternalPaths, options.actor);
   })();
 
@@ -334,18 +361,24 @@ export async function publishAssetServerSide(
   //    because the returned post id was never persisted, WordPress and Shopify
   //    would CREATE a second copy on the customer's site. Rethrow as permanent.
   try {
-    await mutateWorkspace(userId, (data) => ({
-      data: applyPublishSuccess(data, assetId, {
+    await mutateWorkspace(userId, (data) => {
+      const patch = {
         ...assetPatch,
-        livePublishStatus: "published",
+        livePublishStatus: "published" as const,
         livePublishError: undefined,
         scheduledPublishError: undefined,
         // The schedule is spent: clear the mirror so the item stops deriving to
         // "Scheduled" and stops advertising a go-live date that already happened.
         ...CLEARED_SCHEDULE_FIELDS,
-      }),
-      result: null,
-    }));
+      };
+      // An update must not re-stamp the opportunity as freshly published.
+      return {
+        data: isUpdate
+          ? applyAssetPatch(data, assetId, patch)
+          : applyPublishSuccess(data, assetId, patch),
+        result: null,
+      };
+    });
   } catch (e) {
     console.error("[publish.server] published but could not record", {
       assetId,
@@ -412,10 +445,13 @@ export async function writeScheduleMirror(
   userId: string,
   assetId: string,
   publishAt: string,
+  updateIntent?: ContentAsset["scheduledPublishedUpdate"],
 ): Promise<void> {
   await mutateWorkspace(userId, (data) => ({
     data: applyAssetPatch(data, assetId, {
       scheduledPublishAt: publishAt,
+      // Explicit undefined: a first-publication row must not inherit an old intent.
+      scheduledPublishedUpdate: updateIntent,
       sourceHeldPublishAt: undefined,
       scheduledPublishStatus: "pending",
       scheduledPublishError: undefined,

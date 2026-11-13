@@ -710,6 +710,16 @@ export interface ContentAsset {
   /** Intended date retained after a source hold; never an armed queue mirror. */
   sourceHeldPublishAt?: string;
   /**
+   * Written only with an armed queue row for an already-live article: that exact
+   * queue row may UPDATE the same destination once, and only while the approved
+   * version and live identity are unchanged. Absent means a first publication.
+   */
+  scheduledPublishedUpdate?: {
+    queueId: string;
+    versionHash: string;
+    identity: string;
+  };
+  /**
    * "YYYY-MM" of the month the Monthly Auto-Scheduler drafted this asset for.
    * Idempotency marker: a re-run for the same month counts these toward its
    * target instead of drafting duplicates.

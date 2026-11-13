@@ -152,6 +152,7 @@ export async function runScheduledPublishes(
       try {
         const result = await publishAssetServerSide(row.user_id, row.asset_id, {
           actor: { actorId: row.user_id, initiator: "scheduler" },
+          queueId: row.id,
         });
         const recorded = await setRow(admin, row.id, {
           status: "published",

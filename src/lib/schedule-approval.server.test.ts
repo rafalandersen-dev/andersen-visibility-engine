@@ -65,6 +65,50 @@ describe("manual schedule exact-version admission", () => {
       }),
     );
   });
+  it("binds an update intent to the new queue row only for an already-live article", async () => {
+    expect((await schedule()).updateIntent).toBeUndefined();
+    const row = await h.read();
+    row.data.content[0] = { ...row.data.content[0], livePublishStatus: "published", liveUrl: "u" };
+    h.read.mockResolvedValue(row);
+    const { updateIntent } = await schedule();
+    expect(updateIntent).toMatchObject({
+      queueId: "00000000-0000-4000-8000-000000000002",
+      versionHash: h.rpc.mock.calls.at(-1)![1].p_hash,
+    });
+  });
+  describe("live article update target", () => {
+    const seedLive = async (connectorType: string | undefined, over: Record<string, unknown>) => {
+      const row = await h.read();
+      row.data.projects[0] = { ...row.data.projects[0], connectorType };
+      row.data.content[0] = {
+        ...row.data.content[0],
+        livePublishStatus: "published",
+        liveUrl: "https://example.com/a",
+        ...over,
+      };
+      h.read.mockResolvedValue(row);
+    };
+    it.each([
+      ["wordpress", { publishExternalId: "77" }, "WordPress post"],
+      ["shopify", { publishExternalId: "gid-less" }, "Shopify article"],
+      ["wordpress", { liveUrl: undefined, wordpressPostId: undefined }, "second copy"],
+    ])(
+      "refuses a %s update without its existing id before any queue mutation",
+      async (c, over, msg) => {
+        await seedLive(c, over);
+        await expect(schedule()).rejects.toThrow(msg);
+        expect(h.rpc).not.toHaveBeenCalled();
+      },
+    );
+    it.each([
+      ["wordpress", { wordpressPostId: 77 }],
+      ["shopify", { shopifyArticleGid: "gid://shopify/Article/9" }],
+      [undefined, {}], // custom endpoint upserts by assetId/slug
+    ])("arms a %s update that carries its existing identity", async (c, over) => {
+      await seedLive(c, over);
+      expect((await schedule()).updateIntent).toMatchObject({ queueId: expect.any(String) });
+    });
+  });
   it("does not retry after a race or uncertain queue response", async () => {
     h.rpc.mockResolvedValue({ data: null, error: "workspace_changed" });
     await expect(schedule()).rejects.toThrow("Refresh");

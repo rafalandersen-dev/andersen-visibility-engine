@@ -92,6 +92,19 @@ export function projectContentLanguage(project: {
   );
 }
 
+/** The language's name in the viewer's app language; falls back to the registry label. */
+export function contentLanguageDisplayName(
+  option: (typeof CONTENT_LANGUAGE_OPTIONS)[number],
+  appLanguage: string,
+): string {
+  try {
+    const names = new Intl.DisplayNames([appLanguage], { type: "language" });
+    return names.of(option.value) ?? option.label;
+  } catch {
+    return option.label;
+  }
+}
+
 /** An explicit language edit updates both persisted representations. */
 export function contentLanguagePatch(language: ContentLanguage) {
   const option = CONTENT_LANGUAGE_OPTIONS.find((item) => item.label === language);
