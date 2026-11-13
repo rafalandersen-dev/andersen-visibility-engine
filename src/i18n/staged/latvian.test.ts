@@ -79,7 +79,7 @@ it("keeps staged Latvian outside runtime and assigns each authored key once", ()
   const keys = LV_STAGED_BATCHES.flatMap((batch) => Object.keys(batch.copy));
   expect(new Set(keys).size).toBe(keys.length);
   expect(Object.keys(LV_STAGED_CATALOG).sort()).toEqual(keys.sort());
-  expect(keys).toHaveLength(5068);
+  expect(keys).toHaveLength(5082);
   expect(Object.isFrozen(LV_STAGED_CATALOG)).toBe(true);
 });
 it("covers the complete current English interface key set", () => {
@@ -132,7 +132,7 @@ it("does not copy English text into authored Latvian values", () => {
     Object.keys(UI_CATALOGS.en).filter((key) => key.split(".")[0] === "nativeIntake"),
   );
   expect([...nativeIntake].sort()).toEqual(Object.keys(nativeIntakeCopy.en).sort());
-  expect(nativeIntake.size).toBe(86);
+  expect(nativeIntake.size).toBe(100);
   const unchanged = Object.entries(LV_STAGED_CATALOG).filter(
     ([key, value]) =>
       value === UI_CATALOGS.en[key] &&

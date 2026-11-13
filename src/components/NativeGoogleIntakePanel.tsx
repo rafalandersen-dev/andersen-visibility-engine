@@ -4,7 +4,7 @@ import { useAuth } from "@/lib/auth";
 import { getWorkspaceSaveContext, useStore } from "@/lib/store";
 import { useT } from "@/i18n";
 import { Button } from "./ui/button";
-import { GSC_REPORT_TIMEZONE } from "@/lib/native-ai-report";
+import { GSC_REPORT_TIMEZONE, type NativeReportSource } from "@/lib/native-ai-report";
 import {
   NativeGoogleCsvError,
   nativeGoogleReportDescriptor,
@@ -13,6 +13,13 @@ import {
   type NativeGoogleReportCsv,
   type NativeGoogleReportPreview,
 } from "@/lib/native-google-ai-csv";
+import {
+  NATIVE_BING_CSV_FILES,
+  NativeBingCsvError,
+  nativeBingReportDescriptor,
+  parseNativeBingReportCsv,
+  type NativeBingReportCsv,
+} from "@/lib/native-bing-ai-csv";
 import type { NativeArtifactMetadata } from "@/lib/native-ai-artifact";
 import {
   NATIVE_COMPLETENESS,
@@ -22,8 +29,9 @@ import {
 import {
   fileTooLarge,
   intakeBadge,
-  isGoogleArtifactSource,
+  isNativeIntakeSource,
   normalizeUtcCapturedAt,
+  overviewDateCoverage,
   persistErrorKey,
   rawCellText,
   reviewFingerprint,
@@ -43,6 +51,16 @@ import {
 
 const fieldClass = "mt-1 block min-h-11 w-full rounded border bg-background p-2 text-sm";
 const wrap = "break-words [overflow-wrap:anywhere]";
+/** One intake source and one of its row-bearing CSV kinds. Bing exposes no Filters.csv. */
+type IntakeCsv = NativeGoogleReportCsv | NativeBingReportCsv;
+const INTAKE_SOURCES: readonly NativeReportSource[] = [
+  "gsc_generative_ai_search",
+  "bing_ai_performance",
+];
+const FILES_BY_SOURCE: Record<NativeReportSource, readonly IntakeCsv[]> = {
+  gsc_generative_ai_search: NATIVE_GOOGLE_CSV_FILES,
+  bing_ai_performance: NATIVE_BING_CSV_FILES,
+};
 /** Chunked base64 of the raw bytes; the strict staging schema requires canonical base64. */
 function bytesToBase64(bytes: Uint8Array): string {
   let bin = "";
@@ -104,7 +122,8 @@ function Intake({ projectId, ownerId }: { projectId: string; ownerId: string }) 
 
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [file, setFile] = useState<NativeGoogleReportCsv>("chart");
+  const [source, setSource] = useState<NativeReportSource>("gsc_generative_ai_search");
+  const [file, setFile] = useState<IntakeCsv>("chart");
   const [property, setProperty] = useState("");
   const [start, setStart] = useState("");
   const [end, setEnd] = useState("");
@@ -117,9 +136,11 @@ function Intake({ projectId, ownerId }: { projectId: string; ownerId: string }) 
   const [opened, setOpened] = useState<NativeReportParsedRead | null>(null);
   const [removal, setRemoval] = useState<string | null>(null);
 
+  const isBing = source === "bing_ai_performance";
   const fileMeta = (f: File | null) =>
     f ? { name: f.name, size: f.size, lastModified: f.lastModified } : null;
   const currentInputs = (): NativeIntakeFingerprintInputs => ({
+    source,
     file,
     property,
     start,
@@ -130,6 +151,14 @@ function Intake({ projectId, ownerId }: { projectId: string; ownerId: string }) 
     data: fileMeta(dataFile),
     filters: fileMeta(filtersFile),
   });
+  // Switching source changes the supported CSV kinds and whether a Filters.csv applies; reset the
+  // file kind to the new source's first and drop any Filters.csv so no cross-source input leaks.
+  const changeSource = (next: NativeReportSource) => {
+    setSource(next);
+    setFile(FILES_BY_SOURCE[next][0]);
+    setFiltersFile(null);
+    invalidate();
+  };
   /** Any material input change invalidates the reviewed snapshot: Save then disappears until a new
    * Preview binds the exact reviewed bytes/metadata/completeness/note again. */
   const invalidate = () => {
@@ -180,40 +209,71 @@ function Intake({ projectId, ownerId }: { projectId: string; ownerId: string }) 
     if (busyRef.current || !sessionCurrent()) return;
     setError(null);
     setSnapshot(null);
-    if (!dataFile || !filtersFile) return setError("err.fileRequired");
-    // Bound BOTH files before any read, so a giant file is never allocated and no request is made.
-    if (fileTooLarge(dataFile.size) || fileTooLarge(filtersFile.size))
+    // Google needs the data CSV AND its Filters.csv; Bing has no Filters.csv.
+    if (!dataFile || (!isBing && !filtersFile)) return setError("err.fileRequired");
+    // Bound every file before any read, so a giant file is never allocated and no request is made.
+    if (fileTooLarge(dataFile.size) || (filtersFile && fileTooLarge(filtersFile.size)))
       return setError("err.tooLarge");
     const op = ++opId.current;
     busyRef.current = true;
     setBusy(true);
     try {
       const dataBytes = new Uint8Array(await dataFile.arrayBuffer());
-      const filterBytes = new Uint8Array(await filtersFile.arrayBuffer());
+      const filterBytes =
+        !isBing && filtersFile ? new Uint8Array(await filtersFile.arrayBuffer()) : null;
       if (opId.current !== op || !mounted.current || !sessionCurrent()) return;
-      const filterContext = parseNativeGoogleFilters(filterBytes);
-      const d = nativeGoogleReportDescriptor(file);
       const capturedAtIso = normalizeUtcCapturedAt(capturedAt);
-      const metadata = {
-        source: "gsc_generative_ai_search" as const,
-        declaredProperty: property,
-        reportKind: d.reportKind,
-        dimension: d.dimension,
-        aggregation: d.aggregation,
-        period: { start, end, timezone: GSC_REPORT_TIMEZONE },
-        marketScope: filterContext.marketScope,
-        filters: filterContext.filters,
-        capturedAt: capturedAtIso,
-        filename: dataFile.name.slice(0, 255),
-      };
-      const preview = await parseNativeGoogleReportCsv(file, dataBytes, {
-        declaredProperty: property,
-        period: { start, end, timezone: GSC_REPORT_TIMEZONE },
-        capturedAt: capturedAtIso,
-        completeness,
-        filterContext,
-        filename: dataFile.name.slice(0, 255),
-      });
+      const filename = dataFile.name.slice(0, 255);
+      let metadata: NativeArtifactMetadata;
+      let preview: NativeGoogleReportPreview;
+      if (isBing) {
+        const bingFile = file as NativeBingReportCsv;
+        const d = nativeBingReportDescriptor(bingFile);
+        metadata = {
+          source: "bing_ai_performance",
+          declaredProperty: property,
+          reportKind: d.reportKind,
+          dimension: d.dimension,
+          aggregation: d.aggregation,
+          // Bing exposes no geographic scope, filter or timezone — forced unknown/unsegmented.
+          period: { start, end, timezone: null },
+          marketScope: { country: null, exposed: false },
+          filters: {},
+          capturedAt: capturedAtIso,
+          filename,
+        };
+        preview = await parseNativeBingReportCsv(bingFile, dataBytes, {
+          declaredProperty: property,
+          period: { start, end },
+          capturedAt: capturedAtIso,
+          completeness,
+          filename,
+        });
+      } else {
+        const googleFile = file as NativeGoogleReportCsv;
+        const filterContext = parseNativeGoogleFilters(filterBytes!);
+        const d = nativeGoogleReportDescriptor(googleFile);
+        metadata = {
+          source: "gsc_generative_ai_search",
+          declaredProperty: property,
+          reportKind: d.reportKind,
+          dimension: d.dimension,
+          aggregation: d.aggregation,
+          period: { start, end, timezone: GSC_REPORT_TIMEZONE },
+          marketScope: filterContext.marketScope,
+          filters: filterContext.filters,
+          capturedAt: capturedAtIso,
+          filename,
+        };
+        preview = await parseNativeGoogleReportCsv(googleFile, dataBytes, {
+          declaredProperty: property,
+          period: { start, end, timezone: GSC_REPORT_TIMEZONE },
+          capturedAt: capturedAtIso,
+          completeness,
+          filterContext,
+          filename,
+        });
+      }
       if (opId.current !== op || !mounted.current || !sessionCurrent()) return;
       setSnapshot({
         fingerprint: reviewFingerprint(currentInputs()),
@@ -225,7 +285,11 @@ function Intake({ projectId, ownerId }: { projectId: string; ownerId: string }) 
       });
     } catch (e) {
       if (opId.current !== op || !mounted.current || !sessionCurrent()) return;
-      setError(e instanceof NativeGoogleCsvError ? "err.parseFailed" : "err.save");
+      setError(
+        e instanceof NativeGoogleCsvError || e instanceof NativeBingCsvError
+          ? "err.parseFailed"
+          : "err.save",
+      );
     } finally {
       if (opId.current === op) {
         busyRef.current = false;
@@ -322,8 +386,8 @@ function Intake({ projectId, ownerId }: { projectId: string; ownerId: string }) 
     }
   }
 
-  const googleArtifacts = (list.data?.artifacts ?? []).filter((a) =>
-    isGoogleArtifactSource(a.metadata.source),
+  const intakeArtifacts = (list.data?.artifacts ?? []).filter((a) =>
+    isNativeIntakeSource(a.metadata.source),
   );
   const refreshAll = () => {
     if (!sessionCurrent()) return;
@@ -340,7 +404,9 @@ function Intake({ projectId, ownerId }: { projectId: string; ownerId: string }) 
       <h2 id="native-intake-title" className="font-display text-xl">
         {label("title")}
       </h2>
-      <p className={`text-sm text-muted-foreground ${wrap}`}>{label("intro")}</p>
+      <p className={`text-sm text-muted-foreground ${wrap}`}>
+        {label("intro." + (isBing ? "bing" : "gsc"))}
+      </p>
       <p className={`text-xs text-muted-foreground ${wrap}`}>{label("declaration")}</p>
       {error && (
         <div
@@ -369,16 +435,30 @@ function Intake({ projectId, ownerId }: { projectId: string; ownerId: string }) 
       >
         <fieldset disabled={busy} className="contents">
           <label className="text-sm">
+            {label("sourceLabel")}
+            <select
+              className={fieldClass}
+              value={source}
+              onChange={(e) => changeSource(e.target.value as NativeReportSource)}
+            >
+              {INTAKE_SOURCES.map((s) => (
+                <option key={s} value={s}>
+                  {label("source." + s)}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label className="text-sm">
             {label("fileLabel")}
             <select
               className={fieldClass}
               value={file}
               onChange={(e) => {
-                setFile(e.target.value as NativeGoogleReportCsv);
+                setFile(e.target.value as IntakeCsv);
                 invalidate();
               }}
             >
-              {NATIVE_GOOGLE_CSV_FILES.map((f) => (
+              {FILES_BY_SOURCE[source].map((f) => (
                 <option key={f} value={f}>
                   {label("file." + f)}
                 </option>
@@ -476,18 +556,20 @@ function Intake({ projectId, ownerId }: { projectId: string; ownerId: string }) 
               }}
             />
           </label>
-          <label className="text-sm">
-            {label("filtersCsvLabel")}
-            <input
-              type="file"
-              accept=".csv,text/csv"
-              className={fieldClass}
-              onChange={(e) => {
-                setFiltersFile(e.target.files?.[0] ?? null);
-                invalidate();
-              }}
-            />
-          </label>
+          {!isBing && (
+            <label className="text-sm">
+              {label("filtersCsvLabel")}
+              <input
+                type="file"
+                accept=".csv,text/csv"
+                className={fieldClass}
+                onChange={(e) => {
+                  setFiltersFile(e.target.files?.[0] ?? null);
+                  invalidate();
+                }}
+              />
+            </label>
+          )}
           <Button type="submit" className="min-h-11 md:col-span-2">
             {label("previewBtn")}
           </Button>
@@ -518,12 +600,12 @@ function Intake({ projectId, ownerId }: { projectId: string; ownerId: string }) 
       </div>
       {list.isError && <p role="alert">{label("loadError")}</p>}
       {list.isPending && <p role="status">{label("common.loading")}</p>}
-      {list.data && !list.isError && !googleArtifacts.length && (
+      {list.data && !list.isError && !intakeArtifacts.length && (
         <p className="text-sm">{label("list.empty")}</p>
       )}
       {/* The cached list and any opened detail render only when the current reads substantiate them. */}
       {!list.isError &&
-        googleArtifacts.map((a) => {
+        intakeArtifacts.map((a) => {
           const badge = intakeBadge(a.status, stateById.get(a.id)?.parseState, statesReady);
           return (
             <article
@@ -532,8 +614,9 @@ function Intake({ projectId, ownerId }: { projectId: string; ownerId: string }) 
               data-intake-artifact={a.id}
             >
               <p className={`font-medium ${wrap}`}>{a.metadata.declaredProperty}</p>
-              <p className="text-xs text-muted-foreground">
-                {a.metadata.dimension} · {a.metadata.period.start} → {a.metadata.period.end}
+              <p className={`text-xs text-muted-foreground ${wrap}`}>
+                {label("source." + a.metadata.source)} · {a.metadata.dimension} ·{" "}
+                {a.metadata.period.start} → {a.metadata.period.end}
               </p>
               <p className="text-xs font-medium" data-intake-badge={badge}>
                 {label("badge." + badge)}
@@ -563,6 +646,12 @@ function Intake({ projectId, ownerId }: { projectId: string; ownerId: string }) 
               {removal === a.id && (
                 <div className="rounded border border-destructive p-3 space-y-2" role="alert">
                   <p>{label("confirmDelete")}</p>
+                  {/* Identify exactly which file this deletes: source + property + window, so two
+                      same-property/window artifacts from different sources are never confused. */}
+                  <p className={`text-xs text-muted-foreground ${wrap}`}>
+                    {label("source." + a.metadata.source)} · {a.metadata.declaredProperty} ·{" "}
+                    {a.metadata.period.start} → {a.metadata.period.end}
+                  </p>
                   <Button
                     size="sm"
                     variant="destructive"
@@ -638,18 +727,29 @@ function ReportView({
   t: ReturnType<typeof useT>;
 }) {
   const { input, withheldPageRows, partial } = view;
+  const src = input.source === "bing_ai_performance" ? "bing" : "gsc";
   const country = input.filters["Country"] ?? input.marketScope.country ?? null;
+  // The metrics this report actually carries (impressions for Google; citations + cited_pages for a
+  // Bing overview, citations for a Bing page table) — never a hard-coded single metric.
+  const metricKeys = input.rows.length ? Object.keys(input.rows[0].cells) : [];
+  const coverage = overviewDateCoverage(input.dimension, input.rows, input.period);
   return (
     <div className="space-y-2 text-sm">
-      <p className="font-medium">{label("nativeLabel")}</p>
-      <p>
-        {t("nativeIntake.metricLabel", {
-          metric: label("metric.impressions"),
-          unit: label("unit.count"),
-        })}
-      </p>
+      <p className="font-medium">{label("nativeLabel." + src)}</p>
+      {metricKeys.map((metric) => (
+        <p key={metric}>
+          {t("nativeIntake.metricLabel", {
+            metric: label("metric." + metric),
+            unit: label("unit.count"),
+          })}
+        </p>
+      ))}
       <p>{t("nativeIntake.windowLabel", { start: input.period.start, end: input.period.end })}</p>
-      <p>{t("nativeIntake.timezoneLabel", { tz: input.period.timezone ?? "" })}</p>
+      {input.period.timezone ? (
+        <p>{t("nativeIntake.timezoneLabel", { tz: input.period.timezone })}</p>
+      ) : (
+        <p>{label("timezoneUnknown")}</p>
+      )}
       <p className={wrap}>
         {label("capturedAtLabel")}: {input.capturedAt}
       </p>
@@ -662,7 +762,21 @@ function ReportView({
           reportKind: label("reportKind." + input.reportKind),
         })}
       </p>
-      {country && <p>{t("nativeIntake.countryFilter", { country })}</p>}
+      {country ? (
+        <p>{t("nativeIntake.countryFilter", { country })}</p>
+      ) : (
+        <p className="text-xs text-muted-foreground">{label("scopeUnsegmented")}</p>
+      )}
+      {coverage && (
+        <p className={`text-xs ${wrap}`}>
+          {t("nativeIntake.coverageHeading", {
+            observed: coverage.observedDays,
+            expected: coverage.expectedDays,
+            first: coverage.firstObserved,
+            last: coverage.lastObserved,
+          })}
+        </p>
+      )}
       <p className={`text-xs ${wrap}`}>
         {label("completenessShow")}: {label("completeness." + input.completeness)}
       </p>
@@ -672,6 +786,11 @@ function ReportView({
             completeness: label("completeness." + input.completeness),
           })}
         </p>
+      )}
+      {/* Any missing day in the selected period blocks a complete-period claim even if the owner
+          marked the source complete. */}
+      {coverage?.hasGaps && (
+        <p className="text-xs text-amber-700 dark:text-amber-400">{label("coverageGapWarn")}</p>
       )}
       {partial && (
         <p className="text-xs text-amber-700 dark:text-amber-400">
@@ -685,19 +804,24 @@ function ReportView({
       )}
       <p className="font-medium">{t("nativeIntake.rowsHeading", { count: input.rows.length })}</p>
       <ul className="space-y-1">
-        {input.rows.map((row): ReactNode => {
-          const cell = row.cells.impressions;
-          return (
-            <li key={row.key} className={wrap}>
-              <span className="font-medium">{row.key}</span> · {label("rawCellLabel")}:{" "}
-              <span>{rawCellText(cell.raw)}</span> · {label("interpretedStatusHeading")}:{" "}
-              {label("cell." + cell.status)}
-              {cell.value !== null ? ` (${cell.value})` : ""}
-            </li>
-          );
-        })}
+        {input.rows.map((row): ReactNode => (
+          <li key={row.key} className={wrap}>
+            <span className="font-medium">{row.key}</span>
+            {metricKeys.map((metric) => {
+              const cell = row.cells[metric];
+              return (
+                <span key={metric}>
+                  {" · "}
+                  {label("metric." + metric)} {label("rawCellLabel")}: {rawCellText(cell.raw)} ·{" "}
+                  {label("interpretedStatusHeading")}: {label("cell." + cell.status)}
+                  {cell.value !== null ? ` (${cell.value})` : ""}
+                </span>
+              );
+            })}
+          </li>
+        ))}
       </ul>
-      <p className={`text-xs text-muted-foreground ${wrap}`}>{label("limits")}</p>
+      <p className={`text-xs text-muted-foreground ${wrap}`}>{label("limits." + src)}</p>
     </div>
   );
 }

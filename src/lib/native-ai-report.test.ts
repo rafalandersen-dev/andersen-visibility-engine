@@ -97,6 +97,30 @@ describe("export-zero rule (CI11-T04, T05, T06)", () => {
     });
     expect(interpretExportCell(undefined, "percent")).toMatchObject({ status: "unavailable" });
   });
+  it("keeps integer and fractional counts (Google v1 contract), bounds a percent, and coerces nothing else", () => {
+    expect(interpretExportCell("42", "count")).toMatchObject({ status: "known_value", value: 42 });
+    // A Google export may report a fractional count (e.g. an average); the shared parser keeps it,
+    // never rejecting or rounding it. The whole-event-only rule is Bing-local (see native-bing-ai-csv).
+    expect(interpretExportCell("1.5", "count")).toMatchObject({
+      status: "known_value",
+      value: 1.5,
+    });
+    for (const raw of [
+      "1e5", // scientific notation is not a genuine export lexeme
+      "1,000", // a thousands separator is ambiguous and never coerced
+      "abc",
+    ])
+      expect(interpretExportCell(raw, "count"), raw).toMatchObject({
+        status: "invalid",
+        value: null,
+      });
+    // A percent keeps its decimals and is bounded at 100.
+    expect(interpretExportCell("12.5%", "percent")).toMatchObject({
+      status: "known_value",
+      value: 12.5,
+    });
+    expect(interpretExportCell("120%", "percent").status).toBe("invalid");
+  });
 });
 describe("native semantics preserved (CI11-T07, T08, T09)", () => {
   it("stores chart and page aggregation separately with the source timezone, and never sums rows", () => {

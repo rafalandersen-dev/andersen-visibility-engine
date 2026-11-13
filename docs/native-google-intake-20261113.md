@@ -217,3 +217,24 @@ skipped, no language was activated (runtime registry stays en/pl/sv/da), and no 
 historical fingerprint changed (the pre-existing French citation-change mismatch was left untouched).
 
 Codex added the new migration to the existing candidate-chain fixture manifest after full dual-Bun CI identified the missing enumeration. Its actual SQL, ownership/hash/role/deletion checks remain in `native-google-intake-migration.test.ts`; the legacy combined fixture is not a production migration ledger. This is a necessary test-integration exception, not a change to applied production SQL or any other migration status.
+
+## Bing source variant — shared panel/schema/server (2026-11-13)
+
+A second owner source, Bing Webmaster Tools "AI Performance" (BETA), was added as a strict variant on
+this same intake (see `docs/native-bing-intake-20261113.md`), reusing the raw staging, the generic
+parsed columns/RPCs (**no new SQL**), the server re-parse and this panel. Google behaviour is
+preserved: a Google record still routes through the same (now source-keyed) `nativeReportParsedRecordSchema`
+with its Google parser version / file set / descriptor, and an already-stored Google v1 parsed record
+stays byte-identical and readable (a PGlite regression asserts this). The shared value-status parser
+(`native-ai-report.ts`) is **unchanged**: a `count` cell still keeps whatever whole or fractional
+value a genuine export shows, so a previously accepted Google v1 fractional/average count remains a
+`known_value` and stays readable through the record schema — the whole-event integer rule is
+**Bing-local** (`native-bing-ai-csv.ts`), never a silent tightening of the shared Google contract.
+Shared changes that also touch the Google path, each additive only:
+`reviewFingerprint` includes `source`; `sourceIncomplete` now also flags `unknown` completeness; the
+report view renders each report's actual metric(s) instead of a hard-coded "Impressions" and shows a
+date **row-coverage** line with a gap warning that blocks a complete-period claim even when the owner
+marked the source complete. The panel period labels and `title`/`declaration` copy are now
+provider-neutral; the provider-specific intro/label/limits lines are source-suffixed. The
+`nativeIntake` namespace grew 86 → 100 keys; the staged English-fallback batch pattern is unchanged
+(only the source fingerprint and staged counts were updated), so no inactive language was activated.

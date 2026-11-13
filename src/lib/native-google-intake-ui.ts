@@ -19,6 +19,7 @@ export function normalizeUtcCapturedAt(value: string): string {
 }
 /** The material inputs that define a reviewed snapshot; changing any one invalidates a prior preview. */
 export interface NativeIntakeFingerprintInputs {
+  source: string;
   file: string;
   property: string;
   start: string;
@@ -30,11 +31,13 @@ export interface NativeIntakeFingerprintInputs {
   filters: { name: string; size: number; lastModified: number } | null;
 }
 /** A stable fingerprint of every material input, so Save can refuse unless the current inputs still
- * match the exact reviewed snapshot (both file inputs included via name/size/lastModified). */
+ * match the exact reviewed snapshot (source and both file inputs included). Changing the source
+ * invalidates the preview: a Google and a Bing interpretation of the same bytes are different. */
 export function reviewFingerprint(i: NativeIntakeFingerprintInputs): string {
   const f = (x: NativeIntakeFingerprintInputs["data"]) =>
     x ? [x.name, x.size, x.lastModified] : null;
   return JSON.stringify([
+    i.source,
     i.file,
     i.property,
     i.start,
@@ -63,13 +66,56 @@ export function intakeBadge(
   if (parseState === "unparsed") return "stored";
   return "unknown";
 }
-/** Only genuine Google generative-AI exports belong in this Google panel; the shared raw-artifact
- * API also stores Bing, which must not be mislabelled here. */
+/** Only genuine Google generative-AI exports are labelled Google; the shared raw-artifact API also
+ * stores Bing, which must not be mislabelled. */
 export const isGoogleArtifactSource = (source: string): boolean =>
   source === "gsc_generative_ai_search";
-/** A source marked partial/preliminary is not a full reading — distinct from privacy-withheld pages. */
+/** The two owner-intake sources this panel can interpret; any other staged source is listed under
+ * "needs attention", never silently interpreted. */
+export const isNativeIntakeSource = (source: string): boolean =>
+  source === "gsc_generative_ai_search" || source === "bing_ai_performance";
+/** A source marked partial/preliminary — or whose completeness is unknown — is not a full reading, so
+ * it is never presented as complete. Distinct from privacy-withheld pages and coverage gaps. */
 export const sourceIncomplete = (completeness: string): boolean =>
-  completeness === "partial" || completeness === "preliminary";
+  completeness === "partial" || completeness === "preliminary" || completeness === "unknown";
+/**
+ * Date-dimension row coverage against the selected period: how many distinct days carry a row versus
+ * how many the period spans, and whether any day inside the period is missing (an endpoint OR an
+ * interior gap). The parser already rejects duplicate and out-of-period dates, so the row keys are
+ * distinct in-period ISO days. Returns null for a non-date report (a page table has no row dates, so
+ * it is never assigned a date coverage) or an empty one. Pure UTC epoch arithmetic — no local
+ * timezone is ever consulted; the day count is anchored to UTC midnight only to subtract two dates.
+ */
+export interface OverviewCoverage {
+  observedDays: number;
+  expectedDays: number;
+  firstObserved: string;
+  lastObserved: string;
+  /** A day inside [start,end] carries no row (missing endpoint or interior gap). */
+  hasGaps: boolean;
+}
+function epochDay(iso: string): number {
+  const [y, m, d] = iso.split("-").map(Number);
+  return Date.UTC(y, m - 1, d) / 86400000;
+}
+export function overviewDateCoverage(
+  dimension: string,
+  rows: readonly { key: string }[],
+  period: { start: string; end: string },
+): OverviewCoverage | null {
+  if (dimension !== "date" || rows.length === 0) return null;
+  const days = rows.map((r) => r.key).sort();
+  const expectedDays = epochDay(period.end) - epochDay(period.start) + 1;
+  return {
+    observedDays: days.length,
+    expectedDays,
+    firstObserved: days[0],
+    lastObserved: days[days.length - 1],
+    // Every row key is a distinct in-period day, so fewer rows than period days means some day in
+    // the period has no row — whether that is a missing start/end or a gap in the middle.
+    hasGaps: days.length < expectedDays,
+  };
+}
 /** Raw exported cell text for display: spreadsheet-safe (a formula-looking cell is prefixed, never
  * evaluated) and bounded. React additionally escapes it as text. */
 export function rawCellText(raw: string | null): string {

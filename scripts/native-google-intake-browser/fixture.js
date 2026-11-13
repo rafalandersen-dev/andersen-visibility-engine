@@ -4,6 +4,11 @@
 // by owner+project and keyed by the real nativeArtifactScopeKey (not a JSON blob), and a new call must
 // match the current signed-in actor — a mid-flight (hung) call still finishes in its original scope.
 import { parseNativeGoogleReportCsv } from "@/lib/native-google-ai-csv";
+import {
+  NATIVE_BING_PARSER_VERSION,
+  parseNativeBingReportCsv,
+  bingFileKindForDimension,
+} from "@/lib/native-bing-ai-csv";
 import { nativeArtifactScopeKey } from "@/lib/native-ai-artifact";
 import { NATIVE_GOOGLE_PARSER_VERSION, fileKindForDimension } from "@/lib/native-google-intake";
 
@@ -161,20 +166,51 @@ async function persist(data) {
   const a = fixture.db.artifacts.find((x) => x.id === data.id && inScope(x, data));
   if (!a) throw Error("native_parsed_unavailable");
   const m = a.metadata;
-  const file = m.source === "gsc_generative_ai_search" ? fileKindForDimension(m.dimension) : null;
-  if (!file) throw Error("native_parsed_unsupported");
+  const bytes = b64ToBytes(a.base64);
+  let file;
+  let parserVersion;
   let preview;
-  try {
-    preview = await parseNativeGoogleReportCsv(file, b64ToBytes(a.base64), {
-      declaredProperty: m.declaredProperty,
-      period: { start: m.period.start, end: m.period.end, timezone: m.period.timezone ?? "" },
-      capturedAt: m.capturedAt,
-      completeness: data.completeness,
-      filterContext: { filters: m.filters, marketScope: m.marketScope },
-      filename: m.filename,
-    });
-  } catch {
-    throw Error("native_parse_failed");
+  if (m.source === "gsc_generative_ai_search") {
+    file = fileKindForDimension(m.dimension);
+    if (!file) throw Error("native_parsed_unsupported");
+    parserVersion = NATIVE_GOOGLE_PARSER_VERSION;
+    try {
+      preview = await parseNativeGoogleReportCsv(file, bytes, {
+        declaredProperty: m.declaredProperty,
+        period: { start: m.period.start, end: m.period.end, timezone: m.period.timezone ?? "" },
+        capturedAt: m.capturedAt,
+        completeness: data.completeness,
+        filterContext: { filters: m.filters, marketScope: m.marketScope },
+        filename: m.filename,
+      });
+    } catch {
+      throw Error("native_parse_failed");
+    }
+  } else if (m.source === "bing_ai_performance") {
+    file = bingFileKindForDimension(m.dimension);
+    if (!file) throw Error("native_parsed_unsupported");
+    parserVersion = NATIVE_BING_PARSER_VERSION;
+    // Mirror the server: a forged Bing market/timezone/filter is an explicit mismatch, not normalized.
+    if (
+      m.marketScope.country !== null ||
+      m.marketScope.exposed ||
+      Object.keys(m.filters).length > 0 ||
+      m.period.timezone !== null
+    )
+      throw Error("native_parsed_metadata_mismatch");
+    try {
+      preview = await parseNativeBingReportCsv(file, bytes, {
+        declaredProperty: m.declaredProperty,
+        period: { start: m.period.start, end: m.period.end },
+        capturedAt: m.capturedAt,
+        completeness: data.completeness,
+        filename: m.filename,
+      });
+    } catch {
+      throw Error("native_parse_failed");
+    }
+  } else {
+    throw Error("native_parsed_unsupported");
   }
   if (
     preview.input.aggregation !== m.aggregation ||
@@ -185,7 +221,7 @@ async function persist(data) {
   const record = {
     artifactId: a.id,
     artifactSha256: a.sha256,
-    parserVersion: NATIVE_GOOGLE_PARSER_VERSION,
+    parserVersion,
     file,
     withheldPageRows: preview.withheldPageRows,
     partial: preview.partial,

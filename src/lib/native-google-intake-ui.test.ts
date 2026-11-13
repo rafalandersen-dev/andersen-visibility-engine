@@ -4,7 +4,9 @@ import {
   fileTooLarge,
   intakeBadge,
   isGoogleArtifactSource,
+  isNativeIntakeSource,
   normalizeUtcCapturedAt,
+  overviewDateCoverage,
   persistErrorKey,
   rawCellText,
   reviewFingerprint,
@@ -13,6 +15,7 @@ import {
 } from "./native-google-intake-ui";
 
 const base: NativeIntakeFingerprintInputs = {
+  source: "gsc_generative_ai_search",
   file: "chart",
   property: "https://example.test/",
   start: "2026-09-01",
@@ -45,6 +48,7 @@ describe("review fingerprint invalidation", () => {
     const fp = reviewFingerprint(base);
     expect(reviewFingerprint({ ...base })).toBe(fp);
     for (const changed of [
+      { ...base, source: "bing_ai_performance" },
       { ...base, file: "pages" },
       { ...base, property: "https://other.test/" },
       { ...base, start: "2026-09-02" },
@@ -72,12 +76,55 @@ describe("primary state badge", () => {
 });
 
 describe("source and display helpers", () => {
-  it("keeps the Google panel Google-only and flags incomplete sources", () => {
+  it("labels Google, admits both intake sources, and flags incomplete/unknown sources", () => {
     expect(isGoogleArtifactSource("gsc_generative_ai_search")).toBe(true);
     expect(isGoogleArtifactSource("bing_ai_performance")).toBe(false);
+    expect(isNativeIntakeSource("gsc_generative_ai_search")).toBe(true);
+    expect(isNativeIntakeSource("bing_ai_performance")).toBe(true);
+    expect(isNativeIntakeSource("some_other_source")).toBe(false);
     expect(sourceIncomplete("partial")).toBe(true);
     expect(sourceIncomplete("preliminary")).toBe(true);
+    // Unknown completeness is never presented as full.
+    expect(sourceIncomplete("unknown")).toBe(true);
     expect(sourceIncomplete("complete")).toBe(false);
+  });
+  it("reports date coverage, flagging an endpoint or interior gap, and skips a page table", () => {
+    const period = { start: "2026-08-13", end: "2026-08-16" };
+    // Full endpoints but an interior gap (14th missing).
+    const gapped = overviewDateCoverage(
+      "date",
+      [{ key: "2026-08-13" }, { key: "2026-08-15" }, { key: "2026-08-16" }],
+      period,
+    );
+    expect(gapped).toMatchObject({
+      observedDays: 3,
+      expectedDays: 4,
+      firstObserved: "2026-08-13",
+      lastObserved: "2026-08-16",
+      hasGaps: true,
+    });
+    // Every day present → no gaps.
+    expect(
+      overviewDateCoverage(
+        "date",
+        [
+          { key: "2026-08-13" },
+          { key: "2026-08-14" },
+          { key: "2026-08-15" },
+          { key: "2026-08-16" },
+        ],
+        period,
+      ),
+    ).toMatchObject({ observedDays: 4, expectedDays: 4, hasGaps: false });
+    // A short window that ends before the period end is a missing endpoint → gap.
+    expect(overviewDateCoverage("date", [{ key: "2026-08-13" }], period)).toMatchObject({
+      observedDays: 1,
+      expectedDays: 4,
+      hasGaps: true,
+    });
+    // A page table has no row dates and an empty report has no coverage.
+    expect(overviewDateCoverage("page", [{ key: "https://x/" }], period)).toBeNull();
+    expect(overviewDateCoverage("date", [], period)).toBeNull();
   });
   it("renders raw cell text spreadsheet-safe, never evaluating a formula", () => {
     expect(rawCellText("=1+2")).toBe("'=1+2");

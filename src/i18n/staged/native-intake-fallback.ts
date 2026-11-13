@@ -1,9 +1,10 @@
 import { nativeIntakeCopy } from "../native-google-intake";
 
 /**
- * Staged-only completion of the `nativeIntake` namespace (owner-supplied Google AI report import).
+ * Staged-only completion of the `nativeIntake` namespace (owner-supplied Google AND Bing AI report
+ * import; the Bing variant added more keys to the same namespace).
  *
- * WHAT THIS IS. The native Google intake added one new runtime namespace with proper
+ * WHAT THIS IS. The native intake added one runtime namespace with proper
  * English, Polish, Swedish and Danish text. The twenty staged locales are
  * composed solely from their batch copies, and each must still cover every
  * current English interface key. This batch resolves exactly the
@@ -20,9 +21,10 @@ export const STAGED_NATIVE_INTAKE_FALLBACK_NOTE =
   "nativeIntake messages added by the native Google intake resolve to reviewed English source as " +
   "fallback, pending translation and interface acceptance.";
 
-/** Reviewed English `nativeIntake` source fingerprint; recomputed by the staged suites. */
+/** Reviewed English `nativeIntake` source fingerprint; recomputed by the staged suites. Covers the
+ * 100-key Google+Bing English source; `DE_AUTHORING_SOURCE_HASHES["native intake"]` must match. */
 export const STAGED_NATIVE_INTAKE_SOURCE_HASH =
-  "addc2c6ccdc6f0124df14e20db8894b4bd99e397efcc7e395b115e48e935df26";
+  "3a58c957f10ee7ca80c199b41d19da1ad88861b3baba335c3222e5938496abe9";
 
 /** The one staged batch: a frozen null-prototype copy of the English source. */
 export function stagedNativeIntake(): Readonly<Record<string, string>> {
