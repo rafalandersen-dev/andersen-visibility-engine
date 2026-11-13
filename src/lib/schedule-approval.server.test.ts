@@ -65,6 +65,17 @@ describe("manual schedule exact-version admission", () => {
       }),
     );
   });
+  it("binds an update intent to the new queue row only for an already-live article", async () => {
+    expect((await schedule()).updateIntent).toBeUndefined();
+    const row = await h.read();
+    row.data.content[0] = { ...row.data.content[0], livePublishStatus: "published", liveUrl: "u" };
+    h.read.mockResolvedValue(row);
+    const { updateIntent } = await schedule();
+    expect(updateIntent).toMatchObject({
+      queueId: "00000000-0000-4000-8000-000000000002",
+      versionHash: h.rpc.mock.calls.at(-1)![1].p_hash,
+    });
+  });
   it("does not retry after a race or uncertain queue response", async () => {
     h.rpc.mockResolvedValue({ data: null, error: "workspace_changed" });
     await expect(schedule()).rejects.toThrow("Refresh");

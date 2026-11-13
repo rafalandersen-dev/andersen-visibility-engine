@@ -3,6 +3,7 @@ import { publicationVersion } from "./publication-version";
 import { assertPublicationApproved } from "./publication-approval.server";
 import { buildActiveInternalPaths } from "./publish-targets";
 import { publishBlockers } from "./checklist";
+import { scheduledUpdateIntent } from "./scheduled-published-updates";
 import type { ContentAsset, Project } from "./types";
 import { z } from "zod";
 /** The authenticated owner's manual scheduling action uses the saved exact
@@ -46,7 +47,7 @@ export async function scheduleApprovedPublication(
     throw new Error(
       "The article or its schedule changed. Refresh and check its approval before scheduling again.",
     );
-  return z
+  const queued = z
     .object({
       id: z.string().uuid(),
       project_id: z.literal(projectId),
@@ -59,4 +60,7 @@ export async function scheduleApprovedPublication(
       published_at: z.string().nullable().optional(),
     })
     .parse(result.data);
+  // `asset` is the snapshot the RPC just verified by exact revision and version
+  // hash, so an already-live asset here arms an UPDATE bound to this queue row.
+  return { ...queued, updateIntent: scheduledUpdateIntent(asset, queued.id, version.hash) };
 }

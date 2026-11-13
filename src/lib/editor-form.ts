@@ -43,6 +43,7 @@ export const EDITOR_FORM_FIELDS = [
   "visualModelVersion",
   "sectionIndex",
   "faq",
+  "language",
 ] as const;
 
 const norm = (v: unknown): string => JSON.stringify(v ?? null);

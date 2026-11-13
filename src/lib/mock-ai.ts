@@ -68,6 +68,7 @@ import { publishBlockers } from "./checklist";
 import { hasPublishSecret } from "./launch";
 import { reconcileHookOnRegeneration } from "./hook";
 import { isArticleLikeAssetType } from "./visual-model";
+import { projectContentLanguage } from "./content-languages";
 import type {
   Opportunity,
   DiscoverySuggestion,
@@ -352,7 +353,7 @@ export async function generateMetadata(contentAssetId: string) {
     const a = getState().content.find((c) => c.id === contentAssetId);
     if (!a) throw new Error("Content not found.");
     const project = getState().projects.find((p) => p.id === a.projectId);
-    const lang = (project?.primaryLanguage ?? "English") as Language;
+    const lang = (project ? projectContentLanguage(project) : "English") as Language;
     const result = (await regenerateMetadataFn({
       data: {
         title: a.title,
@@ -381,7 +382,7 @@ export async function generateFaq(contentAssetId: string) {
     const a = getState().content.find((c) => c.id === contentAssetId);
     if (!a) throw new Error("Content not found.");
     const project = getState().projects.find((p) => p.id === a.projectId);
-    const lang = (project?.primaryLanguage ?? "English") as Language;
+    const lang = (project ? projectContentLanguage(project) : "English") as Language;
     const result = (await regenerateFaqFn({
       data: {
         title: a.title,
@@ -406,7 +407,7 @@ export async function generateCta(contentAssetId: string) {
     const opp = a.opportunityId
       ? getState().opportunities.find((o) => o.id === a.opportunityId)
       : undefined;
-    const lang = (project?.primaryLanguage ?? "English") as Language;
+    const lang = (project ? projectContentLanguage(project) : "English") as Language;
     const cta = (await regenerateCtaFn({
       data: {
         language: lang,
@@ -764,7 +765,7 @@ function opportunityFromFinding(finding: AuditFinding, project: Project): Opport
     id: uid(),
     projectId: project.id,
     title: finding.suggestedOpportunityTitle || finding.title,
-    language: project.primaryLanguage,
+    language: projectContentLanguage(project),
     contentType: finding.suggestedContentType,
     searchIntent: finding.suggestedSearchIntent,
     targetAudience: project.targetAudience || "Potential customers",
@@ -878,7 +879,7 @@ function opportunityFromGap(gap: CompetitorGap, project: Project): Opportunity {
     id: uid(),
     projectId: project.id,
     title: gap.suggestedOpportunityTitle || gap.title,
-    language: project.primaryLanguage,
+    language: projectContentLanguage(project),
     contentType: gap.suggestedContentType,
     searchIntent: gap.suggestedSearchIntent,
     targetAudience: project.targetAudience || "Potential customers",
@@ -993,7 +994,7 @@ function opportunityFromAuthorityItem(item: AuthorityItem, project: Project): Op
     id: uid(),
     projectId: project.id,
     title: item.suggestedOpportunityTitle || item.title,
-    language: project.primaryLanguage,
+    language: projectContentLanguage(project),
     contentType: item.suggestedContentType,
     searchIntent: item.suggestedSearchIntent,
     targetAudience: project.targetAudience || "Potential customers",
@@ -1242,7 +1243,7 @@ export async function convertAuthorityOpportunityToOpportunity(projectId: string
     id: uid(),
     projectId,
     title: `Create/submit listing for ${item.title}`,
-    language: project.primaryLanguage,
+    language: projectContentLanguage(project),
     contentType: "Service Page",
     searchIntent: "Navigational",
     targetAudience: project.targetAudience || "Potential customers",
@@ -1267,7 +1268,7 @@ function opportunityFromVisibilityGap(gap: AiVisibilityGap, project: Project): O
     id: uid(),
     projectId: project.id,
     title: gap.suggestedOpportunityTitle || gap.title,
-    language: project.primaryLanguage,
+    language: projectContentLanguage(project),
     contentType: gap.suggestedContentType,
     searchIntent: gap.suggestedSearchIntent,
     targetAudience: project.targetAudience || "Potential customers",
@@ -1415,7 +1416,7 @@ function opportunityFromBacklinkRecommendation(
     id: uid(),
     projectId: project.id,
     title: rec.suggestedOpportunityTitle || rec.title,
-    language: project.primaryLanguage,
+    language: projectContentLanguage(project),
     contentType: rec.suggestedContentType,
     searchIntent: rec.suggestedSearchIntent,
     targetAudience: project.targetAudience || "Potential customers",
@@ -2092,7 +2093,7 @@ export async function sendContentToWebsite(
           slug: finalSlug,
           assetType: asset.assetType ?? "article",
           destinationType,
-          language: asset.language ?? project.primaryLanguage,
+          language: asset.language ?? projectContentLanguage(project),
           // Custom endpoint publishes the same canonical assembled body (P1.1 B)
           // as WordPress/Shopify. Payload shape is unchanged (still `markdown`);
           // identical to `asset.markdown` for a legacy asset.

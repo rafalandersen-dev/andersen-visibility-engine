@@ -152,6 +152,7 @@ export const CLEARED_SCHEDULE_FIELDS: Partial<ContentAsset> = {
   sourceHeldPublishAt: undefined,
   scheduledPublishAt: undefined,
   scheduledPublishStatus: undefined,
+  scheduledPublishedUpdate: undefined,
 };
 
 /**
@@ -229,6 +230,7 @@ export function scheduledPublishFailurePatch(
     scheduledPublishStatus: "failed",
     scheduledPublishError: message,
     scheduledPublishAt: undefined,
+    scheduledPublishedUpdate: undefined,
     ...(preserveSourceSchedule
       ? { sourceHeldPublishAt: asset.scheduledPublishAt ?? asset.sourceHeldPublishAt }
       : {}),

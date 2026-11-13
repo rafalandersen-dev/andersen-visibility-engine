@@ -45,6 +45,7 @@ import { AppShell } from "@/components/AppShell";
 import { Button } from "@/components/ui/button";
 import { CreateContentDialog } from "@/components/CreateContentDialog";
 import { DiscoverySelectionToggle } from "@/components/DiscoverySelectionToggle";
+import { projectContentLanguage } from "@/lib/content-languages";
 import { deriveDiscoverySelection } from "@/lib/discovery-selection";
 import {
   createDiscoverySaveController,
@@ -1084,7 +1085,7 @@ export function DiscoverView({
       projectId: project.id,
       title: title.trim(),
       summary: reason.trim() || undefined,
-      language: project.primaryLanguage,
+      language: projectContentLanguage(project),
       contentType: "Blog Article",
       searchIntent: intent,
       targetAudience: project.targetAudience || "Potential customers",
