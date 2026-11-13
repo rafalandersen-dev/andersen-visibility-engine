@@ -2325,7 +2325,9 @@ function Editor({ asset, onRequestDelete }: { asset: ContentAsset; onRequestDele
             )}
           </Field>
           <div>
-            <Label className="text-xs">{t("onboarding.summary.language")}</Label>
+            <Label htmlFor="editor-content-language" className="text-xs">
+              {t("onboarding.summary.language")}
+            </Label>
             <Select
               value={resolveContentLanguage(f.language) ?? projectContentLanguage(project ?? {})}
               onValueChange={(v) =>
@@ -2340,7 +2342,7 @@ function Editor({ asset, onRequestDelete }: { asset: ContentAsset; onRequestDele
                 }))
               }
             >
-              <SelectTrigger className="mt-1.5">
+              <SelectTrigger id="editor-content-language" className="mt-1.5">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>

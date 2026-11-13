@@ -15,6 +15,7 @@ import {
   pipelineStage,
   nextAction,
   linkedAssetFor,
+  scheduledUpdateAt,
   isDropped,
   upNext,
   type PipelineStage,
@@ -323,6 +324,39 @@ describe("isDropped", () => {
     expect(isDropped({ deletedAt: "2026-07-01" })).toBe(true);
     expect(isDropped({})).toBe(false);
     expect(isDropped(undefined)).toBe(false);
+  });
+});
+
+describe("scheduled update of a live article", () => {
+  const at = new Date(NOW + 3_600_000).toISOString();
+  const update = {
+    livePublishStatus: "published",
+    liveUrl: "https://x.se/a",
+    scheduledPublishStatus: "pending",
+    scheduledPublishAt: at,
+    scheduledPublishedUpdate: { queueId: "q", versionHash: "h", identity: "i" },
+  } as Partial<ContentAsset>;
+
+  it("stays live in the pipeline (live precedence unchanged) yet exposes the update date", () => {
+    expect(stage(undefined, update)).toBe("live");
+    expect(scheduledUpdateAt(asset(update), NOW)).toBe(at);
+  });
+  it("is absent for a plain live page, a legacy first-publication row and a non-pending row", () => {
+    const plain = { livePublishStatus: "published", liveUrl: "https://x.se/a" } as const;
+    expect(scheduledUpdateAt(asset(plain), NOW)).toBeUndefined();
+    expect(
+      scheduledUpdateAt(asset({ ...update, scheduledPublishedUpdate: undefined }), NOW),
+    ).toBeUndefined();
+    expect(
+      scheduledUpdateAt(asset({ ...update, scheduledPublishStatus: "failed" }), NOW),
+    ).toBeUndefined();
+    expect(scheduledUpdateAt(undefined, NOW)).toBeUndefined();
+  });
+  it("drops an overdue update date, like an overdue armed schedule", () => {
+    const overdueBy = (ms: number) =>
+      asset({ ...update, scheduledPublishAt: new Date(NOW - ms).toISOString() });
+    expect(scheduledUpdateAt(overdueBy(OVERDUE_AFTER_MS + 1), NOW)).toBeUndefined();
+    expect(scheduledUpdateAt(overdueBy(OVERDUE_AFTER_MS), NOW)).toBeDefined();
   });
 });
 

@@ -15,6 +15,7 @@
 import type { ContentAsset, Project } from "./types";
 import { publishBlockers } from "./checklist";
 import { effectivePublishMode } from "./publish-targets";
+import { scheduledUpdateRefusal } from "./scheduled-published-updates";
 
 /**
  * Runner tick (5 min — see schedule.functions.ts SCHEDULE_TICK_MS; duplicated
@@ -44,9 +45,10 @@ export function publishReadiness(
   if (!asset) {
     return { ready: false, reasons: ["No draft exists yet — create the content first."] };
   }
-  if (asset.livePublishStatus === "published") {
-    reasons.push("Already live — edit or rewrite the published page instead.");
-  }
+  // A live article can be scheduled as an UPDATE only when the existing CMS object
+  // is identifiable — the same refusal arming and the runner apply.
+  const updateRefusal = project ? scheduledUpdateRefusal(asset, project) : null;
+  if (updateRefusal) reasons.push(updateRefusal);
   if (asset.status !== "Approved" && asset.status !== "Exported") {
     reasons.push("Not approved yet — review and approve the draft in the editor.");
   }

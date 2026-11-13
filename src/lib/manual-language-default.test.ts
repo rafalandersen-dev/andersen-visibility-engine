@@ -44,6 +44,22 @@ describe("editing a saved draft's language", () => {
     });
   });
 
+  it("persists the review status that a language change sets, and labels the select", () => {
+    const editor = readFileSync("src/routes/_authenticated/app.editor.tsx", "utf8");
+    // `save` writes status AFTER the form-field merge (status is not an EDITOR_FORM_FIELD),
+    // so the In Review the language change put on the form is what is stored.
+    expect(editor).toContain("status: status ?? f.status,");
+    expect(editor).toContain('htmlFor="editor-content-language"');
+    expect(editor).toContain('id="editor-content-language"');
+  });
+
+  it("blank drafts fall back through the canonical project language, keeping an explicit opp language", () => {
+    const ai = readFileSync("src/lib/mock-ai.ts", "utf8");
+    const fallback = /language: opp\.language \?\? projectContentLanguage\(project\),/g;
+    expect(ai.match(fallback)).toHaveLength(2);
+    expect(ai).not.toMatch(/opp\.language \?\?\s*\(project\.primaryContentLanguage/);
+  });
+
   it("offers the language under its translated label", () => {
     expect(contentLanguageDisplayName(sv, "en")).toBe("Swedish");
     expect(contentLanguageDisplayName(sv, "not a locale")).toBe("Swedish");

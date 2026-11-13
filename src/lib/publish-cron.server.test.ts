@@ -129,6 +129,15 @@ it("defers preflight failures with a separate retry budget and preserves connect
   expect(mocked.failure).toHaveBeenCalledExactlyOnceWith("owner", "a", error.message, false);
 });
 
+it("passes the claimed queue row id so only that row can authorise a live update", async () => {
+  mocked.publish.mockResolvedValue({ publishedAt: "2026-09-12T12:00:00Z", platform: "wordpress" });
+  await runScheduledPublishes();
+  expect(mocked.publish).toHaveBeenCalledExactlyOnceWith("owner", "a", {
+    actor: { actorId: "owner", initiator: "scheduler" },
+    queueId: "row",
+  });
+});
+
 it.each(["attempts", "age"])("parks unavailable preflight after its %s limit", async (limit) => {
   mocked.rpc.mockImplementation(async (name) => ({
     data:

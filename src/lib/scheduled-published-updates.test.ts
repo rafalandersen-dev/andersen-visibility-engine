@@ -8,7 +8,9 @@ const h = vi.hoisted(() => ({
   sources: vi.fn(),
   version: vi.fn(),
   blockers: vi.fn(),
-  chain: new Map<string, Promise<unknown>>(),
+  shopify: vi.fn(),
+  draft: vi.fn(),
+  liveSend: vi.fn(),
 }));
 vi.mock("./workspace.server", () => ({
   readWorkspaceRow: async () => ({ rev: h.store.rev, data: structuredClone(h.store.data) }),
@@ -22,29 +24,19 @@ vi.mock("./workspace.server", () => ({
     return out.result;
   },
 }));
-// Keeps the per-owner write serialization: calls for one owner run one at a time.
-vi.mock("./publication-write.server", () => ({
-  serializePublicationWrite: <T>(user: string, run: () => Promise<T>) => {
-    const next = (h.chain.get(user) ?? Promise.resolve()).then(run, run);
-    h.chain.set(
-      user,
-      next.catch(() => undefined),
-    );
-    return next;
-  },
-}));
-vi.mock("./publish.functions", () => ({
-  draftPayloadFor: vi.fn(),
-  publishDraftDirect: vi.fn(),
-  publishLiveDirect: vi.fn(),
+// publication-write.server is NOT mocked: the real per-owner serializer runs.
+vi.mock("./publish.functions", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("./publish.functions")>()),
+  publishDraftDirect: h.draft,
+  publishLiveDirect: h.liveSend,
 }));
 vi.mock("./wordpress.functions", () => ({ publishWordPressLiveDirect: h.wp }));
-vi.mock("./shopify.functions", () => ({ upsertArticle: vi.fn() }));
+vi.mock("./shopify.functions", () => ({ upsertArticle: h.shopify }));
 vi.mock("./publish-targets", () => ({
   buildActiveInternalPaths: () => [],
-  isShopify: () => false,
-  isWordPress: () => true,
-  shopifyArticleArgs: vi.fn(),
+  isShopify: (p: { connectorType?: string }) => p.connectorType === "shopify",
+  isWordPress: (p: { connectorType?: string }) => p.connectorType === "wordpress",
+  shopifyArticleArgs: (asset: ContentAsset) => ({ articleGid: asset.shopifyArticleGid }),
   wpPublishArgs: (asset: ContentAsset) => ({ postId: asset.wordpressPostId }),
 }));
 vi.mock("./checklist", () => ({ publishBlockers: h.blockers }));
@@ -54,7 +46,11 @@ vi.mock("./publication-version", () => ({ publicationVersion: h.version }));
 vi.mock("./publication-evidence.server", () => ({
   withPublicationEvidence: ({ publish }: { publish: () => unknown }) => publish(),
 }));
-vi.mock("./publish-secret.server", () => ({ resolveWordPressAppPassword: async () => "secret" }));
+vi.mock("./publish-secret.server", () => ({
+  resolveWordPressAppPassword: async () => "secret",
+  resolveShopifyAdminToken: async () => "token",
+  resolvePublishSecret: async () => "secret",
+}));
 
 import { publishAssetServerSide } from "./publish.server";
 import {
@@ -87,11 +83,13 @@ const armed = (asset = live): ContentAsset => ({
   ...asset,
   scheduledPublishedUpdate: scheduledUpdateIntent(asset, QUEUE, HASH),
 });
-const seed = (asset: ContentAsset) => {
+const seed = (asset: ContentAsset, project: Record<string, unknown> = {}) => {
   h.store = {
     rev: 1,
     data: {
-      projects: [{ id: "p", connectorType: "wordpress", websiteUrl: "https://example.se" }],
+      projects: [
+        { id: "p", connectorType: "wordpress", websiteUrl: "https://example.se", ...project },
+      ],
       content: [asset],
       opportunities: [{ id: "o", status: "published", publishedAt: "2026-10-01T08:00:00.000Z" }],
     },
@@ -103,7 +101,6 @@ const fire = (queueId: string | undefined = QUEUE) =>
 
 beforeEach(() => {
   vi.resetAllMocks();
-  h.chain.clear();
   h.approved.mockResolvedValue(undefined);
   h.sources.mockResolvedValue(undefined);
   h.blockers.mockReturnValue([]);
@@ -208,6 +205,99 @@ describe("scheduled published update at fire time", () => {
     h.sources.mockRejectedValueOnce(new Error("sources_stale"));
     await expect(fire()).rejects.toThrow("sources_stale");
     expect(h.wp).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    ["wordpress", { wordpressPostId: undefined }, h.wp],
+    ["shopify", { shopifyArticleGid: undefined }, h.shopify],
+  ])("refuses a URL-only %s update without any send (no duplicate)", async (c, ids, sender) => {
+    seed(armed({ ...live, ...ids } as ContentAsset), { connectorType: c });
+    await expect(fire()).rejects.toMatchObject({
+      permanent: true,
+      message: expect.stringContaining("duplicate"),
+    });
+    expect(sender).not.toHaveBeenCalled();
+  });
+
+  it("updates the same known Shopify article", async () => {
+    const gid = "gid://shopify/Article/9";
+    const shop = armed({
+      ...live,
+      publishPlatform: "shopify",
+      shopifyArticleGid: gid,
+    } as ContentAsset);
+    seed(shop, { connectorType: "shopify" });
+    h.shopify.mockResolvedValue({ success: true, liveUrl: live.liveUrl, articleGid: gid });
+    await fire();
+    expect(h.shopify).toHaveBeenCalledOnce();
+    expect(h.shopify.mock.calls[0][0]).toMatchObject({ articleGid: gid });
+    expect(stored()).toMatchObject({ shopifyArticleGid: gid, scheduledPublishedUpdate: undefined });
+  });
+
+  it("refuses a bound update if all live identity fields were lost after arming", async () => {
+    seed({
+      ...armed(),
+      liveUrl: undefined,
+      publishExternalId: undefined,
+      wordpressPostId: undefined,
+    });
+    await expect(fire()).rejects.toMatchObject({ permanent: true });
+    expect(h.wp).not.toHaveBeenCalled();
+  });
+
+  it("custom endpoint: sends the draft then goes live for the same asset, slug and external id", async () => {
+    const custom = armed({
+      ...live,
+      publishPlatform: "custom",
+      wordpressPostId: undefined,
+      publishExternalId: "ext-1",
+    } as ContentAsset);
+    seed(custom, {
+      connectorType: "custom",
+      livePublishEndpoint: "https://hook.example/live",
+      publishEndpoint: "https://hook.example/draft",
+    });
+    const order: string[] = [];
+    h.draft.mockImplementation(async () => {
+      order.push("draft");
+      return { externalId: "ext-1", sentAt: "2026-11-17T08:00:00.000Z" };
+    });
+    h.liveSend.mockImplementation(async () => {
+      order.push("live");
+      return {
+        liveUrl: live.liveUrl,
+        publishedAt: "2026-11-17T08:00:01.000Z",
+        externalId: "ext-1",
+      };
+    });
+    expect(h.draft).not.toHaveBeenCalled(); // nothing is sent while armed
+    await fire();
+    expect(order).toEqual(["draft", "live"]);
+    expect(h.draft.mock.calls[0][0]).toMatchObject({
+      assetId: "a",
+      slug: "friskvard",
+      markdown: expect.stringContaining("Befintlig text"),
+    });
+    expect(h.liveSend.mock.calls[0][0]).toMatchObject({
+      assetId: "a",
+      slug: "friskvard",
+      externalId: "ext-1",
+    });
+    await fire(); // replay of the spent row
+    expect(h.liveSend).toHaveBeenCalledOnce();
+  });
+
+  it("keeps the intent through a retryable preflight failure, then still updates on retry", async () => {
+    const { recordScheduledPublishFailure } = await import("./publish.server");
+    seed(armed());
+    await recordScheduledPublishFailure(owner, "a", "Image verification unavailable", false);
+    expect(stored()).toMatchObject({
+      scheduledPublishStatus: "pending",
+      scheduledPublishError: "Image verification unavailable",
+      scheduledPublishedUpdate: { queueId: QUEUE },
+    });
+    await fire();
+    expect(h.wp).toHaveBeenCalledOnce();
   });
 
   it("keeps the live page and clears the intent when the update is parked", async () => {

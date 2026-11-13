@@ -107,6 +107,7 @@ import {
   pipelineStage,
   linkedAssetFor,
   nextAction,
+  scheduledUpdateAt,
   GHOST_STAGES,
   PIPELINE_STAGES,
   type PipelineStage,
@@ -153,6 +154,8 @@ type OpportunityView = ReturnType<typeof opportunityView> & {
   pipeline: PipelineStage;
   /** Resolved go-live time, shown beside an armed chip. */
   pipelineDetail?: string;
+  /** Go-live of a scheduled update of the already-live page (stage stays live). */
+  updateAt?: string;
 };
 
 /** Top-border accent per pipeline stage — the board's one vocabulary. */
@@ -296,6 +299,8 @@ function PlanPage() {
             pipelineDetail: asset?.scheduledPublishAt
               ? formatDateTimeLocal(asset.scheduledPublishAt, locale)
               : undefined,
+            // Date of a scheduled update of the live page (stage stays "live").
+            updateAt: scheduledUpdateAt(asset),
           };
         })
         .filter((opportunity) =>
@@ -316,8 +321,13 @@ function PlanPage() {
   // through pipelineStage so it shares ONE definition of "armed" with the board:
   // an overdue pending schedule is needs_fixing, not armed, and must not render
   // here as an upcoming go-live (nor double with its ghost).
+  // A scheduled UPDATE of a live article stays "live" in the pipeline (live
+  // precedence is unchanged) but is still a real go-live date, so it joins here.
   const goLives = useMemo(
-    () => content.filter((asset) => pipelineStage({ asset }) === "armed"),
+    () =>
+      content.filter(
+        (asset) => pipelineStage({ asset }) === "armed" || Boolean(scheduledUpdateAt(asset)),
+      ),
     [content],
   );
 
@@ -1757,11 +1767,12 @@ function ListView({
         {opportunities.map((opportunity) => {
           const asset = assets.get(opportunity.id);
           const cover = asset && contentCover(asset);
+          const showsTime = opportunity.pipeline === "armed" || Boolean(opportunity.updateAt);
           const when =
             opportunity.pipeline === "armed"
               ? asset?.scheduledPublishAt
               : opportunity.pipeline === "live"
-                ? (asset?.livePublishedAt ?? opportunity.publishedAt)
+                ? (opportunity.updateAt ?? asset?.livePublishedAt ?? opportunity.publishedAt)
                 : opportunity.dueAt;
           return (
             <button
@@ -1791,13 +1802,12 @@ function ListView({
                 <StageChip stage={opportunity.pipeline} />
               </span>
               <span className="text-xs leading-5 text-muted-foreground">
+                {opportunity.updateAt ? `${t("plan.goesLive")} · ` : ""}
                 {when
                   ? new Intl.DateTimeFormat(locale, {
                       day: "numeric",
                       month: "short",
-                      ...(opportunity.pipeline === "armed"
-                        ? ({ hour: "2-digit", minute: "2-digit" } as const)
-                        : {}),
+                      ...(showsTime ? ({ hour: "2-digit", minute: "2-digit" } as const) : {}),
                     }).format(new Date(when))
                   : t("plan.unscheduled")}
               </span>
@@ -2387,17 +2397,25 @@ function OpportunityDrawer({
       <div className="mt-3">
         <StageChip stage={stage} />
       </div>
-      {linkedAsset?.scheduledPublishAt && stage === "armed" && (
-        <p className="mt-4 flex items-center gap-2 text-sm text-muted-foreground">
-          <CalendarBlank size={18} />
-          {new Intl.DateTimeFormat(locale, {
-            day: "numeric",
-            month: "long",
-            hour: "2-digit",
-            minute: "2-digit",
-          }).format(new Date(linkedAsset.scheduledPublishAt))}
-        </p>
-      )}
+      {(() => {
+        // An armed first publication, or a scheduled update of the live page.
+        const goLiveAt =
+          linkedAsset?.scheduledPublishAt && stage === "armed"
+            ? linkedAsset.scheduledPublishAt
+            : scheduledUpdateAt(linkedAsset);
+        return goLiveAt ? (
+          <p className="mt-4 flex items-center gap-2 text-sm text-muted-foreground">
+            <CalendarBlank size={18} />
+            {scheduledUpdateAt(linkedAsset) ? `${t("plan.goesLive")} · ` : ""}
+            {new Intl.DateTimeFormat(locale, {
+              day: "numeric",
+              month: "long",
+              hour: "2-digit",
+              minute: "2-digit",
+            }).format(new Date(goLiveAt))}
+          </p>
+        ) : null;
+      })()}
 
       <div className="mt-5 grid gap-2">
         {stage === "idea" ? (

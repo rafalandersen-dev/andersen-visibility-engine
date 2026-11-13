@@ -3,7 +3,7 @@ import { publicationVersion } from "./publication-version";
 import { assertPublicationApproved } from "./publication-approval.server";
 import { buildActiveInternalPaths } from "./publish-targets";
 import { publishBlockers } from "./checklist";
-import { scheduledUpdateIntent } from "./scheduled-published-updates";
+import { scheduledUpdateIntent, scheduledUpdateRefusal } from "./scheduled-published-updates";
 import type { ContentAsset, Project } from "./types";
 import { z } from "zod";
 /** The authenticated owner's manual scheduling action uses the saved exact
@@ -27,6 +27,9 @@ export async function scheduleApprovedPublication(
   await assertPublicationApproved(ownerId, asset, project, paths);
   if (publishBlockers(asset, project, content).length)
     throw new Error("Resolve the article's publication checks before scheduling it.");
+  // A live article is only ever scheduled as an update of its existing CMS object.
+  const unresolved = scheduledUpdateRefusal(asset, project);
+  if (unresolved) throw new Error(unresolved);
   const version = await publicationVersion(asset, project, paths);
   const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
   const db = supabaseAdmin as unknown as {

@@ -8,7 +8,8 @@
  * exact approved version it was armed with, and to the live destination identity.
  * Pure and server-free so the decision is unit-testable.
  */
-import type { ContentAsset } from "./types";
+import { isShopify, isWordPress } from "./publish-targets";
+import type { ContentAsset, Project } from "./types";
 
 export type ScheduledPublishedUpdate = NonNullable<ContentAsset["scheduledPublishedUpdate"]>;
 
@@ -36,6 +37,24 @@ export function liveIdentity(asset: ContentAsset): string {
   ]);
 }
 
+/**
+ * Null when a live article can be safely scheduled for an UPDATE, otherwise the
+ * owner-facing reason. WordPress and Shopify CREATE a new post whenever the
+ * existing connector identity is missing, so a URL-only live article must never be
+ * armed or sent; the custom endpoint upserts by assetId/slug and stays allowed.
+ * Not-yet-live articles are first publications and are not judged here.
+ */
+export function scheduledUpdateRefusal(asset: ContentAsset, project: Project): string | null {
+  if (asset.livePublishStatus !== "published") return null;
+  if (!isLivePublished(asset))
+    return "This article is marked live but Milo has no record of where it is published, so an update would publish a second copy.";
+  if (isWordPress(project) && !asset.wordpressPostId)
+    return "Milo can't identify the existing WordPress post to update, so an update would create a duplicate. Re-connect the original post first.";
+  if (isShopify(project) && !asset.shopifyArticleGid?.trim())
+    return "Milo can't identify the existing Shopify article to update, so an update would create a duplicate. Re-connect the original article first.";
+  return null;
+}
+
 /** Intent to store with a newly armed queue row; undefined for a first publication. */
 export function scheduledUpdateIntent(
   asset: ContentAsset,
@@ -53,7 +72,7 @@ export function firingUpdateIntent(
   queueId: string | undefined,
 ): ScheduledPublishedUpdate | undefined {
   const intent = asset.scheduledPublishedUpdate;
-  if (!queueId || !intent || intent.queueId !== queueId || !isLivePublished(asset)) return;
+  if (!queueId || !intent || intent.queueId !== queueId) return;
   return intent;
 }
 
@@ -63,6 +82,8 @@ export function updateRefusal(
   intent: ScheduledPublishedUpdate,
   currentVersionHash: string,
 ): string | null {
+  if (!isLivePublished(asset))
+    return "Milo can no longer identify the live article this update was scheduled for, so it was not sent. Review the existing article before scheduling it again.";
   if (liveIdentity(asset) !== intent.identity)
     return "The live article's destination changed after this update was scheduled, so it was not sent. Schedule it again.";
   if (currentVersionHash !== intent.versionHash)

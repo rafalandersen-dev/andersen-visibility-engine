@@ -41,7 +41,12 @@ import {
   PublishRecordingFailedError,
   PublishTransportError,
 } from "./publish-outcome";
-import { firingUpdateIntent, isLivePublished, updateRefusal } from "./scheduled-published-updates";
+import {
+  firingUpdateIntent,
+  isLivePublished,
+  scheduledUpdateRefusal,
+  updateRefusal,
+} from "./scheduled-published-updates";
 import type { ContentAsset, Project } from "./types";
 
 export {
@@ -330,6 +335,10 @@ export async function publishAssetServerSide(
       (row.data.content as ContentAsset[]).filter((c) => c.projectId === project.id),
     );
     if (updateIntent) {
+      // An update must target the existing connector object. Without its id,
+      // WordPress/Shopify would CREATE a duplicate, so refuse before any send.
+      const unresolved = scheduledUpdateRefusal(asset, project);
+      if (unresolved) throw new PublishNotPossibleError(unresolved);
       // The queue row was armed against one exact approved version of one live
       // destination. Refuse (permanently) if either moved since.
       const { publicationVersion } = await import("./publication-version");
