@@ -76,7 +76,6 @@ export interface SubscriptionPlan {
 }
 
 export const PLAN_IDS: PlanId[] = ["freePreview", "starter", "growth", "pro", "agency"];
-export const MAX_PROJECTS_PER_USER = 5;
 export const BILLING_MARKETS: BillingMarket[] = [
   "Poland",
   "Sweden",
@@ -397,6 +396,11 @@ export function getCurrentPlanId(sub?: SubscriptionPlan): PlanId {
 }
 export function getPlanLimitsFor(sub?: SubscriptionPlan): PlanLimits {
   return PLAN_LIMITS[getCurrentPlanId(sub)];
+}
+/** Non-owner project cap from the mirrored entitlement (soft UI gate). The database
+ * triggers enforce the same map from the authoritative plan (20261114130000). */
+export function projectLimitFor(sub?: SubscriptionPlan): number {
+  return getPlanLimitsFor(isActivePaid(sub) ? sub : undefined).maxProjects;
 }
 
 /** Agency white-label branding (applied to the monthly proof report). */

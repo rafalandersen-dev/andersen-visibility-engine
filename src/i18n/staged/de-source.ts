@@ -13,7 +13,7 @@ export const DE_AUTHORING_SOURCE_HASHES: Readonly<Record<string, string>> = {
   // R21 billing source head 5804ec62b92d2a2d957a7b3fb536b7c5225ff128. The 54 reviewed German
   // messages are unchanged; the 126 messages R21 added are reviewed English fallback pending
   // translation and interface acceptance, so this fingerprint is not a German review record.
-  "billing screen": "392ef009ccb9de83e3b6d64691a9a1aaee3ea0f59008db22c806638b5873477f",
+  "billing screen": "e213b50d8669f28be47cf095d320d6f0b498ff8ee381dc6c1e32e8b1cd093742",
   "evidence screen": "2c7e9ccb48b02cd12911d0df6c31a96ec8ddfc6c558dfda3b3e14790d156c136",
   "plan screen": "2bbe51606245c7a6fa86d34f4c932c7ecb9ac0332b116270fff96c3c8e5175c4",
   "editor screen": "541d9eb0143c53f9f6995353a0f17830e8603f3a91e43a94fca6187c398d6b92",

@@ -229,8 +229,8 @@ export const BG_STAGED_BATCHES = [
     name: "billing screen",
     copy: stagedBillingScreen(bgBillingScreen),
     namespaces: ["billingScreen"],
-    sourceRevision: "5804ec62b92d2a2d957a7b3fb536b7c5225ff128 (126 added keys: English fallback)",
-    sourceHash: "392ef009ccb9de83e3b6d64691a9a1aaee3ea0f59008db22c806638b5873477f",
+    sourceRevision: "5804ec62b92d2a2d957a7b3fb536b7c5225ff128 (130 added keys: English fallback)",
+    sourceHash: "e213b50d8669f28be47cf095d320d6f0b498ff8ee381dc6c1e32e8b1cd093742",
   },
   {
     name: "setup screen",

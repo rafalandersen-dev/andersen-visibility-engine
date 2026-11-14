@@ -79,7 +79,7 @@ it("keeps staged Latvian outside runtime and assigns each authored key once", ()
   const keys = LV_STAGED_BATCHES.flatMap((batch) => Object.keys(batch.copy));
   expect(new Set(keys).size).toBe(keys.length);
   expect(Object.keys(LV_STAGED_CATALOG).sort()).toEqual(keys.sort());
-  expect(keys).toHaveLength(5102);
+  expect(keys).toHaveLength(5106);
   expect(Object.isFrozen(LV_STAGED_CATALOG)).toBe(true);
 });
 it("covers the complete current English interface key set", () => {
@@ -96,7 +96,7 @@ it("does not copy English text into authored Latvian values", () => {
       (key) => key.split(".")[0] === "billingScreen" && !(key in lvBillingScreen),
     ),
   );
-  expect(fallback.size).toBe(126);
+  expect(fallback.size).toBe(130);
   // The CG-01A first-use messages are likewise DECLARED English fallback (see
   // ./first-use-fallback.ts), excluded by their own exact partition.
   const firstUse = new Set(
