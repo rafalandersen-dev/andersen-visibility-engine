@@ -8,6 +8,7 @@ const h = vi.hoisted(() => ({
   remove: vi.fn(),
   grant: vi.fn(),
   revoke: vi.fn(),
+  grantNative: vi.fn(),
 }));
 vi.mock("@/integrations/supabase/auth-middleware", () => ({ requireSupabaseAuth: h.auth }));
 vi.mock("@tanstack/react-start", () => ({
@@ -35,10 +36,12 @@ vi.mock("./citation-finding-review.server", () => ({
   removeCitationFindingReview: h.remove,
   grantCitationReviewAssignment: h.grant,
   revokeCitationReviewAssignment: h.revoke,
+  grantCitationReviewNativeAssignment: h.grantNative,
 }));
 import {
   getCitationFindingForReviewFn,
   grantCitationReviewAssignmentFn,
+  grantCitationReviewNativeAssignmentFn,
   readCitationFindingReviewsFn,
   removeCitationFindingReviewFn,
   revokeCitationReviewAssignmentFn,
@@ -51,8 +54,8 @@ const sha = "a".repeat(64);
 const call = (fn: unknown, data: unknown, userId = reviewer) =>
   (fn as (v: unknown) => Promise<unknown>)({ data, context: { userId } });
 describe("citation finding review endpoint authentication", () => {
-  it("requires auth on all six endpoints", () => {
-    expect(h.registered).toHaveLength(6);
+  it("requires auth on all seven endpoints", () => {
+    expect(h.registered).toHaveLength(7);
     for (const registration of h.registered) expect(registration).toEqual([h.auth]);
   });
   it("always uses the authenticated caller as the actor — the reviewer can never be a payload field", async () => {
@@ -112,6 +115,42 @@ describe("citation finding review endpoint authentication", () => {
       call(revokeCitationReviewAssignmentFn, { ...input, findingRowId: "no" }),
     ).toThrow();
     expect(() => call(grantCitationReviewAssignmentFn, { ...input, projectId: "../p" })).toThrow();
+  });
+  it("native-consent grant uses the authenticated OWNER as actor and binds a full-set sha (finding native-review binding)", async () => {
+    const input = {
+      projectId: "p",
+      findingRowId: row,
+      reviewerId: reviewer,
+      nativeSetSha256: sha,
+    };
+    // Owner is context.userId (1st arg); there is no ownerId key to forge, and the actor is never a payload field.
+    await call(grantCitationReviewNativeAssignmentFn, input, owner);
+    expect(h.grantNative).toHaveBeenLastCalledWith(owner, input);
+    // A forged owner key, a bad reviewer/finding id, a non-sha256 set digest, or a malformed project are refused.
+    expect(() =>
+      call(grantCitationReviewNativeAssignmentFn, { ...input, ownerId: reviewer }),
+    ).toThrow();
+    expect(() =>
+      call(grantCitationReviewNativeAssignmentFn, { ...input, reviewerId: "nope" }),
+    ).toThrow();
+    expect(() =>
+      call(grantCitationReviewNativeAssignmentFn, { ...input, findingRowId: "no" }),
+    ).toThrow();
+    expect(() =>
+      call(grantCitationReviewNativeAssignmentFn, { ...input, nativeSetSha256: "zz" }),
+    ).toThrow();
+    expect(() =>
+      call(grantCitationReviewNativeAssignmentFn, { ...input, projectId: "../p" }),
+    ).toThrow();
+    // The old non-native grant has no set-digest field; the two contracts are distinct.
+    expect(() =>
+      call(grantCitationReviewAssignmentFn, {
+        projectId: "p",
+        findingRowId: row,
+        reviewerId: reviewer,
+        nativeSetSha256: sha,
+      }),
+    ).toThrow();
   });
   it("refuses malformed ids, a bad content hash, an off-list decision and a malformed project", () => {
     const base = {

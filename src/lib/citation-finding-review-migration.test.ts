@@ -172,6 +172,31 @@ const saveF = async (...args: Parameters<typeof saveFRaw>) => {
   await autoAssign(f.id);
   return f;
 };
+// Seed a HISTORICAL-shape finding straight through the raw P3 RPC, bypassing the TS boundedFinding
+// native-only save rule (20261114120000) that now governs NEW owner UI saves. Used ONLY for legacy
+// native-only fixtures that carry the pre-rule answer-completeness/citation flags the frozen schema
+// allowed — so the reviewer-read regression (opaque native never inspectable) is preserved exactly,
+// without normalizing away the historical compatibility case. The native-binding INSERT trigger still
+// fires (a bare native ref has no binding, so it is skipped and preserved).
+const saveFRawDirect = async (
+  findingId: string,
+  decision: Parameters<typeof finding>[1] = "accepted",
+  opts: FindingOpts = {},
+) => {
+  const r = await rpc("save_ai_citation_finding", {
+    p_user: user,
+    p_project: "p",
+    p_record: finding(findingId, decision, opts),
+    p_scope: panelScope,
+  });
+  if (r.error || !r.data) throw new Error(`direct finding seed failed: ${JSON.stringify(r.error)}`);
+  return r.data as { id: string };
+};
+const saveFDirect = async (...args: Parameters<typeof saveFRawDirect>) => {
+  const f = await saveFRawDirect(...args);
+  await autoAssign(f.id);
+  return f;
+};
 const shaFor = async (rowId: string, actor = reviewer) =>
   // Non-null assertion: shaFor is only used on ACTIVE/visible findings, whose recordSha256 is the real hash a
   // reviewer pins to submit. (The digest is masked to null only on erased/withheld reviewer surfaces.)
@@ -1241,7 +1266,8 @@ describe("independent evidence inspection gates completed verification (spec §4
   it("marks a native-only finding non-inspectable, so an approval is only an opinion that never completes a required review", async () => {
     await seedNative();
     const fid = "60000000-0000-4000-8000-000000000031";
-    const f = await saveF(fid, "needs_second_review", {
+    // Legacy native-only shape (pre-rule answer flags) seeded straight through the raw RPC.
+    const f = await saveFDirect(fid, "needs_second_review", {
       evidence: [{ kind: "native", id: NATIVE }],
     });
     const view = await getCitationFindingForReview(
@@ -1260,7 +1286,8 @@ describe("independent evidence inspection gates completed verification (spec §4
   });
   it("records an approve-without-inspection on an accepted finding as an explicit opinion (never a false completion)", async () => {
     await seedNative();
-    const f = await saveF("60000000-0000-4000-8000-000000000032", "accepted", {
+    // Legacy native-only shape (pre-rule answer flags) seeded straight through the raw RPC.
+    const f = await saveFDirect("60000000-0000-4000-8000-000000000032", "accepted", {
       evidence: [{ kind: "native", id: NATIVE }],
     });
     await submit(reviewer, f.id, await shaFor(f.id), "approved");

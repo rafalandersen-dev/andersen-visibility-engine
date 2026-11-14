@@ -8,6 +8,8 @@ import {
   citationFindingReviewTargetSchema,
   citationReviewAssignmentInputSchema,
   citationReviewAssignmentReceiptSchema,
+  citationReviewNativeAssignmentInputSchema,
+  citationReviewNativeAssignmentReceiptSchema,
 } from "./citation-finding-review";
 import type { KnowledgeRpc } from "./project-knowledge.server";
 // The authenticated CALLER is the actor (an independent reviewer, or the owner for the owner-side reads);
@@ -171,6 +173,30 @@ export async function grantCitationReviewAssignment(
         p_project: input.projectId,
         p_finding: input.findingRowId,
         p_reviewer: input.reviewerId,
+      },
+      rpc,
+    ),
+  );
+}
+// Owner-only grant of EXPLICIT native-material consent (finding native-review binding). Separate from the
+// generic 4-arg grant: it records the full-set digest the owner consented to, which the DB recomputes
+// live and refuses on any mismatch/unbound/legacy. The authenticated caller IS p_owner (server-supplied).
+export async function grantCitationReviewNativeAssignment(
+  owner: string,
+  raw: z.infer<typeof citationReviewNativeAssignmentInputSchema>,
+  rpc?: KnowledgeRpc,
+) {
+  const o = actorId.parse(owner);
+  const input = citationReviewNativeAssignmentInputSchema.parse(raw);
+  return citationReviewNativeAssignmentReceiptSchema.parse(
+    await call(
+      "grant_ai_citation_review_assignment_v2",
+      {
+        p_owner: o,
+        p_project: input.projectId,
+        p_finding: input.findingRowId,
+        p_reviewer: input.reviewerId,
+        p_set_sha: input.nativeSetSha256,
       },
       rpc,
     ),

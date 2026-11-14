@@ -715,7 +715,11 @@ function Intake({ projectId, ownerId }: { projectId: string; ownerId: string }) 
     </section>
   );
 }
-function ReportView({
+// Exported for REUSE by the reviewer's native-material surface (finding native-review binding): the
+// reviewer renders the SAME source-specific projection (all retained rows/statuses, period/timezone/market
+// unknowns, gaps, partial/withheld counts, limitationNote) from its authorized `nativeMaterial`. It is a
+// pure presentational component (no queries/owner endpoints); never mount NativeGoogleIntakePanel itself.
+export function ReportView({
   view,
   note,
   label,

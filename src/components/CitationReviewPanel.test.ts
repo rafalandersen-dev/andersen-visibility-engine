@@ -28,9 +28,24 @@ type Q = {
   isFetching: boolean;
   refetch: () => void;
 };
-const h = vi.hoisted(() => ({ queries: {} as Record<string, unknown>, keys: [] as string[][] }));
+const h = vi.hoisted(() => ({
+  queries: {} as Record<string, unknown>,
+  keys: [] as string[][],
+  // The live workspace session the components' `useLiveSession` reads; default is the signed-in actor.
+  session: {
+    userId: "00000000-0000-4000-8000-0000000000a1" as string | null,
+    epoch: 1,
+    hydrated: true,
+  },
+}));
 vi.mock("@/lib/auth", () => ({
   useAuth: () => ({ user: { id: "00000000-0000-4000-8000-0000000000a1" } }),
+}));
+// A LIVE workspace session for the signed-in actor, so `useLiveSession` exposes material in these static
+// renders; the retired-session masking it adds is an async race proven in the browser harness, not here.
+vi.mock("@/lib/store", () => ({
+  getWorkspaceSaveContext: () => h.session,
+  useStore: () => undefined,
 }));
 vi.mock("@/i18n", () => ({ useT: () => (key: string) => key }));
 vi.mock("@tanstack/react-query", () => ({
@@ -370,6 +385,94 @@ describe("assigned reviewer surface", () => {
     expect(viewFirst[5]).not.toBe(viewSecond[5]); // a remount never shares the previous mount's entries
     expect(reviewsFirst[5]).toBe(viewFirst[5]); // both reads of ONE mount share its token
   });
+  const nativeEvidenceId = "00000000-0000-4000-8000-0000000000n1".replace(/n/g, "e");
+  const nativeMaterial = {
+    artifactId: nativeEvidenceId,
+    artifactSha256: "b".repeat(64),
+    parserVersion: "native-google-ai-csv-v1" as const,
+    file: "chart" as const,
+    withheldPageRows: 0,
+    partial: false,
+    limitationNote: "",
+    input: {
+      source: "gsc_generative_ai_search" as const,
+      declaredProperty: "example.com",
+      reportKind: "chart" as const,
+      dimension: "date" as const,
+      aggregation: "property" as const,
+      period: { start: "2026-10-01", end: "2026-10-31", timezone: "America/Los_Angeles" },
+      marketScope: { country: null, exposed: false },
+      filters: {},
+      capturedAt: "2026-11-01T00:00:00Z",
+      completeness: "partial" as const,
+      rows: [
+        {
+          key: "2026-10-01",
+          cells: { impressions: { raw: "5", status: "known_value", value: 5 } },
+        },
+      ],
+    },
+  };
+  it("renders a bound+consented native's exact parsed material with the source-specific projection (inside the exposure mask)", () => {
+    h.queries = {
+      "citation-for-review": ok({
+        ...view,
+        evidence: [
+          {
+            kind: "native",
+            id: nativeEvidenceId,
+            available: true,
+            inspectable: true,
+            nativeMaterial,
+          },
+        ],
+      } as unknown as CitationFindingForReview),
+      "citation-reviews": ok(receiptPage(false)),
+    };
+    const html = renderReviewer();
+    expect(html).toContain("citationReview.evidence.native");
+    expect(html).toContain("nativeIntake.nativeLabel.gsc"); // the source-specific renderer
+    expect(html).toContain("nativeIntake.metric.impressions"); // the metric the report carries
+    expect(html).toContain("2026-10-01"); // a retained row, not an aggregate
+    expect(html).toContain("nativeIntake.cell.known_value");
+    expect(html).toContain("nativeIntake.sourceIncompleteWarn"); // partial source uncertainty preserved
+    expect(html).not.toContain("nativeIntake.review.nativeBare");
+  });
+  it("a bare/legacy or unconsented native carries no material and says it is not shared for inspection", () => {
+    h.queries = {
+      "citation-for-review": ok({
+        ...view,
+        evidence: [{ kind: "native", id: nativeEvidenceId, available: true, inspectable: false }],
+      } as unknown as CitationFindingForReview),
+      "citation-reviews": ok(receiptPage(false)),
+    };
+    const html = renderReviewer();
+    expect(html).toContain("citationReview.evidence.native");
+    expect(html).toContain("nativeIntake.review.nativeBare");
+    expect(html).not.toContain("nativeIntake.nativeLabel.gsc");
+    expect(html).not.toContain("2026-10-01");
+  });
+  it("after a revoked read a cached native's parsed material is NOT rendered", () => {
+    h.queries = {
+      "citation-for-review": errored({
+        ...view,
+        evidence: [
+          {
+            kind: "native",
+            id: nativeEvidenceId,
+            available: true,
+            inspectable: true,
+            nativeMaterial,
+          },
+        ],
+      } as unknown as CitationFindingForReview),
+      "citation-reviews": errored(receiptPage(false)),
+    };
+    const html = renderReviewer();
+    expect(html).toContain("citationReview.reviewer.unavailable");
+    expect(html).not.toContain("nativeIntake.nativeLabel.gsc");
+    expect(html).not.toContain("2026-10-01");
+  });
   it("withheld finding: shows the withheld notice, never a fabricated record", () => {
     h.queries = {
       "citation-for-review": ok({
@@ -384,6 +487,32 @@ describe("assigned reviewer surface", () => {
     expect(html).toContain("citationReview.reviewer.withheld");
     expect(html).not.toContain("citationReview.record.observation");
     expect(html).not.toContain("<details");
+  });
+  it("a retired/replaced live session exposes nothing, even with cached success + own receipt", () => {
+    // The exposure MASK (synchronous, given a session state) hides material and the own-receipt control when
+    // the live workspace session is not the signed-in actor — the async race itself is a browser assertion.
+    h.queries = { "citation-for-review": ok(view), "citation-reviews": ok(receiptPage(true)) };
+    h.session = { userId: "00000000-0000-4000-8000-0000000000ff", epoch: 1, hydrated: true };
+    try {
+      const html = renderReviewer();
+      expect(html).toContain("citationReview.loading");
+      expect(html).not.toContain(OBSERVATION);
+      expect(html).not.toContain("citationReview.reviewer.withdraw");
+      expect(html).not.toContain("citationReview.reviewer.submit");
+    } finally {
+      h.session = { userId: "00000000-0000-4000-8000-0000000000a1", epoch: 1, hydrated: true };
+    }
+  });
+});
+
+describe("owner surface intro", () => {
+  it("shows the truthful native-review-binding owner intro, not the legacy citationReview.owner.intro", () => {
+    h.queries = { "citation-findings": ok({ findings: [] }) };
+    const html = renderToStaticMarkup(
+      createElement(CitationReviewPanel, { projectId: "synergy_2026" }),
+    );
+    expect(html).toContain("nativeIntake.review.ownerIntro");
+    expect(html).not.toContain("citationReview.owner.intro");
   });
 });
 

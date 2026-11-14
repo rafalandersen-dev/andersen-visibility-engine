@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { MAX_NATIVE_ARTIFACTS_PER_PROJECT } from "./native-ai-artifact";
-import { nativeReportImportInputSchema } from "./native-ai-report";
+import { NATIVE_REPORT_SOURCES, nativeReportImportInputSchema } from "./native-ai-report";
 import { nativeGoogleReportDescriptor, type NativeGoogleReportCsv } from "./native-google-ai-csv";
 import {
   NATIVE_BING_CSV_FILES,
@@ -252,6 +252,59 @@ export const nativeReportParsedReadSchema = z
       });
   });
 export type NativeReportParsedRead = z.infer<typeof nativeReportParsedReadSchema>;
+/** Read-back of the AUTHORITATIVE native binding the owner embeds into a NEW finding version (finding
+ * native-review binding). This is a SEPARATE, narrow shape from `nativeReportParsedReadSchema` — the frozen
+ * 5-key read_ai_native_report_parsed response is deliberately NOT extended (old production app strict-parses
+ * it). `binding` is null for an unparsed artifact (no future auto-authorization). `parsedSha256` is the
+ * server's central canonical digest over the entire parsed interpretation; the client never recomputes it. */
+export const nativeReportBindingReadSchema = z
+  .object({
+    id: z.string().uuid(),
+    available: z.boolean(),
+    parseState: z.enum(NATIVE_PARSE_STATES),
+    binding: z
+      .object({
+        rawSha256: z.string().regex(/^[a-f0-9]{64}$/),
+        source: z.enum(NATIVE_REPORT_SOURCES),
+        parserVersion: z.enum([NATIVE_GOOGLE_PARSER_VERSION, NATIVE_BING_PARSER_VERSION]),
+        parsedSha256: z.string().regex(/^[a-f0-9]{64}$/),
+      })
+      .strict()
+      .nullable(),
+  })
+  .strict()
+  .superRefine((r, ctx) => {
+    // Cross-field coherence (NFTS-02): an unparsed artifact never carries a binding; a present binding
+    // requires a parsed, available artifact and the correct source↔parserVersion pair (a gsc source with
+    // the bing parser, or vice versa, is rejected). parseState 'parsed' with a null binding is valid
+    // (parsed-but-unbindable: unsupported/malformed/tombstoned).
+    if (r.parseState === "unparsed" && r.binding !== null)
+      ctx.addIssue({
+        code: "custom",
+        path: ["binding"],
+        message: "An unparsed artifact has no binding",
+      });
+    if (r.binding !== null) {
+      if (r.parseState !== "parsed" || r.available !== true)
+        ctx.addIssue({
+          code: "custom",
+          path: ["binding"],
+          message: "A binding requires a parsed, available artifact",
+        });
+      const pairOk =
+        (r.binding.source === "gsc_generative_ai_search" &&
+          r.binding.parserVersion === NATIVE_GOOGLE_PARSER_VERSION) ||
+        (r.binding.source === "bing_ai_performance" &&
+          r.binding.parserVersion === NATIVE_BING_PARSER_VERSION);
+      if (!pairOk)
+        ctx.addIssue({
+          code: "custom",
+          path: ["binding", "parserVersion"],
+          message: "The binding source and parserVersion must be the matching pair",
+        });
+    }
+  });
+export type NativeReportBindingRead = z.infer<typeof nativeReportBindingReadSchema>;
 /** Lightweight per-artifact parse-state overview for the list — no rows, no bytes. */
 export const nativeReportParseStateSchema = z
   .object({

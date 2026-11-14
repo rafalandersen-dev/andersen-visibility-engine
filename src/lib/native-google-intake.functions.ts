@@ -41,6 +41,16 @@ export const readNativeReportParsedFn = createServerFn({ method: "POST" })
       data.id,
     );
   });
+export const readNativeReportBindingFn = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((v: unknown) => scope.extend({ id: z.string().uuid() }).strict().parse(v))
+  .handler(async ({ data, context }) => {
+    if (context.userId !== data.expectedOwnerId) throw Error("evidence_owner_changed");
+    return (await import("./native-google-intake.server")).readNativeReportBinding(
+      { ownerId: context.userId, projectId: data.projectId },
+      data.id,
+    );
+  });
 export const readNativeReportParseStatesFn = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((v: unknown) => scope.strict().parse(v))

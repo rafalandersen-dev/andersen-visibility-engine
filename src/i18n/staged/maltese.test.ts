@@ -82,7 +82,7 @@ it("keeps staged Maltese outside runtime and assigns each authored key once", ()
   const keys = MT_STAGED_BATCHES.flatMap((batch) => Object.keys(batch.copy));
   expect(new Set(keys).size).toBe(keys.length);
   expect(Object.keys(MT_STAGED_CATALOG).sort()).toEqual(keys.sort());
-  expect(keys).toHaveLength(5082);
+  expect(keys).toHaveLength(5102);
   expect(Object.isFrozen(MT_STAGED_CATALOG)).toBe(true);
 });
 it("covers the complete current English interface key set", () => {
@@ -135,7 +135,7 @@ it("does not copy English text into authored Maltese values", () => {
     Object.keys(UI_CATALOGS.en).filter((key) => key.split(".")[0] === "nativeIntake"),
   );
   expect([...nativeIntake].sort()).toEqual(Object.keys(nativeIntakeCopy.en).sort());
-  expect(nativeIntake.size).toBe(100);
+  expect(nativeIntake.size).toBe(120);
   const unchanged = Object.entries(MT_STAGED_CATALOG).filter(
     ([key, value]) =>
       value === UI_CATALOGS.en[key] &&
