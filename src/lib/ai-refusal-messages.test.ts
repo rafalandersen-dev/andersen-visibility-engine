@@ -12,7 +12,7 @@ import { AiTextBoundaryError } from "./ai-text-bounds.server";
 import { aiErrorUserMessage, type AiErrorClass } from "./ai-error-diagnostics.server";
 import { AiExpenseUnavailableError } from "./ai-expense.server";
 import { AiProviderConfigurationError } from "./ai-provider.server";
-import { UsageLimitError, UsageUnavailableError } from "./ai-usage.server";
+import { AiEvaluationGateError, UsageLimitError, UsageUnavailableError } from "./ai-usage.server";
 
 const en = (k: string, vars?: Record<string, string | number>) => translate("en", k, vars);
 const pl = (k: string, vars?: Record<string, string | number>) => translate("pl", k, vars);
@@ -59,6 +59,29 @@ describe("exact authored sentences from the real server modules map to keys whos
   it("provider configuration and usage-unavailable errors", () => {
     for (const e of [new AiProviderConfigurationError(), new UsageUnavailableError("miloScore")])
       expect(en(aiRefusalKey(e.message)!)).toBe(e.message);
+  });
+  it.each([
+    ["restricted", "aiEvalAccess.restricted"],
+    ["unavailable", "aiEvalAccess.unavailable"],
+  ] as const)(
+    "AiEvaluationGateError %s keeps its own key in all four active languages",
+    (access, key) => {
+      const e = new AiEvaluationGateError(access);
+      expect(aiRefusalKey(e.message)).toBe(key);
+      expect(en(key)).toBe(e.message);
+      for (const lang of ["pl", "sv", "da"] as const) {
+        const text = aiRefusalMessage(new Error(e.message), (k) => translate(lang, k))!;
+        expect(text, lang).toBe(UI_CATALOGS[lang][key]);
+        expect(text, lang).not.toBe(e.message);
+      }
+    },
+  );
+  it("the unavailable gate sentence never claims a missing plan or offers an upgrade", () => {
+    for (const lang of ["en", "pl", "sv", "da"] as const) {
+      const text = UI_CATALOGS[lang]["aiEvalAccess.unavailable"];
+      expect(text, lang).not.toMatch(/\bPro\b|\bAgency\b/);
+      expect(text, lang).not.toMatch(/upgrad|uppgrad|opgrad|podnieś/i);
+    }
   });
   it("the usage-limit template carries count and bucket; other buckets stay as received", () => {
     const e = new UsageLimitError(
@@ -112,6 +135,7 @@ describe("safety: only exact sentences match; unknown, partial or provider-shape
     "PREFIX There is too much source text for one AI request. Reduce the input and try again.",
     'AI generation failed unexpectedly. Please try again. {"provider":"raw"}',
     "Request failed with status 500: x-request-id abc",
+    "AI Evaluation is included in the Pro and Agency plans.", // prefix only
   ])("%j", (message) => {
     expect(aiRefusalKey(message)).toBeNull();
     expect(aiRefusalText(message, en)).toBeNull();
@@ -139,6 +163,13 @@ describe("copy contracts", () => {
           [...UI_CATALOGS.en[key].matchAll(/\{[a-zA-Z]\w*\}/g)].map((m) => m[0]).sort(),
         );
       }
+  });
+  it("the 2 AI Evaluation access keys have non-empty copy in en/pl/sv/da", () => {
+    const access = Object.keys(UI_CATALOGS.en).filter((k) => k.startsWith("aiEvalAccess."));
+    expect(access.sort()).toEqual(["aiEvalAccess.restricted", "aiEvalAccess.unavailable"]);
+    for (const key of access)
+      for (const lang of ["en", "pl", "sv", "da"] as const)
+        expect(UI_CATALOGS[lang][key]?.trim(), `${lang} ${key}`).toBeTruthy();
   });
   it("the semantics are preserved: input-too-large says to reduce the input (before spend); incomplete and timeouts say Milo did not retry", () => {
     expect(en("quality.refusal.inputTooLarge")).toContain("Reduce the input");

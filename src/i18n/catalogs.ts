@@ -6,6 +6,7 @@ import { taskContinuityCopy } from "./task-continuity";
 import { answerCoverageCopy } from "./answer-coverage";
 import { panelCoverageCopy } from "./panel-coverage";
 import { manualCaptureCopy } from "./manual-capture";
+import { aiEvaluationAccessCopy } from "./ai-evaluation-access";
 import { UI_LANGUAGE_CODES } from "./ui-languages";
 import { publicPricingCopy } from "./public-pricing";
 import { publicHomeCopy } from "./public-home";
@@ -113,6 +114,7 @@ const OVERRIDES: readonly Record<OnboardingLanguage, Dictionary>[] = [
   answerCoverageCopy,
   panelCoverageCopy,
   manualCaptureCopy,
+  aiEvaluationAccessCopy,
 ];
 export { UI_LANGUAGE_CODES };
 export function isUiLanguage(value: unknown): value is OnboardingLanguage {

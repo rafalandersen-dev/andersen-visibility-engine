@@ -25,6 +25,7 @@
  * This counter is not yet a monetary budget or a delivered-result allowance.
  */
 import { PLAN_LIMITS, type PlanId, type PlanLimits } from "./billing";
+import type { EntitledPlanResult } from "./entitlements.server";
 
 /** Which advertised limit a given AI call draws from. */
 export type UsageBucket =
@@ -330,6 +331,75 @@ export async function assertImageGenerationAllowed(args: {
     throw new ImageGenerationGateError(
       "AI image generation is included in the Pro and Agency plans. Upgrade to generate images — or upload your own.",
     );
+  }
+}
+
+/** Known access, a KNOWN plan restriction, or unconfirmed access (never a plan claim). */
+export type AiEvaluationAccess = "allowed" | "restricted" | "unavailable";
+
+export class AiEvaluationGateError extends Error {
+  readonly code = "feature_gate";
+  constructor(readonly access: Exclude<AiEvaluationAccess, "allowed">) {
+    // Exact authored sentences: the client maps them to localized copy (ai-refusal-messages.ts).
+    super(
+      access === "restricted"
+        ? "AI Evaluation is included in the Pro and Agency plans. Upgrade to run new comparisons — your saved evaluation history stays available."
+        : "Milo cannot confirm AI Evaluation access right now. New comparisons are paused; please try again later. Your saved evaluation history stays available.",
+    );
+    this.name = "AiEvaluationGateError";
+  }
+}
+
+/**
+ * AI Evaluation access — Pro/Agency only (`PLAN_LIMITS.aiEvaluationEnabled`).
+ * Fresh server-side plan and owner reads, each bounded on its own, so either
+ * POSITIVE authority suffices: a known Pro/Agency plan OR a verified platform
+ * owner is allowed even when the other read is unavailable. It is restricted
+ * only when BOTH are known (lower plan, verified non-owner); any other
+ * incomplete evidence is unavailable. Never throws.
+ */
+export async function resolveAiEvaluationAccess(args: {
+  userId: string;
+  bucket: UsageBucket;
+}): Promise<AiEvaluationAccess> {
+  try {
+    const [plan, owner] = await Promise.all([
+      boundedUsageLookup(args.bucket, resolvePlanResult(args.userId)).catch(
+        (): EntitledPlanResult => ({ ok: false }),
+      ),
+      boundedUsageLookup(args.bucket, resolveOwnerResult(args.userId)).catch((): OwnerResult => ({
+        ok: false,
+      })),
+    ]);
+    if (owner.ok && owner.isOwner) return "allowed";
+    if (plan.ok && PLAN_LIMITS[plan.planId]?.aiEvaluationEnabled === true) return "allowed";
+    return plan.ok && owner.ok ? "restricted" : "unavailable";
+  } catch {
+    return "unavailable";
+  }
+}
+
+/**
+ * Hard gate for every AI Evaluation call, before its quota claim, monetary
+ * reservation or provider call, so a downgrade stops the next call even
+ * mid-comparison. The owner bypass covers this feature only; quota and the
+ * monetary budget still apply downstream.
+ */
+export async function assertAiEvaluationAllowed(args: {
+  userId: string;
+  bucket: UsageBucket;
+}): Promise<void> {
+  const access = await resolveAiEvaluationAccess(args);
+  if (access !== "allowed") throw new AiEvaluationGateError(access);
+}
+
+/** Plan read that PRESERVES lookup uncertainty (see resolveEntitledPlanResult). */
+async function resolvePlanResult(userId: string): Promise<EntitledPlanResult> {
+  try {
+    const { resolveEntitledPlanResult } = await import("./entitlements.server");
+    return await resolveEntitledPlanResult(userId);
+  } catch {
+    return { ok: false };
   }
 }
 
