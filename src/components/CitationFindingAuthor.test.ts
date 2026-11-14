@@ -16,7 +16,21 @@ type Q = {
   isFetching: boolean;
   refetch: () => void;
 };
-const h = vi.hoisted(() => ({ queries: {} as Record<string, unknown> }));
+const h = vi.hoisted(() => ({
+  queries: {} as Record<string, unknown>,
+  // The live workspace session the author's `sessionCurrent()` reads; default is the signed-in owner.
+  session: {
+    userId: "00000000-0000-4000-8000-000000000001" as string | null,
+    epoch: 1,
+    hydrated: true,
+  },
+}));
+// A LIVE workspace session for the owner, so the author's live-session render/readiness gate exposes the
+// draft in these static renders; the retired-session masking is an async race proven in the browser harness.
+vi.mock("@/lib/store", () => ({
+  getWorkspaceSaveContext: () => h.session,
+  useStore: () => undefined,
+}));
 // The key is echoed, followed by the interpolation values so raw stored data (instants, versions) can be asserted.
 vi.mock("@/i18n", () => ({
   useT: () => (key: string, vars?: Record<string, string | number>) =>
@@ -63,6 +77,8 @@ vi.mock("@/lib/project-team.functions", () => ({
   readProjectTeamRosterFn: vi.fn(),
   readOwnerTeamPolicyFn: vi.fn(),
 }));
+vi.mock("@/lib/native-ai-artifact.functions", () => ({ readNativeArtifactsFn: vi.fn() }));
+vi.mock("@/lib/native-google-intake.functions", () => ({ readNativeReportBindingFn: vi.fn() }));
 vi.mock("@/lib/auth", () => ({
   useAuth: () => ({ user: { id: "00000000-0000-4000-8000-000000000001" } }),
 }));
@@ -758,5 +774,190 @@ describe("finding author surface", () => {
     );
     expect(html).not.toContain("Observed.");
     expect(html).toContain("citationAuthoring.author.new");
+  });
+
+  /* ------------------------------------------------ native evidence authoring */
+  const nativeId = "90000000-0000-4000-8000-000000000001";
+  const bareId = "90000000-0000-4000-8000-000000000002";
+  const nativeBinding = {
+    rawSha256: "a".repeat(64),
+    source: "gsc_generative_ai_search" as const,
+    parserVersion: "native-google-ai-csv-v1" as const,
+    parsedSha256: "b".repeat(64),
+  };
+  const artifact = (id: string, source = "gsc_generative_ai_search") => ({
+    id,
+    metadata: {
+      source,
+      declaredProperty: "example.com",
+      period: { start: "2026-10-01", end: "2026-10-31" },
+    },
+  });
+  const nativeScene = (
+    natives: { id: string; binding: typeof nativeBinding | null }[],
+    answerId: string | null,
+  ) => {
+    const d = newFindingDraft("61000000-0000-4000-8000-000000000009", "citation_source");
+    d.scope = { panelId: lockedPanel.panelId, panelVersion: 2, client: lockedPanel.client };
+    d.answerId = answerId;
+    d.observation = "Observed native.";
+    d.natives = natives;
+    return authoringReducer(initialAuthoringState(authoringIdentity(owner, "p")), {
+      type: "startNew",
+      draft: d,
+    });
+  };
+  const baseNativeQueries = (artifacts: unknown[]) => {
+    h.queries = {
+      "citation-protocol": ok({ panels: [lockedPanel], brandRuns: [], answers: [] }),
+      "answer-evidence": ok({ prompts: [], answers: [] }),
+      "project-knowledge": ok({ sources: [], records: [] }),
+      "citation-business-facts": ok({ facts: [] }),
+      "citation-findings": ok({ findings: [] }),
+      "native-artifacts": ok({ artifacts }),
+    };
+  };
+  it("a native-only finding cites a bound report, explains the absence of a captured answer, and omits every answer-derived section", () => {
+    baseNativeQueries([artifact(nativeId)]);
+    const html = renderToStaticMarkup(
+      createElement(CitationFindingAuthor, {
+        ...props,
+        initialState: nativeScene([{ id: nativeId, binding: nativeBinding }], null),
+      }),
+    );
+    expect(html).toContain("nativeIntake.bind.heading");
+    expect(html).toContain("nativeIntake.bind.bound");
+    expect(html).toContain("nativeIntake.bind.nativeOnly");
+    expect(html).toContain("example.com"); // the cited report is identified by its declared property
+    expect(html).toContain("data-native-only");
+    // The answer-derived controls are OMITTED for a native-only finding.
+    expect(html).not.toContain("citationAuthoring.author.answerComplete");
+    expect(html).not.toContain("citationAuthoring.author.competitorCited");
+    expect(html).not.toContain("citationAuthoring.author.recommendation");
+    expect(html).not.toContain("citationAuthoring.author.support");
+    expect(html).not.toContain("citationAuthoring.author.accuracy");
+  });
+  it("a mixed answer+native finding preserves both a bound and a bare legacy reference and keeps the answer sections", () => {
+    baseNativeQueries([artifact(nativeId), artifact(bareId)]);
+    const html = renderToStaticMarkup(
+      createElement(CitationFindingAuthor, {
+        ...props,
+        initialState: nativeScene(
+          [
+            { id: nativeId, binding: nativeBinding },
+            { id: bareId, binding: null },
+          ],
+          "10000000-0000-4000-8000-000000000001",
+        ),
+      }),
+    );
+    expect(html).toContain("nativeIntake.bind.bound"); // the bound reference
+    expect(html).toContain("nativeIntake.bind.bare"); // the preserved legacy reference
+    expect(html).toContain("nativeIntake.bind.bindCurrent"); // offered only for the bare one
+    expect(html).not.toContain("nativeIntake.bind.nativeOnly"); // mixed keeps the answer sections
+    expect(html).toContain("citationAuthoring.author.support");
+  });
+  it("a cited native report that no longer exists is shown as missing (stale) and never silently dropped", () => {
+    baseNativeQueries([]); // the artifact was deleted; no summary resolves
+    const html = renderToStaticMarkup(
+      createElement(CitationFindingAuthor, {
+        ...props,
+        initialState: nativeScene([{ id: nativeId, binding: nativeBinding }], null),
+      }),
+    );
+    expect(html).toContain("nativeIntake.bind.missing");
+    expect(html).toContain(`data-native-ref="${nativeId}"`);
+  });
+  it("a bound cited native blocks Review until its CURRENT material is inspected, offering a view control", () => {
+    // Material is component state the owner acquires by viewing/citing; a fresh render has none, so the
+    // bound ref offers a "view current material" control and Review is disabled (nativeReady predicate).
+    baseNativeQueries([artifact(nativeId)]);
+    const html = renderToStaticMarkup(
+      createElement(CitationFindingAuthor, {
+        ...props,
+        initialState: nativeScene([{ id: nativeId, binding: nativeBinding }], null),
+      }),
+    );
+    expect(html).toContain("nativeIntake.view"); // view current material
+    expect(html).toMatch(/<button[^>]*disabled[^>]*>citationAuthoring\.author\.review/);
+  });
+  it("a cited native whose current list read is unconfirmed blocks Review and flags it (cached success does not qualify)", () => {
+    h.queries = {
+      "citation-protocol": ok({ panels: [lockedPanel], brandRuns: [], answers: [] }),
+      "answer-evidence": ok({ prompts: [], answers: [] }),
+      "project-knowledge": ok({ sources: [], records: [] }),
+      "citation-business-facts": ok({ facts: [] }),
+      "citation-findings": ok({ findings: [] }),
+      "native-artifacts": errored(), // the current list read failed; deletion cannot be confirmed either way
+    };
+    const html = renderToStaticMarkup(
+      createElement(CitationFindingAuthor, {
+        ...props,
+        initialState: nativeScene([{ id: nativeId, binding: nativeBinding }], null),
+      }),
+    );
+    expect(html).toContain("data-native-unconfirmed");
+    expect(html).toMatch(/<button[^>]*disabled[^>]*>citationAuthoring\.author\.review/);
+  });
+  it("a BACKGROUND-fetching current list (cached success) does not qualify freshness: Review stays blocked", () => {
+    // isFetching true with cached success must NOT qualify `nativeListReady` (R4 fix): a refetch in flight
+    // is not a current confirmed read.
+    const fetchingOk = (data: unknown): Q => ({
+      data,
+      isError: false,
+      isSuccess: true,
+      isPending: false,
+      isFetching: true,
+      refetch: vi.fn(),
+    });
+    h.queries = {
+      "citation-protocol": ok({ panels: [lockedPanel], brandRuns: [], answers: [] }),
+      "answer-evidence": ok({ prompts: [], answers: [] }),
+      "project-knowledge": ok({ sources: [], records: [] }),
+      "citation-business-facts": ok({ facts: [] }),
+      "citation-findings": ok({ findings: [] }),
+      "native-artifacts": fetchingOk({ artifacts: [artifact(nativeId)] }),
+    };
+    const html = renderToStaticMarkup(
+      createElement(CitationFindingAuthor, {
+        ...props,
+        initialState: nativeScene([{ id: nativeId, binding: nativeBinding }], null),
+      }),
+    );
+    expect(html).toContain("data-native-unconfirmed");
+    expect(html).toMatch(/<button[^>]*disabled[^>]*>citationAuthoring\.author\.review/);
+  });
+  it("required journey field selects carry the 44px minimum target class", () => {
+    baseNativeQueries([]);
+    const html = renderToStaticMarkup(
+      createElement(CitationFindingAuthor, {
+        ...props,
+        initialState: nativeScene([], "10000000-0000-4000-8000-000000000001"),
+      }),
+    );
+    // The shared field class (scope/answer/entity/priority/decision selects) now holds min-h-11 (UIR3-05).
+    expect(html).toContain("h-9 min-h-11");
+  });
+  it("a retired/replaced live session masks the entire private draft/report/list and admits no action (UIR5-01)", () => {
+    // Populated draft + cached-successful native list, then the live session is no longer the owner (same
+    // mount, before route remount): the exposure MASK hides the draft/report/native list/Review. The draft
+    // data survives in state; only its rendering is gated. (The async race itself is a browser assertion.)
+    baseNativeQueries([artifact(nativeId)]);
+    h.session = { userId: "00000000-0000-4000-8000-0000000000ff", epoch: 1, hydrated: true };
+    try {
+      const html = renderToStaticMarkup(
+        createElement(CitationFindingAuthor, {
+          ...props,
+          initialState: nativeScene([{ id: nativeId, binding: nativeBinding }], null),
+        }),
+      );
+      expect(html).toContain("citationAuthoring.common.loading");
+      expect(html).not.toContain("Observed native."); // the private draft observation
+      expect(html).not.toContain("nativeIntake.bind.heading"); // the cited-native list
+      expect(html).not.toContain("nativeIntake.bind.nativeOnly");
+      expect(html).not.toContain("citationAuthoring.author.review"); // no Review action admitted
+    } finally {
+      h.session = { userId: "00000000-0000-4000-8000-000000000001", epoch: 1, hydrated: true };
+    }
   });
 });

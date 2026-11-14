@@ -10,7 +10,7 @@ import { CitationForwardPanel } from "@/components/CitationForwardPanel";
 import { CitationInspectionPanel } from "@/components/CitationInspectionPanel";
 import { NativeGoogleIntakePanel } from "@/components/NativeGoogleIntakePanel";
 import { useAuth } from "@/lib/auth";
-import { useStore } from "@/lib/store";
+import { getWorkspaceSaveContext, useStore } from "@/lib/store";
 import { useT } from "@/i18n";
 import { reviewerLinkContext } from "@/lib/citation-review-ui";
 
@@ -37,19 +37,31 @@ function CitationReviewRoute() {
   const search = Route.useSearch();
   const link = reviewerLinkContext(search);
   const activeProject = useStore((s) => s.projects.find((p) => p.id === s.activeProjectId));
+  // Re-render on any workspace session change so the gate/key below reflect the live session.
+  useStore((s) => s.userId);
+  useStore((s) => s.hydrated);
   const { user } = useAuth();
+  const ctx = getWorkspaceSaveContext();
+  // A STABLE, hydrated session whose live workspace userId matches the signed-in actor; `null` otherwise.
+  // Native author/grant/reviewer surfaces mount only for a stable session and are KEYED by the epoch, so a
+  // same-actor re-login, hydration loss or actor switch retires their pending reads/writes/consent and
+  // forces a fresh authorized read — a late old-identity response can neither expose nor dispatch (UI1).
+  const sessionEpoch = user && ctx.hydrated && ctx.userId === user.id ? ctx.epoch : null;
 
   // Reviewer mode: use the OWNER's project id from the validated link, not the reviewer's own project.
   if (link.mode === "reviewer") {
     return (
       <AppShell title={t("citationReview.title")} description={t("citationReview.subtitle")}>
-        <CitationReviewPanel
-          projectId={link.context.projectId}
-          reviewerContext={{
-            ownerId: link.context.ownerId,
-            findingRowId: link.context.findingRowId,
-          }}
-        />
+        {sessionEpoch !== null ? (
+          <CitationReviewPanel
+            key={`rev:${sessionEpoch}`}
+            projectId={link.context.projectId}
+            reviewerContext={{
+              ownerId: link.context.ownerId,
+              findingRowId: link.context.findingRowId,
+            }}
+          />
+        ) : null}
       </AppShell>
     );
   }
@@ -104,8 +116,8 @@ function CitationReviewRoute() {
   // is never displayed or submitted under project B (each form additionally binds its own state to the identity).
   return (
     <AppShell title={t("citationReview.title")} description={t("citationReview.subtitle")}>
-      {user ? (
-        <div className="space-y-6 mb-6" key={`${user.id}:${activeProject.id}`}>
+      {user && sessionEpoch !== null ? (
+        <div className="space-y-6 mb-6" key={`${user.id}:${activeProject.id}:${sessionEpoch}`}>
           <CitationPanelProtocolPanel
             projectId={activeProject.id}
             ownerId={user.id}
@@ -130,7 +142,9 @@ function CitationReviewRoute() {
           />
         </div>
       ) : null}
-      <CitationReviewPanel projectId={activeProject.id} />
+      {sessionEpoch !== null ? (
+        <CitationReviewPanel key={`own:${sessionEpoch}`} projectId={activeProject.id} />
+      ) : null}
     </AppShell>
   );
 }

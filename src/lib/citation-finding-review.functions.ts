@@ -5,6 +5,7 @@ import {
   citationFindingReviewRemoveSchema,
   citationFindingReviewTargetSchema,
   citationReviewAssignmentInputSchema,
+  citationReviewNativeAssignmentInputSchema,
 } from "./citation-finding-review";
 // Unlike the owner-only citation endpoints, these do NOT require the caller to be the project owner: the
 // authenticated `context.userId` is the ACTOR (an independent reviewer, or the owner for the owner-side
@@ -65,6 +66,17 @@ export const revokeCitationReviewAssignmentFn = createServerFn({ method: "POST" 
   .inputValidator((v: unknown) => citationReviewAssignmentInputSchema.parse(v))
   .handler(async ({ data, context }) =>
     (await import("./citation-finding-review.server")).revokeCitationReviewAssignment(
+      context.userId,
+      data,
+    ),
+  );
+// OWNER-ONLY native-material consent grant (finding native-review binding): records explicit full-set
+// consent for a native-bearing finding. Owner is `context.userId`; the DB re-verifies the set digest live.
+export const grantCitationReviewNativeAssignmentFn = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((v: unknown) => citationReviewNativeAssignmentInputSchema.parse(v))
+  .handler(async ({ data, context }) =>
+    (await import("./citation-finding-review.server")).grantCitationReviewNativeAssignment(
       context.userId,
       data,
     ),

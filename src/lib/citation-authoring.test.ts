@@ -280,6 +280,114 @@ describe("reopen / edit / stale references", () => {
       staleSelections(d, { ...fresh, lockedScopes: [{ panelId: scope.panelId, panelVersion: 1 }] }),
     ).toEqual(["scope"]);
   });
+  it("native-only: citation_source finding with the bound native and NO invented answer facts", () => {
+    const NATIVE = "c0000000-0000-4000-8000-000000000001";
+    const binding = {
+      rawSha256: "a".repeat(64),
+      source: "bing_ai_performance" as const,
+      parserVersion: "native-bing-ai-csv-v1" as const,
+      parsedSha256: "b".repeat(64),
+    };
+    const d = newFindingDraft("60000000-0000-4000-8000-00000000000a", "citation_source");
+    d.scope = scope;
+    d.natives = [{ id: NATIVE, binding }];
+    d.observation = "Our page appears in the Bing AI citations export.";
+    // The owner cannot smuggle answer-at-capture facts — all FORCED off for a native-only finding.
+    d.answerComplete = true;
+    d.citationsComplete = true;
+    d.competitorCited = "yes";
+    d.ownCited = "no";
+    d.recommendation = {
+      enabled: true,
+      status: "recommended",
+      passage: "x",
+      target: "y",
+      suitability: "fits",
+    };
+    const out = draftToFinding(d, owner, now, null);
+    expect(out.ok).toBe(true);
+    if (!out.ok) return;
+    expect(findingSchema.safeParse(out.finding).success).toBe(true);
+    expect(out.finding.evidence).toEqual([{ kind: "native", id: NATIVE, nativeBinding: binding }]);
+    expect(out.finding.capture).toEqual({ answerComplete: false, citationsComplete: false });
+    expect(out.finding.competitorCited).toBeNull();
+    expect(out.finding.ownCited).toBeNull();
+    expect(out.finding.recommendation).toBeNull();
+    expect(out.finding.support).toEqual([]);
+    expect(out.finding.accuracy).toEqual([]);
+  });
+  it("refuses a draft with neither an answer nor a native report", () => {
+    const d = newFindingDraft("60000000-0000-4000-8000-00000000000b", "citation_source");
+    d.scope = scope;
+    expect(draftToFinding(d, owner, now, null).ok).toBe(false);
+  });
+  it("mixed answer+native keeps answer semantics and preserves the native binding", () => {
+    const NATIVE = "c0000000-0000-4000-8000-000000000002";
+    const binding = {
+      rawSha256: "a".repeat(64),
+      source: "gsc_generative_ai_search" as const,
+      parserVersion: "native-google-ai-csv-v1" as const,
+      parsedSha256: "b".repeat(64),
+    };
+    const d = newFindingDraft("60000000-0000-4000-8000-00000000000c", "citation_source");
+    d.scope = scope;
+    d.answerId = ANSWER;
+    d.natives = [{ id: NATIVE, binding }];
+    d.observation = "Answer omits us; the native export shows low citations.";
+    d.competitorCited = "yes";
+    d.ownCited = "no";
+    const out = draftToFinding(d, owner, now, capturedAt);
+    expect(out.ok).toBe(true);
+    if (!out.ok) return;
+    expect(out.finding.evidence).toEqual([
+      { kind: "answer", id: ANSWER },
+      { kind: "native", id: NATIVE, nativeBinding: binding },
+    ]);
+    expect(out.finding.capture.answerComplete).toBe(true);
+  });
+  it("draftFromRecord preserves every native reference (bound AND bare) on edit", () => {
+    const BOUND = "c0000000-0000-4000-8000-000000000003";
+    const BARE = "c0000000-0000-4000-8000-000000000004";
+    const binding = {
+      rawSha256: "a".repeat(64),
+      source: "bing_ai_performance" as const,
+      parserVersion: "native-bing-ai-csv-v1" as const,
+      parsedSha256: "b".repeat(64),
+    };
+    const d = newFindingDraft("60000000-0000-4000-8000-00000000000d", "citation_source");
+    d.scope = scope;
+    d.answerId = ANSWER;
+    d.natives = [
+      { id: BOUND, binding },
+      { id: BARE, binding: null },
+    ];
+    d.observation = "mixed with a bound and a bare native reference";
+    d.competitorCited = "yes";
+    d.ownCited = "no";
+    const out = draftToFinding(d, owner, now, capturedAt);
+    expect(out.ok).toBe(true);
+    if (!out.ok) return;
+    const back = draftFromRecord(out.finding, scope, { id: "r", version: 1 });
+    expect(back.natives).toEqual([
+      { id: BOUND, binding },
+      { id: BARE, binding: null },
+    ]);
+  });
+  it("flags a cited native whose artifact has vanished (presence only)", () => {
+    const NATIVE = "c0000000-0000-4000-8000-000000000005";
+    const d = newFindingDraft("60000000-0000-4000-8000-00000000000e", "citation_source");
+    d.scope = scope;
+    d.natives = [{ id: NATIVE, binding: null }];
+    const base = {
+      answers: [],
+      sources: [],
+      records: [],
+      facts: [],
+      lockedScopes: [{ panelId: scope.panelId, panelVersion: 2 }],
+    };
+    expect(staleSelections(d, { ...base, natives: [{ id: NATIVE }] })).toEqual([]);
+    expect(staleSelections(d, { ...base, natives: [] })).toEqual(["native.0"]);
+  });
   it("maps server outcomes to meaningful copy keys and reads the head version from the list", () => {
     expect(authoringErrorKey("citation_finding_version_conflict")).toBe("versionConflict");
     expect(authoringErrorKey("citation_panel_scope_unauthenticated")).toBe("scopeUnauthenticated");

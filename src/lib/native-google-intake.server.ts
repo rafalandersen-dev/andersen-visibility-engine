@@ -13,6 +13,7 @@ import {
   NATIVE_GOOGLE_PARSER_VERSION,
   fileKindForDimension,
   nativeLimitationNoteSchema,
+  nativeReportBindingReadSchema,
   nativeReportParseStatesSchema,
   nativeReportParsedReadSchema,
   nativeReportParsedRecordSchema,
@@ -190,6 +191,28 @@ export async function readNativeReportParsed(
       rpc,
     ),
   );
+}
+// NEW narrow owner read of the AUTHORITATIVE binding (finding native-review binding). Calls a NEW RPC —
+// the frozen read_ai_native_report_parsed response is unchanged for deployment compatibility. The owner
+// embeds this binding into a new finding version; the save/review SQL re-verifies it against live data.
+export async function readNativeReportBinding(
+  raw: z.infer<typeof scope>,
+  artifactId: string,
+  rpc?: KnowledgeRpc,
+) {
+  const s = scope.parse(raw);
+  const id = z.string().uuid().parse(artifactId);
+  const result = nativeReportBindingReadSchema.parse(
+    await call(
+      "read_ai_native_report_binding",
+      { p_user: s.ownerId, p_project: s.projectId, p_id: id },
+      rpc,
+    ),
+  );
+  // Cross-check the response binds the EXACT requested artifact id (never a different row's binding).
+  if (result.id.toLowerCase() !== id.toLowerCase())
+    throw new NativeParsedError("native_parsed_unavailable");
+  return result;
 }
 export async function readNativeReportParseStates(raw: z.infer<typeof scope>, rpc?: KnowledgeRpc) {
   const s = scope.parse(raw);

@@ -19,6 +19,9 @@ import {
   reviewerQueryKeys,
   reviewerSurfaceHidden,
   revokeTargets,
+  nativeConsentSetString,
+  nativeConsentSetDigest,
+  nativeConsentIdentity,
   type ReviewerCandidate,
   type ReviewerFormEvent,
   type ReviewerFormState,
@@ -437,5 +440,63 @@ describe("masked / stale-conflict / pinned-version helpers", () => {
     expect(pendingDecisionInvalidated(sha, "b".repeat(64))).toBe(true);
     expect(pendingDecisionInvalidated(sha, null)).toBe(true);
     expect(pendingDecisionInvalidated(null, sha)).toBe(true);
+  });
+});
+
+describe("native-material consent digest — matches the SQL canonical set formula", () => {
+  const A = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa";
+  const B = "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb";
+  const shaA = "1".repeat(64);
+  const shaB = "2".repeat(64);
+  it("builds 'native_review_set_v1' + sorted lower(id):parsedSha256 joined by | ", () => {
+    expect(nativeConsentSetString([{ id: A.toUpperCase(), parsedSha256: shaA }])).toBe(
+      `native_review_set_v1${A}:${shaA}`,
+    );
+    // Order-independent: the parts are sorted (matching SQL array_agg ORDER BY).
+    const twoAB = nativeConsentSetString([
+      { id: A, parsedSha256: shaA },
+      { id: B, parsedSha256: shaB },
+    ]);
+    const twoBA = nativeConsentSetString([
+      { id: B, parsedSha256: shaB },
+      { id: A, parsedSha256: shaA },
+    ]);
+    expect(twoAB).toBe(twoBA);
+    expect(twoAB).toBe(`native_review_set_v1${A}:${shaA}|${B}:${shaB}`);
+  });
+  it("is null (unconsentable) for an empty set or any unbound/unresolved native", () => {
+    expect(nativeConsentSetString([])).toBeNull();
+    expect(nativeConsentSetString([{ id: A, parsedSha256: null }])).toBeNull();
+    expect(
+      nativeConsentSetString([
+        { id: A, parsedSha256: shaA },
+        { id: B, parsedSha256: null },
+      ]),
+    ).toBeNull();
+  });
+  it("digests the canonical string with SHA-256 hex (equals the SQL encode(sha256(...),'hex'))", async () => {
+    const { createHash } = await import("node:crypto");
+    const string = nativeConsentSetString([
+      { id: A, parsedSha256: shaA },
+      { id: B, parsedSha256: shaB },
+    ])!;
+    const expected = createHash("sha256").update(string, "utf8").digest("hex");
+    const digest = await nativeConsentSetDigest([
+      { id: B, parsedSha256: shaB },
+      { id: A, parsedSha256: shaA },
+    ]);
+    expect(digest).toBe(expected);
+    expect(digest).toMatch(/^[a-f0-9]{64}$/);
+    expect(await nativeConsentSetDigest([])).toBeNull();
+    expect(await nativeConsentSetDigest([{ id: A, parsedSha256: null }])).toBeNull();
+  });
+  it("binds consent identity to finding/reviewer/set/epoch so any change clears acceptance", () => {
+    const base = { findingRowId: A, reviewerId: B, setString: "native_review_set_v1x", epoch: 1 };
+    const id = nativeConsentIdentity(base);
+    expect(nativeConsentIdentity({ ...base })).toBe(id);
+    expect(nativeConsentIdentity({ ...base, epoch: 2 })).not.toBe(id);
+    expect(nativeConsentIdentity({ ...base, reviewerId: A })).not.toBe(id);
+    expect(nativeConsentIdentity({ ...base, setString: "native_review_set_v1y" })).not.toBe(id);
+    expect(nativeConsentIdentity({ ...base, setString: null })).not.toBe(id);
   });
 });
