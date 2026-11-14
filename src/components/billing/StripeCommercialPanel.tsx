@@ -58,6 +58,7 @@ import {
   canResumeIntent,
   canStartCancellation,
   canStartReversal,
+  capacityReviewKey,
   commercialReasonKey,
   intentVerified,
   quoteExpired,
@@ -450,6 +451,15 @@ export function StripeCommercialPanel({
           {summary.heldReason ? (
             <p role="status" className="mt-3 text-sm text-muted-foreground">
               {t(commercialReasonKey(summary.heldReason))}
+            </p>
+          ) : null}
+
+          {summary.capacityReview ? (
+            <p role="status" className="mt-3 text-sm text-muted-foreground" data-capacity-review>
+              {t(capacityReviewKey(summary.capacityReview), {
+                used: summary.capacityReview.used ?? t("billingScreen.unknownValue"),
+                allowance: summary.capacityReview.allowance ?? t("billingScreen.unknownValue"),
+              })}
             </p>
           ) : null}
 

@@ -102,12 +102,18 @@ import type {
   BillingSummary,
   BillingSummaryActions,
   BillingSummaryResult,
+  CapacityReview,
   DiscoveredOperation,
   OperationEvidence,
   OperationTerms,
   SellablePlanId,
 } from "./stripe-commercial-ui";
-import type { BillingMarket, PlanId, SubscriptionStatus } from "./billing";
+import {
+  teamSeatAllowance,
+  type BillingMarket,
+  type PlanId,
+  type SubscriptionStatus,
+} from "./billing";
 
 type Env = Record<string, string | undefined>;
 type Json = Record<string, unknown>;
@@ -468,6 +474,54 @@ async function membershipUsage(userId: string): Promise<MembershipUsage> {
   } catch {
     return unknown;
   }
+}
+
+/**
+ * Current usage against the allowance IN FORCE NOW — the same plan and verified
+ * purchased seats the team and project gates enforce (20261114130000) — so a
+ * renewal that applied a smaller plan surfaces as a review, never as a removal.
+ * Re-read on every summary, so the owner's Refresh is the bounded recheck: it
+ * clears only when complete current evidence fits. Unreadable is unknown, not 0.
+ */
+async function currentCapacityReview(userId: string): Promise<CapacityReview | null> {
+  const unknown: CapacityReview = { reason: "capacity_unknown", used: null, allowance: null };
+  let data: unknown;
+  try {
+    data = await call("project_team_seat_allowance", { p_owner: userId });
+  } catch {
+    return unknown;
+  }
+  // The RPC's exact contract: one row, a known plan, 0..1000 purchased extras (none on Free)
+  // and totals equal to that plan's bundle plus extras. Anything else is unknown, never "fits".
+  const allowance = Array.isArray(data) && data.length === 1 ? (data[0] as Json | null) : null;
+  const planId = allowance?.plan_id;
+  const purchased = allowance?.purchased;
+  if (
+    !isPlanId(planId) ||
+    typeof purchased !== "number" ||
+    !Number.isInteger(purchased) ||
+    purchased < 0 ||
+    purchased > 1000 ||
+    (planId === "freePreview" && purchased !== 0)
+  )
+    return unknown;
+  const bundle = teamSeatAllowance(planId, purchased);
+  if (allowance?.working !== bundle.workingSeats || allowance?.viewer !== bundle.viewerSeats)
+    return unknown;
+  const usage = await membershipUsage(userId);
+  const check = checkTargetCapacity({
+    targetPlanId: planId,
+    targetSeatQuantity: purchased,
+    usage,
+  });
+  if (check.ok) return null;
+  const counted: Record<string, [number, number]> = {
+    capacity_conflict_working: [usage.workingSeats, check.workingAllowance],
+    capacity_conflict_viewer: [usage.viewerSeats, check.viewerAllowance],
+    capacity_conflict_projects: [usage.projects, check.projectAllowance],
+  };
+  const [used, limit] = counted[check.reason] ?? [null, null];
+  return { reason: check.reason, used, allowance: limit };
 }
 
 /* -------------------------------------------------------------------------- */
@@ -4741,6 +4795,8 @@ export async function readCommercialAccountSummary(
       eligibleCancellationId,
       actions,
       heldReason,
+      // Display only: it never removes a cancellation or any other action.
+      capacityReview: await currentCapacityReview(userId),
     },
   };
 }

@@ -118,6 +118,10 @@ const independentCandidates = [
   // citation review + parsed-artifact foundation in native-report-binding-migration.test.ts; unapplied in
   // production until its release receipt.
   "20261114120000_citation_native_review_binding.sql",
+  // Renewal capacity (plan map, current-allowance re-read under the projection's row locks, project
+  // caps) binds to entitlements, workspaces and the dormant Stripe projection; executed against that
+  // real chain by renewal-capacity-migration.test.ts; unapplied until its release receipt.
+  "20261114130000_renewal_capacity_limits.sql",
 ];
 const allowed = async (role: string, fn: string) =>
   (

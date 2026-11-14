@@ -98,6 +98,7 @@ Pro with 3 seats → Pro with 0 seats, team currently within the reduced allowan
 - Confirm `release` really does hand the subscription back **still running** after the final phase. Finite phases must not end a subscription nobody cancelled; this is a documented assumption until this row runs.
 - **Enforcement now:** the allowance is still 8 working seats until the period end, and no member was removed or deactivated.
 - **Enforcement at the boundary** (requires either a sandbox clock advance or a short test interval): after the period end the schedule **releases**, the subscription keeps running on the reduced items, and `readTeamSeats` reports 5 working seats. **This row is the renewal-time enforcement gate** named in `STRIPE_COMMERCIAL_OPERATIONS.md` limitation 6 — if the over-limit case cannot be handled here, that gate stays open.
+- **Grown before the boundary** (needs `20261114130000`): after confirmation, grow to 7 working; after the boundary the billing panel shows the working capacity review (7 of 5), all 7 keep access, an 8th working invitation is refused, a viewer invitation still succeeds, cancellation is still offered, and the review clears on Refresh only after the owner removes two people. Also start an invitation with the old allowance read just before the boundary webhook and confirm it is refused under the new one.
 
 ### B6 — Capacity conflict on a reduction (all three bundles)
 
@@ -114,7 +115,7 @@ Pro with 3 seats and **8** active working members → Growth.
 Pro (0 seats) → Growth.
 
 - As B5, with the next phase carrying the Growth base price.
-- **Enforcement at the boundary:** `PLAN_LIMITS.growth` gates close (image generation, AI evaluation), project cap drops to 3, and seats drop to 3/5. Confirm an over-cap account is held for review rather than silently losing a project.
+- **Enforcement at the boundary:** `PLAN_LIMITS.growth` gates close (image generation, AI evaluation), project cap drops to 3, and seats drop to 3/5. Confirm an over-cap account is held for review rather than silently losing a project: with 4 projects the panel shows the projects review (4 of 3), all 4 stay readable and editable, a 5th — and a delete-one-add-one swap while still over — is refused, and the review clears once the owner is at 3.
 
 ### B8 — Quote integrity
 
@@ -222,7 +223,7 @@ A complete pass establishes **sandbox acceptance** of the decision logic against
 - production acceptance (the migrations are unapplied in production; the strict installation wrapper's post-apply ACL verification is still required);
 - any UI behaviour — there is no billing UI, and the public policy/pricing copy parity gap is open;
 - deletion orchestration — there is still no handler;
-- renewal-time capacity enforcement — B5's boundary half is the gate, and it stays open until that half actually runs;
+- renewal-time capacity enforcement — prepared locally by `20261114130000`, but B5's boundary half (and B7's over-cap half) is the gate, and it stays open until those halves actually run;
 - dispute / early-fraud / risk-event handling — not implemented, recorded as a release gap;
 - tax, invoice presentation, credit notes or dunning copy;
 - any cost figure. No actual Milo or provider cost is known beyond existing evidence, and the OpenAI cost dashboard remains deferred.

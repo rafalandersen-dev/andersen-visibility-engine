@@ -2,9 +2,9 @@
  * The staged billing-screen completion, proved against the ACTUAL twenty
  * staged batches rather than against the helper in isolation.
  *
- * What has to hold: every staged billing batch now declares exactly the 180
+ * What has to hold: every staged billing batch now declares exactly the 184
  * keys its namespace declares; the 54 messages each locale already had keep
- * their own translated text byte for byte; exactly the 126 R21 additions
+ * their own translated text byte for byte; exactly the 130 R21/renewal additions
  * resolve to the reviewed English source; nothing from another namespace
  * leaks in; and none of this moves a staged locale into the runtime.
  *
@@ -127,7 +127,7 @@ describe("the staged billing namespace is complete without inventing translation
     // two must be the same dictionary, or the fallback would be unreviewed.
     expect(Object.keys(billingScreenCopy.en).sort()).toEqual(ENGLISH_KEYS);
     for (const key of ENGLISH_KEYS) expect(billingScreenCopy.en[key], key).toBe(ENGLISH[key]);
-    expect(ENGLISH_KEYS).toHaveLength(180);
+    expect(ENGLISH_KEYS).toHaveLength(184);
   });
 
   it("records the recomputed reviewed-source fingerprint on every staged batch", () => {
@@ -144,7 +144,7 @@ describe("the staged billing namespace is complete without inventing translation
   });
 
   it.each(LOCALES.map((locale) => [locale.code, locale] as const))(
-    "%s declares all 180 billing keys and nothing from another namespace",
+    "%s declares all 184 billing keys and nothing from another namespace",
     (code, locale) => {
       const copy = billingBatch(locale).copy;
       expect(Object.keys(copy).sort(), code).toEqual(ENGLISH_KEYS);
@@ -159,7 +159,7 @@ describe("the staged billing namespace is complete without inventing translation
       const translatedKeys = Object.keys(locale.raw);
       expect(translatedKeys, code).toHaveLength(54);
       const fallbackKeys = ENGLISH_KEYS.filter((key) => !(key in locale.raw));
-      expect(fallbackKeys, code).toHaveLength(126);
+      expect(fallbackKeys, code).toHaveLength(130);
 
       // Existing translations survive byte for byte …
       for (const key of translatedKeys) expect(copy[key], `${code} ${key}`).toBe(locale.raw[key]);
@@ -196,7 +196,7 @@ describe("the staged billing namespace is complete without inventing translation
       const keys = locale.batches.flatMap((batch) => Object.keys(batch.copy));
       expect(new Set(keys).size, code).toBe(keys.length);
       expect(Object.keys(locale.catalog).sort(), code).toEqual(Object.keys(UI_CATALOGS.en).sort());
-      expect(keys, code).toHaveLength(5102);
+      expect(keys, code).toHaveLength(5106);
       const copy = billingBatch(locale).copy;
       for (const key of ENGLISH_KEYS) expect(locale.catalog[key], `${code} ${key}`).toBe(copy[key]);
     },

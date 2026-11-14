@@ -52,7 +52,7 @@ import {
 import { WorkspaceSaveStatusBar } from "@/components/WorkspaceSaveStatus";
 import { SignOutDialog } from "@/components/SignOutDialog";
 import { useAppLanguage, useT, getUiLocaleOverride, setUiLocaleOverride } from "@/i18n";
-import { MAX_PROJECTS_PER_USER } from "@/lib/billing";
+import { projectLimitFor } from "@/lib/billing";
 import { countPendingForBadge } from "@/lib/pending-actions.ui";
 import {
   DropdownMenu,
@@ -226,6 +226,7 @@ export function AppShell({
   const location = useRouterState({ select: (state) => state.location });
   const pathname = location.pathname;
   const projects = useStore((state) => state.projects);
+  const projectLimit = useStore((state) => projectLimitFor(state.subscription));
   const activeProjectId = useStore((state) => state.activeProjectId);
   const pendingCount = useStore((state) => countPendingForBadge(state.pendingActions, Date.now()));
   const activeProject = projects.find((project) => project.id === activeProjectId) ?? projects[0];
@@ -316,6 +317,7 @@ export function AppShell({
       pathname={pathname}
       discovery={location.search.view === "discover"}
       projects={projects}
+      projectLimit={projectLimit}
       activeProjectId={activeProjectId}
       activeProjectName={projectContextName ?? activeProject?.name}
       projectPicker={projectPicker}
@@ -469,6 +471,7 @@ function SidebarContent({
   pathname,
   discovery,
   projects,
+  projectLimit,
   activeProjectId,
   activeProjectName,
   projectPicker,
@@ -485,6 +488,7 @@ function SidebarContent({
   pathname: string;
   discovery: boolean;
   projects: Array<{ id: string; name: string }>;
+  projectLimit: number;
   activeProjectId: string;
   activeProjectName?: string;
   projectPicker?: ReactNode;
@@ -558,11 +562,11 @@ function SidebarContent({
             </DropdownMenuItem>
             <DropdownMenuItem
               onSelect={onAddProject}
-              disabled={!isOwner && projects.length >= MAX_PROJECTS_PER_USER}
+              disabled={!isOwner && projects.length >= projectLimit}
             >
               <Plus /> {t("shell.addProject")}
               <span className="ml-auto text-[10px] text-muted-foreground">
-                {projects.length}/{isOwner ? "∞" : MAX_PROJECTS_PER_USER}
+                {projects.length}/{isOwner ? "∞" : projectLimit}
               </span>
             </DropdownMenuItem>
           </DropdownMenuContent>
@@ -658,14 +662,14 @@ function SidebarContent({
           <div className="flex justify-between text-[10px] text-[#9ba5a9]">
             <span>{t("shell.projects")}</span>
             <span>
-              {projects.length} / {isOwner ? "∞" : MAX_PROJECTS_PER_USER}
+              {projects.length} / {isOwner ? "∞" : projectLimit}
             </span>
           </div>
           <div className="mt-2 h-1 overflow-hidden rounded-full bg-white/[.12]">
             <span
               className="block h-full rounded-full bg-[#68aaf8]"
               style={{
-                width: `${Math.min(100, (projects.length / MAX_PROJECTS_PER_USER) * 100)}%`,
+                width: `${Math.min(100, (projects.length / projectLimit) * 100)}%`,
               }}
             />
           </div>
