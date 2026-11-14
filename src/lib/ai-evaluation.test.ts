@@ -32,6 +32,8 @@ vi.mock("@tanstack/react-start", () => ({
 }));
 vi.mock("./ai-usage.server", () => ({
   claimAiUsage: h.claimAiUsage,
+  // An entitled caller; the plan gate itself is proved in ai-evaluation-entitlement.test.ts.
+  assertAiEvaluationAllowed: async () => undefined,
   UsageLimitError: class extends Error {},
   UsageUnavailableError: class extends Error {},
 }));

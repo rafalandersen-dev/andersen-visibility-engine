@@ -33,6 +33,10 @@ import {
 import { STAGED_PANEL_COVERAGE_SOURCE_HASH, stagedPanelCoverage } from "./panel-coverage-fallback";
 import { STAGED_MANUAL_CAPTURE_SOURCE_HASH, stagedManualCapture } from "./manual-capture-fallback";
 import { STAGED_NATIVE_INTAKE_SOURCE_HASH, stagedNativeIntake } from "./native-intake-fallback";
+import {
+  STAGED_AI_EVAL_ACCESS_SOURCE_HASH,
+  stagedAiEvalAccess,
+} from "./ai-evaluation-access-fallback";
 import { ptEvidenceScreen } from "./pt-evidence-screen";
 import { ptSetupScreen } from "./pt-setup-screen";
 import { ptServicesScreen } from "./pt-services-screen";
@@ -355,6 +359,13 @@ export const PT_STAGED_BATCHES = [
     namespaces: ["nativeIntake"],
     sourceRevision: "89fe9442 + native Google intake (nativeIntake: English fallback)",
     sourceHash: STAGED_NATIVE_INTAKE_SOURCE_HASH,
+  },
+  {
+    name: "ai evaluation access",
+    copy: stagedAiEvalAccess(),
+    namespaces: ["aiEvalAccess"],
+    sourceRevision: "d6ec1a06 + AI Evaluation access (aiEvalAccess: English fallback)",
+    sourceHash: STAGED_AI_EVAL_ACCESS_SOURCE_HASH,
   },
 ] as const;
 export const PT_STAGED_CATALOG: Readonly<Record<string, string>> = Object.freeze(

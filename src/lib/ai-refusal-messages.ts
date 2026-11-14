@@ -1,6 +1,6 @@
 /**
  * Bounded localization of the KNOWN refusal/recovery sentences that the quality score and Improve server
- * functions (and their shared gateway/usage/expense boundaries) can surface. They cross the server-function
+ * functions (and their shared gateway/usage/expense boundaries and the AI Evaluation access gate) can surface. They cross the server-function
  * boundary as plain `Error` messages (`mapGatewayError` flattens every class to `new Error(message)` and the
  * usage/expense errors are thrown as-is), so no error class, `code` or other property is relied upon here:
  * only the EXACT authored English sentence is matched, and anything else is left exactly as received for the
@@ -59,6 +59,15 @@ const EXACT: ReadonlyMap<string, string> = new Map<string, string>([
   [
     "Milo cannot verify your AI usage right now. AI work is paused; please try again later. You can still read and edit your content.",
     "quality.refusal.usageUnavailable",
+  ],
+  // ai-usage.server.ts — AiEvaluationGateError: a KNOWN plan restriction vs unconfirmed access
+  [
+    "AI Evaluation is included in the Pro and Agency plans. Upgrade to run new comparisons — your saved evaluation history stays available.",
+    "aiEvalAccess.restricted",
+  ],
+  [
+    "Milo cannot confirm AI Evaluation access right now. New comparisons are paused; please try again later. Your saved evaluation history stays available.",
+    "aiEvalAccess.unavailable",
   ],
   // ai-error-diagnostics.server.ts — classified gateway messages ("timeout" shares the boundary sentence)
   ["AI is busy right now (rate limit). Please retry in a moment.", "quality.refusal.rateLimit"],

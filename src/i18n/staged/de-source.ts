@@ -62,4 +62,7 @@ export const DE_AUTHORING_SOURCE_HASHES: Readonly<Record<string, string>> = {
   // reviewed English fallback pending translation (./native-intake-fallback.ts), not a German review
   // record. Covers the 120-key Google+Bing + native-review-binding English source.
   "native intake": "509f421f0153f618c42973ed2deb6ccbbc889ea9cb9566c31b3e741d72a9d8eb",
+  // AI Evaluation access source after d6ec1a06; English source in src/i18n/ai-evaluation-access.ts. The batch
+  // is reviewed English fallback pending translation (./ai-evaluation-access-fallback.ts), not a German review record.
+  "ai evaluation access": "658ca0828e313ff7f58bf91632ea803209c77ec5a5263a9cfbe1911a25a228ce",
 };
