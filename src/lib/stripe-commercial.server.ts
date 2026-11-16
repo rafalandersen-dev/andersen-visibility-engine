@@ -3929,7 +3929,7 @@ interface RawEntitlementEvidence {
   /** A row was successfully read. */
   present: boolean;
   /** Every required field validated. A present-but-malformed row is NOT valid
-   * and may not be mapped to Paddle or Free the way the display mapper does. */
+   * and may not be mapped to a default or Free the way the display mapper does. */
   valid: boolean;
   provider: BillingProvider | null;
   planId: PlanId | null;
@@ -4438,9 +4438,9 @@ export async function evaluateManualEntitlementClearance(
 /**
  * The display provider, from VALIDATED raw entitlement only.
  *
- * A test customer mapping never reclassifies a manual or Paddle account, and a
+ * A test customer mapping never reclassifies a manual or legacy-labelled account, and a
  * read that could not establish the provider says so instead of guessing
- * Paddle or Free.
+ * a default provider or Free.
  *
  * The ABSENCE claim is the delicate half. "No entitlement row" only means Free
  * when the rest of the owner-wide evidence is complete and contains nothing
@@ -4585,7 +4585,7 @@ async function readBoundQuoteTerms(
  *
  * This is the ONE authoritative read for billing decisions in the UI.
  * `getMyEntitlementFn` is not a substitute: it turns a read failure into Free,
- * and the display mapper behind it normalises a malformed provider to Paddle
+ * and the display mapper behind it normalises a malformed provider to "none"
  * and an unknown plan to Free. Both are exactly wrong for a billing screen.
  *
  * The current BILLED AMOUNT is not in this schema and is therefore reported as
@@ -4699,7 +4699,6 @@ export async function readCommercialAccountSummary(
     openOperation.subscriptionId === scope.subscriptionId;
 
   const actions: BillingSummaryActions = {
-    paddlePortal: provider === "paddle",
     prepareChange: changesPossible && access === "paid",
     cancel: changesPossible && access === "paid",
     reverseCancellation: changesPossible && eligibleCancellationId !== null,

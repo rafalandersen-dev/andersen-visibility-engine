@@ -74,15 +74,14 @@ export const UI_SUPPORTED_CURRENCY_EXPONENT: Readonly<Record<string, number>> = 
 export type MoneyEvidence = "unknown" | "fixture";
 
 /** Display provider, from VALIDATED raw entitlement — never guessed from the
- * presence of a test customer mapping or from a paddle-labelled store field. */
+ * presence of a test customer mapping. "paddle" is only the legacy label that
+ * older entitlement rows still carry; no Paddle action exists any more. */
 export type BillingProvider = "stripe" | "paddle" | "manual" | "none" | "unknown";
 
 /** What the read established about the caller's own durable operation slot. */
 export type OperationEvidence = "none" | "open" | "ambiguous" | "unknown";
 
 export interface BillingSummaryActions {
-  /** The existing caller-owned Paddle portal, for a VERIFIED Paddle agreement. */
-  paddlePortal: boolean;
   /** A NEW commercial intent may be prepared. */
   prepareChange: boolean;
   /** An explicit cancellation intent may be started. */
@@ -96,7 +95,6 @@ export interface BillingSummaryActions {
 }
 
 export const NO_ACTIONS: BillingSummaryActions = {
-  paddlePortal: false,
   prepareChange: false,
   cancel: false,
   reverseCancellation: false,
@@ -289,7 +287,6 @@ const ACCESS_VALUES: readonly BillingSummary["access"][] = ["free", "paid", "unk
 const OPERATION_EVIDENCE: readonly OperationEvidence[] = ["none", "open", "ambiguous", "unknown"];
 const MONEY_EVIDENCE: readonly MoneyEvidence[] = ["unknown", "fixture"];
 const ACTION_KEYS: readonly (keyof BillingSummaryActions)[] = [
-  "paddlePortal",
   "prepareChange",
   "cancel",
   "reverseCancellation",
@@ -498,8 +495,6 @@ function coherentSummary(summary: BillingSummary): BillingSummary {
   // at nothing in particular.
   const stripeAgreement = established && summary.provider === "stripe" && summary.mode !== null;
   const actions: BillingSummaryActions = {
-    // Only a verified Paddle agreement has a Paddle portal.
-    paddlePortal: summary.actions.paddlePortal && established && summary.provider === "paddle",
     // Commercial changes need a known, currently paid Stripe agreement.
     prepareChange: summary.actions.prepareChange && stripeAgreement && summary.access === "paid",
     cancel: summary.actions.cancel && stripeAgreement && summary.access === "paid",
@@ -1714,19 +1709,6 @@ export function canUseManualOverride(state: CommercialUiState): boolean {
 }
 
 /**
- * Opening the legacy Paddle portal. Same gate again.
- *
- * Creating a portal session is a provider call, so it needs the same current
- * coherent evidence as any other action. A `paddlePortal` flag that was true
- * when a read succeeded says nothing after a refresh has failed or while one
- * is still in flight.
- */
-export function canOpenPaddlePortal(state: CommercialUiState): boolean {
-  if (!evidenceCurrent(state)) return false;
-  return state.summary?.provider === "paddle" && state.summary.actions.paddlePortal === true;
-}
-
-/**
  * The live session generation, readable synchronously from any callback.
  *
  * Asynchronous billing work outlives the screen that started it. A plan
@@ -1811,7 +1793,6 @@ export function createSingleFlight(): <T>(task: () => Promise<T>) => Promise<T |
  */
 export type FreeSelectionRoute =
   | "cancelIntent"
-  | "paddlePortal"
   | "manualReset"
   /** The provider is known, but current evidence does not authorise acting. */
   | "held"
@@ -1827,21 +1808,19 @@ export function routeFreeSelection(
   // not travel with them.
   if (!evidenceCurrent(state)) return "held";
   if (summary.provider === "stripe") return "cancelIntent";
-  if (summary.actions.paddlePortal) return "paddlePortal";
   if (options.isOwner && canUseManualOverride(state)) return "manualReset";
   return "unavailable";
 }
 
 /** Where an explicit "end my subscription" control goes. `held` means the
  * provider is known but the server currently offers no cancellation action. */
-export type CancellationRoute = "cancelIntent" | "paddlePortal" | "held" | "unavailable";
+export type CancellationRoute = "cancelIntent" | "held" | "unavailable";
 
 export function routeCancellation(state: CommercialUiState): CancellationRoute {
   const summary = state.summary;
   if (!summary) return "unavailable";
   if (!evidenceCurrent(state)) return "held";
   if (summary.provider === "stripe") return canStartCancellation(state) ? "cancelIntent" : "held";
-  if (canOpenPaddlePortal(state)) return "paddlePortal";
   return "unavailable";
 }
 
@@ -1856,7 +1835,7 @@ export function routeCancellation(state: CommercialUiState): CancellationRoute {
  */
 export function cancellationAvailable(state: CommercialUiState): boolean {
   const route = routeCancellation(state);
-  return route === "cancelIntent" || route === "paddlePortal";
+  return route === "cancelIntent";
 }
 
 /**
@@ -1875,7 +1854,6 @@ export function freeSelectionAvailable(
     case "manualReset":
       return true;
     case "cancelIntent":
-    case "paddlePortal":
       return cancellationAvailable(state);
     default:
       return false;

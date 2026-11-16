@@ -115,7 +115,6 @@ const summaryBody = (over: Record<string, unknown> = {}) => ({
   operationEvidence: "none",
   eligibleCancellationId: null,
   actions: {
-    paddlePortal: false,
     prepareChange: true,
     cancel: true,
     reverseCancellation: false,
@@ -218,7 +217,6 @@ function renderPanel(
       onCloseDialog: noop,
       onResumeOperation: noop,
       onDismissOperation: noop,
-      onOpenPortal: noop,
       ...overrides,
     }),
   );
@@ -866,24 +864,15 @@ describe("provider routing and provider-specific copy", () => {
     expect(button(text("billingScreen.commercial.reverse"))?.disabled).toBe(true);
   });
 
-  it("offers the Paddle portal, with Paddle copy, only for a verified Paddle agreement", () => {
-    const paddle = verified({
+  it("offers no provider portal for a legacy paddle-labelled account", () => {
+    const legacy = verified({
       provider: "paddle",
       mode: null,
-      actions: {
-        ...summaryBody().actions,
-        paddlePortal: true,
-        prepareChange: false,
-        cancel: false,
-      },
+      actions: { ...summaryBody().actions, prepareChange: false, cancel: false },
     });
-    const onOpenPortal = vi.fn();
-    const html = renderPanel(paddle, "en", { onOpenPortal });
-    expect(html).toContain(text("billingScreen.commercial.manageHelpPaddle"));
-    const manage = button(text("billingScreen.manage"));
-    expect(manage?.disabled).toBe(false);
-    manage!.click!();
-    expect(onOpenPortal).toHaveBeenCalledOnce();
+    const html = renderPanel(legacy);
+    expect(html).toContain(text("billingScreen.commercial.manageUnavailable"));
+    expect(button(text("billingScreen.manage"))).toBeUndefined();
     expect(button(text("billingScreen.commercial.prepare"))?.disabled).toBe(true);
     expect(button(text("billingScreen.cancel"))?.disabled).toBe(true);
   });
@@ -906,39 +895,6 @@ describe("provider routing and provider-specific copy", () => {
     expect(html).not.toContain(text("billingScreen.commercial.manageHelpStripeHeld"));
     expect(button(text("billingScreen.commercial.reverse"))?.disabled).toBe(false);
     expect(button(text("billingScreen.cancel"))?.disabled).toBe(true);
-  });
-
-  it("gates the Paddle Manage control on current evidence", () => {
-    const paddle = verified({
-      provider: "paddle",
-      mode: null,
-      actions: {
-        ...summaryBody().actions,
-        paddlePortal: true,
-        prepareChange: false,
-        cancel: false,
-      },
-    });
-    renderPanel(paddle);
-    expect(button(text("billingScreen.manage"))?.disabled).toBe(false);
-    const stale = run(
-      [
-        { type: "summary/request", epoch: 1, token: 2 },
-        {
-          type: "summary/resolved",
-          epoch: 1,
-          token: 2,
-          response: { ok: false, reason: "billing_read_unavailable" },
-        },
-      ],
-      paddle,
-    );
-    const onOpenPortal = vi.fn();
-    renderPanel(stale, "en", { onOpenPortal });
-    // The control is still SHOWN — the account really is on Paddle — but it
-    // cannot be used while the evidence behind it is stale.
-    expect(button(text("billingScreen.manage"))?.disabled).toBe(true);
-    expect(onOpenPortal).not.toHaveBeenCalled();
   });
 
   it("uses manual and no-subscription copy for those providers", () => {

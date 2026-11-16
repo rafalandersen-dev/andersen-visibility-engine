@@ -32,7 +32,7 @@ export const getMyEntitlementFn = createServerFn({ method: "POST" })
  * unreadable billing state holds the write instead of allowing it.
  *
  * It deliberately does not reach the provider, add a policy or widen this
- * endpoint: valid manual and Paddle accounts keep the behaviour they have
+ * endpoint: valid manual and legacy-labelled accounts keep the behaviour they have
  * today, and the clearance only refuses what it can positively see is
  * unresolved or cannot see at all.
  */

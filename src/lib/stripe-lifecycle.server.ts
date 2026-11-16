@@ -1530,7 +1530,7 @@ export type PortalResult = { ok: true; portalUrl: string } | { ok: false; reason
  *
  * The live hold applies here too, at the service entrypoint and before any
  * provider or database access: while public activation is held there is no live
- * Stripe customer to manage, and the legacy Paddle subscriber path is untouched
+ * Stripe customer to manage, and the legacy path is untouched
  * by this module. An ambiguous portal attempt keeps its RETRY safety: a portal
  * session is a short-lived link, not a billable object, so age never fences or
  * fails the request — the worst case is a second link for the same owner.

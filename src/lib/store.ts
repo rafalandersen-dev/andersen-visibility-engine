@@ -1520,8 +1520,6 @@ export async function refreshEntitlement(): Promise<void> {
             billingMarket: market,
             currency: MARKET_CURRENCY[market],
             priceMonthly: planPrice(market, entitlement.planId),
-            paddleCustomerId: entitlement.providerCustomerId,
-            paddleSubscriptionId: entitlement.providerSubscriptionId,
             currentPeriodEnd: entitlement.currentPeriodEnd,
             cancelAtPeriodEnd: entitlement.cancelAtPeriodEnd,
             updatedAt: entitlement.updatedAt,

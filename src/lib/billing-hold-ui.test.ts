@@ -33,8 +33,6 @@ const state = vi.hoisted(() => ({
   owner: false,
   locale: "en" as OnboardingLanguage,
   buttons: [] as { label: string; disabled?: boolean; click?: () => unknown }[],
-  portal: vi.fn(),
-  checkout: vi.fn(),
   manual: vi.fn(),
   refresh: vi.fn(),
   message: vi.fn(),
@@ -65,23 +63,18 @@ vi.mock("@/lib/store", () => ({
     select({
       projects: [],
       billingProfile: { billingCountry: "PL" },
-      // The legacy store copy still carries a paid Growth subscription and a
-      // paddle-labelled customer id. Neither may drive this screen.
+      // The legacy store copy still carries a paid Growth subscription. It
+      // may not drive this screen.
       subscription: {
         planId: "growth",
         status: "active",
         priceMonthly: 149,
         currency: "EUR",
-        paddleCustomerId: "ctm_fixture",
       },
     }),
   setBillingProfile: vi.fn(),
   refreshEntitlement: state.refresh,
   saveWorkspaceNow: vi.fn(),
-}));
-vi.mock("@/lib/billing.functions", () => ({
-  createPaddleCheckoutFn: state.checkout,
-  createPaddlePortalSessionFn: state.portal,
 }));
 vi.mock("@/lib/entitlements.functions", () => ({ setManualEntitlementFn: state.manual }));
 vi.mock("@/lib/stripe-commercial.functions", () => ({
@@ -148,15 +141,7 @@ const label = (key: string) => translate(state.locale, key);
 const shows = (html: string, value: string) => html.replace(/&#x27;/g, "'").includes(value);
 const button = (key: string) => state.buttons.find((b) => b.label === label(key));
 /** Every call that could reach the provider or write an entitlement. */
-const mutations = () => [
-  state.manual,
-  state.portal,
-  state.checkout,
-  state.prepare,
-  state.confirm,
-  state.cancel,
-  state.reverse,
-];
+const mutations = () => [state.manual, state.prepare, state.confirm, state.cancel, state.reverse];
 
 beforeEach(() => {
   vi.clearAllMocks();
@@ -164,7 +149,6 @@ beforeEach(() => {
   state.locale = "en";
   state.buttons = [];
   state.panelProps = null;
-  state.portal.mockResolvedValue({ configured: false });
   state.summary.mockResolvedValue({ ok: false, reason: "billing_read_unavailable" });
 });
 
@@ -235,7 +219,6 @@ describe("Free, the owner reset and manual activation cannot substitute for a ca
     expect(free).toBeDefined();
     await free!.click!();
     expect(state.manual).not.toHaveBeenCalled();
-    expect(state.portal).not.toHaveBeenCalled();
     expect(state.cancel).not.toHaveBeenCalled();
     expect(state.message).toHaveBeenCalledWith(label("billingScreen.commercial.unavailable"));
   });
@@ -270,18 +253,15 @@ describe("Free, the owner reset and manual activation cannot substitute for a ca
     expect(button("billing.manual.reset")?.disabled).toBe(true);
   });
 
-  it("never sends an unverified account to the legacy Paddle portal", async () => {
-    const html = render();
-    // The store still has `paddleCustomerId`, which used to be the routing
-    // signal. With no verified provider, no management control exists at all
-    // and the prominent cancellation section is not rendered either.
+  it("offers no management control to an unverified account", async () => {
+    render();
+    // With no verified provider, no management control exists at all and the
+    // prominent cancellation section is not rendered either.
     expect(button("billingScreen.manage")).toBeUndefined();
     expect(button("billingScreen.cancel")).toBeUndefined();
-    expect(html).not.toContain(label("billingScreen.cancelHelp"));
     // The only reachable "end my plan" affordance is the Free card, and it
     // routes nowhere while the provider is unknown.
     await button("billing.choose")!.click!();
-    expect(state.portal).not.toHaveBeenCalled();
     expect(state.cancel).not.toHaveBeenCalled();
     expect(state.manual).not.toHaveBeenCalled();
   });
@@ -315,7 +295,6 @@ describe("the route's asynchronous callbacks with no verified evidence", () => {
     onConfirmCancellation: () => void;
     onConfirmReversal: () => void;
     onResumeOperation: () => void;
-    onOpenPortal: () => void;
     onRestoreFocus?: () => boolean;
   };
 
@@ -344,13 +323,6 @@ describe("the route's asynchronous callbacks with no verified evidence", () => {
     for (const mock of mutations()) expect(mock).not.toHaveBeenCalled();
   });
 
-  it("does not open the legacy portal for an unverified provider", async () => {
-    const props = panelProps();
-    await props.onOpenPortal();
-    expect(state.portal).not.toHaveBeenCalled();
-    expect(state.message).toHaveBeenCalledWith(label("billingScreen.commercial.manageUnavailable"));
-  });
-
   it("has nothing to restore focus to until a dialog records its opener", () => {
     const props = panelProps();
     expect(props.onRestoreFocus?.()).toBe(false);
@@ -373,9 +345,8 @@ describe("alternate entry points look the way their handlers behave", () => {
   });
 
   it("does not render the prominent cancellation entry without a verified paid plan", () => {
-    const html = render();
+    render();
     expect(button("billingScreen.cancel")).toBeUndefined();
-    expect(html).not.toContain(label("billingScreen.cancelHelp"));
   });
 
   it("uses the same predicates the handlers route through", () => {

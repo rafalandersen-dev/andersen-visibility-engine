@@ -132,15 +132,14 @@ const initialState = () => ({
     billingMarket: "European Union",
     billingEmail: "billing@example.invalid",
   },
-  // The legacy store copy deliberately still carries a reconstructed price and
-  // a paddle-labelled customer id. Neither may reach the billing decisions.
+  // The legacy store copy deliberately still carries a reconstructed price.
+  // It may not reach the billing decisions.
   subscription: {
     planId: "growth",
     status: "active",
     billingMarket: "European Union",
     currency: "EUR",
     priceMonthly: 149,
-    paddleCustomerId: "ctm_fixture_not_a_provider_signal",
   },
   userId: fixture.userId,
 });
@@ -293,7 +292,6 @@ export function StripeSandboxPanel() {
 /* -------------------------------------------------------------------------- */
 
 const NO_ACTIONS = {
-  paddlePortal: false,
   prepareChange: false,
   cancel: false,
   reverseCancellation: false,
@@ -404,12 +402,6 @@ export const SCENARIOS = {
       purchasedSeats: null,
       periodEnd: null,
       actions: { ...NO_ACTIONS },
-    }),
-  paddle: () =>
-    baseSummary({
-      provider: "paddle",
-      mode: null,
-      actions: { ...NO_ACTIONS, paddlePortal: true },
     }),
   manualClear: () =>
     baseSummary({
@@ -655,12 +647,6 @@ export const setManualEntitlementFn = async ({ data }) => {
   if (!summary.actions.manualOverride) throw Error("manual_override_held:billing_state_unknown");
   return { entitlement: { planId: data.planId, status: data.status, provider: "manual" } };
 };
-
-export const createPaddlePortalSessionFn = async () => {
-  record("createPaddlePortalSessionFn", {});
-  return { overviewUrl: null, cancelUrl: null, error: null, message: null };
-};
-export const createPaddleCheckoutFn = async () => refuse("createPaddleCheckoutFn", []);
 
 /* -------------------------------------------------------------------------- */
 /* Controls                                                                   */

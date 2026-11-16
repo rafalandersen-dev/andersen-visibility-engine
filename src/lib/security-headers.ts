@@ -39,12 +39,9 @@ const BASELINE_HEADERS: ReadonlyArray<readonly [string, string]> = [
  * - script-src 'unsafe-inline': TanStack Start hydration is bootstrapped by
  *   inline scripts with no nonce infrastructure; removing this breaks
  *   hydration on every page. Revisit if Start ever grows CSP-nonce support.
- * - script-src cdn.paddle.com + frame-src buy.paddle.com/sandbox-buy +
- *   connect-src *.paddle.com: checkout today is a server-created hosted
- *   checkout URL (billing.functions.ts) so nothing Paddle loads on our pages
- *   yet, but the owner's checkout smoke test is pending and Paddle's overlay
- *   checkout needs exactly these — pre-allowed so a checkout iteration can't
- *   be silently broken by CSP.
+ * - No payment-provider origins: Stripe Checkout and the Billing Portal are
+ *   hosted redirects, so nothing from Stripe loads on our pages. Embedding
+ *   Stripe.js would need js.stripe.com in script-src and frame-src.
  * - style-src 'unsafe-inline' + fonts.googleapis.com: Google Fonts CSS
  *   (Fraunces/Inter in __root.tsx) plus React inline style attributes.
  * - font-src fonts.gstatic.com: the font files the Google CSS points at.
@@ -61,12 +58,12 @@ export const CONTENT_SECURITY_POLICY = [
   "object-src 'none'",
   "form-action 'self'",
   "frame-ancestors 'none'",
-  "script-src 'self' 'unsafe-inline' https://cdn.paddle.com",
+  "script-src 'self' 'unsafe-inline'",
   "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
   "font-src 'self' data: https://fonts.gstatic.com",
   "img-src 'self' data: blob: https:",
-  "connect-src 'self' https://*.supabase.co wss://*.supabase.co https://*.paddle.com",
-  "frame-src 'self' https://buy.paddle.com https://sandbox-buy.paddle.com",
+  "connect-src 'self' https://*.supabase.co wss://*.supabase.co",
+  "frame-src 'self'",
   "worker-src 'self' blob:",
 ].join("; ");
 
