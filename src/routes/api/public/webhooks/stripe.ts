@@ -5,8 +5,8 @@
  * durable receipt, the fenced lease, the authoritative re-read and the atomic
  * projection all live in `stripe-lifecycle.server.ts`, so this route adds no
  * trust of its own. The legacy isolated sandbox endpoint
- * (`/api/public/webhooks/stripe-sandbox`) and the Paddle endpoint are
- * unchanged and keep their own secrets.
+ * (`/api/public/webhooks/stripe-sandbox`) is
+ * unchanged and keeps its own secret.
  */
 import { createFileRoute } from "@tanstack/react-router";
 import { receiveStripeWebhook } from "@/lib/stripe-lifecycle.server";

@@ -5667,7 +5667,6 @@ describe("the caller-owned billing summary and the manual clearance", () => {
       if (!result.ok) continue;
       expect(result.summary.provider, provider).toBe(provider);
       expect(result.summary.access, provider).toBe("paid");
-      expect(result.summary.actions.paddlePortal, provider).toBe(provider === "paddle");
       // Mapping alone does not block a valid manual action.
       expect(await evaluateManualEntitlementClearance(COMMERCIAL_OWNER)).toEqual({
         allowed: true,
@@ -5845,7 +5844,6 @@ describe("the caller-owned billing summary and the manual clearance", () => {
       expect(result.summary.provider, JSON.stringify(broken)).toBe("unknown");
       expect(result.summary.access, JSON.stringify(broken)).toBe("unknown");
       expect(result.summary.planId, JSON.stringify(broken)).toBeNull();
-      expect(result.summary.actions.paddlePortal).toBe(false);
       expect(await evaluateManualEntitlementClearance(COMMERCIAL_OWNER)).toEqual({
         allowed: false,
         reason: "billing_state_unknown",
@@ -6570,7 +6568,6 @@ describe("the caller-owned billing summary and the manual clearance", () => {
       if (!result.ok) continue;
       expect(result.summary.provider, provider).toBe(provider);
       expect(result.summary.access, provider).toBe("paid");
-      expect(result.summary.actions.paddlePortal, provider).toBe(provider === "paddle");
       expect(result.summary.actions.manualOverride, provider).toBe(true);
     }
   });

@@ -1,30 +1,18 @@
 /**
  * P1-10 + P1-11 hardening pins.
  *
- * The Paddle portal session must never take customer/subscription ids from
- * the request body, and the public analytics endpoint must rate-limit and
- * refuse to insert rows for project ids that do not exist.
+ * The billing page must not call a provider portal with client-supplied ids,
+ * and the public analytics endpoint must rate-limit and refuse to insert rows
+ * for project ids that do not exist.
  */
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import { RATE_BUCKETS } from "./oauth.server";
 
-describe("Paddle portal session is entitlement-scoped (P1-10)", () => {
-  const source = readFileSync("src/lib/billing.functions.ts", "utf-8");
-
-  it("accepts no ids from the client", () => {
-    expect(source).not.toMatch(/customerId:\s*z\.string/);
-    expect(source).not.toMatch(/subscriptionId:\s*z\.string/);
-  });
-
-  it("resolves the caller's own ids from the entitlements row", () => {
-    expect(source).toContain("readEntitlement(context.userId as string)");
-    expect(source).toContain("entitlement.providerCustomerId");
-  });
-
-  it("the billing page no longer sends ids up", () => {
+describe("billing page holds no Paddle code (P1-10)", () => {
+  it("neither calls a Paddle server function nor sends provider ids up", () => {
     const page = readFileSync("src/routes/_authenticated/app.billing.tsx", "utf-8");
-    expect(page).toContain("createPaddlePortalSessionFn()");
+    expect(page).not.toMatch(/billing\.functions|PaddlePortal|PaddleCheckout/);
     expect(page).not.toMatch(/customerId:\s*subscription/);
   });
 });

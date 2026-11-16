@@ -3,7 +3,7 @@
  *
  * public.entitlements is readable by its owner and writable by nobody except
  * the service role, so every write path in the product funnels through here:
- * the Paddle webhook and the owner-gated manual override. Never import this
+ * the Stripe lifecycle and the owner-gated manual override. Never import this
  * from client code.
  */
 import {
@@ -116,7 +116,7 @@ export async function writeEntitlement(w: EntitlementWrite): Promise<void> {
       status: w.status,
       current_period_end: w.currentPeriodEnd ?? null,
       cancel_at_period_end: w.cancelAtPeriodEnd ?? false,
-      provider: w.provider ?? "paddle",
+      provider: w.provider ?? "manual",
       provider_customer_id: w.providerCustomerId ?? null,
       provider_subscription_id: w.providerSubscriptionId ?? null,
       updated_at: new Date().toISOString(),
@@ -124,38 +124,4 @@ export async function writeEntitlement(w: EntitlementWrite): Promise<void> {
     { onConflict: "user_id" },
   );
   if (error) throw new Error(`entitlement_write_failed: ${error.message ?? "unknown"}`);
-}
-
-/**
- * Idempotency guard: record the provider event id BEFORE applying it. Returns
- * false when the same event was already processed (duplicate delivery).
- */
-export async function claimWebhookEvent(
-  eventId: string,
-  eventType: string,
-  provider = "paddle",
-): Promise<boolean> {
-  const db = await admin();
-  const { error } = await db.from("billing_webhook_events").insert({
-    event_id: eventId,
-    provider,
-    event_type: eventType,
-  });
-  if (!error) return true;
-  // 23505 = unique_violation → already handled.
-  if (error.code === "23505" || /duplicate key/i.test(error.message ?? "")) return false;
-  throw new Error(`webhook_claim_failed: ${error.message ?? "unknown"}`);
-}
-
-/**
- * Release a claimed event id so a failed apply can be retried by the provider.
- * Best-effort: a failure here only means the retry is skipped as a duplicate.
- */
-export async function releaseWebhookEvent(eventId: string): Promise<void> {
-  try {
-    const db = await admin();
-    await db.from("billing_webhook_events").delete().eq("event_id", eventId);
-  } catch {
-    /* best effort */
-  }
 }

@@ -34,7 +34,6 @@ import {
   type CustomerType,
   type BillingMarket,
 } from "@/lib/billing";
-import { createPaddlePortalSessionFn } from "@/lib/billing.functions";
 import { setManualEntitlementFn } from "@/lib/entitlements.functions";
 import {
   cancelStripeSubscriptionFn,
@@ -47,7 +46,6 @@ import {
   canPrepareQuote,
   canResumeIntent,
   canStartCancellation,
-  canOpenPaddlePortal,
   canStartReversal,
   canUseManualOverride,
   cancellationAvailable,
@@ -65,7 +63,7 @@ import {
   type CommercialIntentKind,
   type SellablePlanId,
 } from "@/lib/stripe-commercial-ui";
-import { Crown, Check, Loader2, Link2, CircleMinus } from "lucide-react";
+import { Crown, Check, Link2, CircleMinus } from "lucide-react";
 import { useCallback, useEffect, useReducer, useRef, useState } from "react";
 import { toast } from "sonner";
 
@@ -100,7 +98,6 @@ function BillingPage() {
   const [billingCountry, setBillingCountry] = useState(billingProfile?.billingCountry ?? "");
   const [vatId, setVatId] = useState(billingProfile?.vatId ?? "");
   const [savingProfile, setSavingProfile] = useState(false);
-  const [portalBusy, setPortalBusy] = useState<"manage" | "cancel" | null>(null);
 
   // The CATALOGUE market. It follows the editable form immediately and is
   // deliberately not allowed anywhere near the verified current subscription:
@@ -233,49 +230,11 @@ function BillingPage() {
   /* Provider routing                                                       */
   /* ---------------------------------------------------------------------- */
 
-  async function openSubscriptionPortal(intent: "manage" | "cancel") {
-    // Routing follows the VERIFIED provider from the read adapter. The store's
-    // `paddleCustomerId` is not consulted: it carries whatever provider id the
-    // entitlement had, so a Stripe or manual account would be sent to a Paddle
-    // portal that is not theirs.
-    //
-    // And it follows CURRENT evidence, like every other action here. A portal
-    // session is a provider call, so a Paddle flag from a read that has since
-    // failed — or one still in flight — cannot authorise it. The disabled
-    // button is not the guard; this is.
-    if (!canOpenPaddlePortal(commercial)) {
-      toast.message(
-        summary?.provider === "paddle"
-          ? t(commercialReasonKey(summary.heldReason ?? "operation_unavailable"))
-          : t("billingScreen.commercial.manageUnavailable"),
-      );
-      return;
-    }
-    setPortalBusy(intent);
-    try {
-      const portal = await createPaddlePortalSessionFn();
-      const target =
-        intent === "cancel" ? (portal.cancelUrl ?? portal.overviewUrl) : portal.overviewUrl;
-      if (target) {
-        window.location.href = target;
-        return;
-      }
-      toast.error(t("billingScreen.portalFailed"));
-    } catch {
-      toast.error(t("billingScreen.portalFailed"));
-    } finally {
-      setPortalBusy(null);
-    }
-  }
-
   /** The one entry point every "end my subscription" control uses. */
   async function requestCancellation(opener?: HTMLElement | null) {
     switch (routeCancellation(commercial)) {
       case "cancelIntent":
         openCommercialDialog("cancel", opener);
-        return;
-      case "paddlePortal":
-        await openSubscriptionPortal("cancel");
         return;
       case "held":
         toast.message(t(commercialReasonKey(summary?.heldReason ?? "held")));
@@ -299,7 +258,6 @@ function BillingPage() {
     // manual entitlement setter, which would silently contradict the provider.
     switch (routeFreeSelection(commercial, { isOwner })) {
       case "cancelIntent":
-      case "paddlePortal":
         await requestCancellation(opener);
         return;
       case "manualReset":
@@ -642,8 +600,6 @@ function BillingPage() {
         onRestoreFocus={restoreDialogFocus}
         onResumeOperation={() => void resumeOperation()}
         onDismissOperation={() => dispatchCommercial({ type: "intent/dismiss" })}
-        onOpenPortal={() => void openSubscriptionPortal("manage")}
-        portalBusy={portalBusy !== null}
       />
 
       {/* Billing profile */}
@@ -904,17 +860,14 @@ function BillingPage() {
             </div>
             <div>
               <h2 className="font-display text-xl text-destructive">{t("billingScreen.cancel")}</h2>
-              {/* Provider-aware: the legacy portal wording belongs to a
-                  verified Paddle agreement only. A Stripe subscription
-                  cancels through the confirmation in this app, and anything
-                  else says honestly that it cannot be done here. */}
+              {/* Provider-aware: a Stripe subscription cancels through the
+                  confirmation in this app, and anything else says honestly
+                  that it cannot be done here. */}
               <p className="mt-1 text-sm text-muted-foreground">
                 {t(
-                  summary?.provider === "paddle"
-                    ? "billingScreen.cancelHelp"
-                    : summary?.provider === "stripe"
-                      ? "billingScreen.commercial.cancelHelpStripe"
-                      : "billingScreen.commercial.manageUnavailable",
+                  summary?.provider === "stripe"
+                    ? "billingScreen.commercial.cancelHelpStripe"
+                    : "billingScreen.commercial.manageUnavailable",
                 )}
               </p>
               <p className="mt-1 text-xs text-muted-foreground">
@@ -927,9 +880,8 @@ function BillingPage() {
             variant="outline"
             className="border-destructive/50 text-destructive hover:bg-destructive/5 hover:text-destructive"
             onClick={(event) => void requestCancellation(event.currentTarget)}
-            disabled={portalBusy !== null || !cancelEntryAllowed}
+            disabled={!cancelEntryAllowed}
           >
-            {portalBusy === "cancel" ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
             {t("billingScreen.cancel")}
           </Button>
         </section>

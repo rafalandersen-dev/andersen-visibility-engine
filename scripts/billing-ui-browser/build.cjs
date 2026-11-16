@@ -49,7 +49,6 @@ const FIXTURE_MODULES = {
   "components/StripeSandboxPanel.tsx": "sandbox",
   "lib/stripe-commercial.functions.ts": "commercial",
   "lib/entitlements.functions.ts": "entitlements",
-  "lib/billing.functions.ts": "paddle",
 };
 
 /** What each fixture-backed module re-exports from `fixture.js`. */
@@ -67,7 +66,6 @@ const FIXTURE_EXPORTS = {
     "reverseStripeCancellationFn",
   ],
   entitlements: ["getMyEntitlementFn", "setManualEntitlementFn"],
-  paddle: ["createPaddleCheckoutFn", "createPaddlePortalSessionFn"],
   router: ["createFileRoute", "Link", "useNavigate", "useRouter", "useLocation"],
   toasts: ["toast", "Toaster"],
 };

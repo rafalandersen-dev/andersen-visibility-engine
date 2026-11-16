@@ -19,7 +19,6 @@ import {
   UI_SUPPORTED_CURRENCY_EXPONENT,
   accessClaim,
   canConfirmQuote,
-  canOpenPaddlePortal,
   canPrepareQuote,
   canResumeIntent,
   canStartCancellation,
@@ -83,7 +82,6 @@ const summaryBody = (over: Record<string, unknown> = {}) => ({
   operationEvidence: "none",
   eligibleCancellationId: null,
   actions: {
-    paddlePortal: false,
     prepareChange: true,
     cancel: true,
     reverseCancellation: false,
@@ -372,7 +370,7 @@ describe("the summary reader never trusts a runtime payload", () => {
     ["a non-boolean cancellation flag", { cancelAtPeriodEnd: "false" }],
     ["an unknown operation evidence", { operationEvidence: "maybe" }],
     ["a non-uuid eligible cancellation", { eligibleCancellationId: "fixture-cancel-operation" }],
-    ["missing action booleans", { actions: { paddlePortal: true } }],
+    ["missing action booleans", { actions: { cancel: true } }],
     ["a non-boolean action", { actions: { ...summaryBody().actions, cancel: "yes" } }],
     ["an amount with no currency", { currentAmountMinor: 14_900 }],
     ["a currency with no amount", { currentCurrency: "eur" }],
@@ -1334,19 +1332,14 @@ describe("provider routing decisions", () => {
     expect(routeFreeSelection(held, { isOwner: true })).toBe("cancelIntent");
   });
 
-  it("keeps the existing Paddle portal for a verified Paddle agreement", () => {
-    const paddle = verified({
+  it("gives a legacy paddle-labelled account no provider action", () => {
+    const legacy = verified({
       provider: "paddle",
       mode: null,
-      actions: {
-        ...summaryBody().actions,
-        paddlePortal: true,
-        prepareChange: false,
-        cancel: false,
-      },
+      actions: { ...summaryBody().actions, prepareChange: false, cancel: false },
     });
-    expect(routeFreeSelection(paddle, { isOwner: true })).toBe("paddlePortal");
-    expect(routeCancellation(paddle)).toBe("paddlePortal");
+    expect(routeFreeSelection(legacy, { isOwner: false })).toBe("unavailable");
+    expect(routeCancellation(legacy)).toBe("unavailable");
   });
 
   it("allows an owner's manual reset only for a cleared manual or free account", () => {
@@ -1397,86 +1390,6 @@ describe("provider routing decisions", () => {
 /* -------------------------------------------------------------------------- */
 /* Correction 2 residuals                                                     */
 /* -------------------------------------------------------------------------- */
-
-describe("the Paddle portal needs current evidence like everything else", () => {
-  const paddle = () =>
-    verified({
-      provider: "paddle",
-      mode: null,
-      actions: {
-        ...summaryBody().actions,
-        paddlePortal: true,
-        prepareChange: false,
-        cancel: false,
-      },
-    });
-
-  it("allows the portal for a fresh verified Paddle agreement", () => {
-    const fresh = paddle();
-    expect(canOpenPaddlePortal(fresh)).toBe(true);
-    expect(routeCancellation(fresh)).toBe("paddlePortal");
-    expect(cancellationAvailable(fresh)).toBe(true);
-    expect(freeSelectionAvailable(fresh, { isOwner: false })).toBe(true);
-  });
-
-  it("withdraws it after a failed refresh, and restores it after a fresh one", () => {
-    const stale = run(
-      [
-        { type: "summary/request", epoch: 1, token: 2 },
-        {
-          type: "summary/resolved",
-          epoch: 1,
-          token: 2,
-          response: { ok: false, reason: "billing_read_unavailable" },
-        },
-      ],
-      paddle(),
-    );
-    // The facts are still shown…
-    expect(stale.summary?.provider).toBe("paddle");
-    expect(stale.summary?.actions.paddlePortal).toBe(true);
-    // …and the portal is not permitted.
-    expect(canOpenPaddlePortal(stale)).toBe(false);
-    expect(routeCancellation(stale)).toBe("held");
-    expect(cancellationAvailable(stale)).toBe(false);
-    expect(freeSelectionAvailable(stale, { isOwner: true })).toBe(false);
-
-    const refreshing = run([{ type: "summary/request", epoch: 1, token: 3 }], paddle());
-    expect(canOpenPaddlePortal(refreshing)).toBe(false);
-
-    const recovered = run(
-      [
-        { type: "summary/request", epoch: 1, token: 4 },
-        {
-          type: "summary/resolved",
-          epoch: 1,
-          token: 4,
-          response: summaryResponse({
-            provider: "paddle",
-            mode: null,
-            actions: {
-              ...summaryBody().actions,
-              paddlePortal: true,
-              prepareChange: false,
-              cancel: false,
-            },
-          }),
-        },
-      ],
-      stale,
-    );
-    expect(canOpenPaddlePortal(recovered)).toBe(true);
-  });
-
-  it("never opens it for a non-Paddle provider, however the flag is set", () => {
-    const stripeWithFlag = verified({
-      actions: { ...summaryBody().actions, paddlePortal: true },
-    });
-    // The reader strips an incoherent Paddle flag from a Stripe account.
-    expect(stripeWithFlag.summary?.actions.paddlePortal).toBe(false);
-    expect(canOpenPaddlePortal(stripeWithFlag)).toBe(false);
-  });
-});
 
 describe("a readable success must agree with the request it answers", () => {
   const dispatchChange = (from = readyToConfirm()) =>
@@ -1718,7 +1631,6 @@ describe("an unestablished account cannot acquire authority", () => {
       periodEnd: null,
       cancelAtPeriodEnd: null,
       actions: {
-        paddlePortal: true,
         prepareChange: true,
         cancel: true,
         reverseCancellation: true,
@@ -1731,7 +1643,6 @@ describe("an unestablished account cannot acquire authority", () => {
     const state = unknownWithActions();
     expect(state.summary).not.toBeNull();
     expect(state.summary?.actions).toEqual({
-      paddlePortal: false,
       prepareChange: false,
       cancel: false,
       reverseCancellation: false,
@@ -1755,17 +1666,11 @@ describe("an unestablished account cannot acquire authority", () => {
     expect(canStartReversal(state)).toBe(false);
     expect(canResumeIntent(state)).toBe(false);
     expect(canUseManualOverride(state)).toBe(false);
-    expect(canOpenPaddlePortal(state)).toBe(false);
     expect(routeFreeSelection(state, { isOwner: true })).toBe("unavailable");
     expect(routeCancellation(state)).toBe("unavailable");
   });
 
   it.each([
-    [
-      "a Stripe account claiming a Paddle portal",
-      { actions: { ...summaryBody().actions, paddlePortal: true } },
-      "paddlePortal",
-    ],
     [
       "a free Stripe account claiming a paid change",
       { access: "free", actions: { ...summaryBody().actions, prepareChange: true } },
@@ -1993,7 +1898,6 @@ describe("an unestablished account cannot acquire authority", () => {
         operationEvidence: "open",
         eligibleCancellationId: null,
         actions: {
-          paddlePortal: false,
           prepareChange: false,
           cancel: false,
           reverseCancellation: false,

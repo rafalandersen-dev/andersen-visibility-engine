@@ -108,7 +108,7 @@ export const getStripeCommercialStatusFn = createServerFn({ method: "POST" })
  *
  * It exists because `getMyEntitlementFn` cannot serve a billing screen: it
  * resolves a read failure to Free, and the mapper behind it normalises a
- * malformed provider to Paddle and an unknown plan to Free. A transport or
+ * malformed provider to "none" and an unknown plan to Free. A transport or
  * validation rejection here must be shown as UNAVAILABLE, never as verified
  * Free and never as a verified provider.
  */

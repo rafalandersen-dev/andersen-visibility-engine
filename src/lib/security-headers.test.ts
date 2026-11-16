@@ -52,13 +52,13 @@ describe("withSecurityHeaders", () => {
 
   it("policy allows the origins the app actually uses", () => {
     // Inventory 2026-08-19: Google Fonts CSS+files, Supabase (https+wss),
-    // Paddle checkout surfaces, hydration inline scripts, user-site images.
+    // hydration inline scripts, user-site images.
     expect(CONTENT_SECURITY_POLICY).toContain("frame-ancestors 'none'");
     expect(CONTENT_SECURITY_POLICY).toContain("https://fonts.googleapis.com");
     expect(CONTENT_SECURITY_POLICY).toContain("https://fonts.gstatic.com");
     expect(CONTENT_SECURITY_POLICY).toContain("https://*.supabase.co");
     expect(CONTENT_SECURITY_POLICY).toContain("wss://*.supabase.co");
-    expect(CONTENT_SECURITY_POLICY).toContain("https://cdn.paddle.com");
+    expect(CONTENT_SECURITY_POLICY).not.toContain("paddle");
     expect(CONTENT_SECURITY_POLICY).toContain("script-src 'self' 'unsafe-inline'");
     expect(CONTENT_SECURITY_POLICY).toContain("img-src 'self' data: blob: https:");
   });

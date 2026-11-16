@@ -12,7 +12,6 @@ import {
   type ConnectionStatusCard,
 } from "@/lib/launch";
 import { getAnalyticsSummaryFn } from "@/lib/analytics.functions";
-import { getPaddleStatusFn } from "@/lib/billing.functions";
 import { getAiRouterStatusFn } from "@/lib/ai.functions";
 import { getGscOAuthStatusFn, type GscOAuthStatus } from "@/lib/gsc.functions";
 import { CheckCircle2, Circle, MinusCircle, ArrowUpRight, BookOpen, Wrench } from "lucide-react";
@@ -227,7 +226,6 @@ function LaunchChecklistPage() {
 
 function OwnerQaPanel({ inputs }: { inputs: LaunchInputs }) {
   const t = useT();
-  const [paddle, setPaddle] = useState<{ configured: boolean; environment: string } | null>(null);
   const [ai, setAi] = useState<{
     candidateConfigured: boolean;
     candidateModel?: string | null;
@@ -236,9 +234,6 @@ function OwnerQaPanel({ inputs }: { inputs: LaunchInputs }) {
 
   useEffect(() => {
     let cancelled = false;
-    getPaddleStatusFn()
-      .then((r) => !cancelled && setPaddle(r))
-      .catch(() => {});
     getAiRouterStatusFn()
       .then((r) => !cancelled && setAi(r))
       .catch(() => {});
@@ -290,14 +285,6 @@ function OwnerQaPanel({ inputs }: { inputs: LaunchInputs }) {
       value: ai
         ? ai.candidateConfigured
           ? `${t("launch.qa.yes")} (${ai.candidateModel ?? "?"})`
-          : t("launch.qa.no")
-        : "…",
-    },
-    {
-      label: t("launch.qa.paddle"),
-      value: paddle
-        ? paddle.configured
-          ? `${t("launch.qa.yes")} (${paddle.environment})`
           : t("launch.qa.no")
         : "…",
     },

@@ -53,7 +53,6 @@ import {
   SELLABLE_PLAN_IDS,
   accessClaim,
   canConfirmQuote,
-  canOpenPaddlePortal,
   canPrepareQuote,
   canResumeIntent,
   canStartCancellation,
@@ -107,7 +106,6 @@ const VERIFIED_NOTICE: Readonly<Record<string, string>> = {
  * "no change is available" beside an enabled withdrawal.
  */
 function managementCopyKey(summary: BillingSummary): string {
-  if (summary.actions.paddlePortal) return "billingScreen.commercial.manageHelpPaddle";
   if (summary.provider === "stripe") {
     if (summary.actions.prepareChange || summary.actions.cancel)
       return "billingScreen.commercial.manageHelpStripe";
@@ -321,8 +319,6 @@ export interface StripeCommercialPanelProps {
   onRestoreFocus?: () => boolean;
   onResumeOperation: () => void;
   onDismissOperation: () => void;
-  onOpenPortal: () => void;
-  portalBusy?: boolean;
 }
 
 export function StripeCommercialPanel({
@@ -341,8 +337,6 @@ export function StripeCommercialPanel({
   onRestoreFocus,
   onResumeOperation,
   onDismissOperation,
-  onOpenPortal,
-  portalBusy = false,
 }: StripeCommercialPanelProps) {
   const planFieldId = useId();
   const seatFieldId = useId();
@@ -533,8 +527,7 @@ export function StripeCommercialPanel({
         </div>
       ) : null}
 
-      {/* Provider routing. Paddle keeps its existing caller-owned portal; a
-          Stripe or manual account is never sent there. */}
+      {/* Provider routing: management actions follow the verified provider. */}
       {summary ? (
         <div className="mt-5 border-t border-border pt-4">
           {/* What this account can actually do, stated for ITS provider. The
@@ -544,21 +537,6 @@ export function StripeCommercialPanel({
             {t(managementCopyKey(summary))}
           </p>
           <div className="mt-3 flex flex-wrap gap-2">
-            {summary.actions.paddlePortal ? (
-              <Button
-                type="button"
-                variant="outline"
-                onClick={onOpenPortal}
-                // The same current-evidence gate as every other action. A
-                // portal session is a provider call: a Paddle flag read before
-                // a refresh that has since failed is not permission to make
-                // one, and `portalBusy` alone never said anything about that.
-                disabled={portalBusy || !canOpenPaddlePortal(state)}
-                aria-busy={portalBusy || undefined}
-              >
-                {t("billingScreen.manage")}
-              </Button>
-            ) : null}
             <Button
               type="button"
               variant="outline"

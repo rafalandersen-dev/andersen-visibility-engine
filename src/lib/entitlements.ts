@@ -3,8 +3,8 @@
  *
  * Pure, client+server safe. The DATA lives in public.entitlements, a table the
  * browser can only READ (RLS: select own row; no insert/update/delete policy at
- * all). Writes happen exclusively through the service role, from the Paddle
- * webhook or an owner-gated server function.
+ * all). Writes happen exclusively through the service role, from the Stripe lifecycle
+ * code or an owner-gated server function.
  *
  * Everything here FAILS CLOSED: missing, malformed, expired or unreadable
  * entitlement data resolves to `freePreview`, never to a paid tier.
@@ -66,7 +66,7 @@ export function entitlementFromRow(row: Record<string, unknown> | null | undefin
     currentPeriodEnd:
       typeof row.current_period_end === "string" ? row.current_period_end : undefined,
     cancelAtPeriodEnd: row.cancel_at_period_end === true,
-    provider: typeof row.provider === "string" ? row.provider : "paddle",
+    provider: typeof row.provider === "string" ? row.provider : "none",
     providerCustomerId:
       typeof row.provider_customer_id === "string" ? row.provider_customer_id : undefined,
     providerSubscriptionId:

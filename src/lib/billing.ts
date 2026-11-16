@@ -65,9 +65,6 @@ export interface SubscriptionPlan {
   billingMarket: BillingMarket;
   currency: string;
   priceMonthly: number;
-  paddleCustomerId?: string;
-  paddleSubscriptionId?: string;
-  paddleTransactionId?: string;
   currentPeriodEnd?: string;
   cancelAtPeriodEnd?: boolean;
   addOns?: { assistedSetup?: boolean; monthlyCare?: boolean };

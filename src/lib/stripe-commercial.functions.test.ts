@@ -188,7 +188,6 @@ describe("authentication and the dormant hold", () => {
         operationEvidence: "none",
         eligibleCancellationId: null,
         actions: {
-          paddlePortal: false,
           prepareChange: false,
           cancel: false,
           reverseCancellation: false,
