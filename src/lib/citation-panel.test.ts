@@ -26,6 +26,7 @@ import {
   isCompetitorOnlyCitationGap,
   isVerifiedImprovement,
   liveVerifiedAt,
+  nativeOnlyFindingIssues,
   passageAfterAnswer,
   recommendationSchema,
   sourceSupportSchema,
@@ -1670,6 +1671,100 @@ const finding = (over: Partial<Finding> = {}): Finding => ({
   secondReview: null,
   linkedTaskId: null,
   ...over,
+});
+describe("native evidence binding + native-only findings", () => {
+  const sha = (c: string) => c.repeat(64);
+  const bind = {
+    rawSha256: sha("a"),
+    source: "bing_ai_performance" as const,
+    parserVersion: "native-bing-ai-csv-v1" as const,
+    parsedSha256: sha("b"),
+  };
+  const nativeOnly = (over: Partial<Finding> = {}): Finding =>
+    finding({
+      evidence: [{ kind: "native", id: uuid(80), nativeBinding: bind }],
+      capture: { answerComplete: false, citationsComplete: false },
+      competitorCited: null,
+      ownCited: null,
+      recommendation: null,
+      support: [],
+      accuracy: [],
+      ...over,
+    });
+  it("accepts a bound native-only citation_source finding and a bare legacy native reference", () => {
+    expect(findingSchema.parse(nativeOnly()).evidence[0].nativeBinding).toEqual(bind);
+    // A legacy/bare native reference (no binding) stays valid — the key is simply absent, never auto-bound.
+    const bare = findingSchema.parse(
+      nativeOnly({ evidence: [{ kind: "native", id: uuid(80) }] as Finding["evidence"] }),
+    );
+    expect(bare.evidence[0].nativeBinding).toBeUndefined();
+  });
+  it("accepts a mixed answer+native finding and keeps all answer semantics", () => {
+    const mixed = findingSchema.parse(
+      finding({
+        evidence: [
+          { kind: "answer", id: uuid(70) },
+          { kind: "native", id: uuid(80), nativeBinding: bind },
+        ],
+      }),
+    );
+    expect(mixed.evidence).toHaveLength(2);
+    expect(isCompetitorOnlyCitationGap(mixed)).toBe(true); // answer semantics unchanged
+  });
+  it("rejects a binding on answer/source evidence and a partial binding", () => {
+    expect(() =>
+      findingSchema.parse(
+        finding({
+          evidence: [{ kind: "answer", id: uuid(70), nativeBinding: bind }] as Finding["evidence"],
+        }),
+      ),
+    ).toThrow(/Only native evidence/);
+    expect(() =>
+      findingSchema.parse(
+        nativeOnly({
+          evidence: [
+            { kind: "native", id: uuid(80), nativeBinding: { ...bind, parsedSha256: undefined } },
+          ] as unknown as Finding["evidence"],
+        }),
+      ),
+    ).toThrow();
+  });
+  it("native-only NEW-save rules forbid invented answer facts (save boundary, not the global read schema)", () => {
+    // The global schema stays LENIENT so historical native-only rows keep reading/editing; the save-only
+    // validator (nativeOnlyFindingIssues, wired into citation-record boundedFinding) rejects invented facts.
+    const base = findingSchema.parse(nativeOnly());
+    expect(nativeOnlyFindingIssues(base)).toEqual([]);
+    expect(
+      findingSchema.safeParse({
+        ...base,
+        capture: { answerComplete: true, citationsComplete: false },
+      }).success,
+    ).toBe(true); // lenient global read does NOT reject the historical shape
+    expect(
+      nativeOnlyFindingIssues({
+        ...base,
+        capture: { answerComplete: true, citationsComplete: false },
+      }),
+    ).not.toHaveLength(0);
+    expect(nativeOnlyFindingIssues({ ...base, competitorCited: true })).not.toHaveLength(0);
+    expect(
+      nativeOnlyFindingIssues({ ...base, family: "recommendation_accuracy" }),
+    ).not.toHaveLength(0);
+    expect(
+      nativeOnlyFindingIssues({
+        ...base,
+        recommendation: {
+          status: "unclear",
+          passage: null,
+          target: null,
+          suitability: "unknown",
+          review,
+        },
+      }),
+    ).not.toHaveLength(0);
+    // A mixed answer+native or answer-only finding is NOT native-only and has no issues.
+    expect(nativeOnlyFindingIssues(findingSchema.parse(finding()))).toEqual([]);
+  });
 });
 describe("attribution, support and accuracy (CI11-T22…T29)", () => {
   it("keeps attribution as not checked until a passage with its date and reviewer is recorded", () => {

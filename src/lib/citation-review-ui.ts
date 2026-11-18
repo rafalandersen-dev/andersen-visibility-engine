@@ -428,3 +428,61 @@ export const REVIEW_SHARE_SCOPE = {
     "citationReview.share.notExports",
   ],
 } as const;
+
+/* -------------------------------------------- native-material consent (finding native-review binding) */
+
+/**
+ * The EXACT canonical string that `citation_review_native_set_digest` (SQL) hashes for a finding's cited
+ * native set, so the owner's explicit full-set consent digest matches the server's live one byte-for-byte.
+ * Formula (must stay identical to the migration):
+ *   'native_review_set_v1' + join('|', sorted( lower(id) + ':' + parsedSha256 ))
+ * Each item's `parsedSha256` is the AUTHORITATIVE per-artifact value from the owner binding read
+ * (`read_ai_native_report_binding`) — NEVER a browser-recomputed parsed digest. Returns `null` when the set
+ * is empty OR any cited native lacks a resolved binding (an unbindable/legacy set cannot be consented), which
+ * is exactly when the SQL set digest is NULL and the grant must be refused.
+ */
+export function nativeConsentSetString(
+  items: readonly { id: string; parsedSha256: string | null }[],
+): string | null {
+  if (items.length === 0) return null;
+  const parts: string[] = [];
+  for (const it of items) {
+    if (!it.parsedSha256) return null; // an unbound/unresolved native cannot be consented
+    parts.push(`${it.id.toLowerCase()}:${it.parsedSha256}`);
+  }
+  parts.sort();
+  return "native_review_set_v1" + parts.join("|");
+}
+
+/**
+ * SHA-256 hex of `nativeConsentSetString` — the owner's declared full-set consent digest to pass to the v2
+ * native grant. `null` (not consentable) propagates. Uses WebCrypto over the UTF-8 bytes of the canonical
+ * string, matching the SQL `encode(sha256(convert_to(..., 'UTF8')), 'hex')` exactly.
+ */
+export async function nativeConsentSetDigest(
+  items: readonly { id: string; parsedSha256: string | null }[],
+): Promise<string | null> {
+  const s = nativeConsentSetString(items);
+  if (s === null) return null;
+  const digest = await globalThis.crypto.subtle.digest("SHA-256", new TextEncoder().encode(s));
+  return [...new Uint8Array(digest)].map((b) => b.toString(16).padStart(2, "0")).join("");
+}
+
+/**
+ * A stable identity for a prepared native-consent acceptance. The owner's unchecked consent is bound to the
+ * exact finding row + reviewer + full-set digest + session epoch; changing ANY of these clears the accepted
+ * choice and any displayed success link (no default/persisted carry-over across identity changes — UI4/UI1).
+ */
+export function nativeConsentIdentity(input: {
+  findingRowId: string;
+  reviewerId: string;
+  setString: string | null;
+  epoch: number;
+}): string {
+  return JSON.stringify([
+    input.findingRowId.toLowerCase(),
+    input.reviewerId.toLowerCase(),
+    input.setString,
+    input.epoch,
+  ]);
+}

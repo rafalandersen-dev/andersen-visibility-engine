@@ -5,6 +5,7 @@ import {
   findingSchema,
   type BusinessFact,
   type Finding,
+  type NativeEvidenceBinding,
 } from "./citation-finding";
 import type { CitationPanelScope } from "./citation-record";
 import type { EvidenceRow } from "./answer-evidence";
@@ -44,6 +45,13 @@ export interface AccuracyDraft {
     factKind: BusinessFact["kind"];
   } | null;
 }
+/** One cited saved native report in the draft: its artifact id plus, when the owner has selected its
+ * CURRENT parsed material, the authoritative binding from the owner parsed-material read. `binding: null`
+ * is a preserved legacy/bare reference (kept on edit, never silently dropped, never auto-inspectable). */
+export interface NativeDraftRef {
+  id: string;
+  binding: NativeEvidenceBinding | null;
+}
 export interface FindingDraft {
   findingId: string;
   /** Head ROW being edited: version (0 for a new finding) + its immutable row id (null for a new finding). The
@@ -57,6 +65,8 @@ export interface FindingDraft {
   answerId: string | null;
   /** Optional cited source id (project knowledge source). */
   sourceId: string | null;
+  /** Cited saved native reports (0..n). A finding with natives and no answer is "native-only". */
+  natives: NativeDraftRef[];
   entityMatch: Finding["entityMatch"];
   answerComplete: boolean;
   citationsComplete: boolean;
@@ -86,6 +96,7 @@ export function newFindingDraft(findingId: string, family: Finding["family"]): F
     scope: null,
     answerId: null,
     sourceId: null,
+    natives: [],
     entityMatch: "confirmed",
     answerComplete: true,
     citationsComplete: true,
@@ -159,7 +170,11 @@ export function draftToFinding(
 ): { ok: true; finding: Finding; scope: CitationPanelScope } | { ok: false; issues: string[] } {
   const issues: string[] = [];
   if (!draft.scope) issues.push("scope: choose a locked panel version");
-  if (!draft.answerId) issues.push("evidence: choose the captured answer");
+  // Evidence is the captured answer and/or one or more saved native reports. A NATIVE-ONLY finding
+  // (natives, no answer) asserts no answer-at-capture facts (forced below); answer/mixed are unchanged.
+  const nativeOnly = !draft.answerId && draft.natives.length > 0;
+  if (!draft.answerId && draft.natives.length === 0)
+    issues.push("evidence: choose the captured answer or a saved native report");
   // The capture instant is the SAVED answer evidence's own `input.capturedAt`, resolved from the fresh read. It is
   // never invented: while the evidence read is pending/failed (null) or malformed, review is refused rather than
   // freezing a made-up date into the record.
@@ -181,11 +196,21 @@ export function draftToFinding(
         `support.${i}.selectedRecord: the pinned record belongs to a source that is not the cited source; cite that source or clear the pin`,
       );
   });
-  if (issues.length || !draft.scope || !captured) return { ok: false, issues };
+  // A missing capture instant only blocks an ANSWER-backed finding; a native-only finding has no answer.
+  if (issues.length || !draft.scope || (draft.answerId !== null && !captured))
+    return { ok: false, issues };
   const review = { reviewer: ownerId, reviewedAt: nowIso };
   const evidence: Finding["evidence"] = [];
   if (draft.answerId) evidence.push({ kind: "answer", id: draft.answerId });
   if (draft.sourceId) evidence.push({ kind: "source", id: draft.sourceId });
+  // Preserve EVERY cited native reference, bound (authoritative binding from the owner parsed-material
+  // read) or bare/legacy (binding null → never auto-inspectable). Never silently drop one.
+  for (const n of draft.natives)
+    evidence.push(
+      n.binding
+        ? { kind: "native", id: n.id, nativeBinding: n.binding }
+        : { kind: "native", id: n.id },
+    );
   const support = draft.support.map((s) => {
     const assessed = s.status !== "not_checked";
     return {
@@ -218,22 +243,27 @@ export function draftToFinding(
     family: draft.family,
     evidence,
     entityMatch: draft.entityMatch,
-    capture: { answerComplete: draft.answerComplete, citationsComplete: draft.citationsComplete },
+    // Native-only: FORCE the no-answer shape (decision #3) — the owner cannot assert answer/citation
+    // completeness, competitor/own citation, a recommendation, or answer-anchored support/accuracy.
+    capture: nativeOnly
+      ? { answerComplete: false, citationsComplete: false }
+      : { answerComplete: draft.answerComplete, citationsComplete: draft.citationsComplete },
     observation: draft.observation.trim(),
     hypothesis: draft.hypothesis.trim() || null,
-    competitorCited: tri(draft.competitorCited),
-    ownCited: tri(draft.ownCited),
-    recommendation: draft.recommendation.enabled
-      ? {
-          status: draft.recommendation.status,
-          passage: draft.recommendation.passage.trim() || null,
-          target: draft.recommendation.target.trim() || null,
-          suitability: draft.recommendation.suitability,
-          review,
-        }
-      : null,
-    support,
-    accuracy,
+    competitorCited: nativeOnly ? null : tri(draft.competitorCited),
+    ownCited: nativeOnly ? null : tri(draft.ownCited),
+    recommendation:
+      !nativeOnly && draft.recommendation.enabled
+        ? {
+            status: draft.recommendation.status,
+            passage: draft.recommendation.passage.trim() || null,
+            target: draft.recommendation.target.trim() || null,
+            suitability: draft.recommendation.suitability,
+            review,
+          }
+        : null,
+    support: nativeOnly ? [] : support,
+    accuracy: nativeOnly ? [] : accuracy,
     priority: draft.priority,
     decision: draft.decision,
     review,
@@ -259,6 +289,11 @@ export function draftFromRecord(
 ): FindingDraft {
   const answer = record.evidence.find((e) => e.kind === "answer")?.id ?? null;
   const source = record.evidence.find((e) => e.kind === "source")?.id ?? null;
+  // Every cited native reference is carried back, binding preserved (bound) or null (legacy/bare), so an
+  // edit never silently drops native evidence and never auto-binds a bare reference.
+  const natives: NativeDraftRef[] = record.evidence
+    .filter((e) => e.kind === "native")
+    .map((e) => ({ id: e.id, binding: e.nativeBinding ?? null }));
   const fromTri = (v: boolean | null): "yes" | "no" | "unknown" =>
     v === null ? "unknown" : v ? "yes" : "no";
   return {
@@ -269,6 +304,7 @@ export function draftFromRecord(
     scope,
     answerId: answer,
     sourceId: source,
+    natives,
     entityMatch: record.entityMatch,
     answerComplete: record.capture.answerComplete,
     citationsComplete: record.capture.citationsComplete,
@@ -328,11 +364,19 @@ export function staleSelections(
     records: readonly { id: string; revision: number; sourceId: string; sourceRevision: number }[];
     facts: readonly CitationBusinessFactSummary[];
     lockedScopes: readonly { panelId: string; panelVersion: number }[];
+    /** Saved native artifacts currently present for this owner/project (presence only — native records
+     * are immutable, so a bound reference's material cannot drift; the exact binding/set is re-checked
+     * authoritatively at save). Optional so answer-only callers need not pass it. */
+    natives?: readonly { id: string }[];
   },
 ): string[] {
   const stale: string[] = [];
   const eq = (a: string, b: string) => a.toLowerCase() === b.toLowerCase();
+  const freshNatives = fresh.natives ?? [];
   if (draft.answerId && !fresh.answers.some((a) => eq(a.id, draft.answerId!))) stale.push("answer");
+  draft.natives.forEach((n, i) => {
+    if (!freshNatives.some((x) => eq(x.id, n.id))) stale.push(`native.${i}`);
+  });
   if (draft.sourceId) {
     const src = fresh.sources.find((s) => eq(s.id, draft.sourceId!));
     if (!src || src.status !== "active") stale.push("source");

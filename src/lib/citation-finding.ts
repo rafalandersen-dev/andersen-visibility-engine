@@ -10,6 +10,27 @@ import { z } from "zod";
 const text = (max: number) => z.string().trim().min(1).max(max);
 const instant = z.string().datetime({ offset: true });
 const uuid = z.string().uuid();
+const sha256 = z.string().regex(/^[a-f0-9]{64}$/);
+// Native-evidence binding vocabulary. These mirror NATIVE_REPORT_SOURCES (native-ai-report.ts) and the
+// two parser-version constants (native-google-intake.ts / native-bing-ai-csv.ts). They are only a SHAPE
+// guard here: the server/SQL compares each binding field to the LIVE artifact + the central
+// parsed-material digest and is authoritative (see 2026…_citation_native_review_binding.sql).
+// shortcut: duplicated literals, not an import, to keep this core schema dependency-free (zod only);
+// upgrade to a shared import only if a third native source/parser is added.
+const NATIVE_BINDING_SOURCES = ["gsc_generative_ai_search", "bing_ai_performance"] as const;
+const NATIVE_BINDING_PARSERS = ["native-google-ai-csv-v1", "native-bing-ai-csv-v1"] as const;
+export type NativeEvidenceSource = (typeof NATIVE_BINDING_SOURCES)[number];
+export type NativeEvidenceParser = (typeof NATIVE_BINDING_PARSERS)[number];
+/** The authoritative per-artifact binding an owner embeds into a NEW finding version to make the exact
+ * cited parsed interpretation independently inspectable. Comes ONLY from the narrow owner
+ * parsed-material read (server-computed), never owner free-text; the SQL re-checks it against the live
+ * artifact + the central parsed-material digest. */
+export interface NativeEvidenceBinding {
+  rawSha256: string;
+  source: NativeEvidenceSource;
+  parserVersion: NativeEvidenceParser;
+  parsedSha256: string;
+}
 /**
  * Plan task identity as ACTUALLY minted by the current callers (27 September 2026 repair): the client store
  * mints 8-character base-36 ids (`uid()` in store.ts) for Plan opportunities, connector batches mint UUIDs
@@ -200,7 +221,38 @@ export const findingSchema = z
     findingId: uuid,
     family: z.enum(GAP_FAMILIES),
     evidence: z
-      .array(z.object({ kind: z.enum(["answer", "native", "source"]), id: text(200) }).strict())
+      .array(
+        z
+          .object({
+            kind: z.enum(["answer", "native", "source"]),
+            id: text(200),
+            // Native-only, ALL-OR-NOTHING strict binding that makes THIS immutable finding version bind
+            // the exact parsed interpretation it cites (finding content/hash carries it). Absent (null) =>
+            // a bare/legacy native reference that is never independently inspectable and never auto-upgrades
+            // when a parser later appears. The reviewer/inspectability SQL re-verifies every field against
+            // the live artifact and the central parsed-material digest. answer/source evidence carry none.
+            // Optional (never defaulted): an absent key keeps answer/source and legacy native evidence
+            // byte-identical to before (no hash churn), and reads as SQL NULL for the inspectability gate.
+            nativeBinding: z
+              .object({
+                rawSha256: sha256,
+                source: z.enum(NATIVE_BINDING_SOURCES),
+                parserVersion: z.enum(NATIVE_BINDING_PARSERS),
+                parsedSha256: sha256,
+              })
+              .strict()
+              .optional(),
+          })
+          .strict()
+          .superRefine((e, ctx) => {
+            if (e.kind !== "native" && e.nativeBinding !== undefined)
+              ctx.addIssue({
+                code: "custom",
+                path: ["nativeBinding"],
+                message: "Only native evidence carries a binding",
+              });
+          }),
+      )
       .min(1)
       .max(20),
     /** Human confirmation that the answer refers to this business; ambiguity stays visible. */
@@ -256,6 +308,34 @@ export const findingSchema = z
       });
   });
 export type Finding = z.infer<typeof findingSchema>;
+/**
+ * Native-only NEW-save rules (decision #3): a finding that cites native evidence and NO answer evidence
+ * observes no consumer answer, so it may assert NONE of the answer-at-capture facts (no invented answer
+ * id/time) and is permitted only as a `citation_source` observation. Enforced at the NEW-save boundary
+ * ONLY (citation-record `boundedFinding`, which the save server parses) — deliberately NOT in the global
+ * `findingSchema`, because historical native-only rows may carry answer-like fields and must stay
+ * readable/editable (the owner read re-parses with the lenient global schema). Mixed answer+native
+ * findings keep all existing answer semantics. Returns the issues; empty = ok or not native-only.
+ */
+export function nativeOnlyFindingIssues(f: Finding): string[] {
+  const issues: string[] = [];
+  const hasAnswer = f.evidence.some((e) => e.kind === "answer");
+  const hasNative = f.evidence.some((e) => e.kind === "native");
+  if (!hasNative || hasAnswer) return issues;
+  if (f.family !== "citation_source")
+    issues.push("family: a native-only finding is a citation_source observation");
+  if (f.capture.answerComplete || f.capture.citationsComplete)
+    issues.push("capture: a native-only finding cannot claim answer/citation completeness");
+  if (f.competitorCited !== null || f.ownCited !== null)
+    issues.push("ownCited: a native-only finding cannot assert competitor/own citation");
+  if (f.recommendation !== null)
+    issues.push("recommendation: a native-only finding records no recommendation");
+  if (f.support.length > 0)
+    issues.push("support: a native-only finding has no answer-captured source support");
+  if (f.accuracy.length > 0)
+    issues.push("accuracy: a native-only finding has no answer-anchored accuracy assessment");
+  return issues;
+}
 /** A competitor-only citation gap is a confident negative comparison (§4.3). */
 export function isCompetitorOnlyCitationGap(f: Finding) {
   return (

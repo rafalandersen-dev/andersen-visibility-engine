@@ -22,9 +22,11 @@ export const STAGED_NATIVE_INTAKE_FALLBACK_NOTE =
   "fallback, pending translation and interface acceptance.";
 
 /** Reviewed English `nativeIntake` source fingerprint; recomputed by the staged suites. Covers the
- * 100-key Google+Bing English source; `DE_AUTHORING_SOURCE_HASHES["native intake"]` must match. */
+ * 120-key Google+Bing + native-review-binding English source (the finding native-review binding added
+ * the `bind.*`/`review.*`/`consent.*` keys incl. the owner review intro);
+ * `DE_AUTHORING_SOURCE_HASHES["native intake"]` must match. */
 export const STAGED_NATIVE_INTAKE_SOURCE_HASH =
-  "3a58c957f10ee7ca80c199b41d19da1ad88861b3baba335c3222e5938496abe9";
+  "509f421f0153f618c42973ed2deb6ccbbc889ea9cb9566c31b3e741d72a9d8eb";
 
 /** The one staged batch: a frozen null-prototype copy of the English source. */
 export function stagedNativeIntake(): Readonly<Record<string, string>> {

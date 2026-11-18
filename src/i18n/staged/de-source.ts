@@ -60,6 +60,6 @@ export const DE_AUTHORING_SOURCE_HASHES: Readonly<Record<string, string>> = {
   "manual capture": "074e44c7182f14f5be3ee5bcb1de232634cedb87695c16a67b9226ba383c5774",
   // Native Google+Bing intake source; English source in src/i18n/native-google-intake.ts. The batch is
   // reviewed English fallback pending translation (./native-intake-fallback.ts), not a German review
-  // record. Covers the 100-key Google+Bing English source.
-  "native intake": "3a58c957f10ee7ca80c199b41d19da1ad88861b3baba335c3222e5938496abe9",
+  // record. Covers the 120-key Google+Bing + native-review-binding English source.
+  "native intake": "509f421f0153f618c42973ed2deb6ccbbc889ea9cb9566c31b3e741d72a9d8eb",
 };
