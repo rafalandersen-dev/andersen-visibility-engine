@@ -1,10 +1,9 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { Button } from "@/components/ui/button";
+import { STATIC_POSTS } from "@/lib/milo/static-posts";
 
 const PAGE_URL = "https://milogrowth.com/blog/local-seo-guide";
-const TITLE = "Local SEO Strategy Guide for Small Businesses";
-const DESCRIPTION =
-  "A practical local SEO guide for small service businesses — Google Business Profile basics, local keyword targeting, location pages, reviews and on-page essentials, with links to Google's own documentation.";
+const { title: TITLE, description: DESCRIPTION } = STATIC_POSTS[0];
 /** Last factual review of this guide against the sources listed at the end. */
 const REVIEWED_ON = "2026-10-30";
 const REVIEWED_LABEL = "30 October 2026";
