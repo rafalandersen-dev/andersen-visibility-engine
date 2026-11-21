@@ -1,3 +1,4 @@
+import { stagedChatGptChannel } from "./chatgpt-channel-fallback";
 import { nlConversation } from "./nl-conversation";
 import { nlWorkflow } from "./nl-workflow";
 import { nlEvidence } from "./nl-evidence";
@@ -356,6 +357,7 @@ export const NL_STAGED_BATCHES = [
     sourceRevision: "89fe9442 + native Google intake (nativeIntake: English fallback)",
     sourceHash: STAGED_NATIVE_INTAKE_SOURCE_HASH,
   },
+  stagedChatGptChannel,
 ] as const;
 export const NL_STAGED_CATALOG: Readonly<Record<string, string>> = Object.freeze(
   Object.assign(Object.create(null), ...NL_STAGED_BATCHES.map((batch) => batch.copy)),

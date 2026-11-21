@@ -1,3 +1,4 @@
+import { stagedChatGptChannel } from "./chatgpt-channel-fallback";
 import { deConversation } from "./de-conversation";
 import { dePublicPricing } from "./de-public-pricing";
 import { dePublicStudies } from "./de-public-studies";
@@ -155,6 +156,7 @@ export const DE_STAGED_BATCHES = [
   { name: "panel coverage", copy: stagedPanelCoverage(), namespaces: ["panelCoverage"] },
   { name: "manual capture", copy: stagedManualCapture(), namespaces: ["manualCapture"] },
   { name: "native intake", copy: stagedNativeIntake(), namespaces: ["nativeIntake"] },
+  stagedChatGptChannel,
 ] as const;
 export const DE_STAGED_CATALOG: Readonly<Record<string, string>> = Object.assign(
   {},

@@ -1,3 +1,4 @@
+import { stagedChatGptChannel } from "./chatgpt-channel-fallback";
 import { esConversation } from "./es-conversation";
 import { esAnalyticsScreen } from "./es-analytics-screen";
 import { esAuditScreen } from "./es-audit-screen";
@@ -360,6 +361,7 @@ export const ES_STAGED_BATCHES = [
     sourceRevision: "89fe9442 + native Google intake (nativeIntake: English fallback)",
     sourceHash: STAGED_NATIVE_INTAKE_SOURCE_HASH,
   },
+  stagedChatGptChannel,
 ] as const;
 
 export const ES_STAGED_CATALOG: Readonly<Record<string, string>> = Object.freeze(

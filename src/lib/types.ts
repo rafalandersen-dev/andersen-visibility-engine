@@ -305,6 +305,37 @@ export interface Project {
   gscLite?: GscLite;
   // ---- GSC OAuth / API Sync v1 (safe metadata only — no tokens) ----
   gscOAuth?: GscOAuthMetadata;
+  // ---- ChatGPT channel reports (manual 28-day entry; project JSONB, no migration) ----
+  chatGptReports?: ChatGptChannelReport[];
+}
+
+// ---- ChatGPT channel report (manual entry) ----
+/** A manually entered count: `null` = not measured / unknown, `0` = measured zero. */
+export type ChatGptCount = number | null;
+
+export interface ChatGptChannelReport {
+  /** "<periodStart>_<periodEnd>" — one report per 28-day period (upsert key). */
+  id: string;
+  /** Inclusive UTC dates (YYYY-MM-DD) spanning exactly 28 days. */
+  periodStart: string;
+  periodEnd: string;
+  businessHub: {
+    source: "chatgpt_business_hub";
+    mentions: ChatGptCount;
+    clicks: ChatGptCount;
+    discoveryTopics: string[];
+  };
+  ga4: {
+    source: "ga4";
+    /** Sessions whose session source is exactly chatgpt.com or chat.openai.com. */
+    chatgptSessions: ChatGptCount;
+    /** Only when the site measures booking clicks in GA4; otherwise null. */
+    bookingClicks: ChatGptCount;
+    /** Event count of `booking_completed` for the same ChatGPT sessions. */
+    bookingCompleted: ChatGptCount;
+  };
+  createdAt: string;
+  updatedAt: string;
 }
 
 // ---- GSC Lite / SEO Proof Import v1 ----
