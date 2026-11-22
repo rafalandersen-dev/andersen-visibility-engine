@@ -40,6 +40,8 @@ import { Route as DotwellKnownOauthAuthorizationServerRouteImport } from './rout
 import { Route as DotwellKnownOauthProtectedResourceRouteImport } from './routes/[.]well-known.oauth-protected-resource'
 import { Route as ApiAppVersionRouteImport } from './routes/api.app-version'
 import { Route as ApiMcpRouteImport } from './routes/api.mcp'
+import { Route as BlogIndexRouteImport } from './routes/blog.index'
+import { Route as BlogSlugRouteImport } from './routes/blog.$slug'
 import { Route as BlogLocalSeoGuideRouteImport } from './routes/blog.local-seo-guide'
 import { Route as EmailUnsubscribeRouteImport } from './routes/email/unsubscribe'
 import { Route as AuthenticatedAppIndexRouteImport } from './routes/_authenticated/app.index'
@@ -76,6 +78,8 @@ import { Route as AuthenticatedAppSpecialistsRouteImport } from './routes/_authe
 import { Route as AuthenticatedAppTodayRouteImport } from './routes/_authenticated/app.today'
 import { Route as ApiAnalyticsTrackRouteImport } from './routes/api.analytics.track'
 import { Route as ApiAutoSchedulerRunRouteImport } from './routes/api.auto-scheduler.run'
+import { Route as ApiMiloDraftRouteImport } from './routes/api.milo.draft'
+import { Route as ApiMiloLiveRouteImport } from './routes/api.milo.live'
 import { Route as ApiMiloRunRouteImport } from './routes/api.milo.run'
 import { Route as ApiNotificationsSweepRouteImport } from './routes/api.notifications.sweep'
 import { Route as ApiOauthAuthorizeRouteImport } from './routes/api.oauth.authorize'
@@ -249,6 +253,16 @@ const ApiAppVersionRoute = ApiAppVersionRouteImport.update({
 const ApiMcpRoute = ApiMcpRouteImport.update({
   id: '/api/mcp',
   path: '/api/mcp',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const BlogIndexRoute = BlogIndexRouteImport.update({
+  id: '/blog/',
+  path: '/blog/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const BlogSlugRoute = BlogSlugRouteImport.update({
+  id: '/blog/$slug',
+  path: '/blog/$slug',
   getParentRoute: () => rootRouteImport,
 } as any)
 const BlogLocalSeoGuideRoute = BlogLocalSeoGuideRouteImport.update({
@@ -453,6 +467,16 @@ const ApiAutoSchedulerRunRoute = ApiAutoSchedulerRunRouteImport.update({
   path: '/api/auto-scheduler/run',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiMiloDraftRoute = ApiMiloDraftRouteImport.update({
+  id: '/api/milo/draft',
+  path: '/api/milo/draft',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiMiloLiveRoute = ApiMiloLiveRouteImport.update({
+  id: '/api/milo/live',
+  path: '/api/milo/live',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiMiloRunRoute = ApiMiloRunRouteImport.update({
   id: '/api/milo/run',
   path: '/api/milo/run',
@@ -581,8 +605,10 @@ export interface FileRoutesByFullPath {
   '/.well-known/oauth-protected-resource': typeof DotwellKnownOauthProtectedResourceRoute
   '/api/app-version': typeof ApiAppVersionRoute
   '/api/mcp': typeof ApiMcpRoute
+  '/blog/$slug': typeof BlogSlugRoute
   '/blog/local-seo-guide': typeof BlogLocalSeoGuideRoute
   '/email/unsubscribe': typeof EmailUnsubscribeRoute
+  '/blog/': typeof BlogIndexRoute
   '/app/actions': typeof AuthenticatedAppActionsRoute
   '/app/ai-evaluation': typeof AuthenticatedAppAiEvaluationRoute
   '/app/ai-visibility': typeof AuthenticatedAppAiVisibilityRoute
@@ -616,6 +642,8 @@ export interface FileRoutesByFullPath {
   '/app/today': typeof AuthenticatedAppTodayRoute
   '/api/analytics/track': typeof ApiAnalyticsTrackRoute
   '/api/auto-scheduler/run': typeof ApiAutoSchedulerRunRoute
+  '/api/milo/draft': typeof ApiMiloDraftRoute
+  '/api/milo/live': typeof ApiMiloLiveRoute
   '/api/milo/run': typeof ApiMiloRunRoute
   '/api/notifications/sweep': typeof ApiNotificationsSweepRoute
   '/api/oauth/authorize': typeof ApiOauthAuthorizeRoute
@@ -667,8 +695,10 @@ export interface FileRoutesByTo {
   '/.well-known/oauth-protected-resource': typeof DotwellKnownOauthProtectedResourceRoute
   '/api/app-version': typeof ApiAppVersionRoute
   '/api/mcp': typeof ApiMcpRoute
+  '/blog/$slug': typeof BlogSlugRoute
   '/blog/local-seo-guide': typeof BlogLocalSeoGuideRoute
   '/email/unsubscribe': typeof EmailUnsubscribeRoute
+  '/blog': typeof BlogIndexRoute
   '/app/actions': typeof AuthenticatedAppActionsRoute
   '/app/ai-evaluation': typeof AuthenticatedAppAiEvaluationRoute
   '/app/ai-visibility': typeof AuthenticatedAppAiVisibilityRoute
@@ -702,6 +732,8 @@ export interface FileRoutesByTo {
   '/app/today': typeof AuthenticatedAppTodayRoute
   '/api/analytics/track': typeof ApiAnalyticsTrackRoute
   '/api/auto-scheduler/run': typeof ApiAutoSchedulerRunRoute
+  '/api/milo/draft': typeof ApiMiloDraftRoute
+  '/api/milo/live': typeof ApiMiloLiveRoute
   '/api/milo/run': typeof ApiMiloRunRoute
   '/api/notifications/sweep': typeof ApiNotificationsSweepRoute
   '/api/oauth/authorize': typeof ApiOauthAuthorizeRoute
@@ -755,8 +787,10 @@ export interface FileRoutesById {
   '/.well-known/oauth-protected-resource': typeof DotwellKnownOauthProtectedResourceRoute
   '/api/app-version': typeof ApiAppVersionRoute
   '/api/mcp': typeof ApiMcpRoute
+  '/blog/$slug': typeof BlogSlugRoute
   '/blog/local-seo-guide': typeof BlogLocalSeoGuideRoute
   '/email/unsubscribe': typeof EmailUnsubscribeRoute
+  '/blog/': typeof BlogIndexRoute
   '/_authenticated/app/actions': typeof AuthenticatedAppActionsRoute
   '/_authenticated/app/ai-evaluation': typeof AuthenticatedAppAiEvaluationRoute
   '/_authenticated/app/ai-visibility': typeof AuthenticatedAppAiVisibilityRoute
@@ -790,6 +824,8 @@ export interface FileRoutesById {
   '/_authenticated/app/today': typeof AuthenticatedAppTodayRoute
   '/api/analytics/track': typeof ApiAnalyticsTrackRoute
   '/api/auto-scheduler/run': typeof ApiAutoSchedulerRunRoute
+  '/api/milo/draft': typeof ApiMiloDraftRoute
+  '/api/milo/live': typeof ApiMiloLiveRoute
   '/api/milo/run': typeof ApiMiloRunRoute
   '/api/notifications/sweep': typeof ApiNotificationsSweepRoute
   '/api/oauth/authorize': typeof ApiOauthAuthorizeRoute
@@ -843,8 +879,10 @@ export interface FileRouteTypes {
     | '/.well-known/oauth-protected-resource'
     | '/api/app-version'
     | '/api/mcp'
+    | '/blog/$slug'
     | '/blog/local-seo-guide'
     | '/email/unsubscribe'
+    | '/blog/'
     | '/app/actions'
     | '/app/ai-evaluation'
     | '/app/ai-visibility'
@@ -878,6 +916,8 @@ export interface FileRouteTypes {
     | '/app/today'
     | '/api/analytics/track'
     | '/api/auto-scheduler/run'
+    | '/api/milo/draft'
+    | '/api/milo/live'
     | '/api/milo/run'
     | '/api/notifications/sweep'
     | '/api/oauth/authorize'
@@ -929,8 +969,10 @@ export interface FileRouteTypes {
     | '/.well-known/oauth-protected-resource'
     | '/api/app-version'
     | '/api/mcp'
+    | '/blog/$slug'
     | '/blog/local-seo-guide'
     | '/email/unsubscribe'
+    | '/blog'
     | '/app/actions'
     | '/app/ai-evaluation'
     | '/app/ai-visibility'
@@ -964,6 +1006,8 @@ export interface FileRouteTypes {
     | '/app/today'
     | '/api/analytics/track'
     | '/api/auto-scheduler/run'
+    | '/api/milo/draft'
+    | '/api/milo/live'
     | '/api/milo/run'
     | '/api/notifications/sweep'
     | '/api/oauth/authorize'
@@ -1016,8 +1060,10 @@ export interface FileRouteTypes {
     | '/.well-known/oauth-protected-resource'
     | '/api/app-version'
     | '/api/mcp'
+    | '/blog/$slug'
     | '/blog/local-seo-guide'
     | '/email/unsubscribe'
+    | '/blog/'
     | '/_authenticated/app/actions'
     | '/_authenticated/app/ai-evaluation'
     | '/_authenticated/app/ai-visibility'
@@ -1051,6 +1097,8 @@ export interface FileRouteTypes {
     | '/_authenticated/app/today'
     | '/api/analytics/track'
     | '/api/auto-scheduler/run'
+    | '/api/milo/draft'
+    | '/api/milo/live'
     | '/api/milo/run'
     | '/api/notifications/sweep'
     | '/api/oauth/authorize'
@@ -1104,10 +1152,14 @@ export interface RootRouteChildren {
   DotwellKnownOauthProtectedResourceRoute: typeof DotwellKnownOauthProtectedResourceRoute
   ApiAppVersionRoute: typeof ApiAppVersionRoute
   ApiMcpRoute: typeof ApiMcpRoute
+  BlogSlugRoute: typeof BlogSlugRoute
   BlogLocalSeoGuideRoute: typeof BlogLocalSeoGuideRoute
   EmailUnsubscribeRoute: typeof EmailUnsubscribeRoute
+  BlogIndexRoute: typeof BlogIndexRoute
   ApiAnalyticsTrackRoute: typeof ApiAnalyticsTrackRoute
   ApiAutoSchedulerRunRoute: typeof ApiAutoSchedulerRunRoute
+  ApiMiloDraftRoute: typeof ApiMiloDraftRoute
+  ApiMiloLiveRoute: typeof ApiMiloLiveRoute
   ApiMiloRunRoute: typeof ApiMiloRunRoute
   ApiNotificationsSweepRoute: typeof ApiNotificationsSweepRoute
   ApiOauthAuthorizeRoute: typeof ApiOauthAuthorizeRoute
@@ -1345,6 +1397,20 @@ declare module '@tanstack/react-router' {
       path: '/api/mcp'
       fullPath: '/api/mcp'
       preLoaderRoute: typeof ApiMcpRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/blog/': {
+      id: '/blog/'
+      path: '/blog'
+      fullPath: '/blog/'
+      preLoaderRoute: typeof BlogIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/blog/$slug': {
+      id: '/blog/$slug'
+      path: '/blog/$slug'
+      fullPath: '/blog/$slug'
+      preLoaderRoute: typeof BlogSlugRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/blog/local-seo-guide': {
@@ -1599,6 +1665,20 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiAutoSchedulerRunRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/milo/draft': {
+      id: '/api/milo/draft'
+      path: '/api/milo/draft'
+      fullPath: '/api/milo/draft'
+      preLoaderRoute: typeof ApiMiloDraftRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/milo/live': {
+      id: '/api/milo/live'
+      path: '/api/milo/live'
+      fullPath: '/api/milo/live'
+      preLoaderRoute: typeof ApiMiloLiveRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/milo/run': {
       id: '/api/milo/run'
       path: '/api/milo/run'
@@ -1835,10 +1915,14 @@ const rootRouteChildren: RootRouteChildren = {
     DotwellKnownOauthProtectedResourceRoute,
   ApiAppVersionRoute: ApiAppVersionRoute,
   ApiMcpRoute: ApiMcpRoute,
+  BlogSlugRoute: BlogSlugRoute,
   BlogLocalSeoGuideRoute: BlogLocalSeoGuideRoute,
   EmailUnsubscribeRoute: EmailUnsubscribeRoute,
+  BlogIndexRoute: BlogIndexRoute,
   ApiAnalyticsTrackRoute: ApiAnalyticsTrackRoute,
   ApiAutoSchedulerRunRoute: ApiAutoSchedulerRunRoute,
+  ApiMiloDraftRoute: ApiMiloDraftRoute,
+  ApiMiloLiveRoute: ApiMiloLiveRoute,
   ApiMiloRunRoute: ApiMiloRunRoute,
   ApiNotificationsSweepRoute: ApiNotificationsSweepRoute,
   ApiOauthAuthorizeRoute: ApiOauthAuthorizeRoute,
