@@ -307,6 +307,49 @@ export interface Project {
   gscOAuth?: GscOAuthMetadata;
   // ---- ChatGPT channel reports (manual 28-day entry; project JSONB, no migration) ----
   chatGptReports?: ChatGptChannelReport[];
+  // ---- GA4 Data API sync for the ChatGPT channel (safe metadata only — no tokens) ----
+  ga4Sync?: Ga4SyncState;
+}
+
+// ---- GA4 Data API sync (ChatGPT channel) ----
+/** Finite, client-safe failure codes; provider bodies and tokens never travel. */
+export type Ga4SyncErrorCode =
+  /** Caller or project is outside the GA4 test rollout (server-enforced, fail closed). */
+  | "not_available"
+  | "not_configured"
+  | "not_connected"
+  | "expired"
+  | "no_property"
+  | "access_denied"
+  | "api_disabled"
+  | "unavailable"
+  | "failed";
+
+export interface Ga4SyncState {
+  /** Numeric GA4 property id selected (and server-verified) for this project. */
+  propertyId: string;
+  propertyName: string;
+  /** IANA reporting time zone of the property; GA4 interprets report dates in it. */
+  timeZone: string;
+  lastAttemptAt?: string;
+  lastSuccessAt?: string;
+  /** Set by a failed attempt, cleared by the next success. */
+  lastError?: Ga4SyncErrorCode;
+}
+
+/** Figures fetched from the GA4 Data API; kept apart from the manual `ga4` entry. */
+export interface Ga4ApiSnapshot {
+  source: "ga4_api";
+  propertyId: string;
+  propertyName: string;
+  timeZone: string;
+  /** `null` = not measured (event never seen, or withheld); `0` = measured zero. */
+  chatgptSessions: ChatGptCount;
+  bookingClicks: ChatGptCount;
+  bookingCompleted: ChatGptCount;
+  /** GA4 reported thresholding, row-limit loss or sampling: zeros are unknown, counts may be lower bounds. */
+  partial: boolean;
+  fetchedAt: string;
 }
 
 // ---- ChatGPT channel report (manual entry) ----
@@ -334,6 +377,8 @@ export interface ChatGptChannelReport {
     /** Event count of `booking_completed` for the same ChatGPT sessions. */
     bookingCompleted: ChatGptCount;
   };
+  /** Optional GA4 Data API figures for the same period; never replaces manual entry. */
+  ga4Api?: Ga4ApiSnapshot;
   createdAt: string;
   updatedAt: string;
 }

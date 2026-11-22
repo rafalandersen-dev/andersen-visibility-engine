@@ -3,16 +3,20 @@ import {
   EMPTY_CHATGPT_FORM,
   MAX_CHATGPT_REPORTS,
   MAX_DISCOVERY_TOPICS,
+  applyBusinessHubPaste,
+  applyGa4ApiSnapshot,
   buildChatGptReport,
   chatGptPeriodStart,
   chatGptReportToForm,
   normalizeChatGptReports,
+  parseBusinessHubPaste,
   parseChatGptCount,
   parseDiscoveryTopics,
   removeChatGptReport,
   upsertChatGptReport,
   type ChatGptReportForm,
 } from "@/lib/chatgpt-channel";
+import type { Ga4ApiSnapshot } from "@/lib/types";
 
 const NOW = new Date("2026-11-21T10:00:00Z");
 const form = (patch: Partial<ChatGptReportForm> = {}): ChatGptReportForm => ({
@@ -167,5 +171,82 @@ describe("normalizeChatGptReports", () => {
     expect(out.businessHub.mentions).toBe(0);
     expect(out.ga4.chatgptSessions).toBeNull();
     expect(out.ga4.bookingClicks).toBeNull();
+  });
+});
+
+describe("Business Hub paste", () => {
+  const SUMMARY =
+    "Overview\nMentions\nUnavailable\nProfile views\nUnavailable\nWebsite clicks\nUnavailable\n";
+  it("reads the real English summary: Unavailable is not measured, never zero", () => {
+    expect(parseBusinessHubPaste(SUMMARY)).toEqual({ mentions: null, clicks: null });
+  });
+  it("reads displayed whole numbers, inline or on the next line, and ignores Profile views", () => {
+    expect(parseBusinessHubPaste("Mentions 1,204\nProfile views 88\nWebsite clicks:\n0")).toEqual({
+      mentions: 1204,
+      clicks: 0,
+    });
+  });
+  it("distinguishes a missing label from an unreadable or conflicting value", () => {
+    expect(parseBusinessHubPaste("Profile views 5")).toEqual({
+      mentions: "missing",
+      clicks: "missing",
+    });
+    expect(parseBusinessHubPaste("Mentions 1.2K\nWebsite clicks 3\nWebsite clicks 4")).toEqual({
+      mentions: "unreadable",
+      clicks: "unreadable",
+    });
+  });
+  it("ignores chart captions next to a summary value", () => {
+    expect(parseBusinessHubPaste("Mentions 12\nMentions over time\nJan Feb")).toMatchObject({
+      mentions: 12,
+    });
+  });
+  it("fills only readable fields and reports replaced entries instead of overwriting silently", () => {
+    const res = applyBusinessHubPaste(
+      { ...EMPTY_CHATGPT_FORM, periodEnd: "2026-11-20", mentions: "5", clicks: "" },
+      { mentions: null, clicks: "missing" },
+    );
+    expect(res.form).toMatchObject({ periodEnd: "2026-11-20", mentions: "", clicks: "" });
+    expect(res).toMatchObject({ filled: ["mentions"], replaced: ["mentions"], missing: ["clicks"] });
+    const same = applyBusinessHubPaste({ ...EMPTY_CHATGPT_FORM, clicks: "7" }, { mentions: 3, clicks: 7 });
+    expect(same.replaced).toEqual([]);
+  });
+});
+
+describe("applyGa4ApiSnapshot", () => {
+  const snap = (): Ga4ApiSnapshot => ({
+    source: "ga4_api",
+    propertyId: "123",
+    propertyName: "Synergy",
+    timeZone: "Europe/Stockholm",
+    chatgptSessions: 4,
+    bookingClicks: null,
+    bookingCompleted: 0,
+    partial: false,
+    fetchedAt: NOW.toISOString(),
+  });
+  const period = (periodStart: string, periodEnd: string) => ({ periodStart, periodEnd });
+  it("keeps manual figures of the same period and never invents a period", () => {
+    const manual = build({ periodEnd: "2026-11-20", sessions: "12" });
+    const res = applyGa4ApiSnapshot([manual], manual, snap(), NOW);
+    expect(res.ok && res.reports[0]).toMatchObject({ ga4: manual.ga4, ga4Api: snap() });
+    expect(applyGa4ApiSnapshot([], period("2026-10-01", "2026-11-20"), snap(), NOW)).toEqual({
+      ok: false,
+      error: "period",
+    });
+  });
+  it("supersedes API-only reports of older windows but never manual ones", () => {
+    const manual = build({ periodEnd: "2026-11-10" });
+    const older = applyGa4ApiSnapshot([manual], period("2026-10-22", "2026-11-18"), snap(), NOW);
+    if (!older.ok) throw new Error("expected ok");
+    const next = applyGa4ApiSnapshot(older.reports, period("2026-10-24", "2026-11-20"), snap(), NOW);
+    expect(next.ok && next.reports.map((r) => r.periodEnd)).toEqual(["2026-11-20", "2026-11-10"]);
+  });
+  it("a manual save keeps the API figures of its period", () => {
+    const res = upsertChatGptReport([{ ...build(), ga4Api: snap() }], build({ sessions: "20" }));
+    expect(res.ok && res.reports[0]).toMatchObject({
+      ga4: { chatgptSessions: 20 },
+      ga4Api: snap(),
+    });
   });
 });
