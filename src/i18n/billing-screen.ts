@@ -183,6 +183,14 @@ export const billingScreenCopy: Record<OnboardingLanguage, Readonly<Record<strin
     "billingScreen.reason.capacityProjectsUnknown":
       "Your project count could not be established, so the change is held.",
     "billingScreen.reason.capacityProjects": "Too many projects exist for the target plan.",
+    "billingScreen.capacityReview.working":
+      "Working seats in use ({used}), including pending invitations, are above your current plan's {allowance}. Everyone keeps access; new working seats stay blocked until usage fits or the plan changes.",
+    "billingScreen.capacityReview.viewer":
+      "Viewer seats in use ({used}) are above your current plan's {allowance}. Everyone keeps access; new viewer seats stay blocked until usage fits or the plan changes.",
+    "billingScreen.capacityReview.projects":
+      "Projects ({used}) are above your current plan's {allowance}. Existing projects stay available and editable; new projects stay blocked until usage fits or the plan changes.",
+    "billingScreen.capacityReview.unknown":
+      "Current seat or project usage could not be confirmed against your plan, so it is not shown as within the limit. Nothing was removed. Refresh to check again.",
     "billingScreen.reason.requestInvalid": "This request could not be accepted.",
     "billingScreen.reason.quoteInvalid": "This quote cannot be used. Prepare a new one.",
     "billingScreen.reason.quoteSelectionChanged":
@@ -434,6 +442,14 @@ export const billingScreenCopy: Record<OnboardingLanguage, Readonly<Record<strin
     "billingScreen.reason.capacityProjectsUnknown":
       "Nie udało się ustalić liczby projektów, więc zmiana jest wstrzymana.",
     "billingScreen.reason.capacityProjects": "Istnieje zbyt wiele projektów jak na docelowy plan.",
+    "billingScreen.capacityReview.working":
+      "Zajęte miejsca robocze ({used}), łącznie z oczekującymi zaproszeniami, przekraczają limit obecnego planu ({allowance}). Nikt nie traci dostępu; nowe miejsca robocze są zablokowane, dopóki wykorzystanie nie zmieści się w limicie lub plan się nie zmieni.",
+    "billingScreen.capacityReview.viewer":
+      "Zajęte miejsca podglądu ({used}) przekraczają limit obecnego planu ({allowance}). Nikt nie traci dostępu; nowe miejsca podglądu są zablokowane, dopóki wykorzystanie nie zmieści się w limicie lub plan się nie zmieni.",
+    "billingScreen.capacityReview.projects":
+      "Liczba projektów ({used}) przekracza limit obecnego planu ({allowance}). Istniejące projekty pozostają dostępne i można je edytować; nowe projekty są zablokowane, dopóki wykorzystanie nie zmieści się w limicie lub plan się nie zmieni.",
+    "billingScreen.capacityReview.unknown":
+      "Nie udało się potwierdzić bieżącego wykorzystania miejsc lub projektów względem planu, więc nie jest ono pokazywane jako mieszczące się w limicie. Niczego nie usunięto. Odśwież, aby sprawdzić ponownie.",
     "billingScreen.reason.requestInvalid": "To żądanie nie mogło zostać przyjęte.",
     "billingScreen.reason.quoteInvalid": "Tej wyceny nie można użyć. Przygotuj nową.",
     "billingScreen.reason.quoteSelectionChanged": "Twój wybór zmienił się po przygotowaniu wyceny.",
@@ -686,6 +702,14 @@ export const billingScreenCopy: Record<OnboardingLanguage, Readonly<Record<strin
       "Antalet projekt kunde inte fastställas, så ändringen hålls tillbaka.",
     "billingScreen.reason.capacityProjects":
       "Det finns för många projekt för det önskade abonnemanget.",
+    "billingScreen.capacityReview.working":
+      "Arbetsplatser i användning ({used}), inklusive väntande inbjudningar, överstiger ditt nuvarande abonnemangs {allowance}. Alla behåller sin åtkomst; nya arbetsplatser är blockerade tills användningen ryms eller abonnemanget ändras.",
+    "billingScreen.capacityReview.viewer":
+      "Läsplatser i användning ({used}) överstiger ditt nuvarande abonnemangs {allowance}. Alla behåller sin åtkomst; nya läsplatser är blockerade tills användningen ryms eller abonnemanget ändras.",
+    "billingScreen.capacityReview.projects":
+      "Antalet projekt ({used}) överstiger ditt nuvarande abonnemangs {allowance}. Befintliga projekt förblir tillgängliga och redigerbara; nya projekt är blockerade tills användningen ryms eller abonnemanget ändras.",
+    "billingScreen.capacityReview.unknown":
+      "Den nuvarande användningen av platser eller projekt kunde inte bekräftas mot ditt abonnemang, så den visas inte som inom gränsen. Inget har tagits bort. Uppdatera för att kontrollera igen.",
     "billingScreen.reason.requestInvalid": "Begäran kunde inte tas emot.",
     "billingScreen.reason.quoteInvalid": "Offerten kan inte användas. Förbered en ny.",
     "billingScreen.reason.quoteSelectionChanged":
@@ -936,6 +960,14 @@ export const billingScreenCopy: Record<OnboardingLanguage, Readonly<Record<strin
       "Antallet af projekter kunne ikke fastslås, så ændringen er på hold.",
     "billingScreen.reason.capacityProjects":
       "Der er for mange projekter til det ønskede abonnement.",
+    "billingScreen.capacityReview.working":
+      "Arbejdspladser i brug ({used}), inklusive afventende invitationer, overstiger dit nuværende abonnements {allowance}. Alle beholder deres adgang; nye arbejdspladser er blokeret, indtil forbruget passer, eller abonnementet ændres.",
+    "billingScreen.capacityReview.viewer":
+      "Læsepladser i brug ({used}) overstiger dit nuværende abonnements {allowance}. Alle beholder deres adgang; nye læsepladser er blokeret, indtil forbruget passer, eller abonnementet ændres.",
+    "billingScreen.capacityReview.projects":
+      "Antallet af projekter ({used}) overstiger dit nuværende abonnements {allowance}. Eksisterende projekter forbliver tilgængelige og kan redigeres; nye projekter er blokeret, indtil forbruget passer, eller abonnementet ændres.",
+    "billingScreen.capacityReview.unknown":
+      "Det nuværende forbrug af pladser eller projekter kunne ikke bekræftes i forhold til dit abonnement, så det vises ikke som inden for grænsen. Intet er fjernet. Opdater for at tjekke igen.",
     "billingScreen.reason.requestInvalid": "Anmodningen kunne ikke accepteres.",
     "billingScreen.reason.quoteInvalid": "Tilbuddet kan ikke bruges. Forbered et nyt.",
     "billingScreen.reason.quoteSelectionChanged":

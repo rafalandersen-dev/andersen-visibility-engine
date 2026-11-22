@@ -152,6 +152,31 @@ export interface BillingSummary {
   actions: BillingSummaryActions;
   /** Why mutations are unavailable, when they are. */
   heldReason: string | null;
+  /** Current usage against the CURRENT allowance; absent/null means it fits. */
+  capacityReview?: CapacityReview | null;
+}
+
+/**
+ * Usage above (or not confirmable against) the allowance in force now, e.g.
+ * after a renewal applied a smaller plan. Nothing was removed; growth is
+ * refused until it fits. `used`/`allowance` are null when unknown, never 0.
+ */
+export interface CapacityReview {
+  reason: string;
+  used: number | null;
+  allowance: number | null;
+}
+
+const CAPACITY_REVIEW_KEYS: Readonly<Record<string, string>> = {
+  capacity_conflict_working: "billingScreen.capacityReview.working",
+  capacity_conflict_viewer: "billingScreen.capacityReview.viewer",
+  capacity_conflict_projects: "billingScreen.capacityReview.projects",
+  capacity_unknown: "billingScreen.capacityReview.unknown",
+  capacity_projects_unknown: "billingScreen.capacityReview.unknown",
+};
+
+export function capacityReviewKey(review: CapacityReview): string {
+  return CAPACITY_REVIEW_KEYS[review.reason] ?? "billingScreen.capacityReview.unknown";
 }
 
 export type BillingSummaryResult =
@@ -343,6 +368,16 @@ export function readSummaryResponse(value: unknown): WireRead<BillingSummary> {
   const hasAmount = raw.currentAmountMinor !== null;
   if (hasAmount !== (raw.currentCurrency !== null)) return { kind: "unreadable" };
   if (hasAmount && currentAmountEvidence === "unknown") return { kind: "unreadable" };
+  const review = raw.capacityReview ?? null;
+  if (
+    review !== null &&
+    (!isRecord(review) ||
+      typeof review.reason !== "string" ||
+      !Object.prototype.hasOwnProperty.call(CAPACITY_REVIEW_KEYS, review.reason) ||
+      (review.used !== null && !isCount(review.used)) ||
+      (review.allowance !== null && !isCount(review.allowance)))
+  )
+    return { kind: "unreadable" };
 
   let operation: DiscoveredOperation | null = null;
   let evidenceState = operationEvidence as OperationEvidence;
@@ -396,6 +431,14 @@ export function readSummaryResponse(value: unknown): WireRead<BillingSummary> {
       heldReason: termsUnreadable
         ? "operation_unavailable"
         : ((raw.heldReason as string | null) ?? null),
+      capacityReview:
+        review === null
+          ? null
+          : {
+              reason: review.reason as string,
+              used: review.used as number | null,
+              allowance: review.allowance as number | null,
+            },
     }),
   };
 }

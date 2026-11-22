@@ -24,7 +24,7 @@ import { billingScreenCopy } from "../billing-screen";
  * enrolled in the runtime language registry.
  */
 export const STAGED_BILLING_FALLBACK_NOTE =
-  "126 billing screen messages added by R21 resolve to reviewed English source as fallback, " +
+  "130 billing screen messages added by R21 and the renewal capacity review resolve to reviewed English source as fallback, " +
   "pending translation and interface acceptance. Existing staged translations are preserved.";
 
 /** The reviewed English source head these fallback values were taken from. */

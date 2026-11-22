@@ -54,13 +54,7 @@ import {
   seedContent,
 } from "./mock-data";
 import { supabase } from "@/integrations/supabase/client";
-import {
-  MAX_PROJECTS_PER_USER,
-  MARKET_CURRENCY,
-  getPlanLimitsFor,
-  isActivePaid,
-  planPrice,
-} from "./billing";
+import { MARKET_CURRENCY, planPrice, projectLimitFor } from "./billing";
 import {
   newOpportunityRecord,
   opportunityDeduplicationKey,
@@ -874,17 +868,13 @@ export class ProjectLimitError extends Error {
 }
 
 /**
- * Create a project. Non-owner accounts are capped at their PLAN's maxProjects
- * (Agency = 15; everyone else effectively MAX_PROJECTS_PER_USER — the plan
- * must be ACTIVE PAID, since `subscription` is client-writable state and the
- * DB-side cap trigger re-checks the same rule server-side). Owners bypass.
+ * Create a project. Non-owner accounts are capped at their ACTIVE PAID plan's
+ * maxProjects (Free 1, Starter 1, Growth 3, Pro 5, Agency 15); the DB-side cap
+ * trigger re-checks the same map from the authoritative plan. Projects already
+ * above a reduced cap stay editable; only additions are refused. Owners bypass.
  */
 export const addProject = (p: Omit<Project, "id">, opts: { isOwner: boolean }) => {
-  const planCap =
-    isActivePaid(state.subscription) && getPlanLimitsFor(state.subscription).maxProjects > 0
-      ? getPlanLimitsFor(state.subscription).maxProjects
-      : MAX_PROJECTS_PER_USER;
-  const cap = Math.max(planCap, MAX_PROJECTS_PER_USER);
+  const cap = projectLimitFor(state.subscription);
   if (!opts.isOwner && state.projects.length >= cap) {
     throw new ProjectLimitError(cap);
   }
