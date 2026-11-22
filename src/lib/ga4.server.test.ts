@@ -79,6 +79,7 @@ vi.mock("./gsc-oauth.server", async (original) => ({
 import {
   completeGa4Callback,
   disconnectGa4,
+  getGa4DailyReport,
   ga4StateCookieFrom,
   ga4Status,
   startGa4OAuth,
@@ -131,6 +132,7 @@ describe("test-rollout gate (fail closed)", () => {
     expect(await code(startGa4OAuth(OWNER, SYNERGY.id))).toBe("not_available");
     expect(await code(syncGa4({ userId: OWNER, projectId: SYNERGY.id }))).toBe("not_available");
     expect(await code(disconnectGa4(OWNER, SYNERGY.id))).toBe("not_available");
+    expect(await code(getGa4DailyReport(OWNER, SYNERGY.id))).toBe("not_available");
     expect(db.ops).toEqual([]);
   });
   it("denies an owned non-Synergy project", async () => {
@@ -209,6 +211,98 @@ describe("browser-bound one-time OAuth state", () => {
     expect(ga4StateCookieFrom("a=1; __Host-milo_ga4_oauth=abc; b=2")).toBe("abc");
     expect(ga4StateCookieFrom("x__Host-milo_ga4_oauth=abc")).toBeUndefined();
     expect(ga4StateCookieFrom(null)).toBeUndefined();
+  });
+});
+
+describe("daily report read", () => {
+  const snapshot = {
+    source: "ga4_api",
+    propertyId: "528831108",
+    propertyName: "Synergy",
+    timeZone: "Europe/Stockholm",
+    chatgptSessions: 2,
+    bookingClicks: null,
+    bookingCompleted: null,
+    partial: false,
+    fetchedAt: "2026-11-22T05:40:01.000Z",
+  };
+  const row = {
+    property_id: "528831108",
+    period_start: "2026-10-25",
+    period_end: "2026-11-21",
+    snapshot,
+    last_attempt_at: "2026-11-22T05:40:00+00:00",
+    last_success_at: "2026-11-22T05:40:01+00:00",
+    last_error: null,
+  };
+  beforeEach(() => {
+    db.rows.ga4_project_properties = { property_id: "528831108" };
+  });
+  it("returns the stored snapshot with normalised timestamps", async () => {
+    db.rows.ga4_daily_reports = row;
+    expect(await getGa4DailyReport(OWNER, SYNERGY.id)).toEqual({
+      propertyId: "528831108",
+      periodStart: "2026-10-25",
+      periodEnd: "2026-11-21",
+      snapshot,
+      lastAttemptAt: "2026-11-22T05:40:00.000Z",
+      lastSuccessAt: "2026-11-22T05:40:01.000Z",
+    });
+  });
+  it("keeps the status but drops a snapshot whose period is not 28 days", async () => {
+    db.rows.ga4_daily_reports = {
+      ...row,
+      period_start: "2026-10-01",
+      last_attempt_at: "2026-11-23T05:40:00+00:00",
+      last_error: "expired",
+    };
+    expect(await getGa4DailyReport(OWNER, SYNERGY.id)).toEqual({
+      propertyId: "528831108",
+      lastAttemptAt: "2026-11-23T05:40:00.000Z",
+      lastSuccessAt: "2026-11-22T05:40:01.000Z",
+      lastError: "expired",
+    });
+  });
+  it("hides a stale failure written by a run that started before the last success", async () => {
+    db.rows.ga4_daily_reports = {
+      ...row,
+      last_attempt_at: "2026-11-22T05:39:00+00:00",
+      last_error: "unavailable",
+    };
+    expect(await getGa4DailyReport(OWNER, SYNERGY.id)).not.toHaveProperty("lastError");
+  });
+  it("never surfaces a row of an earlier selection, or with no selection", async () => {
+    db.rows.ga4_daily_reports = row;
+    db.rows.ga4_project_properties = { property_id: "999" };
+    expect(await getGa4DailyReport(OWNER, SYNERGY.id)).toBeNull();
+    db.rows.ga4_project_properties = null;
+    expect(await getGa4DailyReport(OWNER, SYNERGY.id)).toBeNull();
+  });
+  it("does not report a failed read as no report", async () => {
+    db.fail.add("ga4_daily_reports:select");
+    expect(await code(getGa4DailyReport(OWNER, SYNERGY.id))).toBe("failed");
+    db.fail = new Set(["ga4_project_properties:select"]);
+    expect(await code(getGa4DailyReport(OWNER, SYNERGY.id))).toBe("failed");
+  });
+});
+
+describe("pinned daily sync", () => {
+  it("rejects a changed selection before any token or Google request", async () => {
+    db.rows.ga4_project_properties = { property_id: "999" };
+    const fetch = vi.fn();
+    vi.stubGlobal("fetch", fetch);
+    try {
+      expect(
+        await code(
+          syncGa4({ userId: OWNER, projectId: SYNERGY.id, expectedPropertyId: "528831108" }),
+        ),
+      ).toBe("not_available");
+    } finally {
+      vi.unstubAllGlobals();
+    }
+    expect(fetch).not.toHaveBeenCalled();
+    expect(google.token).not.toHaveBeenCalled();
+    expect(db.ops.map((o) => o.table)).not.toContain("google_connections");
   });
 });
 

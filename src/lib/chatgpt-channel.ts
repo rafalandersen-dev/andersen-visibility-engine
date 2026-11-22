@@ -1,4 +1,9 @@
-import type { ChatGptChannelReport, ChatGptCount, Ga4ApiSnapshot } from "@/lib/types";
+import type {
+  ChatGptChannelReport,
+  ChatGptCount,
+  Ga4ApiSnapshot,
+  Ga4DailyReport,
+} from "@/lib/types";
 
 export const CHATGPT_PERIOD_DAYS = 28;
 export const MAX_CHATGPT_REPORTS = 26;
@@ -161,13 +166,14 @@ export function applyGa4ApiSnapshot(
   period: { periodStart: string; periodEnd: string },
   snapshot: Ga4ApiSnapshot,
   now: Date,
+  limit = MAX_CHATGPT_REPORTS,
 ): { ok: true; reports: ChatGptChannelReport[] } | { ok: false; error: "capacity" | "period" } {
   if (chatGptPeriodStart(period.periodEnd) !== period.periodStart) return { ok: false, error: "period" };
   const id = `${period.periodStart}_${period.periodEnd}`;
   const stamp = now.toISOString();
   const kept = reports.filter((r) => r.id === id || !(r.ga4Api && !hasChatGptMeasurement(r)));
   const prev = kept.find((r) => r.id === id);
-  if (!prev && kept.length >= MAX_CHATGPT_REPORTS) return { ok: false, error: "capacity" };
+  if (!prev && kept.length >= limit) return { ok: false, error: "capacity" };
   const next: ChatGptChannelReport = prev
     ? { ...prev, ga4Api: snapshot, updatedAt: stamp }
     : {
@@ -180,6 +186,32 @@ export function applyGa4ApiSnapshot(
         updatedAt: stamp,
       };
   return { ok: true, reports: sortChatGptReports([next, ...kept.filter((r) => r.id !== id)]) };
+}
+
+/**
+ * Display-only merge of the server-held daily report into the stored reports
+ * (the result is never saved, so the 26-report capacity does not apply). Ignored
+ * for another property, or when the workspace already holds an API snapshot of
+ * the same property that is as new or for a later period.
+ */
+export function withGa4DailyReport(
+  reports: ChatGptChannelReport[],
+  daily: Ga4DailyReport | null | undefined,
+  propertyId: string | undefined,
+): ChatGptChannelReport[] {
+  const snap = daily?.snapshot;
+  if (!snap || !daily.periodStart || !daily.periodEnd || snap.propertyId !== propertyId)
+    return reports;
+  const end = daily.periodEnd;
+  const covered = reports.some(
+    (r) =>
+      r.ga4Api?.propertyId === propertyId &&
+      (r.periodEnd > end || (r.periodEnd === end && r.ga4Api.fetchedAt >= snap.fetchedAt)),
+  );
+  if (covered) return reports;
+  const period = { periodStart: daily.periodStart, periodEnd: end };
+  const next = applyGa4ApiSnapshot(reports, period, snap, new Date(snap.fetchedAt), Infinity);
+  return next.ok ? next.reports : reports;
 }
 
 // ---- user-initiated paste of the visible (English) Business Hub summary ----
@@ -271,7 +303,7 @@ function coerceCount(v: unknown): ChatGptCount {
     : null;
 }
 
-function coerceGa4Api(v: unknown): Ga4ApiSnapshot | undefined {
+export function coerceGa4Api(v: unknown): Ga4ApiSnapshot | undefined {
   const s = v as Partial<Ga4ApiSnapshot> | null | undefined;
   if (!s || typeof s !== "object" || s.source !== "ga4_api") return undefined;
   if (typeof s.propertyId !== "string" || !/^\d{1,20}$/.test(s.propertyId)) return undefined;

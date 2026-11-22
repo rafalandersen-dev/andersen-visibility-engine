@@ -88,6 +88,7 @@ import { Route as ApiOauthRevokeRouteImport } from './routes/api.oauth.revoke'
 import { Route as ApiOauthTokenRouteImport } from './routes/api.oauth.token'
 import { Route as ApiPublishRunScheduledRouteImport } from './routes/api.publish.run-scheduled'
 import { Route as LovableEmailSuppressionRouteImport } from './routes/lovable/email/suppression'
+import { Route as ApiGoogleAnalyticsDailySyncRouteImport } from './routes/api.google.analytics.daily-sync'
 import { Route as ApiGoogleSearchConsoleCallbackRouteImport } from './routes/api.google.search-console.callback'
 import { Route as ApiGoogleSearchConsoleCronSyncRouteImport } from './routes/api.google.search-console.cron-sync'
 import { Route as ApiPublicWebhooksPaddleRouteImport } from './routes/api/public/webhooks/paddle'
@@ -517,6 +518,12 @@ const LovableEmailSuppressionRoute = LovableEmailSuppressionRouteImport.update({
   path: '/lovable/email/suppression',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiGoogleAnalyticsDailySyncRoute =
+  ApiGoogleAnalyticsDailySyncRouteImport.update({
+    id: '/api/google/analytics/daily-sync',
+    path: '/api/google/analytics/daily-sync',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 const ApiGoogleSearchConsoleCallbackRoute =
   ApiGoogleSearchConsoleCallbackRouteImport.update({
     id: '/api/google/search-console/callback',
@@ -653,6 +660,7 @@ export interface FileRoutesByFullPath {
   '/api/publish/run-scheduled': typeof ApiPublishRunScheduledRoute
   '/lovable/email/suppression': typeof LovableEmailSuppressionRoute
   '/app/': typeof AuthenticatedAppIndexRoute
+  '/api/google/analytics/daily-sync': typeof ApiGoogleAnalyticsDailySyncRoute
   '/api/google/search-console/callback': typeof ApiGoogleSearchConsoleCallbackRoute
   '/api/google/search-console/cron-sync': typeof ApiGoogleSearchConsoleCronSyncRoute
   '/api/public/webhooks/paddle': typeof ApiPublicWebhooksPaddleRoute
@@ -743,6 +751,7 @@ export interface FileRoutesByTo {
   '/api/publish/run-scheduled': typeof ApiPublishRunScheduledRoute
   '/lovable/email/suppression': typeof LovableEmailSuppressionRoute
   '/app': typeof AuthenticatedAppIndexRoute
+  '/api/google/analytics/daily-sync': typeof ApiGoogleAnalyticsDailySyncRoute
   '/api/google/search-console/callback': typeof ApiGoogleSearchConsoleCallbackRoute
   '/api/google/search-console/cron-sync': typeof ApiGoogleSearchConsoleCronSyncRoute
   '/api/public/webhooks/paddle': typeof ApiPublicWebhooksPaddleRoute
@@ -835,6 +844,7 @@ export interface FileRoutesById {
   '/api/publish/run-scheduled': typeof ApiPublishRunScheduledRoute
   '/lovable/email/suppression': typeof LovableEmailSuppressionRoute
   '/_authenticated/app/': typeof AuthenticatedAppIndexRoute
+  '/api/google/analytics/daily-sync': typeof ApiGoogleAnalyticsDailySyncRoute
   '/api/google/search-console/callback': typeof ApiGoogleSearchConsoleCallbackRoute
   '/api/google/search-console/cron-sync': typeof ApiGoogleSearchConsoleCronSyncRoute
   '/api/public/webhooks/paddle': typeof ApiPublicWebhooksPaddleRoute
@@ -927,6 +937,7 @@ export interface FileRouteTypes {
     | '/api/publish/run-scheduled'
     | '/lovable/email/suppression'
     | '/app/'
+    | '/api/google/analytics/daily-sync'
     | '/api/google/search-console/callback'
     | '/api/google/search-console/cron-sync'
     | '/api/public/webhooks/paddle'
@@ -1017,6 +1028,7 @@ export interface FileRouteTypes {
     | '/api/publish/run-scheduled'
     | '/lovable/email/suppression'
     | '/app'
+    | '/api/google/analytics/daily-sync'
     | '/api/google/search-console/callback'
     | '/api/google/search-console/cron-sync'
     | '/api/public/webhooks/paddle'
@@ -1108,6 +1120,7 @@ export interface FileRouteTypes {
     | '/api/publish/run-scheduled'
     | '/lovable/email/suppression'
     | '/_authenticated/app/'
+    | '/api/google/analytics/daily-sync'
     | '/api/google/search-console/callback'
     | '/api/google/search-console/cron-sync'
     | '/api/public/webhooks/paddle'
@@ -1168,6 +1181,7 @@ export interface RootRouteChildren {
   ApiOauthTokenRoute: typeof ApiOauthTokenRoute
   ApiPublishRunScheduledRoute: typeof ApiPublishRunScheduledRoute
   LovableEmailSuppressionRoute: typeof LovableEmailSuppressionRoute
+  ApiGoogleAnalyticsDailySyncRoute: typeof ApiGoogleAnalyticsDailySyncRoute
   ApiGoogleSearchConsoleCallbackRoute: typeof ApiGoogleSearchConsoleCallbackRoute
   ApiGoogleSearchConsoleCronSyncRoute: typeof ApiGoogleSearchConsoleCronSyncRoute
   ApiPublicWebhooksPaddleRoute: typeof ApiPublicWebhooksPaddleRoute
@@ -1735,6 +1749,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof LovableEmailSuppressionRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/google/analytics/daily-sync': {
+      id: '/api/google/analytics/daily-sync'
+      path: '/api/google/analytics/daily-sync'
+      fullPath: '/api/google/analytics/daily-sync'
+      preLoaderRoute: typeof ApiGoogleAnalyticsDailySyncRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/google/search-console/callback': {
       id: '/api/google/search-console/callback'
       path: '/api/google/search-console/callback'
@@ -1931,6 +1952,7 @@ const rootRouteChildren: RootRouteChildren = {
   ApiOauthTokenRoute: ApiOauthTokenRoute,
   ApiPublishRunScheduledRoute: ApiPublishRunScheduledRoute,
   LovableEmailSuppressionRoute: LovableEmailSuppressionRoute,
+  ApiGoogleAnalyticsDailySyncRoute: ApiGoogleAnalyticsDailySyncRoute,
   ApiGoogleSearchConsoleCallbackRoute: ApiGoogleSearchConsoleCallbackRoute,
   ApiGoogleSearchConsoleCronSyncRoute: ApiGoogleSearchConsoleCronSyncRoute,
   ApiPublicWebhooksPaddleRoute: ApiPublicWebhooksPaddleRoute,

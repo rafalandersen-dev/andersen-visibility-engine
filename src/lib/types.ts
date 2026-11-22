@@ -352,6 +352,18 @@ export interface Ga4ApiSnapshot {
   fetchedAt: string;
 }
 
+/** Server-held daily GA4 report (ga4_daily_reports); read-only in the browser, never saved to the workspace. */
+export interface Ga4DailyReport {
+  propertyId: string;
+  /** Present once a daily fetch has been saved. */
+  periodStart?: string;
+  periodEnd?: string;
+  snapshot?: Ga4ApiSnapshot;
+  lastAttemptAt: string;
+  lastSuccessAt?: string;
+  lastError?: Ga4SyncErrorCode;
+}
+
 // ---- ChatGPT channel report (manual entry) ----
 /** A manually entered count: `null` = not measured / unknown, `0` = measured zero. */
 export type ChatGptCount = number | null;
