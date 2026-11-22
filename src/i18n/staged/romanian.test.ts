@@ -1,3 +1,4 @@
+import { stagedChatGptChannel } from "./chatgpt-channel-fallback";
 import { createHash } from "node:crypto";
 import { expect, it } from "vitest";
 import { UI_CATALOGS, isUiLanguage } from "../catalogs";
@@ -87,7 +88,7 @@ it("keeps staged Romanian outside runtime and assigns each authored key once", (
   const keys = RO_STAGED_BATCHES.flatMap((batch) => Object.keys(batch.copy));
   expect(new Set(keys).size).toBe(keys.length);
   expect(Object.keys(RO_STAGED_CATALOG).sort()).toEqual(keys.sort());
-  expect(keys).toHaveLength(5104);
+  expect(keys).toHaveLength(5191);
   expect(Object.isFrozen(RO_STAGED_CATALOG)).toBe(true);
 });
 it("covers the complete current English interface key set", () => {
@@ -158,7 +159,8 @@ it("does not copy English text into authored Romanian values", () => {
       !panelCoverage.has(key) &&
       !manualCapture.has(key) &&
       !nativeIntake.has(key) &&
-      !aiEvalAccess.has(key),
+      !aiEvalAccess.has(key) &&
+      !Object.hasOwn(stagedChatGptChannel.copy, key),
   );
   expect(unchanged.map(([key]) => key)).toEqual([]);
   for (const key of properNames) expect(RO_STAGED_CATALOG[key]).toBe(UI_CATALOGS.en[key]);

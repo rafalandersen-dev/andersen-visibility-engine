@@ -1,3 +1,4 @@
+import { stagedChatGptChannel } from "./chatgpt-channel-fallback";
 import { fiConversation } from "./fi-conversation";
 import { fiWorkflow } from "./fi-workflow";
 import { fiEvidence } from "./fi-evidence";
@@ -368,6 +369,7 @@ export const FI_STAGED_BATCHES = [
     sourceRevision: "d6ec1a06 + AI Evaluation access (aiEvalAccess: English fallback)",
     sourceHash: STAGED_AI_EVAL_ACCESS_SOURCE_HASH,
   },
+  stagedChatGptChannel,
 ] as const;
 export const FI_STAGED_CATALOG: Readonly<Record<string, string>> = Object.freeze(
   Object.assign(Object.create(null), ...FI_STAGED_BATCHES.map((batch) => batch.copy)),

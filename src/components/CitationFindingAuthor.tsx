@@ -560,11 +560,13 @@ export function CitationFindingAuthor({
                   {t("citationAuthoring.author.scopeNone")}
                 </span>
               ) : null}
+              {/* The edit group stacks full-width on mobile (the select keeps a usable >=44px width, the long
+                  translated edit button wraps below it) and restores the inline row from sm up. */}
               {heads.length ? (
-                <label className="text-sm flex items-center gap-2">
+                <label className="text-sm flex w-full flex-col gap-2 sm:w-auto sm:flex-row sm:items-center">
                   <span>{t("citationAuthoring.author.editExisting")}</span>
                   <select
-                    className={`${field} mt-0 w-72 min-h-11`}
+                    className={`${field} mt-0 w-full min-h-11 sm:w-72 sm:shrink-0`}
                     value={editPick}
                     onChange={(e) => setEditPick(e.target.value)}
                     disabled={busy}
@@ -580,7 +582,7 @@ export function CitationFindingAuthor({
                   <Button
                     size="sm"
                     variant="outline"
-                    className="min-h-11"
+                    className="min-h-11 h-auto w-full whitespace-normal sm:w-auto"
                     disabled={busy || !editPick}
                     onClick={() => startEdit(editPick)}
                   >
@@ -635,9 +637,12 @@ export function CitationFindingAuthor({
                       {conflict.record ? (
                         <>
                           <FindingRecordView record={conflict.record} />
+                          {/* The long translated label wraps (overriding the shared Button's nowrap) with an
+                              automatic height, a 44px floor and a container-bounded width. */}
                           <Button
                             size="sm"
                             variant="outline"
+                            className="min-h-11 h-auto max-w-full whitespace-normal text-left"
                             disabled={busy || !canContinueOnHead(view)}
                             onClick={() => dispatch({ type: "continueOnHead" })}
                           >

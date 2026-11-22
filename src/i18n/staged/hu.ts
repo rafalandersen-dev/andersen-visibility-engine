@@ -1,3 +1,4 @@
+import { stagedChatGptChannel } from "./chatgpt-channel-fallback";
 import { huConversation } from "./hu-conversation";
 import { huWorkflow } from "./hu-workflow";
 import { huEvidence } from "./hu-evidence";
@@ -366,6 +367,7 @@ export const HU_STAGED_BATCHES = [
     sourceRevision: "d6ec1a06 + AI Evaluation access (aiEvalAccess: English fallback)",
     sourceHash: STAGED_AI_EVAL_ACCESS_SOURCE_HASH,
   },
+  stagedChatGptChannel,
 ] as const;
 export const HU_STAGED_CATALOG: Readonly<Record<string, string>> = Object.freeze(
   Object.assign(Object.create(null), ...HU_STAGED_BATCHES.map((batch) => batch.copy)),

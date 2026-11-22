@@ -501,6 +501,10 @@ describe("finding author surface", () => {
     expect(html).toContain('value="60000000-0000-4000-8000-000000000002"');
     expect(html).not.toContain('value="60000000-0000-4000-8000-000000000001"');
     expect(html).toContain("v2");
+    // Mobile layout (R4E): the edit group stacks full-width so the select keeps a usable >=44px width and the
+    // long translated edit button wraps below it, restoring the inline row from sm up.
+    expect(html).toMatch(/<label[^>]*\bflex w-full flex-col gap-2 sm:w-auto sm:flex-row\b/);
+    expect(html).toMatch(/<select[^>]*\bw-full min-h-11 sm:w-72 sm:shrink-0\b/);
   });
   // Reviewed-stage renders from a reducer state (the component's test seam): the conflict box offers the
   // "continue on top of version N" consent ONLY when the current head record could be shown and validated.
@@ -594,6 +598,11 @@ describe("finding author surface", () => {
     expect(html).toContain("citationAuthoring.author.conflictTitle");
     expect(html).toContain("citationAuthoring.author.conflictContinue");
     expect(html).not.toContain("citationAuthoring.author.conflictUnavailable");
+    // The continue consent is an essential action: it keeps the 44px minimum target, and (R4E) wraps its long
+    // translated label with an automatic height + bounded width so it never overflows on a narrow viewport.
+    expect(html).toMatch(
+      /<button[^>]*min-h-11 h-auto max-w-full whitespace-normal text-left[^>]*>citationAuthoring\.author\.conflictContinue/,
+    );
   });
   it("a conflict whose current head cannot be shown/validated explains and offers NO continue consent; the draft stays", () => {
     withAnswer();

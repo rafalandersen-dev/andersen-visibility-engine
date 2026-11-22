@@ -1,3 +1,4 @@
+import { stagedChatGptChannel } from "./chatgpt-channel-fallback";
 import { frConversation } from "./fr-conversation";
 import { frPublicStudies } from "./fr-public-studies";
 import { frPublicPricing } from "./fr-public-pricing";
@@ -250,6 +251,7 @@ export const FR_STAGED_BATCHES = [
     sourceRevision: "d6ec1a06 + AI Evaluation access (aiEvalAccess: English fallback)",
     sourceHash: STAGED_AI_EVAL_ACCESS_SOURCE_HASH,
   },
+  stagedChatGptChannel,
 ] as const;
 
 export const FR_STAGED_CATALOG: Readonly<Record<string, string>> = Object.freeze(

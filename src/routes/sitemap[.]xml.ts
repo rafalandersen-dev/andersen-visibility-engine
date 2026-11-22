@@ -1,5 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import type {} from "@tanstack/react-start";
+import { listPublished } from "@/lib/milo/published.server";
 import { HREFLANG_ROUTES, LOCALE_ROUTES, SITE_ORIGIN, isHreflangRoute } from "@/lib/locales";
 
 const BASE_URL = SITE_ORIGIN;
@@ -23,7 +24,6 @@ const EXCLUDE_PREFIXES = [
   "/_",
 ];
 
-
 const EXCLUDE_EXACT = new Set([
   "/auth",
   "/reset-password",
@@ -40,6 +40,7 @@ const HINTS: Record<string, { changefreq: string; priority: string }> = {
   "/free-ai-visibility-audit": { changefreq: "monthly", priority: "0.9" },
   "/case-studies": { changefreq: "monthly", priority: "0.8" },
   "/beta": { changefreq: "monthly", priority: "0.8" },
+  "/blog": { changefreq: "weekly", priority: "0.7" },
   "/blog/local-seo-guide": { changefreq: "monthly", priority: "0.7" },
 };
 
@@ -118,11 +119,18 @@ export const Route = createFileRoute("/sitemap.xml")({
   server: {
     handlers: {
       GET: async () => {
-        const urls = indexablePaths().map((path) => {
+        // Milo articles live in the database, not in route files. A failed read must not break the sitemap.
+        const published = await listPublished().catch(() => []);
+        const lastmod = new Map(
+          published.map((p) => [`/blog/${p.slug}`, p.updated_at.slice(0, 10)]),
+        );
+        const paths = [...new Set([...indexablePaths(), ...lastmod.keys()])];
+        const urls = paths.map((path) => {
           const { changefreq, priority } = hintFor(path);
           return [
             `  <url>`,
             `    <loc>${BASE_URL}${path}</loc>`,
+            ...(lastmod.has(path) ? [`    <lastmod>${lastmod.get(path)}</lastmod>`] : []),
             ...alternatesFor(path),
             `    <changefreq>${changefreq}</changefreq>`,
             `    <priority>${priority}</priority>`,

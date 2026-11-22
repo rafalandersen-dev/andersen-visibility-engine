@@ -1,3 +1,4 @@
+import { stagedChatGptChannel } from "./chatgpt-channel-fallback";
 import { esConversation } from "./es-conversation";
 import { esAnalyticsScreen } from "./es-analytics-screen";
 import { esAuditScreen } from "./es-audit-screen";
@@ -371,6 +372,7 @@ export const ES_STAGED_BATCHES = [
     sourceRevision: "d6ec1a06 + AI Evaluation access (aiEvalAccess: English fallback)",
     sourceHash: STAGED_AI_EVAL_ACCESS_SOURCE_HASH,
   },
+  stagedChatGptChannel,
 ] as const;
 
 export const ES_STAGED_CATALOG: Readonly<Record<string, string>> = Object.freeze(

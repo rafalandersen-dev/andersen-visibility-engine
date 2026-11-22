@@ -1,3 +1,4 @@
+import { stagedChatGptChannel } from "./chatgpt-channel-fallback";
 import { lvAuthScreen } from "./lv-auth-screen";
 import { lvBacklinkDetails } from "./lv-backlink-details";
 import { lvBacklinkMonitoring } from "./lv-backlink-monitoring";
@@ -384,6 +385,7 @@ export const LV_STAGED_BATCHES = [
     sourceRevision: "d6ec1a06 + AI Evaluation access (aiEvalAccess: English fallback)",
     sourceHash: STAGED_AI_EVAL_ACCESS_SOURCE_HASH,
   },
+  stagedChatGptChannel,
 ] as const;
 export const LV_STAGED_CATALOG: Readonly<Record<string, string>> = Object.freeze(
   Object.assign(Object.create(null), ...LV_STAGED_BATCHES.map((batch) => batch.copy)),

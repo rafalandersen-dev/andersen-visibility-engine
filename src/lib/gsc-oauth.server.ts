@@ -58,12 +58,12 @@ export function gscOAuthConfig(): GscOAuthConfig {
 }
 
 // ---- signed OAuth state (stateless, HMAC-SHA256 with the client secret) ----
-function b64url(bytes: Uint8Array): string {
+export function b64url(bytes: Uint8Array): string {
   let bin = "";
   for (let i = 0; i < bytes.length; i++) bin += String.fromCharCode(bytes[i]);
   return btoa(bin).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
 }
-function b64urlToBytes(s: string): Uint8Array {
+export function b64urlToBytes(s: string): Uint8Array {
   const pad = s.replace(/-/g, "+").replace(/_/g, "/") + "===".slice((s.length + 3) % 4);
   const bin = atob(pad);
   const out = new Uint8Array(bin.length);
@@ -71,7 +71,7 @@ function b64urlToBytes(s: string): Uint8Array {
   return out;
 }
 
-async function hmac(secret: string, message: string): Promise<Uint8Array> {
+export async function hmac(secret: string, message: string): Promise<Uint8Array> {
   const subtle = globalThis.crypto.subtle;
   const key = await subtle.importKey(
     "raw",
@@ -142,7 +142,7 @@ export async function buildAuthUrl(userId: string, projectId: string): Promise<s
 }
 
 // ---- token exchange / refresh ----
-interface TokenResponse {
+export interface TokenResponse {
   access_token?: string;
   expires_in?: number;
   refresh_token?: string;
@@ -152,7 +152,7 @@ interface TokenResponse {
   error_description?: string;
 }
 
-async function postToken(body: Record<string, string>): Promise<TokenResponse> {
+export async function postToken(body: Record<string, string>): Promise<TokenResponse> {
   const res = await fetch("https://oauth2.googleapis.com/token", {
     method: "POST",
     headers: { "Content-Type": "application/x-www-form-urlencoded" },

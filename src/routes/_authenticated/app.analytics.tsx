@@ -7,6 +7,7 @@ import { formatDate } from "@/lib/format";
 import { getAnalyticsSummaryFn, type AnalyticsSummary } from "@/lib/analytics.functions";
 import { LogEvidencePanel } from "@/components/LogEvidencePanel";
 import { GscLiteSection } from "@/components/GscLiteSection";
+import { ChatGptChannel } from "@/components/ChatGptChannel";
 import {
   BarChart3,
   Loader2,
@@ -144,6 +145,7 @@ function ProjectAnalytics() {
       ) : data && !data.hasData ? (
         <div className="space-y-8">
           <GscLiteSection project={project} />
+          <ChatGptChannel project={project} />
           <EmptyState />
         </div>
       ) : data ? (
@@ -364,6 +366,9 @@ function ProjectAnalytics() {
 
           {/* Section 3 — Search Console Lite / SEO Proof */}
           <GscLiteSection project={project} onsite={data.publishedContentPerformance} />
+
+          {/* Section 3b — ChatGPT channel (manual 28-day Business Hub + GA4 report) */}
+          <ChatGptChannel project={project} />
 
           {/* Section 4 — Top growing pages */}
           <section>

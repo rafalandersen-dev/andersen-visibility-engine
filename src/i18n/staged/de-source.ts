@@ -65,4 +65,5 @@ export const DE_AUTHORING_SOURCE_HASHES: Readonly<Record<string, string>> = {
   // AI Evaluation access source after d6ec1a06; English source in src/i18n/ai-evaluation-access.ts. The batch
   // is reviewed English fallback pending translation (./ai-evaluation-access-fallback.ts), not a German review record.
   "ai evaluation access": "658ca0828e313ff7f58bf91632ea803209c77ec5a5263a9cfbe1911a25a228ce",
+  "ChatGPT channel": "e119796bfa8d63e8f48a160500d0f204ff1596f965cc4583eef2ff1f3e323364",
 };

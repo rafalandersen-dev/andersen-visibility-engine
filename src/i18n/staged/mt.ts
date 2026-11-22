@@ -1,3 +1,4 @@
+import { stagedChatGptChannel } from "./chatgpt-channel-fallback";
 import { mtAnalyticsScreen } from "./mt-analytics-screen";
 import { mtAuditScreen } from "./mt-audit-screen";
 import { mtAuthScreen } from "./mt-auth-screen";
@@ -384,6 +385,7 @@ export const MT_STAGED_BATCHES = [
     sourceRevision: "d6ec1a06 + AI Evaluation access (aiEvalAccess: English fallback)",
     sourceHash: STAGED_AI_EVAL_ACCESS_SOURCE_HASH,
   },
+  stagedChatGptChannel,
 ] as const;
 export const MT_STAGED_CATALOG: Readonly<Record<string, string>> = Object.freeze(
   Object.assign(Object.create(null), ...MT_STAGED_BATCHES.map((batch) => batch.copy)),
