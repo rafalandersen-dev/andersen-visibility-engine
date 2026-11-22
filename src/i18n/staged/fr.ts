@@ -1,3 +1,4 @@
+import { stagedChatGptChannel } from "./chatgpt-channel-fallback";
 import { frConversation } from "./fr-conversation";
 import { frPublicStudies } from "./fr-public-studies";
 import { frPublicPricing } from "./fr-public-pricing";
@@ -239,6 +240,7 @@ export const FR_STAGED_BATCHES = [
     sourceRevision: "89fe9442 + native Google intake (nativeIntake: English fallback)",
     sourceHash: STAGED_NATIVE_INTAKE_SOURCE_HASH,
   },
+  stagedChatGptChannel,
 ] as const;
 
 export const FR_STAGED_CATALOG: Readonly<Record<string, string>> = Object.freeze(

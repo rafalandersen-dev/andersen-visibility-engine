@@ -33,20 +33,36 @@ export function weeklyReadiness(
     booked: [...input.booked, ...queue.map((q) => q.publishAt)],
   });
   const matching = (a: string | undefined, b: string) => !!a && Date.parse(a) === Date.parse(b);
+  const owned = (id: string) =>
+    input.assets.find((a) => a.projectId === input.projectId && a.id === id);
   return {
     ...plan,
     readiness: plan.slots.map((slot) => {
+      // Precedence among queue rows at one instant (every row stays booked above):
+      // 1. occupying rows (pending, publishing, published, review_required) are
+      //    the current queue; more than one is a genuine conflict;
+      // 2. otherwise failed rows hold the slot;
+      // 3. otherwise cancelled rows keep it cancelled (never missing/refilled);
+      // 4. only with no queue row may a schedule mirror report a draft.
+      // Historical rows and stale mirrors never compete with a current row.
       const rows = queue.filter((q) => matching(q.publishAt, slot.publishAt));
-      const assets = input.assets.filter(
+      const occupying = rows.filter((q) =>
+        ["pending", "publishing", "published", "review_required"].includes(q.status),
+      );
+      const failed = rows.filter((q) => q.status === "failed");
+      const cancelled = rows.filter((q) => q.status === "cancelled");
+      const mirrored = input.assets.filter(
         (a) =>
           a.projectId === input.projectId &&
           (matching(a.autoSchedulerPlannedAt, slot.publishAt) ||
-            matching(a.scheduledPublishAt, slot.publishAt) ||
-            rows.some((q) => q.assetId === a.id)),
+            matching(a.scheduledPublishAt, slot.publishAt)),
       );
-      const conflict = rows.length > 1 || assets.length > 1;
-      const row = rows[0];
-      const asset = assets[0];
+      const pick = (list: typeof rows) =>
+        list.find((q) => mirrored.some((a) => a.id === q.assetId)) ?? list[0];
+      const row =
+        occupying.length > 0 ? occupying[0] : failed.length > 0 ? pick(failed) : pick(cancelled);
+      const conflict = rows.length > 0 ? occupying.length > 1 : mirrored.length > 1;
+      const asset = row ? owned(row.assetId) : mirrored[0];
       const state = conflict
         ? "conflict"
         : row?.status === "published"

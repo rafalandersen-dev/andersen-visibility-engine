@@ -79,18 +79,25 @@ async function importKey(): Promise<CryptoKey> {
   return subtle.importKey("raw", ab(bytes), { name: "AES-GCM" }, false, ["encrypt", "decrypt"]);
 }
 
+/** Optional `binding` is authenticated (AES-GCM AAD): a ciphertext only opens for the same binding. */
+function aesParams(iv: Uint8Array, binding?: string): AesGcmParams {
+  return binding === undefined
+    ? { name: "AES-GCM", iv: ab(iv) }
+    : { name: "AES-GCM", iv: ab(iv), additionalData: ab(new TextEncoder().encode(binding)) };
+}
+
 /** Encrypt a UTF-8 secret. Returns "v1.<ivB64>.<ctB64>". Throws if not configured. */
-export async function encryptSecret(plaintext: string): Promise<string> {
+export async function encryptSecret(plaintext: string, binding?: string): Promise<string> {
   if (!subtle) throw new Error("WebCrypto unavailable");
   const key = await importKey();
   const iv = globalThis.crypto.getRandomValues(new Uint8Array(12));
   const data = new TextEncoder().encode(plaintext);
-  const ct = await subtle.encrypt({ name: "AES-GCM", iv: ab(iv) }, key, ab(data));
+  const ct = await subtle.encrypt(aesParams(iv, binding), key, ab(data));
   return `v1.${bytesToB64(iv)}.${bytesToB64(new Uint8Array(ct))}`;
 }
 
 /** Decrypt a "v1.<ivB64>.<ctB64>" payload. Returns "" on any failure. */
-export async function decryptSecret(payload: string): Promise<string> {
+export async function decryptSecret(payload: string, binding?: string): Promise<string> {
   try {
     if (!subtle) return "";
     const parts = (payload || "").split(".");
@@ -98,7 +105,7 @@ export async function decryptSecret(payload: string): Promise<string> {
     const key = await importKey();
     const iv = b64ToBytes(parts[1]);
     const ct = b64ToBytes(parts[2]);
-    const pt = await subtle.decrypt({ name: "AES-GCM", iv: ab(iv) }, key, ab(ct));
+    const pt = await subtle.decrypt(aesParams(iv, binding), key, ab(ct));
     return new TextDecoder().decode(pt);
   } catch {
     return "";

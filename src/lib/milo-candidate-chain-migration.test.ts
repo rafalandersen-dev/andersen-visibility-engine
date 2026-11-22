@@ -88,6 +88,7 @@ const candidates = [
   // Preflight/lease recovery (28 October): CREATE OR REPLACEs only queue_operational_email_digest
   // over the released operational_email_outbox chain so a terminally exhausted item can be rescanned.
   "20261028120000_operational_email_preflight_recovery.sql",
+  "20261121120000_milo_blog_content_store.sql",
 ];
 // Unapplied candidate outside this chain: it only re-pins the email queue wrappers, which this
 // fixture does not create, so it is enumerated (never silently released) but executed by its own
@@ -118,6 +119,12 @@ const independentCandidates = [
   // citation review + parsed-artifact foundation in native-report-binding-migration.test.ts; unapplied in
   // production until its release receipt.
   "20261114120000_citation_native_review_binding.sql",
+  // GA4 test-rollout stores (22 November): two new service-only tables, no dependency on this
+  // chain; executed by ga4-migration.test.ts. Unapplied until reviewed.
+  "20261122152000_ga4_connections.sql",
+  // GA4 Synergy daily report (22 November): service-only table referencing ga4_project_properties,
+  // vault secret and pg_cron job; executed by ga4-migration.test.ts. Unapplied until reviewed.
+  "20261122180000_ga4_synergy_daily_sync.sql",
 ];
 const allowed = async (role: string, fn: string) =>
   (

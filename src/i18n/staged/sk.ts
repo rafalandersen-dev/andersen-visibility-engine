@@ -1,3 +1,4 @@
+import { stagedChatGptChannel } from "./chatgpt-channel-fallback";
 import { skConversation } from "./sk-conversation";
 import { skWorkflow } from "./sk-workflow";
 import { skEvidence } from "./sk-evidence";
@@ -355,6 +356,7 @@ export const SK_STAGED_BATCHES = [
     sourceRevision: "89fe9442 + native Google intake (nativeIntake: English fallback)",
     sourceHash: STAGED_NATIVE_INTAKE_SOURCE_HASH,
   },
+  stagedChatGptChannel,
 ] as const;
 export const SK_STAGED_CATALOG: Readonly<Record<string, string>> = Object.freeze(
   Object.assign(Object.create(null), ...SK_STAGED_BATCHES.map((batch) => batch.copy)),

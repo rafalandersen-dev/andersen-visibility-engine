@@ -62,4 +62,5 @@ export const DE_AUTHORING_SOURCE_HASHES: Readonly<Record<string, string>> = {
   // reviewed English fallback pending translation (./native-intake-fallback.ts), not a German review
   // record. Covers the 120-key Google+Bing + native-review-binding English source.
   "native intake": "509f421f0153f618c42973ed2deb6ccbbc889ea9cb9566c31b3e741d72a9d8eb",
+  "ChatGPT channel": "e119796bfa8d63e8f48a160500d0f204ff1596f965cc4583eef2ff1f3e323364",
 };
