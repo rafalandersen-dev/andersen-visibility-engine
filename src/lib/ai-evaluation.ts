@@ -1,5 +1,9 @@
 /**
- * AI Evaluation — model-comparison orchestration used by the owner route `app.ai-evaluation.tsx`.
+ * AI Evaluation — model-comparison orchestration used by the route `app.ai-evaluation.tsx`.
+ *
+ * AI Evaluation is a Pro/Agency feature. Every task call (existing side included) carries
+ * `evaluation: true`, so its server handler checks the plan gate from fresh server reads before any
+ * usage claim or spend; a refused side is an ordinary error side.
  *
  * Runs the existing model and (when configured) the candidate model on ONE frozen input and records
  * the comparison. A deterministic outcome from the quality boundary (`outcome: "skipped"`, e.g. the
@@ -156,6 +160,7 @@ async function callTask(
       opportunity: input.opportunity,
       assetType: "article",
       modelOverride,
+      evaluation: true,
     });
     return { kind: "output", output: res.markdown };
   }
@@ -171,6 +176,7 @@ async function callTask(
       contentLanguage: input.contentLanguage,
       suggestions: a.quickWins,
       modelOverride,
+      evaluation: true,
     });
     return { kind: "output", output: res.markdown };
   }
@@ -189,6 +195,7 @@ async function callTask(
       contentLanguage: input.contentLanguage,
       explanationLanguage: input.explanationLanguage,
       modelOverride,
+      evaluation: true,
     });
     // The explicit server provenance signal decides; the score body is never inspected for this.
     if (res.outcome === "skipped") return { kind: "skipped", reason: res.reason };
@@ -205,6 +212,7 @@ async function callTask(
     livePages: input.livePages,
     explanationLanguage: input.explanationLanguage,
     modelOverride,
+    evaluation: true,
   });
   return {
     kind: "output",

@@ -44,7 +44,12 @@ import {
 } from "./backlinks.server";
 import type { Project, ServiceItem, Opportunity } from "./types";
 
-import { claimAiUsage, type UsageBucket } from "./ai-usage.server";
+import {
+  assertAiEvaluationAllowed,
+  claimAiUsage,
+  resolveAiEvaluationAccess,
+  type UsageBucket,
+} from "./ai-usage.server";
 import { withGenerationUsage } from "./generation-usage.server";
 import { contentRecoveryTarget, retainContentGeneration } from "./generation-result.server";
 import { CONTENT_BODY_MAX_CHARS } from "./generation-result";
@@ -2562,18 +2567,25 @@ export const generateContentFn = createServerFn({ method: "POST" })
         opportunity: z.any(),
         assetType: z.enum(CONTENT_ASSET_TYPES),
         modelOverride: z.string().optional(),
+        evaluation: z.boolean().optional(),
       })
       .parse(input),
   )
-  .handler(async ({ data, context }) =>
-    generateContentCore(context.userId as string, {
+  .handler(async ({ data, context }) => {
+    // AI Evaluation (either side) and any model override are Pro/Agency, checked before the usage claim.
+    if (data.evaluation || data.modelOverride)
+      await assertAiEvaluationAllowed({
+        userId: context.userId as string,
+        bucket: "contentGeneration",
+      });
+    return generateContentCore(context.userId as string, {
       project: data.project as Project,
       services: data.services as ServiceItem[],
       opportunity: data.opportunity as Opportunity,
       assetType: data.assetType,
       ...(data.modelOverride ? { modelOverride: data.modelOverride } : {}),
-    }),
-  );
+    });
+  });
 
 // ============================================================
 // Small editor regen helpers (metadata / faq / cta)
@@ -2725,13 +2737,17 @@ export const evaluateContentQualityFn = createServerFn({ method: "POST" })
         contentLanguage: z.string().default("English"),
         explanationLanguage: z.string().default("English"),
         modelOverride: z.string().optional(),
+        evaluation: z.boolean().optional(),
       })
       .parse(input),
   )
   .handler(async ({ data, context }): Promise<QualityEvaluationResult> => {
+    // AI Evaluation (either side) and any model override are Pro/Agency, checked first.
+    if (data.evaluation || data.modelOverride)
+      await assertAiEvaluationAllowed({ userId: context.userId as string, bucket: "miloScore" });
     // Short-draft economy, enforced here as well as in the client caller: an empty or
     // too-short draft gets the same conservative score with NO usage claim and NO
-    // provider call (the owner evaluation route reaches this handler directly). The
+    // provider call (the AI Evaluation route reaches this handler directly). The
     // explicit `outcome: "skipped"` tells callers this is not model work. The predicate
     // stops at the 40th word (no rewritten copy, no token array) and agrees with
     // draftWordCount on every input.
@@ -2823,10 +2839,14 @@ export const improveContentDraftFn = createServerFn({ method: "POST" })
         contentLanguage: z.string().default("English"),
         suggestions: z.array(z.string()).default([]),
         modelOverride: z.string().optional(),
+        evaluation: z.boolean().optional(),
       })
       .parse(input),
   )
   .handler(async ({ data, context }) => {
+    // AI Evaluation (either side) and any model override are Pro/Agency, checked first.
+    if (data.evaluation || data.modelOverride)
+      await assertAiEvaluationAllowed({ userId: context.userId as string, bucket: "improveDraft" });
     const project = data.project as Project;
     const services = data.services as ServiceItem[];
     const brief = projectBrief(project, services);
@@ -2970,10 +2990,14 @@ export const generateAuthorityOpportunitiesFn = createServerFn({ method: "POST" 
         livePages: z.array(z.string()).default([]),
         explanationLanguage: z.string().default("English"),
         modelOverride: z.string().optional(),
+        evaluation: z.boolean().optional(),
       })
       .parse(input),
   )
   .handler(async ({ data, context }) => {
+    // AI Evaluation (either side) and any model override are Pro/Agency, checked first.
+    if (data.evaluation || data.modelOverride)
+      await assertAiEvaluationAllowed({ userId: context.userId as string, bucket: "authority" });
     // Spend limit, claimed before any model call so a refusal costs nothing.
     await claimAiUsage({ userId: context.userId as string, bucket: "authority" });
     const project = data.project as Project;
@@ -3025,10 +3049,18 @@ ${existingBlock}${liveBlock}${sharedRules}`,
     }
   });
 
-/** UI-safe AI router status (no secrets) for the internal evaluation page. */
+/** UI-safe AI router status (no secrets) for the AI Evaluation page. `evaluationAccess` is a
+ * display hint from the same server resolution as the gate; every evaluation call is still checked
+ * on its own. */
 export const getAiRouterStatusFn = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .handler(async () => getRouterStatus());
+  .handler(async ({ context }) => ({
+    ...getRouterStatus(),
+    evaluationAccess: await resolveAiEvaluationAccess({
+      userId: context.userId as string,
+      bucket: "aiCredits",
+    }),
+  }));
 
 // ============================================================
 // Backlinks v1 — DataForSEO link profile + link gap, AI-interpreted

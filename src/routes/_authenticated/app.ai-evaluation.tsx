@@ -1,5 +1,5 @@
 import { WorkflowComparisonPanel } from "@/components/WorkflowComparisonPanel";
-import { createFileRoute, useNavigate } from "@tanstack/react-router";
+import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { AppShell } from "@/components/AppShell";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -23,6 +23,7 @@ import {
   evaluateContentQualityFn,
   generateAuthorityOpportunitiesFn,
 } from "@/lib/ai.functions";
+import { PLAN_IDS, PLAN_LIMITS, PLAN_META } from "@/lib/billing";
 import type { AiTaskType, AiEvaluationRun, AiEvaluationRating, Opportunity, Project, ServiceItem } from "@/lib/types";
 import { FlaskConical, Loader2, Play, AlertTriangle } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
@@ -36,6 +37,9 @@ export const Route = createFileRoute("/_authenticated/app/ai-evaluation")({
 type RouterStatus = Awaited<ReturnType<typeof getAiRouterStatusFn>>;
 const TASKS: AiTaskType[] = ["contentGeneration", "contentImprove", "contentQualityScore", "authorityGeneration"];
 const RATING_KEYS: (keyof AiEvaluationRating)[] = ["quality", "brandFit", "languageQuality", "usefulness", "safetyTrust"];
+const EVALUATION_PLANS = PLAN_IDS.filter((p) => PLAN_LIMITS[p].aiEvaluationEnabled)
+  .map((p) => PLAN_META[p].name)
+  .join(", ");
 
 
 function AiEvaluationPage() {
@@ -47,7 +51,8 @@ function AiEvaluationPage() {
   const assets = useStore((s) => s.content.filter((c) => c.projectId === s.activeProjectId));
   const history = useStore((s) => s.aiEvaluationRuns);
 
-  const [status, setStatus] = useState<RouterStatus | null>(null);
+  // undefined: first read in flight; null: the status request failed.
+  const [status, setStatus] = useState<RouterStatus | null | undefined>(undefined);
   const [task, setTask] = useState<AiTaskType>("contentImprove");
   const [oppId, setOppId] = useState<string>("");
   const [topic, setTopic] = useState("");
@@ -58,9 +63,18 @@ function AiEvaluationPage() {
   const [runId, setRunId] = useState<string | null>(null);
   const [skipNotice, setSkipNotice] = useState<{ side: "existing" | "candidate"; reason: string } | null>(null);
 
+  const refreshStatus = () =>
+    getAiRouterStatusFn()
+      .then(setStatus)
+      .catch(() => setStatus(null));
   useEffect(() => {
-    getAiRouterStatusFn().then(setStatus).catch(() => setStatus(null));
+    refreshStatus();
   }, []);
+  // Status only: re-reads access, never runs a comparison or a model.
+  const retryStatus = () => {
+    setStatus(undefined);
+    refreshStatus();
+  };
 
   const currentRun = useMemo(() => history.find((r) => r.id === runId), [history, runId]);
 
@@ -138,10 +152,22 @@ function AiEvaluationPage() {
     // kind === "skipped": nothing recorded, runId stays null, so no ratings section and no history row.
     else setSkipNotice({ side: result.side, reason: result.reason });
     setRunning(false);
+    // A plan change during the attempt is refused server-side; re-read so the controls reflect it.
+    refreshStatus();
   }
 
   const needsAsset = task === "contentImprove" || task === "contentQualityScore";
+  // Display hint from the server gate; each evaluation call is checked again on the server before spend.
+  // Anything but a known allowed/restricted answer (failed request, unexpected value) is unavailable.
+  const access =
+    status === undefined
+      ? "checking"
+      : status?.evaluationAccess === "allowed" || status?.evaluationAccess === "restricted"
+        ? status.evaluationAccess
+        : "unavailable";
+  const evaluationAllowed = access === "allowed";
   const canRun =
+    evaluationAllowed &&
     !running &&
     !shortDraft &&
     (task === "authorityGeneration" ||
@@ -201,6 +227,40 @@ function AiEvaluationPage() {
         {shortDraft ? (
           <p className="sm:col-span-2 text-xs text-amber-700 inline-flex items-start gap-1.5" data-short-draft-hint>
             <AlertTriangle className="h-3.5 w-3.5 mt-0.5 shrink-0" />{t("aiEval.shortDraftHint")}
+          </p>
+        ) : null}
+        {access === "checking" ? (
+          <p
+            role="status"
+            className="sm:col-span-2 text-xs text-muted-foreground inline-flex items-center gap-1.5"
+            data-evaluation-access="checking"
+          >
+            <Loader2 className="h-3.5 w-3.5 animate-spin" />
+            {t("common.loading")}
+          </p>
+        ) : access === "unavailable" ? (
+          <div
+            role="alert"
+            className="sm:col-span-2 text-xs text-amber-700 inline-flex flex-wrap items-center gap-x-2 gap-y-1"
+            data-evaluation-access="unavailable"
+          >
+            <AlertTriangle className="h-3.5 w-3.5 shrink-0" />
+            <span>{t("aiEvalAccess.unavailable")}</span>
+            <Button type="button" variant="outline" size="sm" onClick={retryStatus}>
+              {t("common.retry")}
+            </Button>
+          </div>
+        ) : access === "restricted" ? (
+          <p
+            className="sm:col-span-2 text-xs text-muted-foreground inline-flex flex-wrap items-center gap-x-2"
+            data-evaluation-plan-gate
+          >
+            <span>
+              {t("publicPricing.evaluation")} · {t("publicPricing.included")}: {EVALUATION_PLANS}
+            </span>
+            <Link to="/app/billing" className="underline">
+              {t("billing.upgrade")}
+            </Link>
           </p>
         ) : null}
         <div className="sm:col-span-2 flex justify-end">
