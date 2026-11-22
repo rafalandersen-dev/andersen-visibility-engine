@@ -61,6 +61,6 @@ export const DE_AUTHORING_SOURCE_HASHES: Readonly<Record<string, string>> = {
   // Native Google+Bing intake source; English source in src/i18n/native-google-intake.ts. The batch is
   // reviewed English fallback pending translation (./native-intake-fallback.ts), not a German review
   // record. Covers the 100-key Google+Bing English source.
-  "ChatGPT channel": "ec94dbebccd4db065ce9fad2d11281bac195a1c468a9e8b63d0a91ee24780808",
+  "ChatGPT channel": "e119796bfa8d63e8f48a160500d0f204ff1596f965cc4583eef2ff1f3e323364",
   "native intake": "3a58c957f10ee7ca80c199b41d19da1ad88861b3baba335c3222e5938496abe9",
 };

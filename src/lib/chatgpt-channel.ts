@@ -1,4 +1,4 @@
-import type { ChatGptChannelReport, ChatGptCount } from "@/lib/types";
+import type { ChatGptChannelReport, ChatGptCount, Ga4ApiSnapshot } from "@/lib/types";
 
 export const CHATGPT_PERIOD_DAYS = 28;
 export const MAX_CHATGPT_REPORTS = 26;
@@ -137,12 +137,112 @@ export function upsertChatGptReport(
   | { ok: false; error: "capacity" } {
   const prev = reports.find((r) => r.id === report.id);
   if (!prev && reports.length >= MAX_CHATGPT_REPORTS) return { ok: false, error: "capacity" };
-  const next = { ...report, createdAt: prev?.createdAt || report.createdAt };
+  // A manual save never discards API figures already fetched for the same period.
+  const next = {
+    ...report,
+    ...(report.ga4Api || !prev?.ga4Api ? {} : { ga4Api: prev.ga4Api }),
+    createdAt: prev?.createdAt || report.createdAt,
+  };
   return {
     ok: true,
     replaced: !!prev,
     reports: sortChatGptReports([next, ...reports.filter((r) => r.id !== report.id)]),
   };
+}
+
+/**
+ * Stores GA4 API figures for their period. Manual Hub/GA4 entries of the same
+ * period are kept untouched (the API figures sit beside them). API-only reports
+ * of older rolling windows are superseded, so daily refreshes cannot exhaust the
+ * history; any report holding manual data is never removed here.
+ */
+export function applyGa4ApiSnapshot(
+  reports: ChatGptChannelReport[],
+  period: { periodStart: string; periodEnd: string },
+  snapshot: Ga4ApiSnapshot,
+  now: Date,
+): { ok: true; reports: ChatGptChannelReport[] } | { ok: false; error: "capacity" | "period" } {
+  if (chatGptPeriodStart(period.periodEnd) !== period.periodStart) return { ok: false, error: "period" };
+  const id = `${period.periodStart}_${period.periodEnd}`;
+  const stamp = now.toISOString();
+  const kept = reports.filter((r) => r.id === id || !(r.ga4Api && !hasChatGptMeasurement(r)));
+  const prev = kept.find((r) => r.id === id);
+  if (!prev && kept.length >= MAX_CHATGPT_REPORTS) return { ok: false, error: "capacity" };
+  const next: ChatGptChannelReport = prev
+    ? { ...prev, ga4Api: snapshot, updatedAt: stamp }
+    : {
+        id,
+        ...period,
+        businessHub: { source: "chatgpt_business_hub", mentions: null, clicks: null, discoveryTopics: [] },
+        ga4: { source: "ga4", chatgptSessions: null, bookingClicks: null, bookingCompleted: null },
+        ga4Api: snapshot,
+        createdAt: stamp,
+        updatedAt: stamp,
+      };
+  return { ok: true, reports: sortChatGptReports([next, ...kept.filter((r) => r.id !== id)]) };
+}
+
+// ---- user-initiated paste of the visible (English) Business Hub summary ----
+/** Summary labels read from the paste; "Profile views" and the chart are ignored. */
+const HUB_PASTE_LABELS = { mentions: "Mentions", clicks: "Website clicks" } as const;
+export type HubPasteField = keyof typeof HUB_PASTE_LABELS;
+/**
+ * A number = the figure shown; null = "Unavailable" (not measured); "missing" =
+ * label absent; "unreadable" = label present but no single whole number or
+ * "Unavailable" after it (abbreviated values such as 1.2K, or conflicting values).
+ */
+export type HubPasteValue = ChatGptCount | "missing" | "unreadable";
+const HUB_VALUE = /^(unavailable|\d{1,3}(?:,\d{3})+|\d+)(?=\s|$)/i;
+
+export function parseBusinessHubPaste(text: string): Record<HubPasteField, HubPasteValue> {
+  const flat = text.replace(/\s+/g, " ").trim();
+  const out = {} as Record<HubPasteField, HubPasteValue>;
+  for (const [field, label] of Object.entries(HUB_PASTE_LABELS) as [HubPasteField, string][]) {
+    const values = new Set<ChatGptCount>();
+    let seen = false;
+    for (const m of flat.matchAll(new RegExp(`(?:^|\\s)${label}(?=[\\s:]|$)\\s*:?\\s*`, "gi"))) {
+      seen = true;
+      const token = HUB_VALUE.exec(flat.slice(m.index + m[0].length))?.[1];
+      if (!token) continue;
+      if (/^unavailable$/i.test(token)) values.add(null);
+      else {
+        const n = parseChatGptCount(token.replace(/,/g, ""));
+        if (n.ok) values.add(n.value);
+      }
+    }
+    out[field] = !seen ? "missing" : values.size === 1 ? [...values][0] : "unreadable";
+  }
+  return out;
+}
+
+/** Fills only readable fields; reports which already-entered values would change. */
+export function applyBusinessHubPaste(
+  form: ChatGptReportForm,
+  parsed: Record<HubPasteField, HubPasteValue>,
+): {
+  form: ChatGptReportForm;
+  filled: HubPasteField[];
+  replaced: HubPasteField[];
+  missing: HubPasteField[];
+  unreadable: HubPasteField[];
+} {
+  const next = { ...form };
+  const res = { filled: [], replaced: [], missing: [], unreadable: [] } as Record<
+    "filled" | "replaced" | "missing" | "unreadable",
+    HubPasteField[]
+  >;
+  for (const field of Object.keys(HUB_PASTE_LABELS) as HubPasteField[]) {
+    const v = parsed[field];
+    if (v === "missing" || v === "unreadable") {
+      res[v].push(field);
+      continue;
+    }
+    const text = v === null ? "" : String(v);
+    if (form[field].trim() && form[field].trim() !== text) res.replaced.push(field);
+    next[field] = text;
+    res.filled.push(field);
+  }
+  return { form: next, ...res };
 }
 
 export function removeChatGptReport(
@@ -169,6 +269,24 @@ function coerceCount(v: unknown): ChatGptCount {
   return typeof v === "number" && Number.isSafeInteger(v) && v >= 0 && v <= MAX_CHATGPT_COUNT
     ? v
     : null;
+}
+
+function coerceGa4Api(v: unknown): Ga4ApiSnapshot | undefined {
+  const s = v as Partial<Ga4ApiSnapshot> | null | undefined;
+  if (!s || typeof s !== "object" || s.source !== "ga4_api") return undefined;
+  if (typeof s.propertyId !== "string" || !/^\d{1,20}$/.test(s.propertyId)) return undefined;
+  if (typeof s.fetchedAt !== "string" || Number.isNaN(Date.parse(s.fetchedAt))) return undefined;
+  return {
+    source: "ga4_api",
+    propertyId: s.propertyId,
+    propertyName: typeof s.propertyName === "string" ? s.propertyName.slice(0, 120) : "",
+    timeZone: typeof s.timeZone === "string" ? s.timeZone.slice(0, 64) : "",
+    chatgptSessions: coerceCount(s.chatgptSessions),
+    bookingClicks: coerceCount(s.bookingClicks),
+    bookingCompleted: coerceCount(s.bookingCompleted),
+    partial: s.partial === true,
+    fetchedAt: s.fetchedAt,
+  };
 }
 
 /** Defensive read of persisted JSONB: drops malformed entries, never invents values. */
@@ -200,6 +318,7 @@ export function normalizeChatGptReports(raw: unknown): ChatGptChannelReport[] {
         bookingClicks: coerceCount(r.ga4?.bookingClicks),
         bookingCompleted: coerceCount(r.ga4?.bookingCompleted),
       },
+      ...(coerceGa4Api(r.ga4Api) ? { ga4Api: coerceGa4Api(r.ga4Api) } : {}),
       createdAt: typeof r.createdAt === "string" ? r.createdAt : "",
       updatedAt: typeof r.updatedAt === "string" ? r.updatedAt : "",
     });

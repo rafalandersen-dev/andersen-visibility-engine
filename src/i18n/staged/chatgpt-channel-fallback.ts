@@ -5,6 +5,6 @@ export const stagedChatGptChannel = {
   name: "ChatGPT channel",
   copy: Object.freeze({ ...chatGptChannelCopy.en }),
   namespaces: ["chatGptChannel"],
-  sourceRevision: "2026-11-21 (English fallback)",
-  sourceHash: "ec94dbebccd4db065ce9fad2d11281bac195a1c468a9e8b63d0a91ee24780808",
+  sourceRevision: "2026-11-22 (English fallback)",
+  sourceHash: "e119796bfa8d63e8f48a160500d0f204ff1596f965cc4583eef2ff1f3e323364",
 } as const;

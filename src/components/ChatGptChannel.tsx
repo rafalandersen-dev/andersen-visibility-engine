@@ -8,16 +8,20 @@ import {
   GA4_BOOKING_COMPLETED_EVENT,
   GA4_CHATGPT_SESSION_SOURCES,
   MAX_DISCOVERY_TOPICS,
+  applyBusinessHubPaste,
   buildChatGptReport,
   chatGptPeriodStart,
   chatGptReportToForm,
   normalizeChatGptReports,
+  parseBusinessHubPaste,
   removeChatGptReport,
   upsertChatGptReport,
   type ChatGptReportError,
   type ChatGptReportForm,
+  type HubPasteField,
 } from "@/lib/chatgpt-channel";
 import type { ChatGptChannelReport, ChatGptCount, Project } from "@/lib/types";
+import { Ga4ChannelSync } from "@/components/Ga4ChannelSync";
 import { Bot, Loader2, Pencil, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -46,6 +50,8 @@ function ChatGptChannelContent({ project }: { project: Project }) {
   const [form, setForm] = useState<ChatGptReportForm>(EMPTY_CHATGPT_FORM);
   const [editing, setEditing] = useState<ChatGptChannelReport | null>(null);
   const [saving, setSaving] = useState(false);
+  const [paste, setPaste] = useState("");
+  const [pasteNotes, setPasteNotes] = useState<string[]>([]);
   const latest = reports[0];
   const periodStart = chatGptPeriodStart(form.periodEnd);
   const set = (patch: Partial<ChatGptReportForm>) => setForm((f) => ({ ...f, ...patch }));
@@ -55,6 +61,28 @@ function ChatGptChannelContent({ project }: { project: Project }) {
   function resetForm() {
     setForm(EMPTY_CHATGPT_FORM);
     setEditing(null);
+    setPasteNotes([]);
+  }
+
+  // Parsed in the browser only; the pasted text is never saved or sent.
+  function onPaste() {
+    const res = applyBusinessHubPaste(form, parseBusinessHubPaste(paste));
+    const names = (fields: HubPasteField[]) =>
+      fields.map((f) => t(f === "mentions" ? "chatGptChannel.mentions" : "chatGptChannel.clicks")).join(", ");
+    if (
+      res.replaced.length &&
+      !window.confirm(t("chatGptChannel.paste.replacePrompt", { fields: names(res.replaced) }))
+    )
+      return;
+    setForm(res.form);
+    setPaste("");
+    setPasteNotes([
+      ...(res.filled.length ? [t("chatGptChannel.paste.filled", { fields: names(res.filled) })] : []),
+      ...(res.missing.length ? [t("chatGptChannel.paste.missing", { fields: names(res.missing) })] : []),
+      ...(res.unreadable.length
+        ? [t("chatGptChannel.paste.unreadable", { fields: names(res.unreadable) })]
+        : []),
+    ]);
   }
 
   async function persist(next: ChatGptChannelReport[]) {
@@ -118,6 +146,10 @@ function ChatGptChannelContent({ project }: { project: Project }) {
         {t("chatGptChannel.manualNote")}
       </p>
 
+      <div className="mt-4">
+        <Ga4ChannelSync project={project} />
+      </div>
+
       <div className="mt-4 space-y-4 rounded-lg border border-border bg-background/40 p-4">
         {editing ? (
           <p className="text-xs text-amber-600">
@@ -160,6 +192,38 @@ function ChatGptChannelContent({ project }: { project: Project }) {
             </a>
           </legend>
           <p className="text-xs text-muted-foreground">{t("chatGptChannel.hubHelp")}</p>
+          <details className="rounded-md border border-dashed border-border bg-muted/40 p-3">
+            <summary className="cursor-pointer text-xs font-medium">
+              {t("chatGptChannel.paste.title")}
+            </summary>
+            <p className="mt-1 text-xs text-muted-foreground">{t("chatGptChannel.paste.help")}</p>
+            <label className="mt-2 block text-xs">
+              {t("chatGptChannel.paste.label")}
+              <textarea
+                rows={4}
+                className="mt-1.5 block w-full max-w-xl rounded-md border border-input bg-background px-3 py-2 text-sm"
+                value={paste}
+                onChange={(e) => setPaste(e.target.value)}
+              />
+            </label>
+            <p className="mt-2 text-xs text-amber-600">{t("chatGptChannel.paste.verifyPeriod")}</p>
+            <Button
+              size="sm"
+              variant="outline"
+              className="mt-2"
+              disabled={!paste.trim()}
+              onClick={onPaste}
+            >
+              {t("chatGptChannel.paste.apply")}
+            </Button>
+            {pasteNotes.length ? (
+              <ul className="mt-2 space-y-1 text-xs" aria-live="polite">
+                {pasteNotes.map((note) => (
+                  <li key={note}>{note}</li>
+                ))}
+              </ul>
+            ) : null}
+          </details>
           <div className="flex flex-wrap gap-3">
             <CountField
               label={t("chatGptChannel.mentions")}
@@ -281,6 +345,30 @@ function ChatGptChannelContent({ project }: { project: Project }) {
               />
             </div>
           </div>
+          {latest.ga4Api ? (
+            <div>
+              <div className="mb-2 text-xs text-muted-foreground">
+                {t("chatGptChannel.sourceGa4Api", {
+                  name: latest.ga4Api.propertyName,
+                  start: latest.periodStart,
+                  end: latest.periodEnd,
+                  tz: latest.ga4Api.timeZone,
+                  date: latest.ga4Api.fetchedAt.slice(0, 10),
+                })}
+              </div>
+              <div className="grid grid-cols-2 gap-3 md:grid-cols-3">
+                <Stat label={t("chatGptChannel.sessions")} value={fmt(latest.ga4Api.chatgptSessions)} />
+                <Stat label={t("chatGptChannel.bookingClicks")} value={fmt(latest.ga4Api.bookingClicks)} />
+                <Stat
+                  label={t("chatGptChannel.bookingCompleted")}
+                  value={fmt(latest.ga4Api.bookingCompleted)}
+                />
+              </div>
+              {latest.ga4Api.partial ? (
+                <p className="mt-2 text-xs text-amber-600">{t("chatGptChannel.api.partial")}</p>
+              ) : null}
+            </div>
+          ) : null}
           <p className="text-xs text-muted-foreground">{t("chatGptChannel.separateNote")}</p>
 
           <div>
