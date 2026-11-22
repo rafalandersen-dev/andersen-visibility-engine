@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { updateProject, saveWorkspaceNow, getState } from "@/lib/store";
@@ -16,12 +16,15 @@ import {
   parseBusinessHubPaste,
   removeChatGptReport,
   upsertChatGptReport,
+  withGa4DailyReport,
   type ChatGptReportError,
   type ChatGptReportForm,
   type HubPasteField,
 } from "@/lib/chatgpt-channel";
-import type { ChatGptChannelReport, ChatGptCount, Project } from "@/lib/types";
+import type { ChatGptChannelReport, ChatGptCount, Ga4DailyReport, Project } from "@/lib/types";
 import { Ga4ChannelSync } from "@/components/Ga4ChannelSync";
+import { getGa4DailyReportFn } from "@/lib/ga4.functions";
+import { isGa4RolloutProject } from "@/lib/ga4";
 import { Bot, Loader2, Pencil, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -43,9 +46,26 @@ export function ChatGptChannel({ project }: { project: Project }) {
 function ChatGptChannelContent({ project }: { project: Project }) {
   const t = useT();
   const locale = useAppLanguage();
-  const reports = useMemo(
+  const stored = useMemo(
     () => normalizeChatGptReports(project.chatGptReports),
     [project.chatGptReports],
+  );
+  const rollout = isGa4RolloutProject(project);
+  // undefined while loading; the daily cron row is shown beside, never saved into, the workspace.
+  const [daily, setDaily] = useState<Ga4DailyReport | null | undefined>(rollout ? undefined : null);
+  useEffect(() => {
+    if (!rollout) return;
+    let live = true;
+    getGa4DailyReportFn({ data: { projectId: project.id } })
+      .then((r) => live && setDaily(r.report))
+      .catch(() => live && setDaily(null));
+    return () => {
+      live = false;
+    };
+  }, [rollout, project.id]);
+  const reports = useMemo(
+    () => withGa4DailyReport(stored, daily, project.ga4Sync?.propertyId),
+    [stored, daily, project.ga4Sync?.propertyId],
   );
   const [form, setForm] = useState<ChatGptReportForm>(EMPTY_CHATGPT_FORM);
   const [editing, setEditing] = useState<ChatGptChannelReport | null>(null);
@@ -147,7 +167,7 @@ function ChatGptChannelContent({ project }: { project: Project }) {
       </p>
 
       <div className="mt-4">
-        <Ga4ChannelSync project={project} />
+        <Ga4ChannelSync project={project} daily={daily} reports={reports} />
       </div>
 
       <div className="mt-4 space-y-4 rounded-lg border border-border bg-background/40 p-4">
@@ -405,16 +425,19 @@ function ChatGptChannelContent({ project }: { project: Project }) {
                     >
                       <Pencil className="h-4 w-4" />
                     </Button>
-                    <Button
-                      size="icon"
-                      variant="ghost"
-                      className="h-8 w-8 text-muted-foreground hover:text-destructive"
-                      disabled={saving}
-                      aria-label={t("chatGptChannel.delete")}
-                      onClick={() => onDelete(r.id)}
-                    >
-                      <Trash2 className="h-4 w-4" />
-                    </Button>
+                    {/* A report that exists only as the daily GA4 row has nothing stored to delete. */}
+                    {stored.some((s) => s.id === r.id) ? (
+                      <Button
+                        size="icon"
+                        variant="ghost"
+                        className="h-8 w-8 text-muted-foreground hover:text-destructive"
+                        disabled={saving}
+                        aria-label={t("chatGptChannel.delete")}
+                        onClick={() => onDelete(r.id)}
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    ) : null}
                   </div>
                 </li>
               ))}

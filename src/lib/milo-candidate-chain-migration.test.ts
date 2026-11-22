@@ -118,6 +118,9 @@ const independentCandidates = [
   // GA4 test-rollout stores (22 November): two new service-only tables, no dependency on this
   // chain; executed by ga4-migration.test.ts. Unapplied until reviewed.
   "20261122152000_ga4_connections.sql",
+  // GA4 Synergy daily report (22 November): service-only table referencing ga4_project_properties,
+  // vault secret and pg_cron job; executed by ga4-migration.test.ts. Unapplied until reviewed.
+  "20261122180000_ga4_synergy_daily_sync.sql",
 ];
 const allowed = async (role: string, fn: string) =>
   (

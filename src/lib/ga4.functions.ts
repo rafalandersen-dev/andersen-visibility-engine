@@ -10,7 +10,7 @@ import { createServerFn } from "@tanstack/react-start";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { z } from "zod";
 import type { Ga4Property } from "./ga4";
-import type { Ga4ApiSnapshot, Ga4SyncErrorCode } from "./types";
+import type { Ga4ApiSnapshot, Ga4DailyReport, Ga4SyncErrorCode } from "./types";
 
 const projectInput = z.object({ projectId: z.string().min(1).max(128) });
 type Fail = { success: false; error: Ga4SyncErrorCode };
@@ -104,6 +104,19 @@ export const syncGa4Fn = createServerFn({ method: "POST" })
       }
     },
   );
+
+/** Daily cron report for display; null when absent, outside the rollout or unreadable. */
+export const getGa4DailyReportFn = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input: unknown) => projectInput.parse(input))
+  .handler(async ({ data, context }): Promise<{ report: Ga4DailyReport | null }> => {
+    const { getGa4DailyReport } = await import("./ga4.server");
+    try {
+      return { report: await getGa4DailyReport(context.userId, data.projectId) };
+    } catch {
+      return { report: null };
+    }
+  });
 
 export const disconnectGa4Fn = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])

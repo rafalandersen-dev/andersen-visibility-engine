@@ -13,21 +13,40 @@ import {
 } from "@/lib/ga4.functions";
 import { isGa4RolloutProject, shouldAutoRefreshGa4, type Ga4Property } from "@/lib/ga4";
 import { applyGa4ApiSnapshot, normalizeChatGptReports } from "@/lib/chatgpt-channel";
-import type { Ga4SyncErrorCode, Ga4SyncState, Project } from "@/lib/types";
+import type {
+  ChatGptChannelReport,
+  Ga4DailyReport,
+  Ga4SyncErrorCode,
+  Ga4SyncState,
+  Project,
+} from "@/lib/types";
 import { Loader2 } from "lucide-react";
 import { toast } from "sonner";
 
+interface PanelProps {
+  project: Project;
+  /** Daily cron row; undefined while it loads. */
+  daily: Ga4DailyReport | null | undefined;
+  /** Stored reports with the daily row overlaid (display only). */
+  reports: ChatGptChannelReport[];
+}
+
 /** Test rollout: hidden unless the project qualifies here AND the server confirms the caller. */
-export function Ga4ChannelSync({ project }: { project: Project }) {
-  return isGa4RolloutProject(project) ? <Ga4ChannelSyncPanel project={project} /> : null;
+export function Ga4ChannelSync(props: PanelProps) {
+  return isGa4RolloutProject(props.project) ? <Ga4ChannelSyncPanel {...props} /> : null;
 }
 
 /** Thrown when the signed-in owner or active project changed while a request was in flight. */
 class StaleWrite extends Error {}
 
-function Ga4ChannelSyncPanel({ project }: { project: Project }) {
+function Ga4ChannelSyncPanel({ project, daily, reports }: PanelProps) {
   const t = useT();
   const sync = project.ga4Sync;
+  // Status shown: the newest attempt of the panel refresh or the daily job, best success of both.
+  const day = daily && sync && daily.propertyId === sync.propertyId ? daily : undefined;
+  const lastSuccessAt = [sync?.lastSuccessAt, day?.lastSuccessAt].filter(Boolean).sort().pop();
+  const lastError =
+    day && day.lastAttemptAt > (sync?.lastAttemptAt ?? "") ? day.lastError : sync?.lastError;
   const [conn, setConn] = useState<Ga4Status | null>(null);
   const [props, setProps] = useState<Ga4Property[] | null>(null);
   const [busy, setBusy] = useState(false);
@@ -114,15 +133,14 @@ function Ga4ChannelSyncPanel({ project }: { project: Project }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // Open-time refresh: once per mount, only when the saved snapshot is stale.
+  // Open-time refresh: once per mount, only when neither the saved nor the daily snapshot is fresh.
   useEffect(() => {
-    if (auto.current || conn !== "connected") return;
-    if (!shouldAutoRefreshGa4(sync, normalizeChatGptReports(project.chatGptReports), new Date()))
-      return;
+    if (auto.current || conn !== "connected" || daily === undefined) return;
+    if (!shouldAutoRefreshGa4(sync, reports, new Date())) return;
     auto.current = true;
     void refresh();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [conn, sync?.propertyId]);
+  }, [conn, sync?.propertyId, daily === undefined]);
 
   async function connect() {
     const r = await startGa4OAuthFn({ data: { projectId } }).catch(() => null);
@@ -199,15 +217,15 @@ function Ga4ChannelSyncPanel({ project }: { project: Project }) {
                 })}
               </p>
               <p className="text-xs text-muted-foreground">
-                {sync.lastSuccessAt
+                {lastSuccessAt
                   ? t("chatGptChannel.api.lastSuccess", {
-                      date: sync.lastSuccessAt.slice(0, 16).replace("T", " "),
+                      date: lastSuccessAt.slice(0, 16).replace("T", " "),
                     })
                   : t("chatGptChannel.api.never")}
               </p>
-              {sync.lastError ? (
+              {lastError ? (
                 <p className="text-xs text-amber-600">
-                  {err(sync.lastError)} {t("chatGptChannel.api.stale")}
+                  {err(lastError)} {t("chatGptChannel.api.stale")}
                 </p>
               ) : null}
             </>

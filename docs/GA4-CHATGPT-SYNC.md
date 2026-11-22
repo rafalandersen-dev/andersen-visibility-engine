@@ -73,6 +73,62 @@ The browser writes the snapshot only if the signed-in owner, the active
 project and the selected property are unchanged since the request started.
 Otherwise the result is dropped.
 
+## Daily report (works without the panel open)
+
+Migration `20261122180000_ga4_synergy_daily_sync.sql` adds the pg_cron job
+`ga4-synergy-daily-sync` (05:40 UTC daily). It POSTs to
+`/api/google/analytics/daily-sync` with `Authorization: Bearer
+<vault:ga4_daily_cron_secret>`. The secret is generated inside Postgres and
+stays in the database; the route compares the header with the value of the
+service-role-only RPC `public.ga4_daily_cron_secret()` and fails closed (500)
+when it cannot read the secret. A missing header gets 401 and a wrong one 403.
+
+`src/lib/ga4-daily.server.ts` takes every selection of the pinned pilot
+property `528831108` from `ga4_project_properties` and runs the same `syncGa4`
+as the panel's refresh, so the platform-owner, Synergy-project and
+property-access checks all apply. `syncGa4` receives `expectedPropertyId` and
+rejects a changed selection (`not_available`) right after reading it, before
+any token refresh or Google request; the runner also refuses to store a
+snapshot of any other property. A target already saved successfully on the
+same UTC calendar date is skipped without calling Google, so a late-evening
+release check does not suppress the next 05:40 run.
+
+Storage: the result goes into `ga4_daily_reports` (one row per owner and
+project, service role only, removed with the property selection on disconnect),
+**not** into the workspace. Browser saves upsert whole project entities, so a
+server write into the project could be overwritten by a tab that loaded the
+project earlier. The ChatGPT channel reads the row through
+`getGa4DailyReportFn` (rollout-gated) and merges it with
+`withGa4DailyReport` for display only. The read returns nothing unless the
+row's property is the current server-side selection, so a row left from an
+earlier selection, or written late by a run that overlapped a change, is never
+shown; a failure stamped before the row's last success (an overlapping run) is
+not shown as the current error. Manual Business Hub and GA4 entries stay in the
+workspace and are never changed; the overlay is shown even when 26 manual
+reports fill the workspace capacity. A newer snapshot of the same property
+saved by the panel for the same period, or one for a later period, takes
+precedence. The
+panel shows the more recent success of the two paths and the error from the
+latest attempt. It skips its own open-time refresh while the daily snapshot is
+fresh. A failed run keeps the last good snapshot and records only an error code
+(the table CHECK allows only the `Ga4SyncErrorCode` values).
+
+Run result, counts and codes only:
+
+| Field | Meaning |
+| --- | --- |
+| `synced` | fetched from GA4 **and** written |
+| `skippedFresh` | not fetched, already saved on the same UTC date |
+| `fetchFailed` | guard, token, Google or response failure; nothing new stored |
+| `saveFailed` | fetched, but the write failed; nothing new stored |
+| `errors` | count per finite code |
+
+The route answers 200 (`ok: true`) only when nothing failed, including runs
+with no due target, and 502 (`ok: false`) when any fetch or save failed. A
+failure to list targets answers 500 `sync_failed`. Look up the outcome in
+`net._http_response` for the job's request, or in the row's `last_attempt_at`,
+`last_success_at` and `last_error`.
+
 ## Business Hub paste (all users)
 
 Milo does not read ChatGPT Business Hub itself and uses no unofficial endpoint
@@ -103,6 +159,13 @@ apply `20261122152000_ga4_connections.sql`.
 ## Tests
 
 `src/lib/ga4.test.ts`, `src/lib/ga4.server.test.ts` (gate, nonce/cookie,
-consumption, storage errors), `src/lib/ga4-migration.test.ts` (PGlite: RLS,
-grants, constraints, one-time delete), and the paste and snapshot cases in
+consumption, storage errors, daily read), `src/lib/ga4-migration.test.ts`
+(PGlite: RLS, grants, constraints, one-time delete, daily table, vault secret,
+cron job), `src/lib/ga4-daily.server.test.ts` (synced, skipped and failed
+counts, property pin), `src/lib/ga4-daily-route.test.ts` (Bearer auth, fail
+closed, status codes), and the paste, snapshot and daily-overlay cases in
 `src/lib/chatgpt-channel.test.ts`.
+
+Before the daily job runs in production, review and apply
+`20261122180000_ga4_synergy_daily_sync.sql`, and deploy the app route. Until
+the route is live, the job's POST returns 404 and stores nothing.

@@ -3,7 +3,7 @@
  *
  * TEST ROLLOUT: Google asked that the unverified analytics.readonly scope not be
  * offered to general production users. Every entry point (status, start, list,
- * select, sync, disconnect and the OAuth callback) first runs assertGa4Rollout:
+ * select, sync, daily read, disconnect and the OAuth callback) first runs assertGa4Rollout:
  * the verified actor must hold the platform owner role and own the Synergy
  * Massage project in their own stored workspace. Any lookup failure denies.
  *
@@ -37,7 +37,8 @@ import {
   summarizeGa4Batch,
   type Ga4Property,
 } from "./ga4";
-import type { Ga4ApiSnapshot, Ga4SyncErrorCode } from "./types";
+import { chatGptPeriodStart, coerceGa4Api } from "./chatgpt-channel";
+import type { Ga4ApiSnapshot, Ga4DailyReport, Ga4SyncErrorCode } from "./types";
 
 const PROVIDER = "google_analytics";
 const TIMEOUT_MS = 20_000;
@@ -89,12 +90,12 @@ interface Db {
     delete(): Chain;
   };
 }
-async function db(): Promise<Db> {
+export async function db(): Promise<Db> {
   const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
   return supabaseAdmin as unknown as Db;
 }
 /** A storage error is a failure, never "no row". */
-async function must(query: PromiseLike<Res>): Promise<unknown> {
+export async function must(query: PromiseLike<Res>): Promise<unknown> {
   const { data, error } = await query;
   if (error) throw new Ga4Error("failed");
   return data;
@@ -131,7 +132,7 @@ interface Ga4State {
 }
 const stateKey = (secret: string) => `ga4-oauth-state:${secret}`;
 
-function sameString(a: string, b: string): boolean {
+export function sameString(a: string, b: string): boolean {
   if (a.length !== b.length) return false;
   let diff = 0;
   for (let i = 0; i < a.length; i++) diff |= a.charCodeAt(i) ^ b.charCodeAt(i);
@@ -412,7 +413,12 @@ export async function selectGa4Property(args: {
   return { propertyId: id, ...prop };
 }
 
-export async function syncGa4(args: { userId: string; projectId: string }) {
+/** expectedPropertyId (daily cron): a changed selection fails before any token or Google request. */
+export async function syncGa4(args: {
+  userId: string;
+  projectId: string;
+  expectedPropertyId?: string;
+}) {
   await assertGa4Rollout(args.userId, args.projectId);
   const data = await must(
     (await db())
@@ -424,6 +430,8 @@ export async function syncGa4(args: { userId: string; projectId: string }) {
   );
   const propertyId = parseGa4PropertyId((data as { property_id?: unknown } | null)?.property_id);
   if (!propertyId) throw new Ga4Error("no_property");
+  if (args.expectedPropertyId && propertyId !== args.expectedPropertyId)
+    throw new Ga4Error("not_available");
   const token = await accessToken(args.userId);
   // Re-verified on every sync: revoked access or a changed time zone is caught here.
   const prop = await verifyProperty(token, propertyId);
@@ -453,4 +461,63 @@ export async function syncGa4(args: { userId: string; projectId: string }) {
     periodEnd: range.endDate,
     snapshot,
   };
+}
+
+/** The daily cron's stored report for this owner's project (rollout-gated, storage errors throw). */
+export async function getGa4DailyReport(
+  userId: string,
+  projectId: string,
+): Promise<Ga4DailyReport | null> {
+  await assertGa4Rollout(userId, projectId);
+  const d = await db();
+  const sel = (await must(
+    d
+      .from("ga4_project_properties")
+      .select("property_id")
+      .eq("user_id", userId)
+      .eq("project_id", projectId)
+      .maybeSingle(),
+  )) as { property_id?: unknown } | null;
+  const selected = parseGa4PropertyId(sel?.property_id);
+  if (!selected) return null;
+  const row = (await must(
+    d
+      .from("ga4_daily_reports")
+      .select(
+        "property_id,period_start,period_end,snapshot,last_attempt_at,last_success_at,last_error",
+      )
+      .eq("user_id", userId)
+      .eq("project_id", projectId)
+      .maybeSingle(),
+  )) as {
+    property_id: string;
+    period_start: string | null;
+    period_end: string | null;
+    snapshot: unknown;
+    last_attempt_at: string;
+    last_success_at: string | null;
+    // Limited to Ga4SyncErrorCode values by the table CHECK.
+    last_error: Ga4SyncErrorCode | null;
+  } | null;
+  // A row left from an earlier selection (or written late by a run that overlapped a change) is never shown.
+  if (!row || row.property_id !== selected) return null;
+  const snapshot = coerceGa4Api(row.snapshot);
+  if (snapshot && snapshot.propertyId !== selected) return null;
+  const end = row.period_end ?? "";
+  const start = chatGptPeriodStart(end);
+  // PostgREST returns "+00:00" offsets; normalise so the panel can compare with its own ISO stamps.
+  const iso = (v: string) => new Date(v).toISOString();
+  const lastAttemptAt = iso(row.last_attempt_at);
+  const lastSuccessAt = row.last_success_at ? iso(row.last_success_at) : undefined;
+  // A failure written late by an overlapping run that started before the last success is stale.
+  const stale = !!lastSuccessAt && lastSuccessAt >= lastAttemptAt;
+  const status = {
+    propertyId: row.property_id,
+    lastAttemptAt,
+    ...(lastSuccessAt ? { lastSuccessAt } : {}),
+    ...(row.last_error && !stale ? { lastError: row.last_error } : {}),
+  };
+  return snapshot && start && start === row.period_start
+    ? { ...status, periodStart: start, periodEnd: end, snapshot }
+    : status;
 }

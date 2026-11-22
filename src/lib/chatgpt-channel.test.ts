@@ -14,9 +14,10 @@ import {
   parseDiscoveryTopics,
   removeChatGptReport,
   upsertChatGptReport,
+  withGa4DailyReport,
   type ChatGptReportForm,
 } from "@/lib/chatgpt-channel";
-import type { Ga4ApiSnapshot } from "@/lib/types";
+import type { Ga4ApiSnapshot, Ga4DailyReport } from "@/lib/types";
 
 const NOW = new Date("2026-11-21T10:00:00Z");
 const form = (patch: Partial<ChatGptReportForm> = {}): ChatGptReportForm => ({
@@ -247,6 +248,66 @@ describe("applyGa4ApiSnapshot", () => {
     expect(res.ok && res.reports[0]).toMatchObject({
       ga4: { chatgptSessions: 20 },
       ga4Api: snap(),
+    });
+  });
+
+  describe("withGa4DailyReport (display only)", () => {
+    const at = (fetchedAt: string) => ({ ...snap(), fetchedAt });
+    const daily = (fetchedAt: string, periodEnd = "2026-11-20"): Ga4DailyReport => ({
+      propertyId: "123",
+      periodStart: chatGptPeriodStart(periodEnd)!,
+      periodEnd,
+      snapshot: at(fetchedAt),
+      lastAttemptAt: fetchedAt,
+      lastSuccessAt: fetchedAt,
+    });
+    it("shows the daily figures beside the manual entry without changing it", () => {
+      const manual = build({ sessions: "12" });
+      const shown = withGa4DailyReport([manual], daily("2026-11-21T05:40:00.000Z"), "123");
+      expect(shown).toHaveLength(1);
+      expect(shown[0]).toMatchObject({ ga4: manual.ga4, ga4Api: at("2026-11-21T05:40:00.000Z") });
+      expect(manual.ga4Api).toBeUndefined();
+    });
+    it("adds a period the workspace does not have", () => {
+      const shown = withGa4DailyReport([], daily("2026-11-21T05:40:00.000Z"), "123");
+      expect(shown.map((r) => r.id)).toEqual(["2026-10-24_2026-11-20"]);
+    });
+    it("is ignored for another property, a failure-only row or a newer stored snapshot", () => {
+      const stored = [{ ...build(), ga4Api: at("2026-11-21T09:00:00.000Z") }];
+      const d = daily("2026-11-21T05:40:00.000Z");
+      expect(withGa4DailyReport(stored, d, "999")).toBe(stored);
+      expect(withGa4DailyReport(stored, { ...d, snapshot: undefined }, "123")).toBe(stored);
+      expect(withGa4DailyReport(stored, d, "123")).toBe(stored);
+      expect(
+        withGa4DailyReport(stored, daily("2026-11-22T05:40:00.000Z", "2026-11-19"), "123"),
+      ).toBe(stored);
+    });
+    it("is shown at full manual capacity without dropping a manual report", () => {
+      const manual = Array.from({ length: 26 }, (_, i) =>
+        build({
+          periodEnd: `2025-${String((i % 12) + 1).padStart(2, "0")}-${10 + Math.floor(i / 12)}`,
+        }),
+      );
+      expect(new Set(manual.map((r) => r.id)).size).toBe(26);
+      const shown = withGa4DailyReport(manual, daily("2026-11-21T05:40:00.000Z"), "123");
+      expect(shown).toHaveLength(27);
+      expect(shown[0].ga4Api?.fetchedAt).toBe("2026-11-21T05:40:00.000Z");
+      expect(manual.every((m) => shown.some((r) => r.id === m.id))).toBe(true);
+    });
+    it("is not hidden by a newer stored snapshot of another property", () => {
+      const stored = [
+        {
+          ...build({ periodEnd: "2026-11-21" }),
+          ga4Api: { ...at("2026-11-21T09:00:00.000Z"), propertyId: "999" },
+        },
+      ];
+      const shown = withGa4DailyReport(stored, daily("2026-11-21T05:40:00.000Z"), "123");
+      expect(shown.map((r) => r.ga4Api?.propertyId)).toContain("123");
+    });
+    it("replaces an older stored snapshot of the same period", () => {
+      const stored = [{ ...build(), ga4Api: at("2026-11-21T01:00:00.000Z") }];
+      const shown = withGa4DailyReport(stored, daily("2026-11-21T05:40:00.000Z"), "123");
+      expect(shown[0].ga4Api?.fetchedAt).toBe("2026-11-21T05:40:00.000Z");
     });
   });
 });
