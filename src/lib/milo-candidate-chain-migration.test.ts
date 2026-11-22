@@ -88,6 +88,7 @@ const candidates = [
   // Preflight/lease recovery (28 October): CREATE OR REPLACEs only queue_operational_email_digest
   // over the released operational_email_outbox chain so a terminally exhausted item can be rescanned.
   "20261028120000_operational_email_preflight_recovery.sql",
+  "20261121120000_milo_blog_content_store.sql",
 ];
 // Unapplied candidate outside this chain: it only re-pins the email queue wrappers, which this
 // fixture does not create, so it is enumerated (never silently released) but executed by its own
