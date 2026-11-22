@@ -1,9 +1,10 @@
-import { useEffect, useMemo, useReducer, useState } from "react";
+import { useEffect, useMemo, useReducer, useRef, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useAuth } from "@/lib/auth";
 import { useT } from "@/i18n";
 import { Button } from "./ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "./ui/select";
+import { ReportView } from "./NativeGoogleIntakePanel";
 import { getCitationFindingFn, readCitationFindingsFn } from "@/lib/citation-record.functions";
 import {
   getCitationFindingForReviewFn,
@@ -11,9 +12,16 @@ import {
   saveCitationFindingReviewFn,
   removeCitationFindingReviewFn,
   grantCitationReviewAssignmentFn,
+  grantCitationReviewNativeAssignmentFn,
   revokeCitationReviewAssignmentFn,
 } from "@/lib/citation-finding-review.functions";
 import { readProjectTeamRosterFn, readOwnerTeamPolicyFn } from "@/lib/project-team.functions";
+import {
+  readNativeReportBindingFn,
+  readNativeReportParsedFn,
+} from "@/lib/native-google-intake.functions";
+import { readNativeArtifactsFn } from "@/lib/native-ai-artifact.functions";
+import { getWorkspaceSaveContext, useStore } from "@/lib/store";
 import type { CitationFindingForReview } from "@/lib/citation-finding-review";
 import type { Finding } from "@/lib/citation-finding";
 import type { CitationAccuracyResolution } from "@/lib/citation-business-fact";
@@ -34,6 +42,9 @@ import {
   reviewRecordMasked,
   reviewSubmitGuard,
   revokeTargets,
+  nativeConsentSetString,
+  nativeConsentSetDigest,
+  nativeConsentIdentity,
   REVIEW_SHARE_SCOPE,
   type CitationReviewDecision,
   type ReviewerCandidate,
@@ -47,6 +58,34 @@ function errorCode(e: unknown): string {
 const chip =
   "text-[10px] uppercase tracking-[0.12em] px-2 py-0.5 rounded-full border border-border text-muted-foreground";
 const NOTE_MAX = 2000;
+
+/**
+ * The live-session guard every owner/reviewer transport boundary in this file shares (same pattern as
+ * NativeGoogleIntakePanel/CitationFindingAuthor — a bounded local helper, not a new framework). `epoch` is
+ * fixed at mount for the query keys; `current()` re-checks the LIVE auth actor + workspace userId + epoch +
+ * hydration against `actorId` before every transport and after every await, so a sign-out / actor
+ * replacement / epoch change / hydration pause retires the work even before the route remounts. Re-renders
+ * on any workspace session change via the store subscriptions.
+ */
+function useLiveSession(actorId: string, projectId: string) {
+  useStore((s) => s.userId);
+  useStore((s) => s.hydrated);
+  const { user } = useAuth();
+  const authId = useRef<string | null>(user?.id ?? null);
+  authId.current = user?.id ?? null;
+  const bound = useRef({ epoch: getWorkspaceSaveContext().epoch, projectId });
+  const current = () => {
+    const ctx = getWorkspaceSaveContext();
+    return (
+      authId.current === actorId &&
+      ctx.userId === actorId &&
+      ctx.epoch === bound.current.epoch &&
+      ctx.hydrated &&
+      projectId === bound.current.projectId
+    );
+  };
+  return { epoch: bound.current.epoch, current };
+}
 
 export function CitationReviewPanel({
   projectId,
@@ -235,20 +274,37 @@ export function AccuracyResolutionList({
 function OwnerReview({ projectId, ownerId }: { projectId: string; ownerId: string }) {
   const t = useT();
   const scope = { projectId, expectedOwnerId: ownerId };
+  const { epoch, current } = useLiveSession(ownerId, projectId);
   const [selected, setSelected] = useState<string | null>(null);
   const findings = useQuery({
-    queryKey: ["citation-findings", ownerId, projectId],
-    queryFn: () => readCitationFindingsFn({ data: scope }),
+    // Epoch-scoped so a new same-actor session cannot reuse the previous session's cached list before its
+    // own fresh read; the queryFn re-checks the live session right before issuing the request.
+    queryKey: ["citation-findings", ownerId, projectId, epoch],
+    // Live session re-checked BEFORE the request AND after it resolves, so a session retired mid-read never
+    // caches owner material under this mount.
+    queryFn: async () => {
+      if (!current()) throw Error("citation_review_retired");
+      const d = await readCitationFindingsFn({ data: scope });
+      if (!current()) throw Error("citation_review_retired");
+      return d;
+    },
     staleTime: 0,
     retry: false,
   });
-  const rows = findings.data?.findings ?? [];
+  // A surviving mount whose session has retired (hydration pause / epoch / actor change before the route
+  // remounts) exposes NO cached rows/detail until the live session is current again.
+  const sessionLive = current();
+  const rows = sessionLive ? (findings.data?.findings ?? []) : [];
   if (findings.isError)
     return <Notice tone="error">{t("citationReview.error.loadFindings")}</Notice>;
   return (
     <div className="space-y-5">
-      <p className="text-xs text-muted-foreground max-w-3xl">{t("citationReview.owner.intro")}</p>
-      {findings.isPending ? (
+      {/* The displayed owner intro is the truthful native-review-binding copy; the legacy
+          citationReview.owner.intro literal is kept at its b802 baseline (now unused here). */}
+      <p className="text-xs text-muted-foreground max-w-3xl">
+        {t("nativeIntake.review.ownerIntro")}
+      </p>
+      {!sessionLive || findings.isPending ? (
         <Notice tone="info">{t("citationReview.loading")}</Notice>
       ) : rows.length === 0 ? (
         <Notice tone="empty">{t("citationReview.owner.empty")}</Notice>
@@ -290,7 +346,7 @@ function OwnerReview({ projectId, ownerId }: { projectId: string; ownerId: strin
           ))}
         </ul>
       )}
-      {selected ? (
+      {selected && sessionLive ? (
         <OwnerFindingDetail
           key={selected}
           projectId={projectId}
@@ -312,14 +368,35 @@ function OwnerFindingDetail({
   findingRowId: string;
 }) {
   const t = useT();
+  const { epoch, current } = useLiveSession(ownerId, projectId);
   const detail = useQuery({
-    queryKey: ["citation-finding", ownerId, projectId, findingRowId],
-    queryFn: () =>
-      getCitationFindingFn({ data: { projectId, expectedOwnerId: ownerId, id: findingRowId } }),
+    queryKey: ["citation-finding", ownerId, projectId, findingRowId, epoch],
+    queryFn: async () => {
+      if (!current()) throw Error("citation_review_retired");
+      const d = await getCitationFindingFn({
+        data: { projectId, expectedOwnerId: ownerId, id: findingRowId },
+      });
+      if (!current()) throw Error("citation_review_retired");
+      return d;
+    },
     staleTime: 0,
     retry: false,
   });
-  const d = detail.data;
+  // A retired session (hydration pause / epoch / actor change) exposes NO cached record/material/grant.
+  const d = current() ? detail.data : undefined;
+  // The finding's cited native set, taken from its OWN immutable record binding (never a browser digest):
+  // each item's `parsedSha256`/`source` is the authoritative per-artifact binding (null for a bare/legacy
+  // native). The grant discloses this set and binds the owner's explicit full-set consent to it.
+  const nativeItems =
+    d && d.recordValid
+      ? d.record.evidence
+          .filter((e) => e.kind === "native")
+          .map((e) => ({
+            id: e.id,
+            parsedSha256: e.nativeBinding?.parsedSha256 ?? null,
+            source: e.nativeBinding?.source ?? null,
+          }))
+      : [];
   return (
     <section className="rounded-xl border border-border bg-card p-5 space-y-4">
       {detail.isError ? (
@@ -354,7 +431,12 @@ function OwnerFindingDetail({
               <RawAudit label={t("citationReview.record.rawAudit")} value={d.record} />
             </div>
           )}
-          <GrantControls projectId={projectId} ownerId={ownerId} findingRowId={findingRowId} />
+          <GrantControls
+            projectId={projectId}
+            ownerId={ownerId}
+            findingRowId={findingRowId}
+            nativeItems={nativeItems}
+          />
         </>
       )}
     </section>
@@ -369,21 +451,42 @@ function GrantControls({
   projectId,
   ownerId,
   findingRowId,
+  nativeItems,
 }: {
   projectId: string;
   ownerId: string;
   findingRowId: string;
+  /** The finding's cited native set from its own record binding (parsedSha256/source null = bare/legacy). */
+  nativeItems: readonly { id: string; parsedSha256: string | null; source: string | null }[];
 }) {
   const t = useT();
+  // Live owner session (auth actor + workspace userId + epoch + hydration) shared by every transport here.
+  const { epoch, current } = useLiveSession(ownerId, projectId);
+  const scope = { projectId, expectedOwnerId: ownerId };
+  const mounted = useRef(true);
+  useEffect(() => () => void (mounted.current = false), []);
+  const busyRef = useRef(false);
+  const grantOp = useRef(0);
+
   const roster = useQuery({
-    queryKey: ["project-team-roster", ownerId, projectId],
-    queryFn: () => readProjectTeamRosterFn({ data: { projectId } }),
+    queryKey: ["project-team-roster", ownerId, projectId, epoch],
+    queryFn: async () => {
+      if (!current()) throw Error("citation_review_retired");
+      const d = await readProjectTeamRosterFn({ data: { projectId } });
+      if (!current()) throw Error("citation_review_retired");
+      return d;
+    },
     staleTime: 30000,
     retry: false,
   });
   const policy = useQuery({
-    queryKey: ["owner-team-policy", ownerId, projectId],
-    queryFn: () => readOwnerTeamPolicyFn({ data: { projectId } }),
+    queryKey: ["owner-team-policy", ownerId, projectId, epoch],
+    queryFn: async () => {
+      if (!current()) throw Error("citation_review_retired");
+      const d = await readOwnerTeamPolicyFn({ data: { projectId } });
+      if (!current()) throw Error("citation_review_retired");
+      return d;
+    },
     staleTime: 30000,
     retry: false,
   });
@@ -396,11 +499,152 @@ function GrantControls({
   );
   const revocable = useMemo(() => revokeTargets(members, ownerId), [members, ownerId]);
 
-  const [grantId, setGrantId] = useState("");
+  const [grantId, rawSetGrantId] = useState("");
   const [revokeId, setRevokeId] = useState("");
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState<{ tone: "ok" | "error"; key: string } | null>(null);
   const [copied, setCopied] = useState(false);
+  const [consentFor, setConsentFor] = useState<string | null>(null);
+  // Choosing a reviewer SYNCHRONOUSLY retires any in-flight grant (bumps `grantOp`) and clears the accepted
+  // consent + shown success link, so a late grant for the previous reviewer can never restore a stale success.
+  const setGrantId = (id: string) => {
+    grantOp.current += 1;
+    rawSetGrantId(id);
+    setConsentFor(null);
+    setMsg(null);
+    setCopied(false);
+  };
+
+  // Native-material consent (finding native-review binding). A native-bearing finding is shared ONLY with
+  // the explicit full-set grant below; a non-native finding keeps the existing generic grant untouched.
+  const hasNative = nativeItems.length > 0;
+  // The consent digest is composed from the finding's OWN immutable per-artifact bindings (the server
+  // recomputes it live and refuses a mismatch). `setString` is the identity those bindings compose to.
+  const setString = nativeConsentSetString(nativeItems); // null = empty/unbound: cannot be consented
+  // Observe the SHARED artifact list (IDENTICAL key to the intake panel), so an import/delete there retires
+  // this disclosure/consent without navigation: a cited native missing from the current live list — or a
+  // pending/failed/background list read — disables consent and masks material.
+  const artifacts = useQuery({
+    queryKey: ["native-artifacts", ownerId, projectId, epoch],
+    enabled: hasNative,
+    staleTime: 0,
+    retry: false,
+    queryFn: async () => {
+      if (!current()) throw Error("citation_grant_retired");
+      const d = await readNativeArtifactsFn({ data: scope });
+      if (!current()) throw Error("citation_grant_retired");
+      return d;
+    },
+  });
+  const artifactsReady = artifacts.isSuccess && !artifacts.isError && !artifacts.isFetching;
+  const liveIds = useMemo(
+    () => new Set((artifacts.data?.artifacts ?? []).map((a) => a.id.toLowerCase())),
+    [artifacts.data],
+  );
+  // DISCLOSURE: read each cited native's CURRENT authoritative binding AND full parsed material so the owner
+  // inspects the exact full set (distinguishable metadata + ReportView) before consenting.
+  const nativeCurrent = useQuery({
+    queryKey: ["citation-native-consent", ownerId, projectId, findingRowId, epoch],
+    enabled: hasNative,
+    staleTime: 0,
+    gcTime: 0,
+    retry: false,
+    queryFn: async () => {
+      if (!current()) throw Error("citation_grant_retired");
+      const items = await Promise.all(
+        nativeItems.map(async (it) => {
+          const [b, p] = await Promise.all([
+            readNativeReportBindingFn({ data: { ...scope, id: it.id } }),
+            readNativeReportParsedFn({ data: { ...scope, id: it.id } }),
+          ]);
+          // Keep BOTH responses' identity/parse-state so cross-response coherence can be verified (never
+          // reduced away before matching).
+          return {
+            id: it.id,
+            bId: b.id,
+            bParseState: b.parseState,
+            available: b.available,
+            binding: b.binding,
+            pId: p.id,
+            pParseState: p.parseState,
+            parsed: p.parsed,
+          };
+        }),
+      );
+      // Post-await liveness: a session retired mid-read must not return stale material as a fresh result.
+      if (!current()) throw Error("citation_grant_retired");
+      return items;
+    },
+  });
+  const currentItems = useMemo(() => nativeCurrent.data ?? [], [nativeCurrent.data]);
+  // One coherence predicate for BOTH readiness and disclosure: the finding item is bound (stored digest), its
+  // PAIRED current responses both name the requested artifact and are parsed/available, the material's own
+  // artifactId AND raw-sha/source/parser agree with the authoritative binding, and the binding's server
+  // parsed-set digest equals the finding's stored digest. (No invented client hash; schemas only prove each
+  // response internally coherent — this proves coherence BETWEEN them.)
+  const itemResolved = (
+    it: { id: string; parsedSha256: string | null },
+    c: (typeof currentItems)[number] | undefined,
+  ): boolean =>
+    it.parsedSha256 !== null &&
+    !!c &&
+    c.available &&
+    c.binding !== null &&
+    c.parsed !== null &&
+    c.bId.toLowerCase() === it.id.toLowerCase() &&
+    c.pId.toLowerCase() === it.id.toLowerCase() &&
+    c.bParseState === "parsed" &&
+    c.pParseState === "parsed" &&
+    c.parsed.artifactId.toLowerCase() === it.id.toLowerCase() &&
+    c.parsed.artifactSha256 === c.binding.rawSha256 &&
+    c.parsed.input.source === c.binding.source &&
+    c.parsed.parserVersion === c.binding.parserVersion &&
+    c.binding.parsedSha256 === it.parsedSha256;
+  // Consent requires: every cited native BOUND in the finding (non-null stored digest), still PRESENT in the
+  // live list, and its CURRENT read resolving to the EXACT stored binding (matching id, parse-state, the
+  // material's own artifactId, and the server parsed-set digest). One missing/failed/pending/unbound/
+  // mismatched/deleted member → no consent, and the material is masked while any of these reads is in flight.
+  const findingBound = hasNative && nativeItems.every((it) => it.parsedSha256 !== null);
+  const allPresent = artifactsReady && nativeItems.every((it) => liveIds.has(it.id.toLowerCase()));
+  const materialFresh =
+    nativeCurrent.isSuccess && !nativeCurrent.isError && !nativeCurrent.isFetching;
+  const currentResolved = findingBound && allPresent && materialFresh;
+  const currentMatches =
+    currentResolved &&
+    nativeItems.every((it) =>
+      itemResolved(
+        it,
+        currentItems.find((x) => x.id.toLowerCase() === it.id.toLowerCase()),
+      ),
+    );
+  const consentable = findingBound && currentMatches;
+  // The owner's consent is bound to the exact reviewer + finding row + full native set + session epoch.
+  const consentIdentity = nativeConsentIdentity({
+    findingRowId,
+    reviewerId: grantId,
+    setString,
+    epoch,
+  });
+  const consentChecked = grantId !== "" && consentFor === consentIdentity;
+  // The reviewer choice is retired synchronously in `setGrantId`; this covers a set/session/epoch change
+  // (finding's native set changed, or a new session) by retiring any in-flight grant and clearing success.
+  useEffect(() => {
+    grantOp.current += 1;
+    setConsentFor(null);
+    setMsg(null);
+    setCopied(false);
+  }, [consentIdentity]);
+  // Losing full-set eligibility (a cited artifact deleted, or a pending/failed/background list/material
+  // read) retires any in-flight grant and clears the accepted consent + success link; recovery requires an
+  // explicit re-consent (the checkbox stays unchecked after a refetch recovers).
+  useEffect(() => {
+    if (!consentable) {
+      grantOp.current += 1;
+      setConsentFor(null);
+      setMsg(null);
+      setCopied(false);
+    }
+  }, [consentable]);
   // The FULL shareable URL is built from the current application origin at the browser boundary (the link is
   // only shown after a client-side grant, so `window` exists; a server render honestly falls back to the path).
   const link = absoluteReviewerLink(
@@ -412,18 +656,57 @@ function GrantControls({
   const rosterError = roster.isError || policy.isError;
 
   async function run(op: () => Promise<unknown>, okKey: string, showLink: boolean) {
-    if (busy) return;
+    if (busyRef.current || !current()) return;
+    const token = ++grantOp.current;
+    busyRef.current = true;
     setBusy(true);
     setMsg(null);
     setCopied(false);
     try {
       await op();
-      setMsg({ tone: "ok", key: okKey });
-      if (!showLink) setCopied(false);
+      // The SUCCESS/error message is gated by the token + live session so a retired/replaced identity never
+      // restores a stale success; the mutex release in `finally` is unconditional so controls recover.
+      if (mounted.current && grantOp.current === token && current()) {
+        setMsg({ tone: "ok", key: okKey });
+        if (!showLink) setCopied(false);
+      }
     } catch {
-      setMsg({ tone: "error", key: "citationReview.grant.failed" });
+      if (mounted.current && grantOp.current === token && current())
+        setMsg({ tone: "error", key: "citationReview.grant.failed" });
     } finally {
-      setBusy(false);
+      busyRef.current = false;
+      if (mounted.current) setBusy(false);
+    }
+  }
+  // Native-bearing grant: the DB recomputes the set digest live and refuses a mismatch/unbound/legacy set.
+  // The digest is derived from the finding's authoritative per-artifact bindings only. Success is gated by the
+  // grant token + live session (a reviewer/set/session change bumps the token) so a deferred digest/grant that
+  // settles after the choice changed cannot write a granted message/link; the mutex is always released.
+  async function grantNative() {
+    if (!grantId || !consentChecked || !consentable || busyRef.current || !current()) return;
+    const token = ++grantOp.current;
+    busyRef.current = true;
+    setBusy(true);
+    setMsg(null);
+    setCopied(false);
+    try {
+      const digest = await nativeConsentSetDigest(nativeItems);
+      if (!mounted.current || grantOp.current !== token || !current()) return;
+      if (!digest) {
+        setMsg({ tone: "error", key: "citationReview.grant.failed" });
+        return;
+      }
+      await grantCitationReviewNativeAssignmentFn({
+        data: { projectId, findingRowId, reviewerId: grantId, nativeSetSha256: digest },
+      });
+      if (!mounted.current || grantOp.current !== token || !current()) return;
+      setMsg({ tone: "ok", key: "citationReview.grant.granted" });
+    } catch {
+      if (mounted.current && grantOp.current === token && current())
+        setMsg({ tone: "error", key: "citationReview.grant.failed" });
+    } finally {
+      busyRef.current = false;
+      if (mounted.current) setBusy(false);
     }
   }
 
@@ -463,38 +746,148 @@ function GrantControls({
           {grantable.length === 0 ? (
             <p className="text-xs text-muted-foreground">{t("citationReview.grant.noEligible")}</p>
           ) : (
-            <div className="flex flex-wrap items-center gap-2">
-              <Select value={grantId} onValueChange={setGrantId}>
-                <SelectTrigger
-                  className="h-9 w-64 text-xs"
-                  aria-label={t("citationReview.grant.selectReviewer")}
+            <div className="space-y-3">
+              <div className="flex flex-wrap items-center gap-2">
+                <Select value={grantId} onValueChange={setGrantId}>
+                  <SelectTrigger
+                    className="h-11 w-64 text-xs"
+                    aria-label={t("citationReview.grant.selectReviewer")}
+                  >
+                    <SelectValue placeholder={t("citationReview.grant.selectReviewer")} />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {grantable.map((c) => (
+                      <SelectItem key={c.actorId} value={c.actorId}>
+                        {c.email ?? c.actorId} · {t(`citationReview.role.${c.role}`)}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                {/* A native-bearing finding is granted ONLY through the explicit full-set consent below. */}
+                {!hasNative ? (
+                  <Button
+                    size="sm"
+                    className="min-h-11"
+                    disabled={!grantId || busy}
+                    onClick={() =>
+                      run(
+                        () =>
+                          grantCitationReviewAssignmentFn({
+                            data: { projectId, findingRowId, reviewerId: grantId },
+                          }),
+                        "citationReview.grant.granted",
+                        true,
+                      )
+                    }
+                  >
+                    {t("citationReview.grant.grant")}
+                  </Button>
+                ) : null}
+              </div>
+              {hasNative && grantId ? (
+                <div
+                  className="rounded border border-border p-3 space-y-2 text-xs"
+                  data-native-consent
                 >
-                  <SelectValue placeholder={t("citationReview.grant.selectReviewer")} />
-                </SelectTrigger>
-                <SelectContent>
-                  {grantable.map((c) => (
-                    <SelectItem key={c.actorId} value={c.actorId}>
-                      {c.email ?? c.actorId} · {t(`citationReview.role.${c.role}`)}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              <Button
-                size="sm"
-                disabled={!grantId || busy}
-                onClick={() =>
-                  run(
-                    () =>
-                      grantCitationReviewAssignmentFn({
-                        data: { projectId, findingRowId, reviewerId: grantId },
-                      }),
-                    "citationReview.grant.granted",
-                    true,
-                  )
-                }
-              >
-                {t("citationReview.grant.grant")}
-              </Button>
+                  <div className="font-medium text-foreground/80">
+                    {t("nativeIntake.consent.title")}
+                  </div>
+                  <p className="text-muted-foreground">
+                    {t("nativeIntake.consent.scope", { count: nativeItems.length })}
+                  </p>
+                  {/* The EXACT current full cited set, each report distinguished by source + declared property
+                      + period and its entire parsed material (ReportView). A same-source pair is told apart by
+                      its property/period/material, never a bare source name. Material is MASKED (shown as
+                      loading) while either the shared artifact list or the per-report read is pending/fetching,
+                      and an error disables it — a cached report never survives an actual intake delete/refetch. */}
+                  {!artifactsReady || !materialFresh ? (
+                    artifacts.isError || nativeCurrent.isError ? (
+                      <p className="text-amber-700 dark:text-amber-400">
+                        {t("nativeIntake.consent.unbindable")}
+                      </p>
+                    ) : (
+                      <p className="text-muted-foreground">{t("citationReview.loading")}</p>
+                    )
+                  ) : (
+                    <ul className="space-y-2">
+                      {nativeItems.map((it) => {
+                        const c = currentItems.find(
+                          (x) => x.id.toLowerCase() === it.id.toLowerCase(),
+                        );
+                        const resolved = liveIds.has(it.id.toLowerCase()) && itemResolved(it, c);
+                        return (
+                          <li
+                            key={it.id}
+                            className="rounded border border-border p-2 space-y-1"
+                            data-native-consent-item={it.id}
+                            data-native-consent-resolved={resolved ? "true" : "false"}
+                          >
+                            <div className="font-medium text-foreground/80 break-words [overflow-wrap:anywhere]">
+                              {c?.parsed
+                                ? `${t("nativeIntake.source." + c.parsed.input.source)} · ${c.parsed.input.declaredProperty} · ${c.parsed.input.period.start} → ${c.parsed.input.period.end}`
+                                : it.source
+                                  ? t("nativeIntake.source." + it.source)
+                                  : it.id}
+                            </div>
+                            {resolved && c?.parsed ? (
+                              <div className="rounded bg-muted/40 p-2">
+                                <ReportView
+                                  view={{
+                                    input: c.parsed.input,
+                                    withheldPageRows: c.parsed.withheldPageRows,
+                                    partial: c.parsed.partial,
+                                  }}
+                                  note={c.parsed.limitationNote}
+                                  label={(k) => t("nativeIntake." + k)}
+                                  t={t}
+                                />
+                              </div>
+                            ) : (
+                              <p className="text-amber-700 dark:text-amber-400">
+                                {t("nativeIntake.consent.itemUnbound")}
+                              </p>
+                            )}
+                          </li>
+                        );
+                      })}
+                    </ul>
+                  )}
+                  {consentable ? (
+                    <>
+                      <label className="flex items-start gap-2 min-h-11 py-1">
+                        <input
+                          type="checkbox"
+                          className="mt-1 h-5 w-5"
+                          disabled={busy}
+                          checked={consentChecked}
+                          onChange={(e) => {
+                            // Unchecking (or re-checking) SYNCHRONOUSLY retires any in-flight grant so a
+                            // continuation past a pending digest cannot still issue the RPC, and clears any
+                            // shown success/link.
+                            grantOp.current += 1;
+                            setConsentFor(e.target.checked ? consentIdentity : null);
+                            setMsg(null);
+                            setCopied(false);
+                          }}
+                        />
+                        <span>{t("nativeIntake.consent.checkbox")}</span>
+                      </label>
+                      <Button
+                        size="sm"
+                        className="min-h-11"
+                        disabled={!grantId || busy || !consentChecked}
+                        onClick={grantNative}
+                      >
+                        {t("nativeIntake.consent.grant")}
+                      </Button>
+                    </>
+                  ) : nativeCurrent.isSuccess ? (
+                    <p className="text-amber-700 dark:text-amber-400">
+                      {t("nativeIntake.consent.unbindable")}
+                    </p>
+                  ) : null}
+                </div>
+              ) : null}
             </div>
           )}
           {/* Revoke — the full roster (a departed/expired member can still be revoked). */}
@@ -502,7 +895,7 @@ function GrantControls({
             <div className="flex flex-wrap items-center gap-2">
               <Select value={revokeId} onValueChange={setRevokeId}>
                 <SelectTrigger
-                  className="h-9 w-64 text-xs"
+                  className="h-11 w-64 text-xs"
                   aria-label={t("citationReview.grant.selectRevoke")}
                 >
                   <SelectValue placeholder={t("citationReview.grant.selectRevoke")} />
@@ -519,6 +912,7 @@ function GrantControls({
               <Button
                 size="sm"
                 variant="ghost"
+                className="min-h-11"
                 disabled={!revokeId || busy}
                 onClick={() =>
                   run(
@@ -551,15 +945,20 @@ function GrantControls({
               readOnly
               value={link}
               aria-label={t("citationReview.grant.link")}
-              className="h-8 flex-1 min-w-0 rounded border border-border bg-background px-2 text-xs"
+              className="h-11 flex-1 min-w-0 rounded border border-border bg-background px-2 text-xs"
             />
             <Button
               size="sm"
               variant="ghost"
+              className="min-h-11"
               onClick={async () => {
+                // Bind the copied state to the SAME grant operation + live session: a reviewer/consent/
+                // session change (which bumps grantOp and clears the link) during the clipboard await must
+                // not light up "copied" for a link that is no longer shown.
+                const token = grantOp.current;
                 try {
                   await navigator.clipboard.writeText(link);
-                  setCopied(true);
+                  if (mounted.current && grantOp.current === token && current()) setCopied(true);
                 } catch {
                   setCopied(false);
                 }
@@ -602,17 +1001,36 @@ function ReviewerFinding({
   // finding/receipts, even while its fresh read is still in flight or fails), and `gcTime: 0` drops this
   // mount's entries as soon as it unmounts. In-flight reads within ONE mount are still deduplicated normally.
   const [mountToken] = useState(newReviewerMountToken);
+  // Retire on unmount, and an immediate in-flight guard so a double activation yields ONE mutation and a late
+  // submit/withdraw result never dispatches or refetches after this mount was replaced (new session/epoch).
+  const mounted = useRef(true);
+  useEffect(() => () => void (mounted.current = false), []);
+  const inFlight = useRef(false);
+  // Live reviewer session: beyond the per-mount token and unmount flag, the queryFns and post-mutation
+  // continuations re-check the LIVE auth actor + workspace userId + epoch + hydration, so a live session
+  // change while the mount has not yet retired cannot issue the read or dispatch a dependent refetch.
+  const { current } = useLiveSession(actorId, projectId);
   const keys = reviewerQueryKeys(actorId, target, mountToken);
   const view = useQuery({
     queryKey: keys.view,
-    queryFn: () => getCitationFindingForReviewFn({ data: target }),
+    queryFn: async () => {
+      if (!current()) throw Error("citation_review_retired");
+      const d = await getCitationFindingForReviewFn({ data: target });
+      if (!current()) throw Error("citation_review_retired");
+      return d;
+    },
     staleTime: 0,
     gcTime: 0,
     retry: false,
   });
   const reviews = useQuery({
     queryKey: keys.reviews,
-    queryFn: () => readCitationFindingReviewsFn({ data: target }),
+    queryFn: async () => {
+      if (!current()) throw Error("citation_review_retired");
+      const d = await readCitationFindingReviewsFn({ data: target });
+      if (!current()) throw Error("citation_review_retired");
+      return d;
+    },
     staleTime: 0,
     gcTime: 0,
     retry: false,
@@ -620,12 +1038,17 @@ function ReviewerFinding({
   // Material is exposed ONLY after this mount's read has SUCCEEDED (never on mere data presence), and never
   // on error (access revoked/expired — React Query keeps the last successful data, which must not be shown)
   // or after the server REFUSED this actor's decision (`form.denied`, sticky for the mount).
+  // A surviving mount whose session has retired (hydration pause / epoch / actor change before the route
+  // remounts) exposes NOTHING — material, notes, hash, cached own receipt and actions all gate on this.
+  const live = current();
   const hidden = reviewerSurfaceHidden({ viewIsError: view.isError, form });
-  const exposed = reviewerMaterialExposed({
-    viewIsSuccess: view.isSuccess,
-    viewIsError: view.isError,
-    form,
-  });
+  const exposed =
+    live &&
+    reviewerMaterialExposed({
+      viewIsSuccess: view.isSuccess,
+      viewIsError: view.isError,
+      form,
+    });
   const v: CitationFindingForReview | undefined = exposed ? view.data : undefined;
   const currentSha = v?.recordSha256 ?? null;
   // Bind the pending decision to the EXACT inspected version: any hash change (new/edited version) or a mask
@@ -649,28 +1072,51 @@ function ReviewerFinding({
   const canSubmit = canSubmitReview({ guard, fetching: view.isFetching || reviews.isFetching });
 
   async function submit() {
-    if (!canSubmit || !v || !v.recordSha256 || decision === "") return;
+    // Admission requires the LIVE session + mount, not only cached `canSubmit`: a hydration/epoch/actor
+    // boundary while still mounted refuses the old action.
+    if (
+      !canSubmit ||
+      !v ||
+      !v.recordSha256 ||
+      decision === "" ||
+      inFlight.current ||
+      !mounted.current ||
+      !current()
+    )
+      return;
+    inFlight.current = true;
     dispatch({ type: "submit_start" });
     try {
       await saveCitationFindingReviewFn({
         data: { ...target, expectedSha: v.recordSha256, decision, note: note.trim() || null },
       });
+      // A late result under a retired/replaced identity (unmounted OR a live session change) neither
+      // dispatches nor refetches.
+      if (!mounted.current || !current()) return;
       dispatch({ type: "submit_ok" });
       await Promise.all([view.refetch(), reviews.refetch()]);
     } catch (e) {
+      if (!mounted.current || !current()) return;
       const code = errorCode(e);
       // Stale/conflict: the reducer clears the pending decision + note EXPLICITLY (a conflict can occur at the
       // same hash), then the finding + receipts are re-read; the reviewer must inspect and choose again.
       dispatch({ type: "submit_failed", code });
       if (reviewErrorAction(code) === "refresh")
         await Promise.all([view.refetch(), reviews.refetch()]);
+    } finally {
+      inFlight.current = false;
     }
   }
   async function withdraw(id: string) {
-    if (busy) return;
+    // Own withdrawal stays available after assignment revocation, but only within the still-current session.
+    if (busy || inFlight.current || !mounted.current || !current()) return;
+    inFlight.current = true;
     dispatch({ type: "withdraw_start" });
     try {
       await removeCitationFindingReviewFn({ data: { projectId, ownerId, id } });
+      // A live session change (actor replacement) retires the dependent dispatch/refetch; the withdrawal
+      // transport itself (own receipt) has already completed under the prior authorized session.
+      if (!mounted.current || !current()) return;
       dispatch({ type: "withdraw_ok", id });
       // Refresh the receipt list and (only while the surface is not hidden) the finding's current review
       // status. While hidden the finding is NOT re-read: a withdrawal never un-hides a refusal, and there is
@@ -679,7 +1125,11 @@ function ReviewerFinding({
       // surfaced below, never shown as "no reviews".
       await Promise.all([reviews.refetch(), hidden ? Promise.resolve() : view.refetch()]);
     } catch {
+      // No late failure dispatch under a retired/replaced session.
+      if (!mounted.current || !current()) return;
       dispatch({ type: "withdraw_failed" });
+    } finally {
+      inFlight.current = false;
     }
   }
 
@@ -687,7 +1137,9 @@ function ReviewerFinding({
   // the receipt read now errors (assignment revoked/expired): the released withdrawal RPC permits withdrawing
   // one's OWN receipt without a current assignment, and a receipt's decision is the reviewer's own — not the
   // owner's finding material.
-  const mine = ownActiveReceipt(reviews.data?.reviews, form.withdrawnIds);
+  // The cached own receipt and its withdrawal action are available only within the still-current authenticated
+  // session (own withdrawal survives assignment revocation, but NOT a retired/replaced session).
+  const mine = live ? ownActiveReceipt(reviews.data?.reviews, form.withdrawnIds) : null;
   const withdrawalNotice =
     form.withdraw === "ok" ? (
       <p className="text-xs text-emerald-600">{t("citationReview.reviewer.withdrawn")}</p>
@@ -701,12 +1153,21 @@ function ReviewerFinding({
           decision: t(`citationReview.reviewDecision.${mine.decision}`),
         })}
       </span>
-      <Button size="sm" variant="ghost" disabled={busy} onClick={() => withdraw(mine.id)}>
+      <Button
+        size="sm"
+        variant="ghost"
+        className="min-h-11"
+        disabled={busy}
+        onClick={() => withdraw(mine.id)}
+      >
         {t("citationReview.reviewer.withdraw")}
       </Button>
     </div>
   ) : null;
 
+  // Retired/replaced session: show nothing (not even own-receipt controls) until it is current again; the
+  // route normally remounts, but a surviving mount during a hydration/epoch/actor transition masks here.
+  if (!live) return <p className="text-sm text-muted-foreground">{t("citationReview.loading")}</p>;
   if (hidden)
     // Access denied/revoked or decision refused: NO cached finding material is rendered (v is undefined) and
     // the state is sticky through any withdrawal start/failure/success. Only the reviewer's own receipt (if
@@ -770,7 +1231,7 @@ function ReviewerFinding({
           }
         >
           <SelectTrigger
-            className="h-9 w-52 text-xs"
+            className="h-11 w-52 text-xs"
             aria-label={t("citationReview.reviewer.decisionLabel")}
           >
             <SelectValue placeholder={t("citationReview.reviewer.chooseDecision")} />
@@ -784,14 +1245,14 @@ function ReviewerFinding({
           </SelectContent>
         </Select>
         <input
-          className="h-9 flex-1 min-w-40 rounded border border-border bg-background px-2 text-sm"
+          className="h-11 flex-1 min-w-40 rounded border border-border bg-background px-2 text-sm"
           value={note}
           maxLength={NOTE_MAX}
           aria-label={t("citationReview.reviewer.noteLabel")}
           onChange={(e) => dispatch({ type: "note", note: e.target.value })}
           placeholder={t("citationReview.reviewer.notePlaceholder")}
         />
-        <Button size="sm" disabled={!canSubmit} onClick={submit}>
+        <Button size="sm" className="min-h-11" disabled={!canSubmit} onClick={submit}>
           {t("citationReview.reviewer.submit")}
         </Button>
       </div>
@@ -900,9 +1361,37 @@ function ReviewerEvidence({ view }: { view: CitationFindingForReview }) {
                     ) : null}
                   </div>
                 ) : (
-                  <div className="flex flex-wrap gap-2">
-                    <span className="font-medium">{t("citationReview.evidence.native")}</span>
-                    <span className={chip}>{t("citationReview.evidence.notInspectable")}</span>
+                  <div className="space-y-1">
+                    <div className="flex flex-wrap gap-2">
+                      <span className="font-medium">{t("citationReview.evidence.native")}</span>
+                      <span className={chip}>
+                        {e.available
+                          ? t("citationReview.evidence.available")
+                          : t("citationReview.evidence.deleted")}
+                      </span>
+                    </div>
+                    {/* An authorized+consented, live-resolving BOUND native carries its exact parsed
+                        interpretation; render it with the SAME source-specific projection the owner
+                        intake uses (all rows/statuses, period/timezone/market unknowns, withheld counts,
+                        limitation note). A bare/legacy or unconsented native carries none and stays
+                        non-inspectable. This lives inside the reviewer exposure mask (v only exists after
+                        a successful scoped read); it never reads an owner intake endpoint. */}
+                    {e.nativeMaterial ? (
+                      <ReportView
+                        view={{
+                          input: e.nativeMaterial.input,
+                          withheldPageRows: e.nativeMaterial.withheldPageRows,
+                          partial: e.nativeMaterial.partial,
+                        }}
+                        note={e.nativeMaterial.limitationNote}
+                        label={(k) => t("nativeIntake." + k)}
+                        t={t}
+                      />
+                    ) : (
+                      <p className="text-xs text-muted-foreground">
+                        {t("nativeIntake.review.nativeBare")}
+                      </p>
+                    )}
                   </div>
                 )}
               </li>

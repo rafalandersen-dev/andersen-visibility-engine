@@ -5,6 +5,7 @@ import {
   CITATION_FINDING_ACCURACY_STATUSES,
   CITATION_FINDING_REVIEW_STATUSES,
 } from "./citation-record";
+import { nativeReportParsedRecordSchema } from "./native-google-intake";
 /**
  * Citation Intelligence v1, P3 — INDEPENDENT (two-person) finding review (spec §4.5). Client-safe schemas
  * for the review-receipt boundary. A receipt is the authenticated independent reviewer's own decision on a
@@ -91,6 +92,14 @@ export const citationFindingReviewListSchema = z
     reviewStatus: z.enum(CITATION_FINDING_REVIEW_STATUSES),
   })
   .strict();
+/** The parsed interpretation served to an authorized+consented reviewer for ONE cited, bound and
+ * live-resolving native artifact (finding native-review binding) is the EXACT persisted
+ * `nativeReportParsedRecord` — reused verbatim, not a broader flattened projection, so no disclosed
+ * metadata is dropped and the strict contract cannot drift. It contains the artifact byte SIZE only, NEVER
+ * raw file bytes/base64, never another artifact. Source partialness, unknown market/timezone and
+ * exported-zero uncertainty are preserved; a complete INSPECTION is not complete source coverage; an
+ * all-unknown report is still material. */
+export const citationReviewNativeMaterialSchema = nativeReportParsedRecordSchema;
 /** One cited evidence item, resolved to its actual readable content + provenance for the reviewer. A
  * deleted reference reads `available:false`. An `answer` exposes its FULL content (the 50000-char-capped
  * `rawAnswer`), the supplied citation URLs and capture provenance — `contentTruncated` flags any over-cap
@@ -169,7 +178,12 @@ export const citationReviewEvidenceSchema = z.discriminatedUnion("kind", [
       kind: z.literal("native"),
       id: z.string(),
       available: z.boolean(),
-      inspectable: z.literal(false),
+      // No longer a literal false: a NEW finding version that BINDS the exact parsed interpretation makes
+      // this true once the owner has granted current full-set native consent (the server re-verifies the
+      // binding live and the consent before serving `nativeMaterial`). A bare/legacy native stays false and
+      // carries no material. Absent `nativeMaterial` == not inspectable / not served.
+      inspectable: z.boolean(),
+      nativeMaterial: citationReviewNativeMaterialSchema.optional(),
     })
     .strict(),
 ]);
@@ -238,7 +252,51 @@ export const citationFindingForReviewSchema = z
     // Exposed to the reviewer exactly as to the owner so both surfaces state the same fact.
     scopeEnforcedAt: z.string().nullable(),
   })
-  .strict();
+  .strict()
+  .superRefine((v, ctx) => {
+    // Native evidence availability/inspectable/material coherence (NFTS-01): a discriminatedUnion member
+    // cannot carry a cross-field effect, so the trusted read boundary enforces it here. A native item is
+    // inspectable ONLY with its full material AND live availability; a non-inspectable native carries no
+    // material. (answer/source members are unaffected.)
+    v.evidence.forEach((e, i) => {
+      if (e.kind !== "native") return;
+      if (e.inspectable && (e.nativeMaterial === undefined || e.available !== true))
+        ctx.addIssue({
+          code: "custom",
+          path: ["evidence", i],
+          message: "An inspectable native evidence item must carry its material and be available",
+        });
+      if (!e.inspectable && e.nativeMaterial !== undefined)
+        ctx.addIssue({
+          code: "custom",
+          path: ["evidence", i, "nativeMaterial"],
+          message: "A non-inspectable native evidence item carries no material",
+        });
+      if (e.nativeMaterial !== undefined) {
+        // (R1 TS cases) The served material must be a NON-EMPTY retained report (an inspectable item with
+        // zero rows proves nothing), must bind the SAME artifact as the evidence id, and may never ride on a
+        // masked/erased top-level record.
+        if (e.nativeMaterial.input.rows.length < 1)
+          ctx.addIssue({
+            code: "custom",
+            path: ["evidence", i, "nativeMaterial", "input", "rows"],
+            message: "Inspectable native material must carry at least one retained row",
+          });
+        if (e.nativeMaterial.artifactId.toLowerCase() !== e.id.toLowerCase())
+          ctx.addIssue({
+            code: "custom",
+            path: ["evidence", i, "nativeMaterial", "artifactId"],
+            message: "Native material must bind the same artifact as the evidence id",
+          });
+        if (v.record === null || v.evidenceErased === true)
+          ctx.addIssue({
+            code: "custom",
+            path: ["evidence", i, "nativeMaterial"],
+            message: "A masked or erased finding carries no native material",
+          });
+      }
+    });
+  });
 export type CitationFindingForReview = z.infer<typeof citationFindingForReviewSchema>;
 /** Target a finding row (for listing its receipts or the reviewer's single-finding read). */
 export const citationFindingReviewTargetSchema = z
@@ -264,5 +322,31 @@ export const citationReviewAssignmentReceiptSchema = z
     findingRowId: uuid,
     reviewerId: uuid,
     active: z.literal(true),
+  })
+  .strict();
+/** Owner-only grant of EXPLICIT native-material consent (finding native-review binding). Binds the exact
+ * finding row + reviewer + the owner's declared digest of the finding's ENTIRE cited native set
+ * (`nativeSetSha256`, composed client-side from the per-artifact authoritative binding reads). The server
+ * recomputes the set digest live and refuses a mismatch, a non-native-bearing finding, or any unbound/
+ * unresolving native item — so consent never covers unknown/future/unbound material. */
+export const citationReviewNativeAssignmentInputSchema = z
+  .object({
+    projectId: evidenceProjectId,
+    findingRowId: uuid,
+    reviewerId: uuid,
+    nativeSetSha256: sha256,
+  })
+  .strict();
+export type CitationReviewNativeAssignmentInput = z.infer<
+  typeof citationReviewNativeAssignmentInputSchema
+>;
+export const citationReviewNativeAssignmentReceiptSchema = z
+  .object({
+    ownerId: uuid,
+    projectId: z.string(),
+    findingRowId: uuid,
+    reviewerId: uuid,
+    active: z.literal(true),
+    nativeScope: z.literal("native_v1"),
   })
   .strict();

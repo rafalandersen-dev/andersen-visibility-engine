@@ -74,7 +74,7 @@ const ENGLISH_KEYS = Object.keys(ENGLISH).sort();
 
 describe("the staged native-intake namespace is complete without inventing translations", () => {
   it("takes its fallback from the reviewed English native-intake source itself", () => {
-    expect(ENGLISH_KEYS).toHaveLength(100);
+    expect(ENGLISH_KEYS).toHaveLength(120);
     expect(Object.keys(nativeIntakeCopy.en).sort()).toEqual(ENGLISH_KEYS);
     for (const key of ENGLISH_KEYS) expect(nativeIntakeCopy.en[key], key).toBe(ENGLISH[key]);
   });

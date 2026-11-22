@@ -115,6 +115,10 @@ const independentCandidates = [
   // Native parsed-report persistence is exercised against its real artifact foundation in
   // native-google-intake-migration.test.ts; production application is tracked by release receipts.
   "20261113120000_native_report_parsed_interpretation.sql",
+  // Native-report finding review binding (consent/inspectability/gates) is exercised against the real
+  // citation review + parsed-artifact foundation in native-report-binding-migration.test.ts; unapplied in
+  // production until its release receipt.
+  "20261114120000_citation_native_review_binding.sql",
   // GA4 test-rollout stores (22 November): two new service-only tables, no dependency on this
   // chain; executed by ga4-migration.test.ts. Unapplied until reviewed.
   "20261122152000_ga4_connections.sql",

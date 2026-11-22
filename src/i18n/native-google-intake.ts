@@ -115,6 +115,35 @@ const en: Record<string, string> = {
   "err.reviewStale": "Inputs changed since the preview. Preview again before saving.",
   "err.capacity": "This project has reached its stored-file limit. Delete one and try again.",
   "err.save": "Could not save. Your inputs are kept; try again.",
+  // Citing saved native reports into a finding, and sharing their material with a reviewer.
+  "bind.heading": "Cited native reports",
+  "bind.intro":
+    "Cite one or more saved native reports. A finding that cites native reports and no captured answer is native-only.",
+  "bind.addLabel": "Choose a saved native report",
+  "bind.cite": "Cite with current material",
+  "bind.bindCurrent": "Bind current material",
+  "bind.none": "No saved native reports to cite. Import one above first.",
+  "bind.bound": "current material bound",
+  "bind.bare": "legacy reference — not independently inspectable",
+  "bind.missing": "report deleted — remove this reference",
+  "bind.unbindable":
+    "This report has no bindable current material (not interpreted yet or unsupported); it cannot be cited.",
+  "bind.failed": "Could not read the report's current material. Try again before reviewing.",
+  "bind.nativeOnly":
+    "Native-only finding: there is no captured consumer answer, so answer/citation completeness, own/competitor citation, recommendation and answer-anchored support/accuracy do not apply and are omitted.",
+  "review.nativeBare":
+    "Native report cited, but not shared for independent inspection (a legacy reference, or no current-material consent).",
+  "consent.title": "Share the cited native report material",
+  "consent.scope":
+    "The selected reviewer will be able to inspect the exact parsed interpretation of every native report this finding cites ({count}), for this finding only. Raw files are never shared.",
+  "consent.checkbox":
+    "I consent to share this finding's full cited native report material with the selected reviewer.",
+  "consent.itemUnbound": "no bound current material (not shareable)",
+  "consent.grant": "Grant native material access",
+  "consent.unbindable":
+    "This finding cites a native report with no bound current material, so its native material cannot be shared. Re-author the finding, binding each report's current material, to share it.",
+  "review.ownerIntro":
+    "Your findings for this project. Statuses are the current, live values — an owner attestation is never independent or causal proof. Finding authoring (including citing saved native reports), Plan tasks, Studio drafts, improvement binding and owner inspection are available above, and a finding's cited native report material can be shared with an assigned reviewer for independent inspection. Independent destination proof remains open.",
 };
 const pl: Record<string, string> = {
   "common.loading": "Ładowanie…",
@@ -227,6 +256,36 @@ const pl: Record<string, string> = {
   "err.reviewStale": "Dane zmieniły się od podglądu. Wyświetl podgląd ponownie przed zapisem.",
   "err.capacity": "Ten projekt osiągnął limit zapisanych plików. Usuń jeden i spróbuj ponownie.",
   "err.save": "Nie udało się zapisać. Twoje dane są zachowane; spróbuj ponownie.",
+  "bind.heading": "Cytowane natywne raporty",
+  "bind.intro":
+    "Zacytuj jeden lub więcej zapisanych natywnych raportów. Ustalenie, które cytuje natywne raporty i nie ma zapisanej odpowiedzi, jest wyłącznie natywne.",
+  "bind.addLabel": "Wybierz zapisany natywny raport",
+  "bind.cite": "Zacytuj z bieżącym materiałem",
+  "bind.bindCurrent": "Powiąż bieżący materiał",
+  "bind.none":
+    "Brak zapisanych natywnych raportów do zacytowania. Najpierw zaimportuj jeden powyżej.",
+  "bind.bound": "powiązano bieżący materiał",
+  "bind.bare": "odwołanie starszego typu — bez niezależnego wglądu",
+  "bind.missing": "raport usunięty — usuń to odwołanie",
+  "bind.unbindable":
+    "Ten raport nie ma materiału bieżącego do powiązania (jeszcze nie zinterpretowany lub nieobsługiwany); nie można go zacytować.",
+  "bind.failed":
+    "Nie udało się odczytać bieżącego materiału raportu. Spróbuj ponownie przed recenzją.",
+  "bind.nativeOnly":
+    "Ustalenie wyłącznie natywne: nie ma zapisanej odpowiedzi konsumenta, więc kompletność odpowiedzi/cytowań, cytowanie własne/konkurenta, rekomendacja oraz poparcie/trafność oparte na odpowiedzi nie mają zastosowania i są pomijane.",
+  "review.nativeBare":
+    "Natywny raport zacytowany, ale nieudostępniony do niezależnego wglądu (odwołanie starszego typu lub brak zgody na bieżący materiał).",
+  "consent.title": "Udostępnij materiał cytowanego natywnego raportu",
+  "consent.scope":
+    "Wybrany recenzent będzie mógł przejrzeć dokładną zinterpretowaną treść każdego natywnego raportu cytowanego przez to ustalenie ({count}), wyłącznie dla tego ustalenia. Surowe pliki nigdy nie są udostępniane.",
+  "consent.checkbox":
+    "Wyrażam zgodę na udostępnienie wybranemu recenzentowi pełnego materiału cytowanych natywnych raportów tego ustalenia.",
+  "consent.itemUnbound": "brak powiązanego bieżącego materiału (nie do udostępnienia)",
+  "consent.grant": "Nadaj dostęp do materiału natywnego",
+  "consent.unbindable":
+    "To ustalenie cytuje natywny raport bez powiązanego bieżącego materiału, więc jego materiału natywnego nie można udostępnić. Utwórz ustalenie ponownie, wiążąc bieżący materiał każdego raportu, aby je udostępnić.",
+  "review.ownerIntro":
+    "Twoje ustalenia w tym projekcie. Statusy to bieżące, aktualne wartości — poświadczenie właściciela nigdy nie jest niezależnym ani przyczynowym dowodem. Tworzenie ustaleń (w tym cytowanie zapisanych natywnych raportów), zadania w Planie, ręczne szkice w Studio, powiązanie ulepszeń i inspekcja właściciela są dostępne powyżej, a materiał cytowanego natywnego raportu w ustaleniu można udostępnić przypisanemu recenzentowi do niezależnego wglądu. Niezależny dowód z miejsca docelowego pozostaje otwarty.",
 };
 const sv: Record<string, string> = {
   "common.loading": "Läser in…",
@@ -341,6 +400,34 @@ const sv: Record<string, string> = {
     "Inmatningarna ändrades efter förhandsgranskningen. Förhandsgranska igen före sparande.",
   "err.capacity": "Projektet har nått gränsen för sparade filer. Ta bort en och försök igen.",
   "err.save": "Kunde inte spara. Dina inmatningar behålls; försök igen.",
+  "bind.heading": "Citerade inbyggda rapporter",
+  "bind.intro":
+    "Citera en eller flera sparade inbyggda rapporter. Ett fynd som citerar inbyggda rapporter och inget infångat svar är endast inbyggt.",
+  "bind.addLabel": "Välj en sparad inbyggd rapport",
+  "bind.cite": "Citera med aktuellt material",
+  "bind.bindCurrent": "Bind aktuellt material",
+  "bind.none": "Inga sparade inbyggda rapporter att citera. Importera en ovan först.",
+  "bind.bound": "aktuellt material bundet",
+  "bind.bare": "äldre referens — kan inte inspekteras oberoende",
+  "bind.missing": "rapport raderad — ta bort den här referensen",
+  "bind.unbindable":
+    "Den här rapporten har inget aktuellt material att binda (ännu inte tolkad eller stöds inte); den kan inte citeras.",
+  "bind.failed": "Kunde inte läsa rapportens aktuella material. Försök igen före granskning.",
+  "bind.nativeOnly":
+    "Endast inbyggt fynd: det finns inget infångat konsumentsvar, så svars-/citeringsfullständighet, egen/konkurrentcitering, rekommendation och svarsförankrat stöd/riktighet gäller inte och utelämnas.",
+  "review.nativeBare":
+    "Inbyggd rapport citerad, men inte delad för oberoende inspektion (en äldre referens, eller inget samtycke till aktuellt material).",
+  "consent.title": "Dela den citerade inbyggda rapportens material",
+  "consent.scope":
+    "Den valda granskaren kommer att kunna inspektera den exakta tolkade innehållet i varje inbyggd rapport som det här fyndet citerar ({count}), endast för det här fyndet. Råa filer delas aldrig.",
+  "consent.checkbox":
+    "Jag samtycker till att dela det här fyndets fullständiga citerade inbyggda rapportmaterial med den valda granskaren.",
+  "consent.itemUnbound": "inget bundet aktuellt material (kan inte delas)",
+  "consent.grant": "Ge åtkomst till inbyggt material",
+  "consent.unbindable":
+    "Det här fyndet citerar en inbyggd rapport utan bundet aktuellt material, så dess inbyggda material kan inte delas. Skapa fyndet på nytt och bind varje rapports aktuella material för att dela det.",
+  "review.ownerIntro":
+    "Dina fynd för det här projektet. Statusarna är de aktuella, levande värdena — ett ägarintyg är aldrig ett oberoende eller orsaksbevis. Att skapa fynd (inklusive att citera sparade inbyggda rapporter), planuppgifter, manuella Studio-utkast, koppling av förbättringar och ägarinspektion finns ovan, och ett fynds citerade inbyggda rapportmaterial kan delas med en tilldelad granskare för oberoende inspektion. Oberoende bevis från destinationen är fortfarande öppet.",
 };
 const da: Record<string, string> = {
   "common.loading": "Indlæser…",
@@ -454,6 +541,34 @@ const da: Record<string, string> = {
   "err.reviewStale": "Inputtene ændrede sig siden forhåndsvisningen. Forhåndsvis igen før lagring.",
   "err.capacity": "Projektet har nået grænsen for gemte filer. Slet en, og prøv igen.",
   "err.save": "Kunne ikke gemme. Dine input bevares; prøv igen.",
+  "bind.heading": "Citerede indbyggede rapporter",
+  "bind.intro":
+    "Citér en eller flere gemte indbyggede rapporter. Et fund, der citerer indbyggede rapporter og intet indfanget svar, er kun indbygget.",
+  "bind.addLabel": "Vælg en gemt indbygget rapport",
+  "bind.cite": "Citér med aktuelt materiale",
+  "bind.bindCurrent": "Bind aktuelt materiale",
+  "bind.none": "Ingen gemte indbyggede rapporter at citere. Importer først en ovenfor.",
+  "bind.bound": "aktuelt materiale bundet",
+  "bind.bare": "ældre reference — kan ikke inspiceres uafhængigt",
+  "bind.missing": "rapport slettet — fjern denne reference",
+  "bind.unbindable":
+    "Denne rapport har intet aktuelt materiale at binde (endnu ikke fortolket eller ikke understøttet); den kan ikke citeres.",
+  "bind.failed": "Rapportens aktuelle materiale kunne ikke læses. Prøv igen før gennemgang.",
+  "bind.nativeOnly":
+    "Kun indbygget fund: der er intet indfanget forbrugersvar, så svar-/citeringsfuldstændighed, egen/konkurrentcitering, anbefaling og svarforankret støtte/korrekthed gælder ikke og udelades.",
+  "review.nativeBare":
+    "Indbygget rapport citeret, men ikke delt til uafhængig inspektion (en ældre reference eller intet samtykke til aktuelt materiale).",
+  "consent.title": "Del den citerede indbyggede rapports materiale",
+  "consent.scope":
+    "Den valgte kontrollant vil kunne inspicere den præcise fortolkede indhold af hver indbygget rapport, som dette fund citerer ({count}), kun for dette fund. Rå filer deles aldrig.",
+  "consent.checkbox":
+    "Jeg giver samtykke til at dele dette funds fulde citerede indbyggede rapportmateriale med den valgte kontrollant.",
+  "consent.itemUnbound": "intet bundet aktuelt materiale (kan ikke deles)",
+  "consent.grant": "Giv adgang til indbygget materiale",
+  "consent.unbindable":
+    "Dette fund citerer en indbygget rapport uden bundet aktuelt materiale, så dens indbyggede materiale kan ikke deles. Opret fundet igen, og bind hver rapports aktuelle materiale for at dele det.",
+  "review.ownerIntro":
+    "Dine fund for dette projekt. Statusser er de aktuelle, levende værdier — en ejererklæring er aldrig et uafhængigt eller kausalt bevis. Oprettelse af fund (inklusive citering af gemte indbyggede rapporter), Plan-opgaver, manuelle Studio-udkast, forbedringsbinding og ejerinspektion findes ovenfor, og et funds citerede indbyggede rapportmateriale kan deles med en tildelt kontrollant til uafhængig inspektion. Uafhængigt bevis fra destinationen er fortsat åbent.",
 };
 const locales: Record<string, Record<string, string>> = { en, pl, sv, da };
 export const nativeIntakeCopy: Record<string, Record<string, string>> = Object.fromEntries(

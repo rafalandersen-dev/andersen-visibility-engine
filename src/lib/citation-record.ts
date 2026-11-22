@@ -1,5 +1,10 @@
 import { z } from "zod";
-import { GAP_FAMILIES, findingSchema, improvementSchema } from "./citation-finding";
+import {
+  GAP_FAMILIES,
+  findingSchema,
+  improvementSchema,
+  nativeOnlyFindingIssues,
+} from "./citation-finding";
 import { citationAccuracyResolutionSchema } from "./citation-business-fact";
 /**
  * Citation Intelligence v1, P3 — client-safe schemas and bounds for the findings/improvements STORAGE
@@ -42,6 +47,10 @@ const boundedFinding = findingSchema.superRefine((f, ctx) => {
       path: [],
       message: `Finding record exceeds the storage budget of ${MAX_CITATION_FINDING_BYTES} bytes; split it`,
     });
+  // NEW-save boundary only (not the global schema / historical reads): a native-only finding may not
+  // carry any invented answer-at-capture fact. Mixed answer+native and answer-only findings are unaffected.
+  for (const issue of nativeOnlyFindingIssues(f))
+    ctx.addIssue({ code: "custom", path: issue.split(":").slice(0, 1), message: issue });
 });
 const boundedImprovement = improvementSchema.superRefine((i, ctx) => {
   if (utf8Bytes(i) > MAX_CITATION_IMPROVEMENT_INPUT_BYTES)
