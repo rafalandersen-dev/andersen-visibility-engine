@@ -156,4 +156,53 @@ describe("weekly readiness authenticated storage boundary", () => {
       "scheduler_control_unavailable",
     );
   });
+  it("shows the pending replacement after the archived original was cancelled", async () => {
+    const data = (await mocked.workspace()).data;
+    data.content = [
+      {
+        id: "old",
+        projectId: "p",
+        title: "Archived original",
+        status: "Approved",
+        autoSchedulerPlannedAt: "2026-09-15T07:00:00Z",
+        scheduledPublishAt: "2026-09-15T07:00:00Z",
+      },
+      {
+        id: "new",
+        projectId: "p",
+        title: "Replacement",
+        status: "Approved",
+        autoSchedulerPlannedAt: "2026-09-15T07:00:00Z",
+      },
+      {
+        id: "same",
+        projectId: "p",
+        title: "Resumed",
+        status: "Approved",
+        scheduledPublishAt: "2026-09-17T07:00:00Z",
+      },
+    ];
+    mocked.limit.mockResolvedValueOnce({
+      data: [
+        { asset_id: "old", publish_at: "2026-09-15T07:00:00+00:00", status: "cancelled" },
+        { asset_id: "new", publish_at: "2026-09-15T07:00:00+00:00", status: "pending" },
+        { asset_id: "same", publish_at: "2026-09-17T07:00:00+00:00", status: "cancelled" },
+        { asset_id: "same", publish_at: "2026-09-17T07:00:00+00:00", status: "pending" },
+      ],
+      count: 4,
+      error: null,
+    });
+    const result = await readWeeklyPreparation(
+      scope,
+      "2026-09-14",
+      new Date("2026-09-11T14:00:00Z"),
+    );
+    expect(
+      result.readiness.map(({ state, assetId, title }) => ({ state, assetId, title })),
+    ).toEqual([
+      { state: "queued", assetId: "new", title: "Replacement" },
+      { state: "queued", assetId: "same", title: "Resumed" },
+    ]);
+    expect(result.missing).toEqual([]);
+  });
 });

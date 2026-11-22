@@ -1,3 +1,4 @@
+import { stagedChatGptChannel } from "./chatgpt-channel-fallback";
 import { elConversation } from "./el-conversation";
 import { elWorkflow } from "./el-workflow";
 import { elEvidence } from "./el-evidence";
@@ -355,6 +356,7 @@ export const EL_STAGED_BATCHES = [
     sourceRevision: "89fe9442 + native Google intake (nativeIntake: English fallback)",
     sourceHash: STAGED_NATIVE_INTAKE_SOURCE_HASH,
   },
+  stagedChatGptChannel,
 ] as const;
 export const EL_STAGED_CATALOG: Readonly<Record<string, string>> = Object.freeze(
   Object.assign(Object.create(null), ...EL_STAGED_BATCHES.map((batch) => batch.copy)),

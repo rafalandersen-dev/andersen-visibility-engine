@@ -95,7 +95,7 @@ type Stage = {
 let stages: Stage[];
 let archives: Map<string, GenerationResult>;
 let rev: number;
-let queue: Array<{ assetId: string; publishAt: string; status: "pending" }>;
+let queue: Parameters<typeof weeklyReadiness>[0]["queue"];
 afterEach(() => vi.useRealTimers());
 beforeEach(() => {
   vi.resetAllMocks();
@@ -362,6 +362,68 @@ describe("weekly executor integrated orchestration without live providers", () =
       action: "waiting",
     });
     expect(h.generate).toHaveBeenCalledTimes(2);
+  });
+  it("treats cancelled history plus a current pending row as queued and never re-arms or regenerates", async () => {
+    for (let i = 0; i < 6; i++) await runWeeklyProject(scope, now);
+    workspace.projects[0].autoScheduler!.mode = "auto_publish";
+    const [first, second] = workspace.content;
+    for (const asset of workspace.content) asset.status = "Approved";
+    // Slot 1: archived original cancelled, a different replacement pending.
+    workspace.content.push({
+      ...first,
+      id: "replacement",
+      title: "Replacement",
+      scheduledPublishAt: first.autoSchedulerPlannedAt,
+    });
+    queue.push(
+      { assetId: first.id, publishAt: first.autoSchedulerPlannedAt!, status: "cancelled" },
+      { assetId: "replacement", publishAt: first.autoSchedulerPlannedAt!, status: "pending" },
+      // Slot 2: native Cancel then Resume of the same article.
+      { assetId: second.id, publishAt: second.autoSchedulerPlannedAt!, status: "cancelled" },
+      { assetId: second.id, publishAt: second.autoSchedulerPlannedAt!, status: "pending" },
+    );
+    const stageCalls = h.runStage.mock.calls.length;
+    expect(await runWeeklyProject(scope, now)).toMatchObject({
+      period: "week:2026-09-14",
+      queued: 2,
+      uncovered: 0,
+    });
+    expect(h.arm).not.toHaveBeenCalled();
+    expect(h.approved).not.toHaveBeenCalled();
+    expect(h.runStage).toHaveBeenCalledTimes(stageCalls);
+    expect(h.generate).toHaveBeenCalledTimes(2);
+    expect(queue).toHaveLength(4);
+  });
+  it("never regenerates or arms cancelled-only slots that carry stale mirrors", async () => {
+    workspace.projects[0].autoScheduler!.mode = "auto_publish";
+    const slots = ["2026-09-15T07:00:00.000Z", "2026-09-17T07:00:00.000Z"];
+    workspace.content = slots.flatMap((publishAt, i) =>
+      ["old", "older"].map(
+        (kind) =>
+          ({
+            id: `${kind}${i}`,
+            projectId: "p",
+            title: `${kind} ${i}`,
+            status: "Approved",
+            autoSchedulerPlannedAt: publishAt,
+            scheduledPublishAt: publishAt,
+          }) as ContentAsset,
+      ),
+    );
+    queue = slots.flatMap((publishAt, i) => [
+      { assetId: `old${i}`, publishAt, status: "cancelled" as const },
+      { assetId: `older${i}`, publishAt, status: "cancelled" as const },
+    ]);
+    for (let i = 0; i < 3; i++)
+      expect(await runWeeklyProject(scope, now)).toMatchObject({
+        period: "week:2026-09-14",
+        queued: 0,
+        uncovered: 2,
+      });
+    expect(h.runStage).not.toHaveBeenCalled();
+    expect(h.discover).not.toHaveBeenCalled();
+    expect(h.generate).not.toHaveBeenCalled();
+    expect(h.arm).not.toHaveBeenCalled();
   });
   it("leaves image work unclaimed on entitlement refusal and resumes after eligibility changes", async () => {
     await runWeeklyProject(scope, now);

@@ -1,3 +1,4 @@
+import { stagedChatGptChannel } from "./chatgpt-channel-fallback";
 import { hrConversation } from "./hr-conversation";
 import { hrWorkflow } from "./hr-workflow";
 import { hrEvidence } from "./hr-evidence";
@@ -355,6 +356,7 @@ export const HR_STAGED_BATCHES = [
     sourceRevision: "89fe9442 + native Google intake (nativeIntake: English fallback)",
     sourceHash: STAGED_NATIVE_INTAKE_SOURCE_HASH,
   },
+  stagedChatGptChannel,
 ] as const;
 export const HR_STAGED_CATALOG: Readonly<Record<string, string>> = Object.freeze(
   Object.assign(Object.create(null), ...HR_STAGED_BATCHES.map((batch) => batch.copy)),

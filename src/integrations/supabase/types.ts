@@ -1190,6 +1190,9 @@ export type Database = {
           created_at: string
           id: string
           metadata: Json
+          parsed: Json | null
+          parsed_actor_id: string | null
+          parsed_at: string | null
           predecessor_deleted: boolean
           project_collection: string
           project_id: string
@@ -1206,6 +1209,9 @@ export type Database = {
           created_at?: string
           id?: string
           metadata: Json
+          parsed?: Json | null
+          parsed_actor_id?: string | null
+          parsed_at?: string | null
           predecessor_deleted?: boolean
           project_collection?: string
           project_id: string
@@ -1222,6 +1228,9 @@ export type Database = {
           created_at?: string
           id?: string
           metadata?: Json
+          parsed?: Json | null
+          parsed_actor_id?: string | null
+          parsed_at?: string | null
           predecessor_deleted?: boolean
           project_collection?: string
           project_id?: string
@@ -4531,6 +4540,447 @@ export type Database = {
         }
         Relationships: []
       }
+      stripe_account_leases: {
+        Row: {
+          account_id: string
+          fence: number
+          holder: string | null
+          leased_at: string | null
+          leased_until: string | null
+          mode: string
+        }
+        Insert: {
+          account_id: string
+          fence?: number
+          holder?: string | null
+          leased_at?: string | null
+          leased_until?: string | null
+          mode: string
+        }
+        Update: {
+          account_id?: string
+          fence?: number
+          holder?: string | null
+          leased_at?: string | null
+          leased_until?: string | null
+          mode?: string
+        }
+        Relationships: []
+      }
+      stripe_checkout_requests: {
+        Row: {
+          account_id: string
+          completed_at: string | null
+          created_at: string
+          kind: string
+          mode: string
+          params_fingerprint: string
+          request_id: string
+          session_id: string | null
+          status: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          account_id: string
+          completed_at?: string | null
+          created_at?: string
+          kind: string
+          mode: string
+          params_fingerprint: string
+          request_id: string
+          session_id?: string | null
+          status?: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          account_id?: string
+          completed_at?: string | null
+          created_at?: string
+          kind?: string
+          mode?: string
+          params_fingerprint?: string
+          request_id?: string
+          session_id?: string | null
+          status?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      stripe_commercial_operations: {
+        Row: {
+          account_id: string
+          attempts: number
+          baseline_invoice_id: string | null
+          baseline_known: boolean
+          baseline_plan_id: string | null
+          baseline_seat_quantity: number | null
+          baseline_subscription_id: string | null
+          case_id: string | null
+          created_at: string
+          dispatched_at: string | null
+          idempotency_key: string
+          invoice_id: string | null
+          kind: string
+          mode: string
+          operation_id: string
+          params_fingerprint: string
+          quote_id: string | null
+          reduction_dispatch_payload: Json | null
+          refund_id: string | null
+          refusal_code: string | null
+          resolved_at: string | null
+          reverses_operation: string | null
+          schedule_id: string | null
+          selection_detail: string | null
+          state: string
+          subscription_id: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          account_id: string
+          attempts?: number
+          baseline_invoice_id?: string | null
+          baseline_known?: boolean
+          baseline_plan_id?: string | null
+          baseline_seat_quantity?: number | null
+          baseline_subscription_id?: string | null
+          case_id?: string | null
+          created_at?: string
+          dispatched_at?: string | null
+          idempotency_key: string
+          invoice_id?: string | null
+          kind: string
+          mode: string
+          operation_id: string
+          params_fingerprint: string
+          quote_id?: string | null
+          reduction_dispatch_payload?: Json | null
+          refund_id?: string | null
+          refusal_code?: string | null
+          resolved_at?: string | null
+          reverses_operation?: string | null
+          schedule_id?: string | null
+          selection_detail?: string | null
+          state?: string
+          subscription_id: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          account_id?: string
+          attempts?: number
+          baseline_invoice_id?: string | null
+          baseline_known?: boolean
+          baseline_plan_id?: string | null
+          baseline_seat_quantity?: number | null
+          baseline_subscription_id?: string | null
+          case_id?: string | null
+          created_at?: string
+          dispatched_at?: string | null
+          idempotency_key?: string
+          invoice_id?: string | null
+          kind?: string
+          mode?: string
+          operation_id?: string
+          params_fingerprint?: string
+          quote_id?: string | null
+          reduction_dispatch_payload?: Json | null
+          refund_id?: string | null
+          refusal_code?: string | null
+          resolved_at?: string | null
+          reverses_operation?: string | null
+          schedule_id?: string | null
+          selection_detail?: string | null
+          state?: string
+          subscription_id?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "stripe_commercial_operations_quote_id_fkey"
+            columns: ["quote_id"]
+            isOneToOne: false
+            referencedRelation: "stripe_commercial_quotes"
+            referencedColumns: ["quote_id"]
+          },
+          {
+            foreignKeyName: "stripe_commercial_operations_reverses_operation_fkey"
+            columns: ["reverses_operation"]
+            isOneToOne: false
+            referencedRelation: "stripe_commercial_operations"
+            referencedColumns: ["operation_id"]
+          },
+        ]
+      }
+      stripe_commercial_quotes: {
+        Row: {
+          account_id: string
+          amount_due: number
+          consumed_at: string | null
+          consumed_by: string | null
+          created_at: string
+          currency: string
+          direction: string
+          effective_at: string | null
+          expires_at: string
+          kind: string
+          mode: string
+          proration_date: number
+          quote_id: string
+          recurring_amount: number
+          selection_fingerprint: string
+          state_fingerprint: string
+          subscription_id: string
+          target_plan_id: string
+          target_seat_quantity: number
+          user_id: string
+        }
+        Insert: {
+          account_id: string
+          amount_due: number
+          consumed_at?: string | null
+          consumed_by?: string | null
+          created_at?: string
+          currency: string
+          direction: string
+          effective_at?: string | null
+          expires_at: string
+          kind: string
+          mode: string
+          proration_date: number
+          quote_id: string
+          recurring_amount: number
+          selection_fingerprint: string
+          state_fingerprint: string
+          subscription_id: string
+          target_plan_id: string
+          target_seat_quantity: number
+          user_id: string
+        }
+        Update: {
+          account_id?: string
+          amount_due?: number
+          consumed_at?: string | null
+          consumed_by?: string | null
+          created_at?: string
+          currency?: string
+          direction?: string
+          effective_at?: string | null
+          expires_at?: string
+          kind?: string
+          mode?: string
+          proration_date?: number
+          quote_id?: string
+          recurring_amount?: number
+          selection_fingerprint?: string
+          state_fingerprint?: string
+          subscription_id?: string
+          target_plan_id?: string
+          target_seat_quantity?: number
+          user_id?: string
+        }
+        Relationships: []
+      }
+      stripe_customers: {
+        Row: {
+          account_id: string
+          created_at: string
+          customer_id: string
+          mode: string
+          user_id: string
+        }
+        Insert: {
+          account_id: string
+          created_at?: string
+          customer_id: string
+          mode: string
+          user_id: string
+        }
+        Update: {
+          account_id?: string
+          created_at?: string
+          customer_id?: string
+          mode?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      stripe_refund_cases: {
+        Row: {
+          access_disposition: string
+          account_id: string
+          amount: number
+          approved_at: string
+          approved_by: string
+          case_id: string
+          currency: string
+          invoice_id: string
+          mode: string
+          plan_id: string
+          policy_basis: string
+          requested_at: string
+          state: string
+          subscription_disposition: string
+          subscription_id: string | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          access_disposition: string
+          account_id: string
+          amount: number
+          approved_at?: string
+          approved_by: string
+          case_id: string
+          currency: string
+          invoice_id: string
+          mode: string
+          plan_id: string
+          policy_basis: string
+          requested_at: string
+          state?: string
+          subscription_disposition: string
+          subscription_id?: string | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          access_disposition?: string
+          account_id?: string
+          amount?: number
+          approved_at?: string
+          approved_by?: string
+          case_id?: string
+          currency?: string
+          invoice_id?: string
+          mode?: string
+          plan_id?: string
+          policy_basis?: string
+          requested_at?: string
+          state?: string
+          subscription_disposition?: string
+          subscription_id?: string | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      stripe_refund_invoice_ledger: {
+        Row: {
+          account_id: string
+          invoice_id: string
+          mode: string
+          reserved_total: number
+          updated_at: string
+        }
+        Insert: {
+          account_id: string
+          invoice_id: string
+          mode: string
+          reserved_total?: number
+          updated_at?: string
+        }
+        Update: {
+          account_id?: string
+          invoice_id?: string
+          mode?: string
+          reserved_total?: number
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      stripe_refund_policy_uses: {
+        Row: {
+          case_id: string
+          plan_id: string
+          policy_basis: string
+          used_at: string
+          user_id: string
+        }
+        Insert: {
+          case_id: string
+          plan_id: string
+          policy_basis: string
+          used_at?: string
+          user_id: string
+        }
+        Update: {
+          case_id?: string
+          plan_id?: string
+          policy_basis?: string
+          used_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      stripe_refund_reservations: {
+        Row: {
+          account_id: string
+          amount: number
+          case_id: string
+          created_at: string
+          currency: string
+          invoice_id: string
+          mode: string
+          operation_id: string
+          payment_id: string
+          refund_id: string | null
+          refund_status: string | null
+          state: string
+          updated_at: string
+        }
+        Insert: {
+          account_id: string
+          amount: number
+          case_id: string
+          created_at?: string
+          currency: string
+          invoice_id: string
+          mode: string
+          operation_id: string
+          payment_id: string
+          refund_id?: string | null
+          refund_status?: string | null
+          state?: string
+          updated_at?: string
+        }
+        Update: {
+          account_id?: string
+          amount?: number
+          case_id?: string
+          created_at?: string
+          currency?: string
+          invoice_id?: string
+          mode?: string
+          operation_id?: string
+          payment_id?: string
+          refund_id?: string | null
+          refund_status?: string | null
+          state?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "stripe_refund_reservations_case_id_fkey"
+            columns: ["case_id"]
+            isOneToOne: true
+            referencedRelation: "stripe_refund_cases"
+            referencedColumns: ["case_id"]
+          },
+          {
+            foreignKeyName: "stripe_refund_reservations_operation_id_fkey"
+            columns: ["operation_id"]
+            isOneToOne: false
+            referencedRelation: "stripe_commercial_operations"
+            referencedColumns: ["operation_id"]
+          },
+        ]
+      }
       stripe_sandbox_events: {
         Row: {
           event_created: number
@@ -4555,6 +5005,96 @@ export type Database = {
           fingerprint?: string
           object_id?: string
           received_at?: string
+        }
+        Relationships: []
+      }
+      stripe_subscriptions: {
+        Row: {
+          account_id: string
+          cancel_at_period_end: boolean
+          current_period_end: string | null
+          last_event_created: number
+          latest_invoice_paid: boolean
+          mode: string
+          observed_at: string
+          plan_id: string
+          seat_quantity: number
+          status: string
+          subscription_id: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          account_id: string
+          cancel_at_period_end?: boolean
+          current_period_end?: string | null
+          last_event_created?: number
+          latest_invoice_paid?: boolean
+          mode: string
+          observed_at: string
+          plan_id: string
+          seat_quantity?: number
+          status: string
+          subscription_id: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          account_id?: string
+          cancel_at_period_end?: boolean
+          current_period_end?: string | null
+          last_event_created?: number
+          latest_invoice_paid?: boolean
+          mode?: string
+          observed_at?: string
+          plan_id?: string
+          seat_quantity?: number
+          status?: string
+          subscription_id?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      stripe_webhook_receipts: {
+        Row: {
+          account_id: string
+          applied_at: string | null
+          attempts: number
+          event_created: number
+          event_id: string
+          event_type: string
+          fingerprint: string
+          mode: string
+          object_id: string
+          received_at: string
+          status: string
+        }
+        Insert: {
+          account_id: string
+          applied_at?: string | null
+          attempts?: number
+          event_created: number
+          event_id: string
+          event_type: string
+          fingerprint: string
+          mode: string
+          object_id: string
+          received_at?: string
+          status?: string
+        }
+        Update: {
+          account_id?: string
+          applied_at?: string | null
+          attempts?: number
+          event_created?: number
+          event_id?: string
+          event_type?: string
+          fingerprint?: string
+          mode?: string
+          object_id?: string
+          received_at?: string
+          status?: string
         }
         Relationships: []
       }
@@ -5122,6 +5662,165 @@ export type Database = {
           },
         ]
       }
+      weekly_test_window_allowances: {
+        Row: {
+          ceiling_microusd: number
+          created_at: string
+          expires_at: string
+          job_id: string
+          model: string
+          operation: string
+          period: string
+          project_id: string
+          provider: string
+          publish_at: string
+          request_id: string
+          stage: string
+          user_id: string
+          window_id: string
+        }
+        Insert: {
+          ceiling_microusd: number
+          created_at?: string
+          expires_at: string
+          job_id: string
+          model: string
+          operation: string
+          period: string
+          project_id: string
+          provider: string
+          publish_at: string
+          request_id: string
+          stage: string
+          user_id: string
+          window_id: string
+        }
+        Update: {
+          ceiling_microusd?: number
+          created_at?: string
+          expires_at?: string
+          job_id?: string
+          model?: string
+          operation?: string
+          period?: string
+          project_id?: string
+          provider?: string
+          publish_at?: string
+          request_id?: string
+          stage?: string
+          user_id?: string
+          window_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "weekly_test_window_allowances_window_id_fkey"
+            columns: ["window_id"]
+            isOneToOne: false
+            referencedRelation: "weekly_test_windows"
+            referencedColumns: ["window_id"]
+          },
+        ]
+      }
+      weekly_test_window_contracts: {
+        Row: {
+          ceiling_microusd: number
+          model: string
+          operation: string
+          provider: string
+          stage: string
+          window_id: string
+        }
+        Insert: {
+          ceiling_microusd: number
+          model: string
+          operation: string
+          provider: string
+          stage: string
+          window_id: string
+        }
+        Update: {
+          ceiling_microusd?: number
+          model?: string
+          operation?: string
+          provider?: string
+          stage?: string
+          window_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "weekly_test_window_contracts_window_id_fkey"
+            columns: ["window_id"]
+            isOneToOne: false
+            referencedRelation: "weekly_test_windows"
+            referencedColumns: ["window_id"]
+          },
+        ]
+      }
+      weekly_test_window_slots: {
+        Row: {
+          publish_at: string
+          window_id: string
+        }
+        Insert: {
+          publish_at: string
+          window_id: string
+        }
+        Update: {
+          publish_at?: string
+          window_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "weekly_test_window_slots_window_id_fkey"
+            columns: ["window_id"]
+            isOneToOne: false
+            referencedRelation: "weekly_test_windows"
+            referencedColumns: ["window_id"]
+          },
+        ]
+      }
+      weekly_test_windows: {
+        Row: {
+          created_at: string
+          ends_at: string
+          expected_configuration: Json
+          expected_revision: number
+          lifetime_ceiling_microusd: number
+          project_id: string
+          revoked: boolean
+          revoked_at: string | null
+          starts_at: string
+          user_id: string
+          window_id: string
+        }
+        Insert: {
+          created_at?: string
+          ends_at: string
+          expected_configuration: Json
+          expected_revision: number
+          lifetime_ceiling_microusd: number
+          project_id: string
+          revoked?: boolean
+          revoked_at?: string | null
+          starts_at: string
+          user_id: string
+          window_id?: string
+        }
+        Update: {
+          created_at?: string
+          ends_at?: string
+          expected_configuration?: Json
+          expected_revision?: number
+          lifetime_ceiling_microusd?: number
+          project_id?: string
+          revoked?: boolean
+          revoked_at?: string | null
+          starts_at?: string
+          user_id?: string
+          window_id?: string
+        }
+        Relationships: []
+      }
       workflow_evaluations: {
         Row: {
           created_at: string
@@ -5384,6 +6083,21 @@ export type Database = {
       assert_technical_crawl_ownership: {
         Args: { p_origin: string; p_project: string; p_user: string }
         Returns: undefined
+      }
+      assert_weekly_test_window_dispatch: {
+        Args: {
+          p_ceiling: number
+          p_job: string
+          p_model: string
+          p_operation: string
+          p_project: string
+          p_provider: string
+          p_publish: string
+          p_request: string
+          p_stage: string
+          p_user: string
+        }
+        Returns: Json
       }
       authorize_backlink_details_dispatch: {
         Args: {
@@ -5866,6 +6580,21 @@ export type Database = {
           recipient_id: string
         }[]
       }
+      claim_project_team_notification_digest_scoped: {
+        Args: {
+          p_owner: string
+          p_project: string
+          p_recipient: string
+          p_until: string
+        }
+        Returns: {
+          id: string
+          lease_token: string
+          owner_id: string
+          project_id: string
+          recipient_id: string
+        }[]
+      }
       claim_scheduled_publishes: {
         Args: { batch_size?: number; max_attempts?: number }
         Returns: {
@@ -6286,6 +7015,19 @@ export type Database = {
         }
         Returns: boolean
       }
+      project_team_notification_scan_target_scoped: {
+        Args: {
+          p_owner: string
+          p_project: string
+          p_recipient: string
+          p_until: string
+        }
+        Returns: {
+          owner_id: string
+          project_id: string
+          recipient_id: string
+        }[]
+      }
       project_team_notification_scan_targets: {
         Args: never
         Returns: {
@@ -6421,6 +7163,14 @@ export type Database = {
       }
       read_ai_native_report_artifacts: {
         Args: { p_project: string; p_user: string }
+        Returns: Json
+      }
+      read_ai_native_report_parse_states: {
+        Args: { p_project: string; p_user: string }
+        Returns: Json
+      }
+      read_ai_native_report_parsed: {
+        Args: { p_id: string; p_project: string; p_user: string }
         Returns: Json
       }
       read_backlink_monitoring_context: {
@@ -6698,6 +7448,10 @@ export type Database = {
         Args: { p_period: string; p_project: string; p_user: string }
         Returns: Json
       }
+      read_weekly_test_window: {
+        Args: { p_project: string; p_user: string }
+        Returns: Json
+      }
       read_workflow_evaluations: {
         Args: { p_project: string; p_user: string }
         Returns: Json
@@ -6801,6 +7555,20 @@ export type Database = {
       }
       recover_weekly_preparation_stage: {
         Args: { p_project: string; p_request: string; p_user: string }
+        Returns: Json
+      }
+      register_weekly_test_window: {
+        Args: {
+          p_configuration: Json
+          p_contracts: Json
+          p_ends: string
+          p_lifetime: number
+          p_project: string
+          p_revision: number
+          p_slots: string[]
+          p_starts: string
+          p_user: string
+        }
         Returns: Json
       }
       release_auto_scheduler_lease: {
@@ -7060,6 +7828,10 @@ export type Database = {
         Args: { p_project: string; p_user: string }
         Returns: undefined
       }
+      revoke_weekly_test_window: {
+        Args: { p_project: string; p_user: string }
+        Returns: Json
+      }
       save_ai_answer_evidence: {
         Args: { p_document: Json; p_project: string; p_user: string }
         Returns: string
@@ -7195,6 +7967,15 @@ export type Database = {
         Args: {
           p_base64: string
           p_metadata: Json
+          p_project: string
+          p_user: string
+        }
+        Returns: Json
+      }
+      save_ai_native_report_parsed: {
+        Args: {
+          p_id: string
+          p_parsed: Json
           p_project: string
           p_user: string
         }
@@ -7437,6 +8218,523 @@ export type Database = {
         }
         Returns: Json
       }
+      stripe_apply_subscription_projection: {
+        Args: {
+          p_account: string
+          p_cancel_at_period_end: boolean
+          p_customer: string
+          p_event_created: number
+          p_event_id: string
+          p_fence: number
+          p_grants: boolean
+          p_holder: string
+          p_invoice_paid: boolean
+          p_mode: string
+          p_observed_at: string
+          p_period_end: string
+          p_plan_id: string
+          p_replaces: string
+          p_seat_quantity: number
+          p_session_id?: string
+          p_session_request?: string
+          p_status: string
+          p_subscription: string
+        }
+        Returns: string
+      }
+      stripe_claim_account_lease: {
+        Args: {
+          p_account: string
+          p_holder: string
+          p_mode: string
+          p_ttl_seconds?: number
+        }
+        Returns: number
+      }
+      stripe_claim_checkout_request: {
+        Args: {
+          p_account: string
+          p_fingerprint: string
+          p_kind: string
+          p_mode: string
+          p_request: string
+          p_user: string
+        }
+        Returns: {
+          created_at: string
+          session_id: string
+          status: string
+        }[]
+      }
+      stripe_claim_replay_receipt: {
+        Args: { p_account: string; p_exclude?: string[]; p_mode: string }
+        Returns: {
+          attempts: number
+          event_created: number
+          event_id: string
+          event_type: string
+          object_id: string
+        }[]
+      }
+      stripe_commercial_advance_operation: {
+        Args: {
+          p_account: string
+          p_expected_state?: string
+          p_invoice?: string
+          p_mode: string
+          p_operation: string
+          p_reduction_payload?: Json
+          p_refund?: string
+          p_schedule?: string
+          p_state: string
+          p_user: string
+        }
+        Returns: boolean
+      }
+      stripe_commercial_attempt_limit: { Args: never; Returns: number }
+      stripe_commercial_begin_operation: {
+        Args: {
+          p_account: string
+          p_baseline_invoice?: string
+          p_case?: string
+          p_fingerprint: string
+          p_idempotency_key: string
+          p_kind: string
+          p_mode: string
+          p_operation: string
+          p_quote?: string
+          p_reverses?: string
+          p_selection?: string
+          p_subscription: string
+          p_user: string
+        }
+        Returns: {
+          attempts: number
+          baseline_invoice_id: string
+          baseline_known: boolean
+          baseline_plan_id: string
+          baseline_seat_quantity: number
+          baseline_subscription_id: string
+          created_at: string
+          invoice_id: string
+          refund_id: string
+          resumed: boolean
+          schedule_id: string
+          selection_detail: string
+          state: string
+        }[]
+      }
+      stripe_commercial_billing_country: {
+        Args: { p_user: string }
+        Returns: {
+          country: string
+          needs_review: boolean
+          stored_market: string
+        }[]
+      }
+      stripe_commercial_consume_quote: {
+        Args: {
+          p_account: string
+          p_amount_due: number
+          p_currency: string
+          p_mode: string
+          p_operation: string
+          p_quote: string
+          p_selection_fingerprint: string
+          p_state_fingerprint: string
+          p_subscription: string
+          p_user: string
+        }
+        Returns: {
+          amount_due: number
+          currency: string
+          direction: string
+          effective_at: string
+          kind: string
+          proration_date: number
+          recurring_amount: number
+          target_plan_id: string
+          target_seat_quantity: number
+        }[]
+      }
+      stripe_commercial_current_subscription: {
+        Args: { p_account: string; p_mode: string; p_user: string }
+        Returns: {
+          cancel_at_period_end: boolean
+          current_period_end: string
+          customer_id: string
+          latest_invoice_paid: boolean
+          plan_id: string
+          seat_quantity: number
+          status: string
+          subscription_id: string
+        }[]
+      }
+      stripe_commercial_deletion_barrier: {
+        Args: { p_user: string }
+        Returns: {
+          blocked: boolean
+          mode: string
+          reason: string
+          subscription_id: string
+        }[]
+      }
+      stripe_commercial_finish_operation: {
+        Args: {
+          p_account: string
+          p_expected_state?: string
+          p_mode: string
+          p_operation: string
+          p_refusal?: string
+          p_state: string
+          p_user: string
+        }
+        Returns: boolean
+      }
+      stripe_commercial_guarded_projection: {
+        Args: {
+          p_account: string
+          p_cancel_at_period_end: boolean
+          p_customer: string
+          p_event_created: number
+          p_event_id: string
+          p_fence: number
+          p_grants: boolean
+          p_holder: string
+          p_invoice_paid: boolean
+          p_mode: string
+          p_observed_at: string
+          p_period_end: string
+          p_plan_id: string
+          p_replaces: string
+          p_seat_quantity: number
+          p_session_id?: string
+          p_session_request?: string
+          p_status: string
+          p_subscription: string
+        }
+        Returns: string
+      }
+      stripe_commercial_issue_quote: {
+        Args: {
+          p_account: string
+          p_amount_due: number
+          p_currency: string
+          p_direction: string
+          p_effective_at: string
+          p_kind: string
+          p_mode: string
+          p_proration_date: number
+          p_quote: string
+          p_recurring_amount: number
+          p_selection_fingerprint: string
+          p_state_fingerprint: string
+          p_subscription: string
+          p_target_plan: string
+          p_target_seats: number
+          p_ttl_seconds: number
+          p_user: string
+        }
+        Returns: {
+          expires_at: string
+          quote_id: string
+        }[]
+      }
+      stripe_commercial_membership_usage: {
+        Args: { p_owner: string }
+        Returns: {
+          known: boolean
+          projects: number
+          projects_known: boolean
+          viewer: number
+          working: number
+        }[]
+      }
+      stripe_commercial_open_state: {
+        Args: { p_state: string }
+        Returns: boolean
+      }
+      stripe_commercial_owner_lock: {
+        Args: { p_account: string; p_mode: string; p_user: string }
+        Returns: undefined
+      }
+      stripe_commercial_plan_rank: { Args: { p_plan: string }; Returns: number }
+      stripe_commercial_read_operation: {
+        Args: {
+          p_account: string
+          p_mode: string
+          p_operation: string
+          p_user: string
+        }
+        Returns: {
+          attempts: number
+          created_at: string
+          invoice_id: string
+          kind: string
+          reduction_dispatch_payload: Json
+          refund_id: string
+          refusal_code: string
+          resolved_at: string
+          schedule_id: string
+          state: string
+          subscription_id: string
+        }[]
+      }
+      stripe_commercial_read_quote: {
+        Args: {
+          p_account: string
+          p_mode: string
+          p_quote: string
+          p_user: string
+        }
+        Returns: {
+          amount_due: number
+          consumed_by: string
+          currency: string
+          direction: string
+          effective_at: string
+          expires_at: string
+          kind: string
+          proration_date: number
+          recurring_amount: number
+          selection_fingerprint: string
+          state_fingerprint: string
+          subscription_id: string
+          target_plan_id: string
+          target_seat_quantity: number
+        }[]
+      }
+      stripe_commercial_read_refund_case: {
+        Args: { p_account: string; p_case: string; p_mode: string }
+        Returns: {
+          access_disposition: string
+          amount: number
+          approved_at: string
+          approved_by: string
+          currency: string
+          invoice_id: string
+          plan_id: string
+          policy_basis: string
+          requested_at: string
+          state: string
+          subscription_disposition: string
+          subscription_id: string
+          user_id: string
+        }[]
+      }
+      stripe_commercial_record_refund_case: {
+        Args: {
+          p_access_disposition: string
+          p_account: string
+          p_actor: string
+          p_amount: number
+          p_basis: string
+          p_case: string
+          p_currency: string
+          p_invoice: string
+          p_mode: string
+          p_plan: string
+          p_requested_at: string
+          p_subscription: string
+          p_subscription_disposition: string
+          p_user: string
+        }
+        Returns: string
+      }
+      stripe_commercial_refund_releases: {
+        Args: { p_status: string }
+        Returns: boolean
+      }
+      stripe_commercial_reserve_refund: {
+        Args: {
+          p_account: string
+          p_allocated_paid: number
+          p_amount: number
+          p_case: string
+          p_currency: string
+          p_invoice: string
+          p_mode: string
+          p_operation: string
+          p_payment: string
+          p_provider_reserved: number
+          p_user: string
+        }
+        Returns: {
+          remaining: number
+          reserved: number
+        }[]
+      }
+      stripe_commercial_settle_refund: {
+        Args: {
+          p_account: string
+          p_case: string
+          p_mode: string
+          p_operation: string
+          p_refund: string
+          p_status: string
+        }
+        Returns: string
+      }
+      stripe_commercial_transition: {
+        Args: { p_from: string; p_to: string }
+        Returns: boolean
+      }
+      stripe_commercial_verified_baseline: {
+        Args: {
+          p_account: string
+          p_mode: string
+          p_subscription: string
+          p_user: string
+        }
+        Returns: {
+          known: boolean
+          plan_id: string
+          reason: string
+          seat_quantity: number
+          subscription_id: string
+        }[]
+      }
+      stripe_customer_projection: {
+        Args: { p_account: string; p_customer: string; p_mode: string }
+        Returns: {
+          observed_at: string
+          plan_id: string
+          status: string
+          subscription_id: string
+          user_id: string
+        }[]
+      }
+      stripe_expire_checkout_session: {
+        Args: {
+          p_account: string
+          p_fence: number
+          p_holder: string
+          p_mode: string
+          p_request: string
+          p_session: string
+          p_user: string
+        }
+        Returns: boolean
+      }
+      stripe_fence_checkout_request: {
+        Args: {
+          p_account: string
+          p_kind: string
+          p_mode: string
+          p_request: string
+          p_user: string
+        }
+        Returns: boolean
+      }
+      stripe_finish_webhook_receipt: {
+        Args: {
+          p_account: string
+          p_event: string
+          p_fence: number
+          p_holder: string
+          p_mode: string
+          p_status: string
+        }
+        Returns: boolean
+      }
+      stripe_open_checkout_request: {
+        Args: {
+          p_account: string
+          p_kind: string
+          p_mode: string
+          p_request: string
+          p_session: string
+          p_user: string
+        }
+        Returns: boolean
+      }
+      stripe_owner_customer: {
+        Args: { p_account: string; p_mode: string; p_user: string }
+        Returns: string
+      }
+      stripe_purchased_working_seats: {
+        Args: { p_user: string }
+        Returns: number
+      }
+      stripe_read_checkout_request: {
+        Args: {
+          p_account: string
+          p_kind: string
+          p_mode: string
+          p_request: string
+          p_user: string
+        }
+        Returns: {
+          created_at: string
+          session_id: string
+          status: string
+        }[]
+      }
+      stripe_receipt_attempt_limit: { Args: never; Returns: number }
+      stripe_record_webhook_receipt: {
+        Args: {
+          p_account: string
+          p_created: number
+          p_event: string
+          p_fingerprint: string
+          p_mode: string
+          p_object: string
+          p_type: string
+        }
+        Returns: string
+      }
+      stripe_release_account_lease: {
+        Args: {
+          p_account: string
+          p_fence: number
+          p_holder: string
+          p_mode: string
+        }
+        Returns: undefined
+      }
+      stripe_renew_account_lease: {
+        Args: {
+          p_account: string
+          p_fence: number
+          p_holder: string
+          p_mode: string
+          p_ttl_seconds?: number
+        }
+        Returns: boolean
+      }
+      stripe_replay_exclusion_limit: { Args: never; Returns: number }
+      stripe_require_lease: {
+        Args: {
+          p_account: string
+          p_fence: number
+          p_holder: string
+          p_mode: string
+        }
+        Returns: undefined
+      }
+      stripe_revocable_status: { Args: { p_status: string }; Returns: boolean }
+      stripe_sellable_plan: { Args: { p_plan: string }; Returns: boolean }
+      stripe_settle_checkout_request: {
+        Args: {
+          p_account: string
+          p_kind: string
+          p_mode: string
+          p_request: string
+          p_session?: string
+          p_status: string
+          p_user: string
+        }
+        Returns: boolean
+      }
+      stripe_upsert_customer: {
+        Args: {
+          p_account: string
+          p_customer: string
+          p_mode: string
+          p_user: string
+        }
+        Returns: undefined
+      }
       sync_operational_notifications: {
         Args: {
           p_events: Json
@@ -7445,6 +8743,26 @@ export type Database = {
           p_workspace_rev: number
         }
         Returns: boolean
+      }
+      weekly_test_window_admits: {
+        Args: {
+          p_publish: string
+          p_stage: string
+          p_window: Database["public"]["Tables"]["weekly_test_windows"]["Row"]
+        }
+        Returns: boolean
+      }
+      weekly_test_window_fresh: {
+        Args: {
+          p_window: Database["public"]["Tables"]["weekly_test_windows"]["Row"]
+        }
+        Returns: boolean
+      }
+      weekly_test_window_state: {
+        Args: {
+          p_window: Database["public"]["Tables"]["weekly_test_windows"]["Row"]
+        }
+        Returns: string
       }
       withdraw_output_knowledge_review: {
         Args: {
